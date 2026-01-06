@@ -121,6 +121,13 @@
                 border-radius: 50%;
                 box-shadow: 0 0 10px var(--accent-color);
                 animation: pulse 2s infinite;
+                transition: all 0.3s ease;
+            }
+
+            .status-indicator.scanning {
+                background-color: #f59e0b;
+                box-shadow: 0 0 15px #f59e0b;
+                animation: scan-pulse 0.5s infinite alternate;
             }
 
             #status-mount-point:empty::before {
@@ -144,6 +151,17 @@
                 }
                 100% {
                     transform: scale(1);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes scan-pulse {
+                0% {
+                    transform: scale(1);
+                    opacity: 0.8;
+                }
+                100% {
+                    transform: scale(1.3);
                     opacity: 1;
                 }
             }
@@ -449,6 +467,28 @@
                 color: #80808a;
             }
 
+            .row-right-content {
+                display: flex;
+                align-items: center;
+                gap: 1.5rem;
+            }
+
+            .dot-cloud-container {
+                width: 150px;
+                height: 24px;
+                display: flex;
+                align-items: center;
+                background: rgba(255, 255, 255, 0.03);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                border-radius: 4px;
+                overflow: hidden;
+                position: relative;
+            }
+
+            .dot-cloud-container canvas {
+                display: block;
+            }
+
             .run-score {
                 font-size: 1.1rem;
                 font-weight: 600;
@@ -516,6 +556,32 @@
                 background: var(--glass-bg);
                 color: var(--accent-color);
             }
+
+            .play-scenario-button {
+                background: var(--glass-bg);
+                border: 1px solid var(--glass-border);
+                color: #80808a;
+                padding: 0.3rem 0.8rem;
+                border-radius: 6px;
+                font-family: "Outfit", sans-serif;
+                font-weight: 600;
+                font-size: 0.7rem;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+
+            .play-scenario-button:hover {
+                background: rgba(0, 242, 255, 0.1);
+                color: var(--accent-color);
+                border-color: var(--accent-color);
+                box-shadow: 0 0 10px rgba(0, 242, 255, 0.2);
+            }
+
+            .play-scenario-button:active {
+                transform: scale(0.98);
+            }
         </style>
     </head>
 
@@ -567,7 +633,7 @@
                             <button
                                 id="import-csv-button"
                                 class="action-btn"
-                                title="Import CSVs"
+                                title="Rescan CSVs"
                             >
                                 🔄
                             </button>
