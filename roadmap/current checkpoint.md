@@ -12,4 +12,4 @@ Completed
 The system now tracks the best score achieved within the current active session separately from the all-time highscore. A "New Runs" view has been implemented that automatically surfaces and highlights scenarios where the user has improved their session best, providing immediate feedback on current performance trends.
 
 ## Next Up
-Checkpoint 2.8: Highscore Context
+Checkpoint 2.8: Dot Cloud Visualization

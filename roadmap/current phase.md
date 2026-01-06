@@ -14,8 +14,7 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.5: Scenario Launch Interactions
 - [x] 2.6: Live Session Best
 - [x] 2.7: New Runs View
-- [ ] 2.8: Highscore Context
-- [ ] 2.9: Dot Cloud Visualization
-- [ ] 2.10: Boxplot Visualization
-- [ ] 2.11: Visual Settings Placeholder
-- [ ] 2.12: Visual Settings Wiring
+- [ ] 2.8: Dot Cloud Visualization
+- [ ] 2.9: Quartile Plot Visualization
+- [ ] 2.10: Visual Settings Placeholder
+- [ ] 2.11: Visual Settings Wiring

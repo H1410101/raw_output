@@ -68,25 +68,21 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Live performance dashboard.
 - **Commit Goal**: A "New Runs" view automatically displays scenarios as they are played, highlighting improvements against the current session best.
 
-### Checkpoint 2.8: Highscore Context
-- **Deliverable**: Data correlation between Benchmarks and History.
-- **Commit Goal**: The Benchmark Table rows fill with a solid colour up to the user's highscore (retrieved from local history and external APIs).
+### Checkpoint 2.8: Dot Cloud Visualization
+- **Deliverable**: Micro-chart visualization (Strip Plot) for the last 100 plays.
+- **Commit Goal**: A new visual column renders a "Dot Cloud" for each scenario, plotting the last 100 recorded scores as semi-transparent dots to visualize recent density.
 
-### Checkpoint 2.9: Dot Cloud Visualization
-- **Deliverable**: Micro-chart visualization (Strip Plot).
-- **Commit Goal**: A new visual column renders a "Dot Cloud" for each scenario, plotting every recorded score as a semi-transparent dot to visualize density.
-
-### Checkpoint 2.10: Boxplot Visualization
+### Checkpoint 2.9: Quartile Plot Visualization
 - **Deliverable**: Statistical aggregation logic and rendering.
-- **Commit Goal**: The visualization layer supports a "Boxplot" mode (Min, Q1, Median, Q3, Max).
+- **Commit Goal**: The visualization layer supports a "Quartile Plot" mode, adding lines for Q1, median, and Q3.
 
-### Checkpoint 2.11: Visual Settings Placeholder
+### Checkpoint 2.10: Visual Settings Placeholder
 - **Deliverable**: Configuration UI shell.
 - **Commit Goal**: A "Visual Settings" menu or toolbar is added to the table interface. It contains the structure for view toggles but does not yet impact the charts.
 
-### Checkpoint 2.12: Visual Settings Wiring
+### Checkpoint 2.11: Visual Settings Wiring
 - **Deliverable**: Reactivity and State Management for visualizations.
-- **Commit Goal**: The "Visual Settings" controls are fully wired up, allowing the user to toggle between Dot Cloud and Boxplot views, or adjust visual parameters in real-time.
+- **Commit Goal**: The "Visual Settings" controls are fully wired up, allowing the user to toggle between Dot Cloud and Quartile Plot views, or adjust visual parameters in real-time.
 
 ---
 
@@ -129,7 +125,7 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 
 ---
 
-## Phase 4: Visual Identity & Game Feel
+## Phase 4: Visual Identity & Feel
 **Focus**: Moving beyond standard "glassmorphism" to a distinct visual language, and adding "juice" (animations, sound, tactile feel).
 
 ### Checkpoint 4.1: Visual System Unification
