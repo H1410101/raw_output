@@ -2,6 +2,7 @@ import { BenchmarkDifficulty, BenchmarkScenario } from "../data/benchmarks";
 import { BenchmarkService } from "../services/BenchmarkService";
 import { HistoryService } from "../services/HistoryService";
 import { RankService } from "../services/RankService";
+import { SessionService } from "../services/SessionService";
 
 /**
  * Handles the rendering and interaction logic for the Benchmark scenarios list.
@@ -16,6 +17,8 @@ export class BenchmarkView {
 
   private readonly _rankService: RankService;
 
+  private readonly _sessionService: SessionService;
+
   private _activeDifficulty: BenchmarkDifficulty = "Easier";
 
   constructor(
@@ -23,6 +26,7 @@ export class BenchmarkView {
     benchmarkService: BenchmarkService,
     historyService: HistoryService,
     rankService: RankService,
+    sessionService: SessionService,
   ) {
     this._mountPoint = mountPoint;
 
@@ -31,6 +35,28 @@ export class BenchmarkView {
     this._historyService = historyService;
 
     this._rankService = rankService;
+
+    this._sessionService = sessionService;
+
+    this._subscribeToUpdates();
+  }
+
+  private _subscribeToUpdates(): void {
+    this._historyService.onHighscoreUpdated(() => {
+      this._refreshIfVisible();
+    });
+
+    this._sessionService.onSessionUpdated(() => {
+      this._refreshIfVisible();
+    });
+  }
+
+  private _refreshIfVisible(): void {
+    if (this._mountPoint.classList.contains("hidden-view")) {
+      return;
+    }
+
+    this.render();
   }
 
   /**
@@ -327,7 +353,19 @@ export class BenchmarkView {
 
     row.appendChild(this._createNameCell(scenario.name));
 
-    row.appendChild(this._createRankBadge(scenario, highscore));
+    const rightContent = document.createElement("div");
+
+    rightContent.className = "row-right-content";
+
+    rightContent.appendChild(this._createSessionRankBadge(scenario));
+
+    rightContent.appendChild(
+      this._createRankBadge(scenario, highscore, "All-time"),
+    );
+
+    rightContent.appendChild(this._createPlayButton(scenario.name));
+
+    row.appendChild(rightContent);
 
     row.addEventListener("click", () => {
       row.classList.toggle("selected");
@@ -346,27 +384,99 @@ export class BenchmarkView {
     return nameSpan;
   }
 
+  private _createSessionRankBadge(scenario: BenchmarkScenario): HTMLElement {
+    const sessionBest = this._sessionService.getScenarioSessionBest(
+      scenario.name,
+    );
+
+    const score = sessionBest ? sessionBest.bestScore : 0;
+
+    const badge = this._createRankBadge(scenario, score, "Session", false);
+
+    badge.classList.add("session-badge");
+
+    return badge;
+  }
+
   private _createRankBadge(
     scenario: BenchmarkScenario,
     score: number,
+    label: string,
+    showUnranked: boolean = true,
   ): HTMLElement {
     const badge = document.createElement("div");
 
     badge.className = "rank-badge-container";
 
-    if (score === 0) {
-      badge.innerHTML = `<span class="unranked-text">Unranked</span>`;
-
+    if (score === 0 && !showUnranked) {
       return badge;
+    }
+
+    const badgeContent = document.createElement("div");
+
+    badgeContent.className = "badge-content";
+
+    this._fillBadgeContent(badgeContent, scenario, score);
+
+    badge.appendChild(badgeContent);
+
+    badge.appendChild(this._createBadgeLabel(label));
+
+    return badge;
+  }
+
+  private _fillBadgeContent(
+    container: HTMLElement,
+    scenario: BenchmarkScenario,
+    score: number,
+  ): void {
+    if (score === 0) {
+      container.innerHTML = `<span class="unranked-text">Unranked</span>`;
+
+      return;
     }
 
     const rank = this._rankService.calculateRank(score, scenario);
 
-    badge.innerHTML = `
+    container.innerHTML = `
       <span class="rank-name">${rank.currentRank}</span>
       <span class="rank-progress">+${rank.progressPercentage}%</span>
     `;
+  }
 
-    return badge;
+  private _createBadgeLabel(text: string): HTMLElement {
+    const label = document.createElement("span");
+
+    label.className = "badge-label";
+
+    label.textContent = text;
+
+    return label;
+  }
+
+  private _createPlayButton(scenarioName: string): HTMLElement {
+    const playButton = document.createElement("button");
+
+    playButton.className = "play-scenario-button";
+
+    playButton.title = `Launch ${scenarioName}`;
+
+    playButton.textContent = "Play";
+
+    playButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+
+      this._launchScenario(scenarioName);
+    });
+
+    return playButton;
+  }
+
+  private _launchScenario(scenarioName: string): void {
+    const encodedName = encodeURIComponent(scenarioName);
+
+    const steamUrl = `steam://run/824270/?action=jump-to-scenario;name=${encodedName};mode=challenge`;
+
+    window.location.href = steamUrl;
   }
 }

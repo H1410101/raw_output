@@ -527,6 +527,7 @@
                     <button id="nav-recent" class="nav-item active">
                         Recent Runs
                     </button>
+                    <button id="nav-new" class="nav-item">New Runs</button>
                     <button id="nav-benchmarks" class="nav-item">
                         Benchmarks
                     </button>
@@ -596,6 +597,22 @@
                     "
                 >
                     <ul id="recent-runs-list" class="recent-runs-list">
+                        <!-- Data will be mounted here -->
+                    </ul>
+                </section>
+
+                <!-- New Runs View -->
+                <section
+                    id="view-new"
+                    class="hidden-view"
+                    style="
+                        display: flex;
+                        flex-direction: column;
+                        flex: 1;
+                        min-height: 0;
+                    "
+                >
+                    <ul id="new-runs-list" class="recent-runs-list">
                         <!-- Data will be mounted here -->
                     </ul>
                 </section>

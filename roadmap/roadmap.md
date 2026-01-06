@@ -56,27 +56,35 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Rank Calculation Logic & UI Badges.
 - **Commit Goal**: The benchmark table displays a "Rank" column. Each row shows a badge with the calculated rank and progress percentage (e.g., `[Jade + 50%]`) based on the scenario's specific thresholds.
 
-### Checkpoint 2.5: Scenario Launch Interactions
+### Checkpoint 2.5: Scenario Launch Interactions (Done)
 - **Deliverable**: Actionable row interactions.
 - **Commit Goal**: Each row in the benchmark table includes a "Play" action. Clicking it launches Kovaaks with the corresponding scenario name.
 
-### Checkpoint 2.6: Highscore Context
+### Checkpoint 2.6: Live Session Best (Done)
+- **Deliverable**: Session-specific highscore tracking.
+- **Commit Goal**: The system tracks the best score for each scenario achieved during the current active session, separate from all-time highs.
+
+### Checkpoint 2.7: New Runs View (Done)
+- **Deliverable**: Live performance dashboard.
+- **Commit Goal**: A "New Runs" view automatically displays scenarios as they are played, highlighting improvements against the current session best.
+
+### Checkpoint 2.8: Highscore Context
 - **Deliverable**: Data correlation between Benchmarks and History.
 - **Commit Goal**: The Benchmark Table rows fill with a solid colour up to the user's highscore (retrieved from local history and external APIs).
 
-### Checkpoint 2.7: Dot Cloud Visualization
+### Checkpoint 2.9: Dot Cloud Visualization
 - **Deliverable**: Micro-chart visualization (Strip Plot).
 - **Commit Goal**: A new visual column renders a "Dot Cloud" for each scenario, plotting every recorded score as a semi-transparent dot to visualize density.
 
-### Checkpoint 2.8: Boxplot Visualization
+### Checkpoint 2.10: Boxplot Visualization
 - **Deliverable**: Statistical aggregation logic and rendering.
 - **Commit Goal**: The visualization layer supports a "Boxplot" mode (Min, Q1, Median, Q3, Max).
 
-### Checkpoint 2.9: Visual Settings Placeholder
+### Checkpoint 2.11: Visual Settings Placeholder
 - **Deliverable**: Configuration UI shell.
 - **Commit Goal**: A "Visual Settings" menu or toolbar is added to the table interface. It contains the structure for view toggles but does not yet impact the charts.
 
-### Checkpoint 2.10: Visual Settings Wiring
+### Checkpoint 2.12: Visual Settings Wiring
 - **Deliverable**: Reactivity and State Management for visualizations.
 - **Commit Goal**: The "Visual Settings" controls are fully wired up, allowing the user to toggle between Dot Cloud and Boxplot views, or adjust visual parameters in real-time.
 

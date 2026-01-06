@@ -2,11 +2,12 @@ import { DirectoryAccessService } from "./services/DirectoryAccessService";
 import { RecentRunsDisplay } from "./components/RecentRunsDisplay";
 import { KovaaksCsvParsingService } from "./services/KovaaksCsvParsingService";
 import { DirectoryMonitoringService } from "./services/DirectoryMonitoringService";
-import { KovaaksChallengeRun } from "./types/kovaaks";
 import { BenchmarkService } from "./services/BenchmarkService";
 import { BenchmarkView } from "./components/BenchmarkView";
 import { HistoryService } from "./services/HistoryService";
 import { RankService } from "./services/RankService";
+import { SessionService } from "./services/SessionService";
+import { RunIngestionService } from "./services/RunIngestionService";
 
 /**
  * The entry point for the Raw Output application.
@@ -87,15 +88,18 @@ async function initializeApplication(): Promise<void> {
   ) as HTMLButtonElement;
 
   const navRecent = document.getElementById("nav-recent") as HTMLButtonElement;
+  const navNew = document.getElementById("nav-new") as HTMLButtonElement;
   const navBenchmarks = document.getElementById(
     "nav-benchmarks",
   ) as HTMLButtonElement;
 
   const viewRecent = document.getElementById("view-recent") as HTMLElement;
+  const viewNew = document.getElementById("view-new") as HTMLElement;
   const viewBenchmarks = document.getElementById(
     "view-benchmarks",
   ) as HTMLElement;
   const recentRunsMount = document.getElementById("recent-runs-list");
+  const newRunsMount = document.getElementById("new-runs-list");
 
   if (
     !statusMount ||
@@ -105,10 +109,13 @@ async function initializeApplication(): Promise<void> {
     !importButton ||
     !removeButton ||
     !navRecent ||
+    !navNew ||
     !navBenchmarks ||
     !viewRecent ||
+    !viewNew ||
     !viewBenchmarks ||
-    !recentRunsMount
+    !recentRunsMount ||
+    !newRunsMount
   ) {
     throw new Error("Required application mount points not found");
   }
@@ -120,36 +127,49 @@ async function initializeApplication(): Promise<void> {
   );
   const directoryService = new DirectoryAccessService();
   const recentRunsDisplay = new RecentRunsDisplay(recentRunsMount);
+  const newRunsDisplay = new RecentRunsDisplay(newRunsMount);
   const csvService = new KovaaksCsvParsingService();
   const monitoringService = new DirectoryMonitoringService();
   const benchmarkService = new BenchmarkService();
   const historyService = new HistoryService();
   const rankService = new RankService();
+  const sessionService = new SessionService(rankService);
+  const ingestionService = new RunIngestionService(
+    directoryService,
+    csvService,
+    historyService,
+    sessionService,
+    benchmarkService,
+  );
   const benchmarkView = new BenchmarkView(
     viewBenchmarks,
     benchmarkService,
     historyService,
     rankService,
+    sessionService,
   );
 
   statusDisplay.reportReady();
 
   setupNavigation(
     navRecent,
+    navNew,
     navBenchmarks,
     viewRecent,
+    viewNew,
     viewBenchmarks,
     benchmarkView,
+    ingestionService,
+    newRunsDisplay,
   );
 
   await attemptInitialReconnection(
     directoryService,
     statusDisplay,
     monitoringService,
-    csvService,
+    ingestionService,
     recentRunsDisplay,
-    benchmarkService,
-    historyService,
+    newRunsDisplay,
   );
 
   linkButton.addEventListener("click", async () => {
@@ -157,21 +177,18 @@ async function initializeApplication(): Promise<void> {
       directoryService,
       statusDisplay,
       monitoringService,
-      csvService,
+      ingestionService,
       recentRunsDisplay,
-      benchmarkService,
-      historyService,
+      newRunsDisplay,
     );
   });
 
   importButton.addEventListener("click", async () => {
-    await handleFolderScan(
-      directoryService,
-      csvService,
-      recentRunsDisplay,
-      benchmarkService,
-      historyService,
-    );
+    const runs = await ingestionService.synchronizeAvailableRuns();
+    recentRunsDisplay.renderRuns(runs);
+
+    const newRuns = await ingestionService.getNewRuns();
+    newRunsDisplay.renderRuns(newRuns);
   });
 
   removeButton.addEventListener("click", () => {
@@ -181,67 +198,13 @@ async function initializeApplication(): Promise<void> {
   });
 }
 
-async function handleFolderScan(
-  directoryService: DirectoryAccessService,
-  csvService: KovaaksCsvParsingService,
-  recentRunsDisplay: RecentRunsDisplay,
-  benchmarkService: BenchmarkService,
-  historyService: HistoryService,
-): Promise<void> {
-  const folderName = directoryService.currentFolderName;
-  if (!folderName) return;
-
-  const fileHandles = await directoryService.getDirectoryFiles();
-  const csvHandles = fileHandles.filter((handle) =>
-    handle.name.toLowerCase().endsWith(".csv"),
-  );
-
-  if (csvHandles.length === 0) return;
-
-  const parsedRuns: KovaaksChallengeRun[] = [];
-
-  for (const handle of csvHandles) {
-    try {
-      const file = await handle.getFile();
-      const content = await file.text();
-      const parsedData = csvService.parseKovaakCsv(content, handle.name);
-
-      if (parsedData) {
-        const scenarioName = parsedData.scenarioName || "Unknown Scenario";
-        const score = parsedData.score || 0;
-
-        await historyService.updateHighscore(scenarioName, score);
-
-        parsedRuns.push({
-          id: crypto.randomUUID(),
-          scenarioName,
-          score,
-          completionDate: parsedData.completionDate || new Date(),
-          difficulty: benchmarkService.getDifficulty(scenarioName),
-        });
-      }
-    } catch (err) {
-      console.error(`Error processing file ${handle.name}:`, err);
-    }
-  }
-
-  if (parsedRuns.length > 0) {
-    const sortedRuns = parsedRuns
-      .sort((a, b) => b.completionDate.getTime() - a.completionDate.getTime())
-      .slice(0, 10);
-
-    recentRunsDisplay.renderRuns(sortedRuns);
-  }
-}
-
 async function attemptInitialReconnection(
   directoryService: DirectoryAccessService,
   statusDisplay: ApplicationStatusDisplay,
   monitoringService: DirectoryMonitoringService,
-  csvService: KovaaksCsvParsingService,
+  ingestionService: RunIngestionService,
   recentRunsDisplay: RecentRunsDisplay,
-  benchmarkService: BenchmarkService,
-  historyService: HistoryService,
+  newRunsDisplay: RecentRunsDisplay,
 ): Promise<void> {
   const handle = await directoryService.attemptReconnection();
 
@@ -250,13 +213,19 @@ async function attemptInitialReconnection(
       directoryService.originalSelectionName,
       directoryService.fullLogicalPath,
     );
+
+    const initialRuns = await ingestionService.synchronizeAvailableRuns();
+    recentRunsDisplay.renderRuns(initialRuns);
+
+    const initialNewRuns = await ingestionService.getNewRuns();
+    newRunsDisplay.renderRuns(initialNewRuns);
+
     startMonitoring(
       handle,
       monitoringService,
-      csvService,
+      ingestionService,
       recentRunsDisplay,
-      benchmarkService,
-      historyService,
+      newRunsDisplay,
     );
   } else {
     statusDisplay.reportDisconnected();
@@ -267,10 +236,9 @@ async function handleManualFolderSelection(
   directoryService: DirectoryAccessService,
   statusDisplay: ApplicationStatusDisplay,
   monitoringService: DirectoryMonitoringService,
-  csvService: KovaaksCsvParsingService,
+  ingestionService: RunIngestionService,
   recentRunsDisplay: RecentRunsDisplay,
-  benchmarkService: BenchmarkService,
-  historyService: HistoryService,
+  newRunsDisplay: RecentRunsDisplay,
 ): Promise<void> {
   const handle = await directoryService.requestDirectorySelection();
 
@@ -279,13 +247,19 @@ async function handleManualFolderSelection(
       directoryService.originalSelectionName,
       directoryService.fullLogicalPath,
     );
+
+    const initialRuns = await ingestionService.synchronizeAvailableRuns();
+    recentRunsDisplay.renderRuns(initialRuns);
+
+    const initialNewRuns = await ingestionService.getNewRuns();
+    newRunsDisplay.renderRuns(initialNewRuns);
+
     startMonitoring(
       handle,
       monitoringService,
-      csvService,
+      ingestionService,
       recentRunsDisplay,
-      benchmarkService,
-      historyService,
+      newRunsDisplay,
     );
   }
 }
@@ -293,57 +267,62 @@ async function handleManualFolderSelection(
 function startMonitoring(
   handle: FileSystemDirectoryHandle,
   monitoringService: DirectoryMonitoringService,
-  csvService: KovaaksCsvParsingService,
+  ingestionService: RunIngestionService,
   recentRunsDisplay: RecentRunsDisplay,
-  benchmarkService: BenchmarkService,
-  historyService: HistoryService,
+  newRunsDisplay: RecentRunsDisplay,
 ): void {
-  monitoringService.startMonitoring(handle, async (fileHandle) => {
+  monitoringService.startMonitoring(handle, async () => {
     try {
-      const file = await fileHandle.getFile();
-      const content = await file.text();
-      const parsedData = csvService.parseKovaakCsv(content, fileHandle.name);
+      const updatedRuns = await ingestionService.synchronizeAvailableRuns();
+      recentRunsDisplay.renderRuns(updatedRuns);
 
-      if (parsedData) {
-        const scenarioName = parsedData.scenarioName || "Unknown Scenario";
-        const score = parsedData.score || 0;
-
-        await historyService.updateHighscore(scenarioName, score);
-
-        const run: KovaaksChallengeRun = {
-          id: crypto.randomUUID(),
-          scenarioName,
-          score,
-          completionDate: parsedData.completionDate || new Date(),
-          difficulty: benchmarkService.getDifficulty(scenarioName),
-        };
-        recentRunsDisplay.prependRun(run);
-      }
+      const updatedNewRuns = await ingestionService.getNewRuns();
+      newRunsDisplay.renderRuns(updatedNewRuns);
     } catch (err) {
-      console.error(`Error processing new file ${fileHandle.name}:`, err);
+      console.error(`Error processing directory update:`, err);
     }
   });
 }
 
 function setupNavigation(
   navRecent: HTMLButtonElement,
+  navNew: HTMLButtonElement,
   navBenchmarks: HTMLButtonElement,
   viewRecent: HTMLElement,
+  viewNew: HTMLElement,
   viewBenchmarks: HTMLElement,
   benchmarkView: BenchmarkView,
+  ingestionService: RunIngestionService,
+  newRunsDisplay: RecentRunsDisplay,
 ): void {
   navRecent.addEventListener("click", () => {
     navRecent.classList.add("active");
+    navNew.classList.remove("active");
     navBenchmarks.classList.remove("active");
     viewRecent.classList.remove("hidden-view");
+    viewNew.classList.add("hidden-view");
     viewBenchmarks.classList.add("hidden-view");
+  });
+
+  navNew.addEventListener("click", async () => {
+    navNew.classList.add("active");
+    navRecent.classList.remove("active");
+    navBenchmarks.classList.remove("active");
+    viewNew.classList.remove("hidden-view");
+    viewRecent.classList.add("hidden-view");
+    viewBenchmarks.classList.add("hidden-view");
+
+    const newRuns = await ingestionService.getNewRuns();
+    newRunsDisplay.renderRuns(newRuns);
   });
 
   navBenchmarks.addEventListener("click", async () => {
     navBenchmarks.classList.add("active");
     navRecent.classList.remove("active");
+    navNew.classList.remove("active");
     viewBenchmarks.classList.remove("hidden-view");
     viewRecent.classList.add("hidden-view");
+    viewNew.classList.add("hidden-view");
     await benchmarkView.render();
   });
 }

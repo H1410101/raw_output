@@ -1,14 +1,15 @@
 ```raw_output\roadmap\current checkpoint.md#L1-17
-# Current Checkpoint: 2.4: Rank Tags
+# Current Checkpoint: 2.7: New Runs View
 
 ## Status
 Completed
 
 ## Deliverables
-- Rank Calculation Logic & UI Badges.
+- Live Session Best tracking.
+- Automated New Runs view.
 
 ## Summary
-The benchmark table now displays a "Rank" column. Each row shows a badge with the calculated rank and progress percentage (e.g., `[Jade + 50%]`) based on the scenario's specific thresholds.
+The system now tracks the best score achieved within the current active session separately from the all-time highscore. A "New Runs" view has been implemented that automatically surfaces and highlights scenarios where the user has improved their session best, providing immediate feedback on current performance trends.
 
 ## Next Up
-Checkpoint 2.5: Scenario Launch Interactions
+Checkpoint 2.8: Highscore Context
