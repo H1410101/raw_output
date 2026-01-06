@@ -23,12 +23,14 @@ class ApplicationStatusDisplay {
         this._mountStatusText("Ready");
     }
 
-    public reportFolderLinked(name: string): void {
+    public reportFolderLinked(name: string, fullPath: string): void {
         this._folderMount.innerHTML = `Connected to: <span class="connected-text">${name}</span>`;
+        this._folderMount.title = fullPath;
     }
 
-    public reportFolderReconnected(name: string): void {
+    public reportFolderReconnected(name: string, fullPath: string): void {
         this._folderMount.innerHTML = `Re-connected to: <span class="connected-text">${name}</span>`;
+        this._folderMount.title = fullPath;
     }
 
     private _clearStatusContent(): void {
@@ -127,7 +129,7 @@ async function attemptInitialReconnection(
     const handle = await directoryService.attemptReconnection();
 
     if (handle) {
-        statusDisplay.reportFolderReconnected(handle.name);
+        statusDisplay.reportFolderReconnected(directoryService.originalSelectionName, directoryService.fullLogicalPath);
     }
 }
 
@@ -138,7 +140,7 @@ async function handleManualFolderSelection(
     const handle = await directoryService.requestDirectorySelection();
 
     if (handle) {
-        statusDisplay.reportFolderLinked(handle.name);
+        statusDisplay.reportFolderLinked(directoryService.originalSelectionName, directoryService.fullLogicalPath);
     }
 }
 

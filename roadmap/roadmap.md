@@ -27,7 +27,7 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Kovaak's CSV extractor & Folder Scanner.
 - **Commit Goal**: Clicking "Import CSVs" scans the linked folder for `.csv` files and populates the "Recent Runs" list with the top 10 most recent entries.
 
-### Checkpoint 1.6: Deep Directory Discovery
+### Checkpoint 1.6: Deep Directory Discovery (Done)
 - **Deliverable**: Path normalization logic.
 - **Commit Goal**: If a user selects a top-level Kovaak's folder, the app automatically finds and targets the internal `stats` directory.
 

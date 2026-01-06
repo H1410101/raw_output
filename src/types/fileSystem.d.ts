@@ -16,6 +16,7 @@ declare global {
     interface FileSystemDirectoryHandle extends FileSystemHandle {
         readonly kind: "directory";
         values(): AsyncIterableIterator<FileSystemHandle>;
+        getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<FileSystemDirectoryHandle>;
     }
 
     interface FileSystemFileHandle extends FileSystemHandle {
