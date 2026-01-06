@@ -3,6 +3,7 @@ import { RecentRunsDisplay } from "./components/RecentRunsDisplay";
 import { KovaaksCsvParsingService } from "./services/KovaaksCsvParsingService";
 import { DirectoryMonitoringService } from "./services/DirectoryMonitoringService";
 import { KovaaksChallengeRun } from "./types/kovaaks";
+import { BenchmarkService } from "./services/BenchmarkService";
 
 /**
  * The entry point for the Raw Output application.
@@ -77,6 +78,7 @@ async function initializeApplication(): Promise<void> {
   const recentRunsDisplay = new RecentRunsDisplay(recentRunsMount);
   const csvService = new KovaaksCsvParsingService();
   const monitoringService = new DirectoryMonitoringService();
+  const benchmarkService = new BenchmarkService();
 
   statusDisplay.reportReady();
 
@@ -86,6 +88,7 @@ async function initializeApplication(): Promise<void> {
     monitoringService,
     csvService,
     recentRunsDisplay,
+    benchmarkService,
   );
 
   linkButton.addEventListener("click", async () => {
@@ -95,11 +98,17 @@ async function initializeApplication(): Promise<void> {
       monitoringService,
       csvService,
       recentRunsDisplay,
+      benchmarkService,
     );
   });
 
   importButton.addEventListener("click", async () => {
-    await handleFolderScan(directoryService, csvService, recentRunsDisplay);
+    await handleFolderScan(
+      directoryService,
+      csvService,
+      recentRunsDisplay,
+      benchmarkService,
+    );
   });
 }
 
@@ -107,6 +116,7 @@ async function handleFolderScan(
   directoryService: DirectoryAccessService,
   csvService: KovaaksCsvParsingService,
   recentRunsDisplay: RecentRunsDisplay,
+  benchmarkService: BenchmarkService,
 ): Promise<void> {
   const folderName = directoryService.currentFolderName;
   if (!folderName) return;
@@ -127,11 +137,13 @@ async function handleFolderScan(
       const parsedData = csvService.parseKovaakCsv(content, handle.name);
 
       if (parsedData) {
+        const scenarioName = parsedData.scenarioName || "Unknown Scenario";
         parsedRuns.push({
           id: crypto.randomUUID(),
-          scenarioName: parsedData.scenarioName || "Unknown Scenario",
+          scenarioName,
           score: parsedData.score || 0,
           completionDate: parsedData.completionDate || new Date(),
+          difficulty: benchmarkService.getDifficulty(scenarioName),
         });
       }
     } catch (err) {
@@ -154,6 +166,7 @@ async function attemptInitialReconnection(
   monitoringService: DirectoryMonitoringService,
   csvService: KovaaksCsvParsingService,
   recentRunsDisplay: RecentRunsDisplay,
+  benchmarkService: BenchmarkService,
 ): Promise<void> {
   const handle = await directoryService.attemptReconnection();
 
@@ -162,7 +175,13 @@ async function attemptInitialReconnection(
       directoryService.originalSelectionName,
       directoryService.fullLogicalPath,
     );
-    startMonitoring(handle, monitoringService, csvService, recentRunsDisplay);
+    startMonitoring(
+      handle,
+      monitoringService,
+      csvService,
+      recentRunsDisplay,
+      benchmarkService,
+    );
   }
 }
 
@@ -172,6 +191,7 @@ async function handleManualFolderSelection(
   monitoringService: DirectoryMonitoringService,
   csvService: KovaaksCsvParsingService,
   recentRunsDisplay: RecentRunsDisplay,
+  benchmarkService: BenchmarkService,
 ): Promise<void> {
   const handle = await directoryService.requestDirectorySelection();
 
@@ -180,7 +200,13 @@ async function handleManualFolderSelection(
       directoryService.originalSelectionName,
       directoryService.fullLogicalPath,
     );
-    startMonitoring(handle, monitoringService, csvService, recentRunsDisplay);
+    startMonitoring(
+      handle,
+      monitoringService,
+      csvService,
+      recentRunsDisplay,
+      benchmarkService,
+    );
   }
 }
 
@@ -189,6 +215,7 @@ function startMonitoring(
   monitoringService: DirectoryMonitoringService,
   csvService: KovaaksCsvParsingService,
   recentRunsDisplay: RecentRunsDisplay,
+  benchmarkService: BenchmarkService,
 ): void {
   monitoringService.startMonitoring(handle, async (fileHandle) => {
     try {
@@ -197,11 +224,13 @@ function startMonitoring(
       const parsedData = csvService.parseKovaakCsv(content, fileHandle.name);
 
       if (parsedData) {
+        const scenarioName = parsedData.scenarioName || "Unknown Scenario";
         const run: KovaaksChallengeRun = {
           id: crypto.randomUUID(),
-          scenarioName: parsedData.scenarioName || "Unknown Scenario",
+          scenarioName,
           score: parsedData.score || 0,
           completionDate: parsedData.completionDate || new Date(),
+          difficulty: benchmarkService.getDifficulty(scenarioName),
         };
         recentRunsDisplay.prependRun(run);
       }

@@ -40,9 +40,9 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 ## Phase 2: Domain Intelligence (Benchmark Logic & Results)
 **Focus**: Integrating Viscose Benchmark rules and score validation.
 
-### Checkpoint 2.1: Scenario Identification
-- **Deliverable**: Viscose Benchmark lookup table.
-- **Commit Goal**: Parsed runs are visually tagged as either "Benchmark" or "Custom" based on the official Viscose scenario list.
+### Checkpoint 2.1: Dynamic Scenario Identification
+- **Deliverable**: Dynamic CSV-to-Benchmark mapper.
+- **Commit Goal**: Parsed runs are automatically tagged with their specific difficulty level (Easier/Medium/Hard) pulled directly from `benchmarks/*.csv` files, while custom scenarios remain untagged.
 
 ### Checkpoint 2.2: Threshold Validation
 - **Deliverable**: Score-to-Threshold comparison logic.

@@ -1,274 +1,323 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Raw Output | Core Engine</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-color: #0a0a0c;
-            --accent-color: #00f2ff;
-            --text-color: #e0e0e6;
-            --glass-bg: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.1);
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: 'Outfit', sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-            overflow-x: hidden;
-            padding: 2rem;
-            box-sizing: border-box;
-        }
-
-        #app {
-            width: 100%;
-            max-width: 1000px;
-            display: grid;
-            grid-template-columns: 350px 1fr;
-            gap: 2rem;
-            animation: fadeIn 0.8s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Raw Output | Core Engine</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --bg-color: #0a0a0c;
+                --accent-color: #00f2ff;
+                --text-color: #e0e0e6;
+                --glass-bg: rgba(255, 255, 255, 0.03);
+                --glass-border: rgba(255, 255, 255, 0.1);
             }
 
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .hero-section {
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 2.5rem;
-            height: fit-content;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-        }
-
-        h1 {
-            font-weight: 600;
-            letter-spacing: -0.02em;
-            margin-top: 0;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .status-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.75rem;
-            font-weight: 300;
-            color: #80808a;
-            margin-bottom: 2rem;
-        }
-
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            background-color: var(--accent-color);
-            border-radius: 50%;
-            box-shadow: 0 0 10px var(--accent-color);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                transform: scale(1);
-                opacity: 1;
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: var(--bg-color);
+                color: var(--text-color);
+                font-family: "Outfit", sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                min-height: 100vh;
+                overflow-x: hidden;
+                padding: 2rem;
+                box-sizing: border-box;
             }
 
-            50% {
-                transform: scale(1.5);
-                opacity: 0.5;
+            #app {
+                width: 100%;
+                max-width: 1000px;
+                display: grid;
+                grid-template-columns: 350px 1fr;
+                gap: 2rem;
+                animation: fadeIn 0.8s ease-out;
             }
 
-            100% {
-                transform: scale(1);
-                opacity: 1;
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
             }
-        }
 
-        .premium-button {
-            background: linear-gradient(135deg, var(--accent-color) 0%, #00a2ff 100%);
-            border: none;
-            color: #000;
-            padding: 0.8rem 1.8rem;
-            font-family: 'Outfit', sans-serif;
-            font-weight: 600;
-            font-size: 1rem;
-            border-radius: 14px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 15px rgba(0, 242, 255, 0.2);
-            width: 100%;
-        }
+            .hero-section {
+                background: var(--glass-bg);
+                backdrop-filter: blur(12px);
+                border: 1px solid var(--glass-border);
+                border-radius: 24px;
+                padding: 2.5rem;
+                height: fit-content;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
 
-        .premium-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 242, 255, 0.4);
-            filter: brightness(1.1);
-        }
+            h1 {
+                font-weight: 600;
+                letter-spacing: -0.02em;
+                margin-top: 0;
+                margin-bottom: 0.5rem;
+                background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
+                background-clip: text;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
 
-        .folder-status-text {
-            font-size: 0.85rem;
-            color: #80808a;
-            font-weight: 300;
-            letter-spacing: 0.02em;
-            margin-top: 1rem;
-        }
+            .status-container {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.75rem;
+                font-weight: 300;
+                color: #80808a;
+                margin-bottom: 2rem;
+            }
 
-        .connected-text {
-            color: var(--accent-color);
-            font-weight: 500;
-        }
+            .status-indicator {
+                width: 8px;
+                height: 8px;
+                background-color: var(--accent-color);
+                border-radius: 50%;
+                box-shadow: 0 0 10px var(--accent-color);
+                animation: pulse 2s infinite;
+            }
 
-        .dashboard-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            max-height: 80vh;
-        }
+            @keyframes pulse {
+                0% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
 
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
+                50% {
+                    transform: scale(1.5);
+                    opacity: 0.5;
+                }
 
-        .panel-title {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 0;
-            color: #fff;
-        }
+                100% {
+                    transform: scale(1);
+                    opacity: 1;
+                }
+            }
 
-        .recent-runs-list {
-            list-style: none;
-            padding: 0.75rem 1.25rem;
-            margin: 0;
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
+            .premium-button {
+                background: linear-gradient(
+                    135deg,
+                    var(--accent-color) 0%,
+                    #00a2ff 100%
+                );
+                border: none;
+                color: #000;
+                padding: 0.8rem 1.8rem;
+                font-family: "Outfit", sans-serif;
+                font-weight: 600;
+                font-size: 1rem;
+                border-radius: 14px;
+                cursor: pointer;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: 0 4px 15px rgba(0, 242, 255, 0.2);
+                width: 100%;
+            }
 
-        .recent-runs-list::-webkit-scrollbar {
-            width: 4px;
-        }
+            .premium-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(0, 242, 255, 0.4);
+                filter: brightness(1.1);
+            }
 
-        .recent-runs-list::-webkit-scrollbar-track {
-            background: transparent;
-        }
+            .folder-status-text {
+                font-size: 0.85rem;
+                color: #80808a;
+                font-weight: 300;
+                letter-spacing: 0.02em;
+                margin-top: 1rem;
+            }
 
-        .recent-runs-list::-webkit-scrollbar-thumb {
-            background: var(--glass-border);
-            border-radius: 10px;
-        }
+            .connected-text {
+                color: var(--accent-color);
+                font-weight: 500;
+            }
 
-        .run-item {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 1rem 1.25rem;
-            margin-bottom: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.2s ease;
-        }
+            .dashboard-panel {
+                background: var(--glass-bg);
+                backdrop-filter: blur(12px);
+                border: 1px solid var(--glass-border);
+                border-radius: 24px;
+                padding: 2rem;
+                display: flex;
+                flex-direction: column;
+                max-height: 80vh;
+            }
 
-        .run-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            transform: scale(1.01);
-            border-color: rgba(255, 252, 255, 0.2);
-        }
+            .panel-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1.5rem;
+            }
 
-        .run-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
+            .panel-title {
+                font-size: 1.25rem;
+                font-weight: 600;
+                margin: 0;
+                color: #fff;
+            }
 
-        .run-scenario {
-            font-size: 0.95rem;
-            font-weight: 500;
-            color: #fff;
-        }
+            .recent-runs-list {
+                list-style: none;
+                padding: 0.75rem 1.25rem;
+                margin: 0;
+                overflow-y: auto;
+                overflow-x: hidden;
+            }
 
-        .run-date {
-            font-size: 0.75rem;
-            color: #80808a;
-        }
+            .recent-runs-list::-webkit-scrollbar {
+                width: 4px;
+            }
 
-        .run-stats {
-            text-align: right;
-        }
+            .recent-runs-list::-webkit-scrollbar-track {
+                background: transparent;
+            }
 
-        .run-score {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--accent-color);
-        }
-    </style>
-</head>
+            .recent-runs-list::-webkit-scrollbar-thumb {
+                background: var(--glass-border);
+                border-radius: 10px;
+            }
 
-<body>
-    <div id="app">
-        <!-- Sidebar: Identity & Controls -->
-        <aside class="hero-section">
-            <h1>Raw Output</h1>
+            .run-item {
+                background: rgba(255, 255, 255, 0.02);
+                border: 1px solid var(--glass-border);
+                border-radius: 16px;
+                padding: 1rem 1.25rem;
+                margin-bottom: 0.75rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                transition: all 0.2s ease;
+            }
 
-            <div id="status-mount-point" class="status-container">
-                <!-- Status will be mounted here -->
-            </div>
+            .run-item:hover {
+                background: rgba(255, 255, 255, 0.05);
+                transform: scale(1.01);
+                border-color: rgba(255, 252, 255, 0.2);
+            }
 
-            <button id="link-folder-button" class="premium-button">Link Stats Folder</button>
-            <button id="import-csv-button" class="premium-button"
-                style="background: transparent; border: 1px solid var(--glass-border); color: #fff; margin-top: 0.5rem;">Import
-                CSVs</button>
-            <div id="folder-status" class="folder-status-text">No folder linked</div>
-        </aside>
+            .run-info {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25rem;
+            }
 
-        <!-- Main Dashboard: Recent Activity -->
-        <main class="dashboard-panel">
-            <header class="panel-header">
-                <h2 class="panel-title">Recent Runs</h2>
-            </header>
+            .run-scenario {
+                font-size: 0.95rem;
+                font-weight: 500;
+                color: #fff;
+            }
 
-            <ul id="recent-runs-list" class="recent-runs-list">
-                <!-- Data will be mounted here -->
-            </ul>
-        </main>
-    </div>
-    <script type="module" src="/src/main.ts"></script>
-</body>
+            .run-date {
+                font-size: 0.75rem;
+                color: #80808a;
+            }
 
+            .run-stats {
+                text-align: right;
+            }
+
+            .run-score {
+                font-size: 1.1rem;
+                font-weight: 600;
+                color: var(--accent-color);
+            }
+
+            .run-tag {
+                font-size: 0.6rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                padding: 0.15rem 0.4rem;
+                border-radius: 4px;
+                letter-spacing: 0.05em;
+                display: inline-block;
+                margin-left: 0.6rem;
+                vertical-align: middle;
+                line-height: 1;
+            }
+
+            .tag-easier {
+                background: rgba(16, 185, 129, 0.1);
+                color: #10b981;
+                border: 1px solid rgba(16, 185, 129, 0.3);
+            }
+
+            .tag-medium {
+                background: rgba(0, 242, 255, 0.1);
+                color: var(--accent-color);
+                border: 1px solid rgba(0, 242, 255, 0.3);
+            }
+
+            .tag-hard {
+                background: rgba(245, 158, 11, 0.1);
+                color: #f59e0b;
+                border: 1px solid rgba(245, 158, 11, 0.3);
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="app">
+            <!-- Sidebar: Identity & Controls -->
+            <aside class="hero-section">
+                <h1>Raw Output</h1>
+
+                <div id="status-mount-point" class="status-container">
+                    <!-- Status will be mounted here -->
+                </div>
+
+                <button id="link-folder-button" class="premium-button">
+                    Link Stats Folder
+                </button>
+                <button
+                    id="import-csv-button"
+                    class="premium-button"
+                    style="
+                        background: transparent;
+                        border: 1px solid var(--glass-border);
+                        color: #fff;
+                        margin-top: 0.5rem;
+                    "
+                >
+                    Import CSVs
+                </button>
+                <div id="folder-status" class="folder-status-text">
+                    No folder linked
+                </div>
+            </aside>
+
+            <!-- Main Dashboard: Recent Activity -->
+            <main class="dashboard-panel">
+                <header class="panel-header">
+                    <h2 class="panel-title">Recent Runs</h2>
+                </header>
+
+                <ul id="recent-runs-list" class="recent-runs-list">
+                    <!-- Data will be mounted here -->
+                </ul>
+            </main>
+        </div>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
 </html>

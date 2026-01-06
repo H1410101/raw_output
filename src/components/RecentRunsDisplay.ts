@@ -35,7 +35,14 @@ export class RecentRunsDisplay {
 
     listItem.innerHTML = `
             <div class="run-info">
-                <span class="run-scenario">${run.scenarioName}</span>
+                <span class="run-scenario">
+                    ${run.scenarioName}
+                    ${
+                      run.difficulty
+                        ? `<span class="run-tag tag-${run.difficulty.toLowerCase()}">${run.difficulty}</span>`
+                        : ""
+                    }
+                </span>
                 <span class="run-date">${this._formatDate(run.completionDate)}</span>
             </div>
             <div class="run-stats">
