@@ -10,6 +10,13 @@ const benchmarkFiles = import.meta.glob("../../benchmarks/ranks_*.csv", {
 
 export type BenchmarkDifficulty = "Easier" | "Medium" | "Hard";
 
+export interface BenchmarkScenario {
+  category: string;
+  subcategory: string;
+  name: string;
+  thresholds: Record<string, number>;
+}
+
 /**
  * Parses a CSV line while respecting quoted strings that may contain commas.
  */
@@ -34,27 +41,51 @@ function parseCsvLine(line: string): string[] {
 }
 
 /**
- * Extracts scenario names from a raw CSV string.
- * Assumes the first column of every row (after the header) is the scenario name.
+ * Extracts scenario data from a raw CSV string.
  */
-function extractScenarios(csvContent: string): string[] {
+function extractScenarios(csvContent: string): BenchmarkScenario[] {
   const lines = csvContent.split(/\r?\n/).filter((line) => line.trim() !== "");
+
   if (lines.length <= 1) return [];
 
-  // Skip header, map rows to first column
+  const header = parseCsvLine(lines[0]);
+
+  const thresholdKeys = header.slice(3);
+
   return lines.slice(1).map((line) => {
     const columns = parseCsvLine(line);
-    let name = columns[0] || "";
-    // Remove surrounding quotes if present
+
+    const category = columns[0] || "";
+
+    const subcategory = columns[1] || "";
+
+    let name = columns[2] || "";
+
     if (name.startsWith('"') && name.endsWith('"')) {
       name = name.substring(1, name.length - 1);
     }
-    return name;
+
+    const thresholds: Record<string, number> = {};
+
+    thresholdKeys.forEach((key, index) => {
+      const value = parseFloat(columns[index + 3]);
+
+      if (!isNaN(value)) {
+        thresholds[key] = value;
+      }
+    });
+
+    return {
+      category,
+      subcategory,
+      name,
+      thresholds,
+    };
   });
 }
 
 // Internal cache for benchmark lists derived from CSVs
-const BENCHMARK_MAP: Record<BenchmarkDifficulty, string[]> = {
+const BENCHMARK_MAP: Record<BenchmarkDifficulty, BenchmarkScenario[]> = {
   Easier: [],
   Medium: [],
   Hard: [],
@@ -75,11 +106,11 @@ for (const [path, content] of Object.entries(benchmarkFiles)) {
 /**
  * Retrieves the list of scenarios for a specific difficulty level.
  * @param difficulty The benchmark difficulty level.
- * @returns An array of scenario names.
+ * @returns An array of BenchmarkScenario objects.
  */
 export const getScenariosByDifficulty = (
   difficulty: BenchmarkDifficulty,
-): string[] => {
+): BenchmarkScenario[] => {
   return [...BENCHMARK_MAP[difficulty]];
 };
 
@@ -91,8 +122,13 @@ export const getScenariosByDifficulty = (
 export const getDifficulty = (
   scenarioName: string,
 ): BenchmarkDifficulty | null => {
-  if (BENCHMARK_MAP.Hard.includes(scenarioName)) return "Hard";
-  if (BENCHMARK_MAP.Medium.includes(scenarioName)) return "Medium";
-  if (BENCHMARK_MAP.Easier.includes(scenarioName)) return "Easier";
+  if (BENCHMARK_MAP.Hard.some((s) => s.name === scenarioName)) return "Hard";
+
+  if (BENCHMARK_MAP.Medium.some((s) => s.name === scenarioName))
+    return "Medium";
+
+  if (BENCHMARK_MAP.Easier.some((s) => s.name === scenarioName))
+    return "Easier";
+
   return null;
 };

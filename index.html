@@ -56,7 +56,7 @@
                 display: grid;
                 grid-template-columns: 1fr auto 1fr;
                 align-items: center;
-                height: 80px;
+                height: 54px;
             }
 
             h1 {
@@ -230,15 +230,11 @@
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
-                padding: 2rem 0;
+                padding: 0 0 2rem 0;
             }
 
             .dashboard-panel {
-                background: var(--glass-bg);
-                backdrop-filter: blur(12px);
-                border: 1px solid var(--glass-border);
-                border-radius: 24px;
-                padding: 2rem;
+                padding: 1rem 2rem;
                 flex: 1;
                 display: flex;
                 flex-direction: column;
@@ -305,26 +301,121 @@
             /* Benchmark Specific (Dividers instead of cards) */
             .benchmark-row {
                 background: transparent;
-                border-bottom: 1px solid var(--glass-border);
-                padding: 0.5rem 0.75rem;
+                border-bottom: none;
+                padding: 0.15rem 0.75rem;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 transition: all 0.2s ease;
+                cursor: pointer;
             }
 
             .benchmark-row:hover {
                 background: rgba(255, 255, 255, 0.02);
             }
 
-            .benchmark-row:last-child {
+            .benchmark-row.selected {
+                background: rgba(255, 255, 255, 0.1);
+            }
+
+            .benchmark-category-group {
+                display: flex;
+                border: 2px solid var(--glass-border);
+                border-bottom: none;
+                background: rgba(255, 255, 255, 0.01);
+            }
+
+            .benchmark-category-group:first-child {
+                border-radius: 16px 16px 0 0;
+            }
+
+            .benchmark-category-group:last-child {
+                border-bottom: 2px solid var(--glass-border);
+                border-radius: 0 0 16px 16px;
+            }
+
+            .subcategory-container {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .benchmark-subcategory-group {
+                display: flex;
+                border-bottom: 1px solid var(--glass-border);
+            }
+
+            .benchmark-subcategory-group:last-child {
                 border-bottom: none;
             }
 
-            .run-info,
-            .scenario-name {
+            .scenario-list {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                padding: 0.5rem 0;
+            }
+
+            .vertical-label-container {
+                display: block;
+                padding: 0.4rem 0.1rem;
+                background: rgba(255, 255, 255, 0.03);
+                border-right: 1px solid var(--glass-border);
+                min-width: 20px;
+                position: relative;
+            }
+
+            .category-label {
+                background: rgba(0, 242, 255, 0.03);
+                min-width: 24px;
+            }
+
+            .vertical-text {
+                position: absolute;
+                display: block;
+                writing-mode: vertical-rl;
+                transform: rotate(180deg) translateY(50%);
+                text-transform: none;
+                letter-spacing: 0.1em;
+                font-size: 0.7rem;
+                font-weight: 600;
+                color: #80808a;
+                white-space: nowrap;
+                width: 100%;
+                text-align: center;
+                pointer-events: none;
+                padding: 2rem 0;
+            }
+
+            .category-label .vertical-text {
+                color: var(--accent-color);
+                font-size: 0.8rem;
+                text-transform: uppercase;
+            }
+
+            .subcategory-label .vertical-text {
+                top: 50%;
+                text-transform: lowercase;
+            }
+
+            .subcategory-label .vertical-text::first-letter {
+                text-transform: uppercase;
+            }
+
+            .run-info {
                 font-size: 0.95rem;
                 font-weight: 500;
+                color: #fff;
+            }
+
+            .scenario-name {
+                font-size: 0.85rem;
+                font-weight: 500;
+                color: #80808a;
+                transition: color 0.2s ease;
+            }
+
+            .benchmark-row.selected .scenario-name {
                 color: #fff;
             }
 
@@ -381,7 +472,7 @@
                 padding: 0.3rem;
                 border-radius: 10px;
                 width: fit-content;
-                margin: 0 auto 1.5rem auto;
+                margin: 0 auto 1rem auto;
             }
 
             .tab-button {

@@ -2,6 +2,7 @@ import {
   getDifficulty,
   BenchmarkDifficulty,
   getScenariosByDifficulty,
+  BenchmarkScenario,
 } from "../data/benchmarks";
 
 export class BenchmarkService {
@@ -16,12 +17,12 @@ export class BenchmarkService {
   }
 
   /**
-   * Retrieves all scenario names associated with a specific benchmark difficulty.
+   * Retrieves all scenarios associated with a specific benchmark difficulty.
    *
    * @param difficulty - The difficulty level to filter by.
-   * @returns An array of scenario names belonging to the specified difficulty.
+   * @returns An array of scenarios belonging to the specified difficulty.
    */
-  public getScenarios(difficulty: BenchmarkDifficulty): string[] {
+  public getScenarios(difficulty: BenchmarkDifficulty): BenchmarkScenario[] {
     return getScenariosByDifficulty(difficulty);
   }
 }

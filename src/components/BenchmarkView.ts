@@ -1,4 +1,4 @@
-import { BenchmarkDifficulty } from "../data/benchmarks";
+import { BenchmarkDifficulty, BenchmarkScenario } from "../data/benchmarks";
 import { BenchmarkService } from "../services/BenchmarkService";
 
 /**
@@ -25,6 +25,58 @@ export class BenchmarkView {
     this._mountPoint.innerHTML = "";
 
     this._mountPoint.appendChild(this._createViewContainer());
+
+    this._setupStickyCentering();
+  }
+
+  private _setupStickyCentering(): void {
+    const table = this._mountPoint.querySelector(".benchmark-table");
+
+    if (!table) return;
+
+    table.addEventListener("scroll", () =>
+      this._updateLabelPositions(table as HTMLElement),
+    );
+
+    this._updateLabelPositions(table as HTMLElement);
+  }
+
+  private _updateLabelPositions(scrollContainer: HTMLElement): void {
+    const labels = this._mountPoint.querySelectorAll(
+      ".category-label .vertical-text",
+    ) as NodeListOf<HTMLElement>;
+
+    const containerRect = scrollContainer.getBoundingClientRect();
+
+    labels.forEach((label) => {
+      const track = label.parentElement;
+
+      if (!track) return;
+
+      const trackRect = track.getBoundingClientRect();
+
+      const visibleTop = Math.max(trackRect.top, containerRect.top);
+
+      const visibleBottom = Math.min(trackRect.bottom, containerRect.bottom);
+
+      const visibleHeight = visibleBottom - visibleTop;
+
+      if (visibleHeight <= 0) return;
+
+      const visibleCenterY = visibleTop + visibleHeight / 2;
+
+      const relativeCenter = visibleCenterY - trackRect.top;
+
+      const labelHalfHeight = label.offsetHeight / 2;
+
+      const minTop = labelHalfHeight;
+
+      const maxTop = trackRect.height - labelHalfHeight;
+
+      const clampedTop = Math.max(minTop, Math.min(maxTop, relativeCenter));
+
+      label.style.top = `${clampedTop}px`;
+    });
   }
 
   private _createViewContainer(): HTMLElement {
@@ -84,21 +136,125 @@ export class BenchmarkView {
       this._activeDifficulty,
     );
 
-    scenarios.forEach((scenarioName) => {
-      table.appendChild(this._createScenarioRow(scenarioName));
-    });
+    this._appendCategorizedScenarios(table, scenarios);
 
     return table;
   }
 
-  private _createScenarioRow(scenarioName: string): HTMLElement {
+  private _appendCategorizedScenarios(
+    table: HTMLElement,
+    scenarios: BenchmarkScenario[],
+  ): void {
+    const groups = this._groupScenarios(scenarios);
+
+    groups.forEach((subgroups, category) => {
+      table.appendChild(this._createCategoryGroup(category, subgroups));
+    });
+  }
+
+  private _groupScenarios(
+    scenarios: BenchmarkScenario[],
+  ): Map<string, Map<string, BenchmarkScenario[]>> {
+    const groups = new Map<string, Map<string, BenchmarkScenario[]>>();
+
+    scenarios.forEach((scenario) => {
+      if (!groups.has(scenario.category)) {
+        groups.set(scenario.category, new Map());
+      }
+
+      const categoryMap = groups.get(scenario.category)!;
+
+      if (!categoryMap.has(scenario.subcategory)) {
+        categoryMap.set(scenario.subcategory, []);
+      }
+
+      categoryMap.get(scenario.subcategory)!.push(scenario);
+    });
+
+    return groups;
+  }
+
+  private _createCategoryGroup(
+    category: string,
+    subgroups: Map<string, BenchmarkScenario[]>,
+  ): HTMLElement {
+    const categoryGroup = document.createElement("div");
+
+    categoryGroup.className = "benchmark-category-group";
+
+    categoryGroup.appendChild(this._createVerticalLabel(category, "category"));
+
+    const subcategoryContainer = document.createElement("div");
+
+    subcategoryContainer.className = "subcategory-container";
+
+    subgroups.forEach((scenarios, subcategory) => {
+      subcategoryContainer.appendChild(
+        this._createSubcategoryGroup(subcategory, scenarios),
+      );
+    });
+
+    categoryGroup.appendChild(subcategoryContainer);
+
+    return categoryGroup;
+  }
+
+  private _createSubcategoryGroup(
+    subcategory: string,
+    scenarios: BenchmarkScenario[],
+  ): HTMLElement {
+    const subcategoryGroup = document.createElement("div");
+
+    subcategoryGroup.className = "benchmark-subcategory-group";
+
+    subcategoryGroup.appendChild(
+      this._createVerticalLabel(subcategory, "subcategory"),
+    );
+
+    const scenarioList = document.createElement("div");
+
+    scenarioList.className = "scenario-list";
+
+    scenarios.forEach((scenario) => {
+      scenarioList.appendChild(this._createScenarioRow(scenario));
+    });
+
+    subcategoryGroup.appendChild(scenarioList);
+
+    return subcategoryGroup;
+  }
+
+  private _createVerticalLabel(
+    text: string,
+    type: "category" | "subcategory",
+  ): HTMLElement {
+    const labelContainer = document.createElement("div");
+
+    labelContainer.className = `vertical-label-container ${type}-label`;
+
+    const labelText = document.createElement("span");
+
+    labelText.className = "vertical-text";
+
+    labelText.textContent = text;
+
+    labelContainer.appendChild(labelText);
+
+    return labelContainer;
+  }
+
+  private _createScenarioRow(scenario: BenchmarkScenario): HTMLElement {
     const row = document.createElement("div");
 
     row.className = "benchmark-row";
 
-    row.appendChild(this._createNameCell(scenarioName));
+    row.appendChild(this._createNameCell(scenario.name));
 
     row.appendChild(this._createPlaceholderStatsCell());
+
+    row.addEventListener("click", () => {
+      row.classList.toggle("selected");
+    });
 
     return row;
   }
