@@ -31,7 +31,7 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Path normalization logic.
 - **Commit Goal**: If a user selects a top-level Kovaak's folder, the app automatically finds and targets the internal `stats` directory.
 
-### Checkpoint 1.7: Real-time File Ingestion
+### Checkpoint 1.7: Real-time File Ingestion (Done)
 - **Deliverable**: Directory monitoring loop.
 - **Commit Goal**: Dropping a new CSV into the linked folder automatically adds a new entry to the "Recent Runs" list without a page refresh.
 

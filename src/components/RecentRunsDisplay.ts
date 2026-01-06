@@ -1,30 +1,39 @@
 import { KovaaksChallengeRun } from "../types/kovaaks";
 
 export class RecentRunsDisplay {
-    private readonly _listMountPoint: HTMLElement;
+  private readonly _listMountPoint: HTMLElement;
 
-    constructor(listMountPoint: HTMLElement) {
-        this._listMountPoint = listMountPoint;
+  constructor(listMountPoint: HTMLElement) {
+    this._listMountPoint = listMountPoint;
+  }
+
+  public renderRuns(runs: KovaaksChallengeRun[]): void {
+    this._clearListContent();
+
+    runs.forEach((run) => {
+      const runItem = this._createRunItemElement(run);
+      this._listMountPoint.appendChild(runItem);
+    });
+  }
+
+  public prependRun(run: KovaaksChallengeRun): void {
+    const runItem = this._createRunItemElement(run);
+    this._listMountPoint.prepend(runItem);
+
+    if (this._listMountPoint.children.length > 10) {
+      this._listMountPoint.lastElementChild?.remove();
     }
+  }
 
-    public renderRuns(runs: KovaaksChallengeRun[]): void {
-        this._clearListContent();
+  private _clearListContent(): void {
+    this._listMountPoint.innerHTML = "";
+  }
 
-        runs.forEach((run) => {
-            const runItem = this._createRunItemElement(run);
-            this._listMountPoint.appendChild(runItem);
-        });
-    }
+  private _createRunItemElement(run: KovaaksChallengeRun): HTMLElement {
+    const listItem = document.createElement("li");
+    listItem.className = "run-item";
 
-    private _clearListContent(): void {
-        this._listMountPoint.innerHTML = "";
-    }
-
-    private _createRunItemElement(run: KovaaksChallengeRun): HTMLElement {
-        const listItem = document.createElement("li");
-        listItem.className = "run-item";
-
-        listItem.innerHTML = `
+    listItem.innerHTML = `
             <div class="run-info">
                 <span class="run-scenario">${run.scenarioName}</span>
                 <span class="run-date">${this._formatDate(run.completionDate)}</span>
@@ -34,15 +43,15 @@ export class RecentRunsDisplay {
             </div>
         `;
 
-        return listItem;
-    }
+    return listItem;
+  }
 
-    private _formatDate(date: Date): string {
-        return date.toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit"
-        });
-    }
+  private _formatDate(date: Date): string {
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
 }
