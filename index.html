@@ -97,6 +97,52 @@
                 opacity: 1;
             }
         }
+
+        .premium-button {
+            background: linear-gradient(135deg, var(--accent-color) 0%, #00a2ff 100%);
+            border: none;
+            color: #000;
+            padding: 0.8rem 1.8rem;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 15px rgba(0, 242, 255, 0.2);
+            margin-bottom: 1rem;
+        }
+
+        .premium-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 242, 255, 0.4);
+            filter: brightness(1.1);
+        }
+
+        .premium-button:active {
+            transform: translateY(0);
+        }
+
+        .folder-status-text {
+            font-size: 0.85rem;
+            color: #80808a;
+            font-weight: 300;
+            letter-spacing: 0.02em;
+        }
+
+        .connected-text {
+            color: var(--accent-color);
+            font-weight: 500;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards 0.2s;
+        }
+
+        .action-wrapper {
+            margin-top: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
     </style>
 </head>
 
@@ -105,6 +151,11 @@
         <h1>Raw Output</h1>
         <div id="status-mount-point" class="status-container">
             <!-- Status will be mounted here -->
+        </div>
+
+        <div class="action-wrapper">
+            <button id="link-folder-button" class="premium-button">Link Stats Folder</button>
+            <div id="folder-status" class="folder-status-text">No folder linked</div>
         </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

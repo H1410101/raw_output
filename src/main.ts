@@ -1,47 +1,66 @@
+import { DirectoryAccessService } from "./services/DirectoryAccessService";
+
 /**
  * The entry point for the Raw Output application.
  * Responsibility: Orchestrate initial UI mounting and status reporting.
  */
 
 class ApplicationStatusDisplay {
-    private readonly _mountElement: HTMLElement;
+    private readonly _statusMount: HTMLElement;
+    private readonly _folderMount: HTMLElement;
 
-    constructor(mountElement: HTMLElement) {
-        this._mountElement = mountElement;
+    constructor(statusMount: HTMLElement, folderMount: HTMLElement) {
+        this._statusMount = statusMount;
+        this._folderMount = folderMount;
     }
 
     public reportReady(): void {
-        this._clearCurrentContent();
+        this._clearStatusContent();
         this._mountStatusIndicator();
         this._mountStatusText("Ready");
     }
 
-    private _clearCurrentContent(): void {
-        this._mountElement.innerHTML = "";
+    public reportFolderLinked(name: string): void {
+        this._folderMount.innerHTML = `Connected to: <span class="connected-text">${name}</span>`;
+    }
+
+    private _clearStatusContent(): void {
+        this._statusMount.innerHTML = "";
     }
 
     private _mountStatusIndicator(): void {
         const indicator = document.createElement("div");
         indicator.className = "status-indicator";
-        this._mountElement.appendChild(indicator);
+        this._statusMount.appendChild(indicator);
     }
 
     private _mountStatusText(message: string): void {
         const textNode = document.createElement("span");
         textNode.textContent = message;
-        this._mountElement.appendChild(textNode);
+        this._statusMount.appendChild(textNode);
     }
 }
 
-function initializeApplication(): void {
-    const mountPoint = document.getElementById("status-mount-point");
+async function initializeApplication(): Promise<void> {
+    const statusMount = document.getElementById("status-mount-point");
+    const folderMount = document.getElementById("folder-status");
+    const linkButton = document.getElementById("link-folder-button") as HTMLButtonElement;
 
-    if (!mountPoint) {
-        throw new Error("Application mount point not found");
+    if (!statusMount || !folderMount || !linkButton) {
+        throw new Error("Required application mount points not found");
     }
 
-    const statusDisplay = new ApplicationStatusDisplay(mountPoint);
+    const statusDisplay = new ApplicationStatusDisplay(statusMount, folderMount);
+    const directoryService = new DirectoryAccessService();
+
     statusDisplay.reportReady();
+
+    linkButton.addEventListener("click", async () => {
+        const handle = await directoryService.requestDirectoryLink();
+        if (handle) {
+            statusDisplay.reportFolderLinked(handle.name);
+        }
+    });
 }
 
 document.addEventListener("DOMContentLoaded", () => {

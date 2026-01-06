@@ -7,36 +7,44 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 ## Phase 1: The Core Engine (Foundation & Monitoring)
 **Focus**: Establishing the technical bedrock and the "Zero Manual Effort" promise.
 
-### Checkpoint 1.1: Project Initialization
+### Checkpoint 1.1: Project Initialization (Done)
 - **Deliverable**: A configured Vite + TypeScript environment.
 - **Commit Goal**: Running `npm run dev` serves a page displaying the "Raw Output" title and a "Ready" status.
 
-### Checkpoint 1.2: Folder Picker Connectivity
+### Checkpoint 1.2: Folder Picker Connectivity (Done)
 - **Deliverable**: File System Access API integration.
 - **Commit Goal**: Clicking a "Link Stats Folder" button opens the native OS folder picker and displays the selected folder's name on the UI.
 
-### Checkpoint 1.3: Static CSV Parsing
-- **Deliverable**: Kovaak's CSV parsing logic.
-- **Commit Goal**: Manually selecting a single `.csv` file via the UI displays its Scenario Name, Score, and Date in a "Recent Runs" list.
+### Checkpoint 1.3: Session Persistence
+- **Deliverable**: IndexedDB folder handle storage.
+- **Commit Goal**: Refreshing the page automatically attempts to re-verify the folder link, displaying "Re-connected to: [FolderName]" without re-opening the picker.
 
-### Checkpoint 1.4: Real-time File Ingestion
+### Checkpoint 1.4: Recent Runs UI
+- **Deliverable**: Dashboard list component.
+- **Commit Goal**: A "Recent Runs" panel appears in the UI with placeholder entries showing the intended premium layout (Scenario, Score, Date).
+
+### Checkpoint 1.5: Static CSV Parsing
+- **Deliverable**: Kovaak's CSV extractor.
+- **Commit Goal**: Manually selecting a single `.csv` file via the UI populates the "Recent Runs" list with real data from that file.
+
+### Checkpoint 1.6: Deep Directory Discovery
+- **Deliverable**: Path normalization logic.
+- **Commit Goal**: If a user selects a top-level Kovaak's folder, the app automatically finds and targets the internal `stats` directory.
+
+### Checkpoint 1.7: Real-time File Ingestion
 - **Deliverable**: Directory monitoring loop.
 - **Commit Goal**: Dropping a new CSV into the linked folder automatically adds a new entry to the "Recent Runs" list without a page refresh.
 
 ---
 
-## Phase 2: Domain Intelligence (Benchmark Logic & Persistence)
-**Focus**: Integrating Viscose Benchmark rules and local data retention.
+## Phase 2: Domain Intelligence (Benchmark Logic & Results)
+**Focus**: Integrating Viscose Benchmark rules and score validation.
 
 ### Checkpoint 2.1: Scenario Identification
 - **Deliverable**: Viscose Benchmark lookup table.
 - **Commit Goal**: Parsed runs are visually tagged as either "Benchmark" or "Custom" based on the official Viscose scenario list.
 
-### Checkpoint 2.2: Session Persistence
-- **Deliverable**: IndexedDB storage layer.
-- **Commit Goal**: Refreshing the browser preserves the folder link and the history of previously detected runs.
-
-### Checkpoint 2.3: Threshold Validation
+### Checkpoint 2.2: Threshold Validation
 - **Deliverable**: Score-to-Threshold comparison logic.
 - **Commit Goal**: Benchmark runs display a green "Threshold Met" badge if the score meets the scenario's repeatable standard.
 
