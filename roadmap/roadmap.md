@@ -78,7 +78,7 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Refined vertical positioning logic for performance dots.
 - **Commit Goal**: Dots are centered within the vertical span of rank notches, improving visual alignment and clarity across resolutions.
 
-### Checkpoint 2.9: Visual Settings Placeholder
+### Checkpoint 2.9: Visual Settings Placeholder (Done)
 - **Deliverable**: Configuration UI shell.
 - **Commit Goal**: A "Visual Settings" menu or toolbar is added to the table interface. It contains the structure for view toggles but does not yet impact the charts.
 
