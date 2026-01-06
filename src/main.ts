@@ -1,4 +1,5 @@
 import { DirectoryAccessService } from "./services/DirectoryAccessService";
+import { RecentRunsDisplay } from "./components/RecentRunsDisplay";
 
 /**
  * The entry point for the Raw Output application.
@@ -49,15 +50,18 @@ async function initializeApplication(): Promise<void> {
     const statusMount = document.getElementById("status-mount-point");
     const folderMount = document.getElementById("folder-status");
     const linkButton = document.getElementById("link-folder-button") as HTMLButtonElement;
+    const recentRunsMount = document.getElementById("recent-runs-list");
 
-    if (!statusMount || !folderMount || !linkButton) {
+    if (!statusMount || !folderMount || !linkButton || !recentRunsMount) {
         throw new Error("Required application mount points not found");
     }
 
     const statusDisplay = new ApplicationStatusDisplay(statusMount, folderMount);
     const directoryService = new DirectoryAccessService();
+    const recentRunsDisplay = new RecentRunsDisplay(recentRunsMount);
 
     statusDisplay.reportReady();
+    recentRunsDisplay.renderPlaceholders();
 
     await attemptInitialReconnection(directoryService, statusDisplay);
 

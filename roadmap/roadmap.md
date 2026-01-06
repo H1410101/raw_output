@@ -19,7 +19,7 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: IndexedDB folder handle storage.
 - **Commit Goal**: Refreshing the page automatically attempts to re-verify the folder link, displaying "Re-connected to: [FolderName]" without re-opening the picker.
 
-### Checkpoint 1.4: Recent Runs UI
+### Checkpoint 1.4: Recent Runs UI (Done)
 - **Deliverable**: Dashboard list component.
 - **Commit Goal**: A "Recent Runs" panel appears in the UI with placeholder entries showing the intended premium layout (Scenario, Score, Date).
 

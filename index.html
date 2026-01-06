@@ -25,19 +25,19 @@
             font-family: 'Outfit', sans-serif;
             display: flex;
             justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
+            align-items: flex-start;
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding: 2rem;
+            box-sizing: border-box;
         }
 
         #app {
-            text-align: center;
-            padding: 3rem;
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            width: 100%;
+            max-width: 1000px;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
             animation: fadeIn 0.8s ease-out;
         }
 
@@ -53,9 +53,23 @@
             }
         }
 
+        .hero-section {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2.5rem;
+            height: fit-content;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
         h1 {
             font-weight: 600;
             letter-spacing: -0.02em;
+            margin-top: 0;
             margin-bottom: 0.5rem;
             background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
             background-clip: text;
@@ -70,6 +84,7 @@
             gap: 0.75rem;
             font-weight: 300;
             color: #80808a;
+            margin-bottom: 2rem;
         }
 
         .status-indicator {
@@ -110,7 +125,7 @@
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 4px 15px rgba(0, 242, 255, 0.2);
-            margin-bottom: 1rem;
+            width: 100%;
         }
 
         .premium-button:hover {
@@ -119,44 +134,136 @@
             filter: brightness(1.1);
         }
 
-        .premium-button:active {
-            transform: translateY(0);
-        }
-
         .folder-status-text {
             font-size: 0.85rem;
             color: #80808a;
             font-weight: 300;
             letter-spacing: 0.02em;
+            margin-top: 1rem;
         }
 
         .connected-text {
             color: var(--accent-color);
             font-weight: 500;
-            opacity: 0;
-            animation: fadeIn 0.5s forwards 0.2s;
         }
 
-        .action-wrapper {
-            margin-top: 2.5rem;
+        .dashboard-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2rem;
             display: flex;
             flex-direction: column;
+            max-height: 80vh;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .panel-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+            color: #fff;
+        }
+
+        .recent-runs-list {
+            list-style: none;
+            padding: 0.75rem 1.25rem;
+            margin: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .recent-runs-list::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .recent-runs-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .recent-runs-list::-webkit-scrollbar-thumb {
+            background: var(--glass-border);
+            border-radius: 10px;
+        }
+
+        .run-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .run-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            transform: scale(1.01);
+            border-color: rgba(255, 252, 255, 0.2);
+        }
+
+        .run-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .run-scenario {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .run-date {
+            font-size: 0.75rem;
+            color: #80808a;
+        }
+
+        .run-stats {
+            text-align: right;
+        }
+
+        .run-score {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent-color);
         }
     </style>
 </head>
 
 <body>
     <div id="app">
-        <h1>Raw Output</h1>
-        <div id="status-mount-point" class="status-container">
-            <!-- Status will be mounted here -->
-        </div>
+        <!-- Sidebar: Identity & Controls -->
+        <aside class="hero-section">
+            <h1>Raw Output</h1>
 
-        <div class="action-wrapper">
+            <div id="status-mount-point" class="status-container">
+                <!-- Status will be mounted here -->
+            </div>
+
             <button id="link-folder-button" class="premium-button">Link Stats Folder</button>
             <div id="folder-status" class="folder-status-text">No folder linked</div>
-        </div>
+        </aside>
+
+        <!-- Main Dashboard: Recent Activity -->
+        <main class="dashboard-panel">
+            <header class="panel-header">
+                <h2 class="panel-title">Recent Runs</h2>
+            </header>
+
+            <ul id="recent-runs-list" class="recent-runs-list">
+                <!-- Data will be mounted here -->
+            </ul>
+        </main>
     </div>
     <script type="module" src="/src/main.ts"></script>
 </body>
