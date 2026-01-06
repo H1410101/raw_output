@@ -1,16 +1,16 @@
-```raw_output\roadmap\current checkpoint.md#L1-15
-# Current Checkpoint: 2.8: Visualization & Fluid Typography
+```raw_output\roadmap\current checkpoint.md#L1-18
+# Current Checkpoint: 2.8.1: Dot Cloud Vertical Alignment Refinement
 
 ## Status
 Done
 
 ## Deliverables
-- Micro-chart visualization (Strip Plot) for the last 100 plays.
-- Global CSS variable system for fluid typography.
-- Calculated clamp-based font scaling for all UI elements.
+- Refactor vertical positioning logic in `DotCloudComponent`.
+- Center performance dots within the vertical span of rank notches.
+- Decouple dot vertical centering from the label-inclusive canvas height.
 
 ## Summary
-This checkpoint introduces the "Dot Cloud" visualization for performance density analysis and a fluid typography system. The Dot Cloud plots the last 100 recorded scores as semi-transparent dots for each scenario. To support the increased UI density across resolutions, a CSS `clamp()` based font scaling system ensures legibility from 1080p to 4K environments.
+The Dot Cloud visualization currently centers performance dots relative to the entire canvas height. Since rank labels occupy the bottom portion of this height, the dots appear vertically offset from the rank notches. This refinement adjusts the rendering logic to center the dots within the remaining vertical space occupied by the notches, improving visual alignment.
 
 ## Next Up
 Checkpoint 2.9: Visual Settings Placeholder

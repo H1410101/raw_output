@@ -252,6 +252,12 @@ export class DotCloudComponent {
     return { minRU, maxRU };
   }
 
+  private _calculateNotchHeight(rootFontSize: number): number {
+    const labelBuffer = rootFontSize * 0.7;
+
+    return this._canvasHeight - labelBuffer;
+  }
+
   private _calculateRankUnit(score: number, thresholds: number[]): number {
     if (thresholds.length === 0) {
       return score / this._averageRankInterval;
@@ -298,6 +304,8 @@ export class DotCloudComponent {
       getComputedStyle(document.documentElement).fontSize,
     );
 
+    const notchHeight = this._calculateNotchHeight(root_font_size);
+
     const font_size = root_font_size * 0.5;
 
     context.font = `600 ${font_size}px Outfit, sans-serif`;
@@ -313,7 +321,7 @@ export class DotCloudComponent {
 
       const x = this._getHorizontalPosition(idx, minRU, maxRU);
 
-      this._drawVerticalNotch(context, x);
+      this._drawVerticalNotch(context, x, notchHeight);
 
       this._drawClampedRankLabel(context, name.toUpperCase(), x);
     });
@@ -334,6 +342,7 @@ export class DotCloudComponent {
   private _drawVerticalNotch(
     context: CanvasRenderingContext2D,
     x: number,
+    height: number,
   ): void {
     context.strokeStyle = "rgba(255, 255, 255, 0.1)";
 
@@ -343,7 +352,7 @@ export class DotCloudComponent {
 
     context.moveTo(x, 0);
 
-    context.lineTo(x, this._canvasHeight);
+    context.lineTo(x, height);
 
     context.stroke();
   }
@@ -372,6 +381,12 @@ export class DotCloudComponent {
     maxRU: number,
     thresholds: number[],
   ): void {
+    const rootFontSize = parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
+
+    const notchHeight = this._calculateNotchHeight(rootFontSize);
+
     context.fillStyle = "rgba(0, 242, 255, 0.6)";
 
     context.strokeStyle = "rgba(255, 255, 255, 0.2)";
@@ -385,11 +400,9 @@ export class DotCloudComponent {
 
       const density = this._calculateLocalDensity(score);
 
-      const jitterY = this._calculateVerticalJitter(density);
+      const jitterY = this._calculateVerticalJitter(density, notchHeight);
 
-      const verticalOffset = this._canvasHeight * 0.05;
-
-      const finalY = this._canvasHeight / 2 - verticalOffset + jitterY;
+      const finalY = notchHeight / 2 + jitterY;
 
       context.beginPath();
 
@@ -407,12 +420,12 @@ export class DotCloudComponent {
     return this._recentScores.filter((s) => Math.abs(s - target) <= win).length;
   }
 
-  private _calculateVerticalJitter(density: number): number {
+  private _calculateVerticalJitter(density: number, height: number): number {
     if (density <= 1) return 0;
 
     const intensity = Math.min((density - 1) / 14, 1);
 
-    const range = this._canvasHeight * 0.4 * intensity;
+    const range = height * 0.6 * intensity;
 
     return (Math.random() - 0.5) * range;
   }

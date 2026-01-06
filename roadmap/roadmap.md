@@ -74,6 +74,10 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
   1. A new visual column renders a "Dot Cloud" for each scenario, plotting the last 100 recorded scores as semi-transparent dots.
   2. Font sizes scale smoothly using the `clamp()` function based on screen resolution, ensuring legibility from 1080p to 4K.
 
+### Checkpoint 2.8.1: Dot Cloud Vertical Alignment Refinement (Done)
+- **Deliverable**: Refined vertical positioning logic for performance dots.
+- **Commit Goal**: Dots are centered within the vertical span of rank notches, improving visual alignment and clarity across resolutions.
+
 ### Checkpoint 2.9: Visual Settings Placeholder
 - **Deliverable**: Configuration UI shell.
 - **Commit Goal**: A "Visual Settings" menu or toolbar is added to the table interface. It contains the structure for view toggles but does not yet impact the charts.
