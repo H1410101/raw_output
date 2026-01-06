@@ -37,47 +37,130 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 
 ---
 
-## Phase 2: Domain Intelligence (Benchmark Logic & Results)
-**Focus**: Integrating Viscose Benchmark rules and score validation.
+## Phase 2: Benchmark Table
+**Focus**: Creating a centralized, interactive hub for viewing benchmark scenarios and analyzing performance distributions.
 
-### Checkpoint 2.1: Dynamic Scenario Identification
-- **Deliverable**: Dynamic CSV-to-Benchmark mapper.
-- **Commit Goal**: Parsed runs are automatically tagged with their specific difficulty level (Easier/Medium/Hard) pulled directly from `benchmarks/*.csv` files, while custom scenarios remain untagged.
+### Checkpoint 2.1: Benchmark Filtering (Done)
+- **Deliverable**: Benchmark CSV parsing and difficulty association.
+- **Commit Goal**: The system successfully parses `benchmarks/*.csv` files and maps scenarios to their respective difficulties (Easier, Medium, Hard).
 
-### Checkpoint 2.2: Threshold Validation
-- **Deliverable**: Score-to-Threshold comparison logic.
-- **Commit Goal**: Benchmark runs display a green "Threshold Met" badge if the score meets the scenario's repeatable standard.
+### Checkpoint 2.2: Benchmark View & Data Loading
+- **Deliverable**: Navigation UI, Extended BenchmarkService, and Base Table.
+- **Commit Goal**: Users can navigate between "Recent Runs" and "Benchmarks". The Benchmarks view displays a table of scenarios for the selected difficulty.
+
+### Checkpoint 2.3: Rank Tags
+- **Deliverable**: Rank Calculation Logic & UI Badges.
+- **Commit Goal**: The benchmark table displays a "Rank" column. Each row shows a badge with the calculated rank and progress percentage (e.g., `[Jade + 50%]`) based on the scenario's specific thresholds.
+
+### Checkpoint 2.4: Scenario Launch Interactions
+- **Deliverable**: Actionable row interactions.
+- **Commit Goal**: Each row in the benchmark table includes a "Play" action. Clicking it launches Kovaaks with the corresponding scenario name.
+
+### Checkpoint 2.5: Highscore Context
+- **Deliverable**: Data correlation between Benchmarks and History.
+- **Commit Goal**: The Benchmark Table rows fill with a solid colour up to the user's highscore (retrieved from local history and external APIs).
+
+### Checkpoint 2.6: Dot Cloud Visualization
+- **Deliverable**: Micro-chart visualization (Strip Plot).
+- **Commit Goal**: A new visual column renders a "Dot Cloud" for each scenario, plotting every recorded score as a semi-transparent dot to visualize density.
+
+### Checkpoint 2.7: Boxplot Visualization
+- **Deliverable**: Statistical aggregation logic and rendering.
+- **Commit Goal**: The visualization layer supports a "Boxplot" mode (Min, Q1, Median, Q3, Max).
+
+### Checkpoint 2.8: Visual Settings Placeholder
+- **Deliverable**: Configuration UI shell.
+- **Commit Goal**: A "Visual Settings" menu or toolbar is added to the table interface. It contains the structure for view toggles but does not yet impact the charts.
+
+### Checkpoint 2.9: Visual Settings Wiring
+- **Deliverable**: Reactivity and State Management for visualizations.
+- **Commit Goal**: The "Visual Settings" controls are fully wired up, allowing the user to toggle between Dot Cloud and Boxplot views, or adjust visual parameters in real-time.
 
 ---
 
-## Phase 3: The Pulse (Analytics & Rank Decay)
-**Focus**: Visualizing long-term consistency and the "rust" factor.
+## Phase 3: Ranked Runs
+**Focus**: Building the active "Session Mode" where users perform their runs with real-time feedback, directed flow, and visual progression.
 
-### Checkpoint 3.1: Premium Layout & Aesthetics
-- **Deliverable**: Glassmorphic UI implementation.
-- **Commit Goal**: The application displays a multi-pane layout (Sidebar/Dashboard) with modern typography and semi-transparent "glass" cards.
+### Checkpoint 3.1: Ranked Session Layout
+- **Deliverable**: Vertical UI Shell.
+- **Commit Goal**: Navigating to "Ranked Session" displays the basic structure of the Ranked Run screen with three vertical zones (Past, Present, Future), populated with placeholder/dummy data.
 
-### Checkpoint 3.2: Rank-Decay (Rust) Visualization
-- **Deliverable**: Decay algorithm implementation.
-- **Commit Goal**: Scenarios not played for over 48 hours display a "Rusting" icon and a reduced "Current Skill Level" bar.
+### Checkpoint 3.2: Scenario Selection Logic
+- **Deliverable**: Strong-Weak-Weak Algorithm.
+- **Commit Goal**: The "Ranked Session" now uses real history data to populate the Past, Present, and Future zones using the Strong-Weak-Weak algorithm instead of dummy data.
 
-### Checkpoint 3.3: Consistency Trending
-- **Deliverable**: EMA (Exponential Moving Average) charting.
-- **Commit Goal**: Selecting a scenario opens a chart showing the raw score vs. the EMA trend line over time.
+### Checkpoint 3.3: Target Bar Component
+- **Deliverable**: Visualization Component.
+- **Commit Goal**: A dedicated React component that renders a target line and a score spread bar, capable of receiving a "target" and "current spread" as props (demonstrated in isolation or with static props).
+
+### Checkpoint 3.4: HUD Integration
+- **Deliverable**: Centering Logic & Data Wiring.
+- **Commit Goal**: The Target Bar is integrated into the "Present" zone of the layout. It mathematically centers the view on the specific Score Target for the active scenario.
+
+### Checkpoint 3.5: Live Feedback Loop
+- **Deliverable**: Real-time score ingestion and state reactivity.
+- **Commit Goal**: When a new CSV is detected for the active scenario:
+  1. "Session Peak" updates.
+  2. If Peak < Target: Display is neutral.
+  3. If Peak >= Target: Display becomes vibrant; "Next" button activates.
+
+### Checkpoint 3.6: Rank Estimator & Focus Management
+- **Deliverable**: "Current Estimate" display and window-focus handling.
+- **Commit Goal**: 
+  1. A component displays the "Current Estimated Rank" below the scenario.
+  2. Achieving a new peak triggers a promotion animation.
+  3. Animations pause if the browser tab/window loses focus.
+
+### Checkpoint 3.7: Infinite Progression
+- **Deliverable**: Session extension logic.
+- **Commit Goal**: On the final scenario, the "Next" button becomes "One More". Clicking it triggers the selection algorithm to append a new batch of scenarios to the active session.
 
 ---
 
-## Phase 4: Growth Engine (Weakness Targeting & Polish)
-**Focus**: Proactive training guidance and performance scaling.
+## Phase 4: Visual Identity & Game Feel
+**Focus**: Moving beyond standard "glassmorphism" to a distinct visual language, and adding "juice" (animations, sound, tactile feel).
 
-### Checkpoint 4.1: Weakness Analytics
-- **Deliverable**: Data analysis engine.
-- **Commit Goal**: A "Training Priorities" panel lists the three benchmark scenarios with the highest decay or worst threshold consistency.
+### Checkpoint 4.1: Visual System Unification
+- **Deliverable**: Design Token System / Global CSS.
+- **Commit Goal**: The application's color palette, typography, and spacing are unified under a distinct, custom visual theme (not generic UI libraries), verifiable across all existing pages.
 
-### Checkpoint 4.2: Interactive Recommendations
-- **Deliverable**: Recommendation UI.
-- **Commit Goal**: A "Suggest Scenario" button selects and highlights a specific scenario's card based on identified weaknesses.
+### Checkpoint 4.2: Scenario Transitions
+- **Deliverable**: View Transition Logic.
+- **Commit Goal**: Switching between scenarios in the Ranked Session (e.g., finishing "Present" and moving it to "Past") triggers a smooth, coordinated animation rather than an instant snap.
 
-### Checkpoint 4.3: Background Indexing
-- **Deliverable**: Web Worker integration.
-- **Commit Goal**: The UI remains responsive (running a smooth micro-animation) while the app parses a folder containing 1,000+ historical logs.
+### Checkpoint 4.3: Dynamic Rank Indicator
+- **Deliverable**: Animated HUD Element.
+- **Commit Goal**: The "Current Rank" indicator physically moves or morphs on the screen in response to score changes. When the window regains focus, these animations wait for a short delay before playing.
+
+### Checkpoint 4.4: Rank Up Ceremony
+- **Deliverable**: Full-screen Overlay/Animation.
+- **Commit Goal**: Achieving a new peak rank triggers a high-impact "Rank Up" animation sequence that takes over the visual hierarchy.
+
+### Checkpoint 4.5: Audio Feedback
+- **Deliverable**: Sound Manager System.
+- **Commit Goal**: Distinct, satisfying sound effects play for key events: Rank Up, New Highscore, and Session Completion.
+
+### Checkpoint 4.6: Infinite Progression Polish
+- **Deliverable**: "One More" Transitions.
+- **Commit Goal**: Triggering the "One More" infinite loop plays a seamless animation and sound effect as new scenarios are dealt into the queue.
+
+---
+
+## Phase 5: Ecosystem & Analytics
+**Focus**: Seasons, data analysis, and community integration.
+
+### Checkpoint 5.1: Ranked Seasons Core
+- **Deliverable**: Versioning Logic (SemVer for Seasons).
+- **Commit Goal**: The app displays the current Season Version (e.g., "Ranked 1.1"). It loads benchmark data specific to that version (allowing for future rebalances).
+
+### Checkpoint 5.2: Season Timer
+- **Deliverable**: Countdown UI.
+- **Commit Goal**: A UI element displays the number of days remaining in the current ranked season based on the configuration.
+
+### Checkpoint 5.3: Data Opt-in
+- **Deliverable**: Privacy Settings & API Client.
+- **Commit Goal**: A "Submit Anonymous Rank Data" toggle is added to settings. Enabling it sends a verification payload to the backend.
+
+### Checkpoint 5.4: Warm-up Analysis
+- **Deliverable**: Performance Analytics View.
+- **Commit Goal**: A new analytics view compares early session attempts ("Warm-up") against peak performance, helping users identify their warm-up duration.
