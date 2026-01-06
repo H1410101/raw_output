@@ -4,6 +4,7 @@ import { KovaaksCsvParsingService } from "./services/KovaaksCsvParsingService";
 import { DirectoryMonitoringService } from "./services/DirectoryMonitoringService";
 import { KovaaksChallengeRun } from "./types/kovaaks";
 import { BenchmarkService } from "./services/BenchmarkService";
+import { BenchmarkView } from "./components/BenchmarkView";
 
 /**
  * The entry point for the Raw Output application.
@@ -13,26 +14,44 @@ import { BenchmarkService } from "./services/BenchmarkService";
 class ApplicationStatusDisplay {
   private readonly _statusMount: HTMLElement;
   private readonly _folderMount: HTMLElement;
+  private readonly _statusTextOverlay: HTMLElement;
 
-  constructor(statusMount: HTMLElement, folderMount: HTMLElement) {
+  constructor(
+    statusMount: HTMLElement,
+    folderMount: HTMLElement,
+    statusTextOverlay: HTMLElement,
+  ) {
     this._statusMount = statusMount;
     this._folderMount = folderMount;
+    this._statusTextOverlay = statusTextOverlay;
   }
 
   public reportReady(): void {
     this._clearStatusContent();
     this._mountStatusIndicator();
-    this._mountStatusText("Ready");
+    this._updateStatusText("Ready");
+  }
+
+  public reportDisconnected(): void {
+    this._clearStatusContent();
+    this._updateStatusText("Disconnected");
+    this._folderMount.textContent = "No folder linked";
   }
 
   public reportFolderLinked(name: string, fullPath: string): void {
+    this._clearStatusContent();
+    this._mountStatusIndicator();
     this._folderMount.innerHTML = `Connected to: <span class="connected-text">${name}</span>`;
     this._folderMount.title = fullPath;
+    this._updateStatusText("Active");
   }
 
   public reportFolderReconnected(name: string, fullPath: string): void {
+    this._clearStatusContent();
+    this._mountStatusIndicator();
     this._folderMount.innerHTML = `Re-connected to: <span class="connected-text">${name}</span>`;
     this._folderMount.title = fullPath;
+    this._updateStatusText("Active");
   }
 
   private _clearStatusContent(): void {
@@ -45,42 +64,74 @@ class ApplicationStatusDisplay {
     this._statusMount.appendChild(indicator);
   }
 
-  private _mountStatusText(message: string): void {
-    const textNode = document.createElement("span");
-    textNode.textContent = message;
-    this._statusMount.appendChild(textNode);
+  private _updateStatusText(message: string): void {
+    this._statusTextOverlay.textContent = message;
   }
 }
 
 async function initializeApplication(): Promise<void> {
   const statusMount = document.getElementById("status-mount-point");
   const folderMount = document.getElementById("folder-status");
+  const statusTextOverlay = document.getElementById("status-text-overlay");
+
   const linkButton = document.getElementById(
     "link-folder-button",
   ) as HTMLButtonElement;
-  const recentRunsMount = document.getElementById("recent-runs-list");
   const importButton = document.getElementById(
     "import-csv-button",
   ) as HTMLButtonElement;
+  const removeButton = document.getElementById(
+    "remove-folder-button",
+  ) as HTMLButtonElement;
+
+  const navRecent = document.getElementById("nav-recent") as HTMLButtonElement;
+  const navBenchmarks = document.getElementById(
+    "nav-benchmarks",
+  ) as HTMLButtonElement;
+
+  const viewRecent = document.getElementById("view-recent") as HTMLElement;
+  const viewBenchmarks = document.getElementById(
+    "view-benchmarks",
+  ) as HTMLElement;
+  const recentRunsMount = document.getElementById("recent-runs-list");
 
   if (
     !statusMount ||
     !folderMount ||
+    !statusTextOverlay ||
     !linkButton ||
-    !recentRunsMount ||
-    !importButton
+    !importButton ||
+    !removeButton ||
+    !navRecent ||
+    !navBenchmarks ||
+    !viewRecent ||
+    !viewBenchmarks ||
+    !recentRunsMount
   ) {
     throw new Error("Required application mount points not found");
   }
 
-  const statusDisplay = new ApplicationStatusDisplay(statusMount, folderMount);
+  const statusDisplay = new ApplicationStatusDisplay(
+    statusMount,
+    folderMount,
+    statusTextOverlay,
+  );
   const directoryService = new DirectoryAccessService();
   const recentRunsDisplay = new RecentRunsDisplay(recentRunsMount);
   const csvService = new KovaaksCsvParsingService();
   const monitoringService = new DirectoryMonitoringService();
   const benchmarkService = new BenchmarkService();
+  const benchmarkView = new BenchmarkView(viewBenchmarks, benchmarkService);
 
   statusDisplay.reportReady();
+
+  setupNavigation(
+    navRecent,
+    navBenchmarks,
+    viewRecent,
+    viewBenchmarks,
+    benchmarkView,
+  );
 
   await attemptInitialReconnection(
     directoryService,
@@ -109,6 +160,12 @@ async function initializeApplication(): Promise<void> {
       recentRunsDisplay,
       benchmarkService,
     );
+  });
+
+  removeButton.addEventListener("click", () => {
+    directoryService.clearStoredHandle();
+    monitoringService.stopMonitoring();
+    statusDisplay.reportDisconnected();
   });
 }
 
@@ -182,6 +239,8 @@ async function attemptInitialReconnection(
       recentRunsDisplay,
       benchmarkService,
     );
+  } else {
+    statusDisplay.reportDisconnected();
   }
 }
 
@@ -237,6 +296,29 @@ function startMonitoring(
     } catch (err) {
       console.error(`Error processing new file ${fileHandle.name}:`, err);
     }
+  });
+}
+
+function setupNavigation(
+  navRecent: HTMLButtonElement,
+  navBenchmarks: HTMLButtonElement,
+  viewRecent: HTMLElement,
+  viewBenchmarks: HTMLElement,
+  benchmarkView: BenchmarkView,
+): void {
+  navRecent.addEventListener("click", () => {
+    navRecent.classList.add("active");
+    navBenchmarks.classList.remove("active");
+    viewRecent.classList.remove("hidden-view");
+    viewBenchmarks.classList.add("hidden-view");
+  });
+
+  navBenchmarks.addEventListener("click", () => {
+    navBenchmarks.classList.add("active");
+    navRecent.classList.remove("active");
+    viewBenchmarks.classList.remove("hidden-view");
+    viewRecent.classList.add("hidden-view");
+    benchmarkView.render();
   });
 }
 

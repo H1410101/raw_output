@@ -73,6 +73,17 @@ for (const [path, content] of Object.entries(benchmarkFiles)) {
 }
 
 /**
+ * Retrieves the list of scenarios for a specific difficulty level.
+ * @param difficulty The benchmark difficulty level.
+ * @returns An array of scenario names.
+ */
+export const getScenariosByDifficulty = (
+  difficulty: BenchmarkDifficulty,
+): string[] => {
+  return [...BENCHMARK_MAP[difficulty]];
+};
+
+/**
  * Identifies the difficulty of a scenario by checking the dynamic benchmark lists.
  * @param scenarioName The name of the Kovaak's scenario.
  * @returns BenchmarkDifficulty | null
