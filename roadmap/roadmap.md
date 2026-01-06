@@ -84,6 +84,10 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Reactivity and State Management for visualizations.
 - **Commit Goal**: The "Visual Settings" controls are fully wired up, allowing the user to toggle between Dot Cloud and Quartile Plot views, or adjust visual parameters in real-time.
 
+### Checkpoint 2.12: Milestone - Code Consolidation & Debt Payoff
+- **Deliverable**: Refactored codebase and consolidated logic.
+- **Commit Goal**: The codebase is cleaned, redundant logic is removed, and architecture is hardened to ensure stability before proceeding to Phase 3.
+
 ---
 
 ## Phase 3: Ranked Runs
