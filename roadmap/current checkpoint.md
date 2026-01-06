@@ -1,16 +1,16 @@
-```raw_output\roadmap\current checkpoint.md#L1-18
-# Current Checkpoint: 2.8.1: Dot Cloud Vertical Alignment Refinement
+```raw_output\roadmap\current checkpoint.md#L1-15
+# Current Checkpoint: 2.10: Visual Settings Wiring
 
 ## Status
-Done
+In Progress
 
 ## Deliverables
-- Refactor vertical positioning logic in `DotCloudComponent`.
-- Center performance dots within the vertical span of rank notches.
-- Decouple dot vertical centering from the label-inclusive canvas height.
+- Reactivity and State Management for visualizations.
+- Event-driven updates from the settings menu to the rendering engine.
+- Persistent or session-based state for visual preferences.
 
 ## Summary
-The Dot Cloud visualization currently centers performance dots relative to the entire canvas height. Since rank labels occupy the bottom portion of this height, the dots appear vertically offset from the rank notches. This refinement adjusts the rendering logic to center the dots within the remaining vertical space occupied by the notches, improving visual alignment.
+With the UI shell established, this checkpoint focuses on connecting the interactive controls in the Visual Settings menu to the Dot Cloud rendering logic. Changes to toggles, sliders, and segmented controls will trigger immediate visual updates, allowing users to customize their data view in real-time.
 
 ## Next Up
-Checkpoint 2.9: Visual Settings Placeholder
+Checkpoint 2.11: Visual Look & Feel Tuning

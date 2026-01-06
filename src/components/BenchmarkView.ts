@@ -178,9 +178,187 @@ export class BenchmarkView {
 
     container.className = "benchmark-view-container";
 
-    container.appendChild(this._createDifficultyTabs());
+    const headerContainer = document.createElement("div");
+
+    headerContainer.className = "benchmark-header-controls";
+
+    const leftSpacer = document.createElement("div");
+
+    leftSpacer.style.flex = "1";
+
+    headerContainer.appendChild(leftSpacer);
+
+    headerContainer.appendChild(this._createDifficultyTabs());
+
+    const rightContainer = document.createElement("div");
+
+    rightContainer.style.flex = "1";
+
+    rightContainer.style.display = "flex";
+
+    rightContainer.style.justifyContent = "flex-end";
+
+    rightContainer.appendChild(this._createSettingsButton(container));
+
+    headerContainer.appendChild(rightContainer);
+
+    container.appendChild(headerContainer);
 
     container.appendChild(this._createScenarioTable(scenarios, highscores));
+
+    return container;
+  }
+
+  private _createSettingsButton(viewContainer: HTMLElement): HTMLElement {
+    const settingsButton = document.createElement("button");
+
+    settingsButton.className = "visual-settings-button";
+
+    settingsButton.title = "Visual Settings";
+
+    settingsButton.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    `;
+
+    settingsButton.addEventListener("click", () => {
+      this._openSettingsMenu(viewContainer);
+    });
+
+    return settingsButton;
+  }
+
+  private _openSettingsMenu(viewContainer: HTMLElement): void {
+    const settingsOverlay = this._createSettingsOverlay();
+
+    const settingsMenuCard = this._createSettingsMenuCard();
+
+    settingsOverlay.appendChild(settingsMenuCard);
+
+    viewContainer.appendChild(settingsOverlay);
+  }
+
+  private _createSettingsOverlay(): HTMLElement {
+    const overlayElement = document.createElement("div");
+
+    overlayElement.className = "settings-overlay";
+
+    overlayElement.addEventListener("click", (event) => {
+      if (event.target === overlayElement) {
+        overlayElement.remove();
+      }
+    });
+
+    return overlayElement;
+  }
+
+  private _createSettingsMenuCard(): HTMLElement {
+    const menuCardElement = document.createElement("div");
+
+    menuCardElement.className = "settings-menu-card";
+
+    menuCardElement.appendChild(this._createSettingsMenuTitle());
+
+    menuCardElement.appendChild(
+      this._createSettingToggle("Show Dot Cloud", true),
+    );
+
+    menuCardElement.appendChild(this._createSettingSlider("Dot Opacity", 40));
+
+    menuCardElement.appendChild(
+      this._createSettingSegmentedControl("Scaling", ["Absolute", "Relative"]),
+    );
+
+    return menuCardElement;
+  }
+
+  private _createSettingsMenuTitle(): HTMLElement {
+    const titleElement = document.createElement("h2");
+
+    titleElement.textContent = "Visual Settings";
+
+    return titleElement;
+  }
+
+  private _createSettingToggle(label: string, checked: boolean): HTMLElement {
+    const container = document.createElement("div");
+
+    container.className = "setting-item toggle-item";
+
+    const labelElement = document.createElement("label");
+
+    labelElement.textContent = label;
+
+    const input = document.createElement("input");
+
+    input.type = "checkbox";
+
+    input.checked = checked;
+
+    container.appendChild(labelElement);
+
+    container.appendChild(input);
+
+    return container;
+  }
+
+  private _createSettingSlider(label: string, value: number): HTMLElement {
+    const container = document.createElement("div");
+
+    container.className = "setting-item slider-item";
+
+    const labelElement = document.createElement("label");
+
+    labelElement.textContent = label;
+
+    const input = document.createElement("input");
+
+    input.type = "range";
+
+    input.min = "0";
+
+    input.max = "100";
+
+    input.value = value.toString();
+
+    container.appendChild(labelElement);
+
+    container.appendChild(input);
+
+    return container;
+  }
+
+  private _createSettingSegmentedControl(
+    label: string,
+    options: string[],
+  ): HTMLElement {
+    const container = document.createElement("div");
+
+    container.className = "setting-item segmented-item";
+
+    const labelElement = document.createElement("label");
+
+    labelElement.textContent = label;
+
+    container.appendChild(labelElement);
+
+    const controls = document.createElement("div");
+
+    controls.className = "segmented-controls";
+
+    options.forEach((option, index) => {
+      const button = document.createElement("button");
+
+      button.textContent = option;
+
+      button.className = `segment-button ${index === 0 ? "active" : ""}`;
+
+      controls.appendChild(button);
+    });
+
+    container.appendChild(controls);
 
     return container;
   }

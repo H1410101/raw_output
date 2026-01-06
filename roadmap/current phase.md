@@ -15,7 +15,7 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.6: Live Session Best
 - [x] 2.7: New Runs View
 - [x] 2.8: Visualization & Fluid Typography
-- [ ] 2.9: Visual Settings Placeholder
+- [x] 2.9: Visual Settings Placeholder
 - [ ] 2.10: Visual Settings Wiring
 - [ ] 2.11: Visual Look & Feel Tuning
 - [ ] 2.12: Session Interval Settings
