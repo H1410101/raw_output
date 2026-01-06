@@ -6,13 +6,34 @@
 export { };
 
 declare global {
-    interface Window {
-        showDirectoryPicker(options?: DirectoryPickerOptions): Promise<FileSystemDirectoryHandle>;
+    interface FileSystemHandle {
+        readonly kind: "file" | "directory";
+        readonly name: string;
+        queryPermission(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionStatus>;
+        requestPermission(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionStatus>;
     }
+
+    interface FileSystemDirectoryHandle extends FileSystemHandle {
+        readonly kind: "directory";
+    }
+
+    interface FileSystemFileHandle extends FileSystemHandle {
+        readonly kind: "file";
+    }
+
+    interface FileSystemHandlePermissionDescriptor {
+        mode?: "read" | "readwrite";
+    }
+
+    type PermissionStatus = "granted" | "denied" | "prompt";
 
     interface DirectoryPickerOptions {
         id?: string;
         mode?: "read" | "readwrite";
         startIn?: "desktop" | "documents" | "downloads" | "music" | "pictures" | "videos" | FileSystemHandle;
+    }
+
+    interface Window {
+        showDirectoryPicker(options?: DirectoryPickerOptions): Promise<FileSystemDirectoryHandle>;
     }
 }

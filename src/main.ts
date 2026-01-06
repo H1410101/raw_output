@@ -24,6 +24,10 @@ class ApplicationStatusDisplay {
         this._folderMount.innerHTML = `Connected to: <span class="connected-text">${name}</span>`;
     }
 
+    public reportFolderReconnected(name: string): void {
+        this._folderMount.innerHTML = `Re-connected to: <span class="connected-text">${name}</span>`;
+    }
+
     private _clearStatusContent(): void {
         this._statusMount.innerHTML = "";
     }
@@ -55,12 +59,33 @@ async function initializeApplication(): Promise<void> {
 
     statusDisplay.reportReady();
 
+    await attemptInitialReconnection(directoryService, statusDisplay);
+
     linkButton.addEventListener("click", async () => {
-        const handle = await directoryService.requestDirectoryLink();
-        if (handle) {
-            statusDisplay.reportFolderLinked(handle.name);
-        }
+        await handleManualFolderSelection(directoryService, statusDisplay);
     });
+}
+
+async function attemptInitialReconnection(
+    directoryService: DirectoryAccessService,
+    statusDisplay: ApplicationStatusDisplay
+): Promise<void> {
+    const handle = await directoryService.attemptReconnection();
+
+    if (handle) {
+        statusDisplay.reportFolderReconnected(handle.name);
+    }
+}
+
+async function handleManualFolderSelection(
+    directoryService: DirectoryAccessService,
+    statusDisplay: ApplicationStatusDisplay
+): Promise<void> {
+    const handle = await directoryService.requestDirectorySelection();
+
+    if (handle) {
+        statusDisplay.reportFolderLinked(handle.name);
+    }
 }
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -15,7 +15,7 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: File System Access API integration.
 - **Commit Goal**: Clicking a "Link Stats Folder" button opens the native OS folder picker and displays the selected folder's name on the UI.
 
-### Checkpoint 1.3: Session Persistence
+### Checkpoint 1.3: Session Persistence (Done)
 - **Deliverable**: IndexedDB folder handle storage.
 - **Commit Goal**: Refreshing the page automatically attempts to re-verify the folder link, displaying "Re-connected to: [FolderName]" without re-opening the picker.
 
