@@ -1,4 +1,4 @@
-export interface TrainingRun {
+export interface KovaaksChallengeRun {
     id: string;
     scenarioName: string;
     score: number;

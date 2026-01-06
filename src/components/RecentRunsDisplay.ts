@@ -1,4 +1,4 @@
-import { TrainingRun } from "../types/training";
+import { KovaaksChallengeRun } from "../types/kovaaks";
 
 export class RecentRunsDisplay {
     private readonly _listMountPoint: HTMLElement;
@@ -7,7 +7,7 @@ export class RecentRunsDisplay {
         this._listMountPoint = listMountPoint;
     }
 
-    public renderRuns(runs: TrainingRun[]): void {
+    public renderRuns(runs: KovaaksChallengeRun[]): void {
         this._clearListContent();
 
         runs.forEach((run) => {
@@ -16,16 +16,11 @@ export class RecentRunsDisplay {
         });
     }
 
-    public renderPlaceholders(): void {
-        const placeholders: TrainingRun[] = this._generatePlaceholderData();
-        this.renderRuns(placeholders);
-    }
-
     private _clearListContent(): void {
         this._listMountPoint.innerHTML = "";
     }
 
-    private _createRunItemElement(run: TrainingRun): HTMLElement {
+    private _createRunItemElement(run: KovaaksChallengeRun): HTMLElement {
         const listItem = document.createElement("li");
         listItem.className = "run-item";
 
@@ -49,28 +44,5 @@ export class RecentRunsDisplay {
             hour: "2-digit",
             minute: "2-digit"
         });
-    }
-
-    private _generatePlaceholderData(): TrainingRun[] {
-        return [
-            {
-                id: "1",
-                scenarioName: "[Placeholder] Vertical Clicking",
-                score: 14200.0,
-                completionDate: new Date()
-            },
-            {
-                id: "2",
-                scenarioName: "[Placeholder] Horizontal Tracking",
-                score: 8.0,
-                completionDate: new Date(Date.now() - 3600000)
-            },
-            {
-                id: "3",
-                scenarioName: "[Placeholder] Dynamic Pasu",
-                score: 245.5,
-                completionDate: new Date(Date.now() - 86400000)
-            }
-        ];
     }
 }

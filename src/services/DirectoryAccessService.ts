@@ -42,6 +42,20 @@ export class DirectoryAccessService {
         return null;
     }
 
+    public async getDirectoryFiles(): Promise<FileSystemFileHandle[]> {
+        if (!this._directoryHandle) {
+            return [];
+        }
+
+        const files: FileSystemFileHandle[] = [];
+        for await (const entry of this._directoryHandle.values()) {
+            if (entry.kind === "file") {
+                files.push(entry as FileSystemFileHandle);
+            }
+        }
+        return files;
+    }
+
     public get currentFolderName(): string | null {
         return this._directoryHandle?.name ?? null;
     }

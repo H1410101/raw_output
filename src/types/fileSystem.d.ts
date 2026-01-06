@@ -15,10 +15,12 @@ declare global {
 
     interface FileSystemDirectoryHandle extends FileSystemHandle {
         readonly kind: "directory";
+        values(): AsyncIterableIterator<FileSystemHandle>;
     }
 
     interface FileSystemFileHandle extends FileSystemHandle {
         readonly kind: "file";
+        getFile(): Promise<File>;
     }
 
     interface FileSystemHandlePermissionDescriptor {

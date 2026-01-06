@@ -21,11 +21,11 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 
 ### Checkpoint 1.4: Recent Runs UI (Done)
 - **Deliverable**: Dashboard list component.
-- **Commit Goal**: A "Recent Runs" panel appears in the UI with placeholder entries showing the intended premium layout (Scenario, Score, Date).
+- **Commit Goal**: A "Recent Runs" panel appears in the UI with a premium layout (Scenario, Score, Date), ready for data ingestion.
 
-### Checkpoint 1.5: Static CSV Parsing
-- **Deliverable**: Kovaak's CSV extractor.
-- **Commit Goal**: Manually selecting a single `.csv` file via the UI populates the "Recent Runs" list with real data from that file.
+### Checkpoint 1.5: Static CSV Parsing (Done)
+- **Deliverable**: Kovaak's CSV extractor & Folder Scanner.
+- **Commit Goal**: Clicking "Import CSVs" scans the linked folder for `.csv` files and populates the "Recent Runs" list with the top 10 most recent entries.
 
 ### Checkpoint 1.6: Deep Directory Discovery
 - **Deliverable**: Path normalization logic.

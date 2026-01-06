@@ -9,8 +9,8 @@ The application is a single-page web application (SPA) built using **Vanilla Typ
 
 ### 2.1 The Static Shell ([`index.html`](../../../index.html))
 The interface provides the visual and interactive anchors for the application.
-- **Styling Layer**: Glassmorphic CSS with custom gradients.
-- **Action Wrapper**: Contains the [`#link-folder-button`](../../../index.html#L109) and [`#folder-status`](../../../index.html#L110).
+- **Styling Layer**: Glassmorphic CSS with custom gradients in [`index.html`](../../../index.html#L11).
+- **Action Wrapper**: Contains the [`#link-folder-button`](../../../index.html#L255) and [`#folder-status`](../../../index.html#L259).
 
 #### Component Diagram
 ```mermaid
@@ -21,12 +21,12 @@ graph TD
     Serv -->|Web API| FS[File System Access API]
     Disp -->|Updates| document
 ```
-- **Entities**: [`index.html`](../../../index.html) | [`src/main.ts`](../../../src/main.ts) | [`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L6)
+- **Entities**: [`index.html`](../../../index.html) | [`src/main.ts`](../../../src/main.ts#L1) | [`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L7)
 
-### 2.2 The Application Orchestrator ([`src/main.ts`](../src/main.ts))
+### 2.2 The Application Orchestrator ([`src/main.ts`](../../../src/main.ts))
 Orchestrates UI updates and listens for user interactions.
-- **[`ApplicationStatusDisplay`](../../../src/main.ts#L6) Class**: Manages DOM updates for status and folder connectivity.
-- **[`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L6) Class**: Interacts with the browser's folder picker.
+- **[`ApplicationStatusDisplay`](../../../src/main.ts#L11) Class**: Manages DOM updates for status and folder connectivity.
+- **[`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L7) Class**: Interacts with the browser's folder picker.
 
 #### Connectivity Flow
 ```mermaid
@@ -37,7 +37,7 @@ sequenceDiagram
     participant API as showDirectoryPicker()
 
     U->>S: Click Link Button
-    S->>D: calls requestDirectoryLink()
+    S->>D: calls requestDirectorySelection()
     D->>API: Invokes API
     API-->>U: OS Folder Picker
     U-->>API: Folder Selection
@@ -45,8 +45,8 @@ sequenceDiagram
     D-->>S: returns handle
     S->>S: calls reportFolderLinked(name)
 ```
-- **Entities**: [`src/main.ts`](../../../src/main.ts) | [`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L6)
-- **Messages**: [`requestDirectoryLink()`](../../../src/services/DirectoryAccessService.ts#L13) | [`showDirectoryPicker()`](../../../src/types/fileSystem.d.ts#L10) | [`reportFolderLinked()`](../../../src/main.ts#L20)
+- **Entities**: [`src/main.ts`](../../../src/main.ts) | [`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L7)
+- **Messages**: [`requestDirectorySelection()`](../../../src/services/DirectoryAccessService.ts#L22) | [`showDirectoryPicker()`](../../../src/types/fileSystem.d.ts#L36) | [`reportFolderLinked()`](../../../src/main.ts#L26)
 
 ## 3. Build & Development Pipeline
 - **Vite**: Modern ESM-based build engine.
@@ -62,5 +62,5 @@ stateDiagram-v2
     Ready --> FolderLinked: User selects folder
     FolderLinked --> FolderLinked: Folder change
 ```
-- **Entities**: [`Ready`](../../../src/main.ts#L12) | [`FolderLinked`](../../../src/main.ts#L20)
-- **Transitions**: [`DOMContentLoaded`](../../../src/main.ts#L48) | [`User selects folder`](../../../src/main.ts#L42)
+- **Entities**: [`Ready`](../../../src/main.ts#L20) | [`FolderLinked`](../../../src/main.ts#L26)
+- **Transitions**: [`DOMContentLoaded`](../../../src/main.ts#L143) | [`User selects folder`](../../../src/main.ts#L136)

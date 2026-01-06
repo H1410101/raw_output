@@ -9,8 +9,8 @@ Checkpoint 1.2 introduces interactivity via the **File System Access API**. The 
 
 ### 2.1 The Interface ([`index.html`](../../../index.html))
 The UI now includes an interactive action layer:
-- **Link Button**: A [`#link-folder-button`](../../../index.html#L109) with premium hover/active states.
-- **Folder Status**: A [`#folder-status`](../../../index.html#L110) display area that dynamically updates upon successful link.
+- **Link Button**: A [`#link-folder-button`](../../../index.html#L255) with premium hover/active states.
+- **Folder Status**: A [`#folder-status`](../../../index.html#L259) display area that dynamically updates upon successful link.
 
 #### Component Diagram
 ```mermaid
@@ -21,11 +21,11 @@ graph TD
     Serv -->|Web API| FS[File System Access API]
     Disp -->|Updates| UI
 ```
-- **Entities**: [`index.html`](../../../index.html) | [`src/main.ts`](../../../src/main.ts) | [`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L6)
+- **Entities**: [`index.html`](../../../index.html) | [`src/main.ts`](../../../src/main.ts#L11) | [`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L7)
 
 ### 2.2 Directory Access Layer ([`src/services/DirectoryAccessService.ts`](../../../src/services/DirectoryAccessService.ts))
 A dedicated service for managing folder handles.
-- **`requestDirectoryLink()`**: Triggers the OS folder picker.
+- **`requestDirectorySelection()`**: Triggers the [`OS folder picker`](../../../src/services/DirectoryAccessService.ts#L22).
 - **Type Safety**: Supported by custom definitions in [`src/types/fileSystem.d.ts`](../../../src/types/fileSystem.d.ts).
 
 #### Connectivity Flow
@@ -39,7 +39,7 @@ sequenceDiagram
 
     U->>B: Clicks Button
     B->>S: Emits Click Event
-    S->>D: calls requestDirectoryLink()
+    S->>D: calls requestDirectorySelection()
     D->>API: Invokes Browser API
     API-->>U: Shows OS Folder Picker
     U-->>API: Selects Folder
@@ -47,8 +47,8 @@ sequenceDiagram
     D-->>S: Returns Handle
     S->>S: calls reportFolderLinked(handle.name)
 ```
-- **Entities**: [`link-folder-button`](../../../index.html#L109) | [`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L6)
-- **Messages**: [`requestDirectoryLink()`](../../../src/services/DirectoryAccessService.ts#L13) | [`showDirectoryPicker()`](../../../src/types/fileSystem.d.ts#L10) | [`reportFolderLinked()`](../../../src/main.ts#L20)
+- **Entities**: [`link-folder-button`](../../../index.html#L255) | [`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L7)
+- **Messages**: [`requestDirectorySelection()`](../../../src/services/DirectoryAccessService.ts#L22) | [`showDirectoryPicker()`](../../../src/types/fileSystem.d.ts#L36) | [`reportFolderLinked()`](../../../src/main.ts#L26)
 
 ## 3. Current State Machine
 The application now supports two primary states.
@@ -59,5 +59,5 @@ stateDiagram-v2
     Ready --> FolderLinked: User selects folder
     FolderLinked --> FolderLinked: Change folder
 ```
-- **Entities**: [`Ready`](../../../src/main.ts#L12) | [`FolderLinked`](../../../src/main.ts#L20)
-- **Transitions**: [`User selects folder`](../../../src/main.ts#L42)
+- **Entities**: [`Ready`](../../../src/main.ts#L20) | [`FolderLinked`](../../../src/main.ts#L26)
+- **Transitions**: [`User selects folder`](../../../src/main.ts#L136)

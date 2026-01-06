@@ -9,13 +9,13 @@ Checkpoint 1.3 introduces local persistence using **IndexedDB**. The architectur
 
 ### 2.1 Persistence Layer ([`src/services/DirectoryAccessPersistenceService.ts`](../../../src/services/DirectoryAccessPersistenceService.ts))
 A new service dedicated to the storage and retrieval of `FileSystemDirectoryHandle` objects.
-- **IndexedDB Integration**: Uses a structured database (`RawOutputStorage`) to store handles across browser sessions.
-- **Asynchronous Storage**: Provides promise-based methods for atomic handle persistence.
+- **IndexedDB Integration**: Uses a structured database [`RawOutputStorage`](../../../src/services/DirectoryAccessPersistenceService.ts#L2) to store handles across browser sessions.
+- **Asynchronous Storage**: Provides [`promise-based methods`](../../../src/services/DirectoryAccessPersistenceService.ts#L6) for atomic handle persistence.
 
 ### 2.2 Orchestration & Reconnection ([`src/services/DirectoryAccessService.ts`](../../../src/services/DirectoryAccessService.ts))
 The directory service now manages the lifecycle of the folder link.
-- **Reconnection Logic**: Attempts to restore state on startup by retrieving handles from the persistence layer.
-- **Permission Verification**: Uses `queryPermission` to verify that the browser still has access to the stored handle before reporting success.
+- **Reconnection Logic**: Attempts to restore state on startup by [`retrieving handles`](../../../src/services/DirectoryAccessService.ts#L36) from the persistence layer.
+- **Permission Verification**: Uses [`queryPermission`](../../../src/services/DirectoryAccessService.ts#L54) to verify that the browser still has access to the stored handle before reporting success.
 
 #### Component Diagram
 ```mermaid
@@ -53,14 +53,14 @@ sequenceDiagram
     S->>S: calls reportFolderReconnected(name)
 ```
 - **Entities**: [`src/main.ts`](../../../src/main.ts) | [`DirectoryAccessService`](../../../src/services/DirectoryAccessService.ts#L7)
-- **Messages**: [`attemptReconnection()`](../../../src/services/DirectoryAccessService.ts#L36) | [`retrieveHandleFromStorage()`](../../../src/services/DirectoryAccessPersistenceService.ts#L19) | [`reportFolderReconnected()`](../../../src/main.ts#L27)
+- **Messages**: [`attemptReconnection()`](../../../src/services/DirectoryAccessService.ts#L36) | [`retrieveHandleFromStorage()`](../../../src/services/DirectoryAccessPersistenceService.ts#L19) | [`reportFolderReconnected()`](../../../src/main.ts#L30)
 
 ## 3. Storage Schema
 The application utilizes a single object store for administrative metadata.
 
 | Database | Store | Key | Value |
 | :--- | :--- | :--- | :--- |
-| `RawOutputStorage` | `DirectoryHandles` | `activeDirectoryHandle` | `FileSystemDirectoryHandle` |
+| [`RawOutputStorage`](../../../src/services/DirectoryAccessPersistenceService.ts#L2) | [`DirectoryHandles`](../../../src/services/DirectoryAccessPersistenceService.ts#L3) | `activeDirectoryHandle` | `FileSystemDirectoryHandle` |
 
 ## 4. Current State Machine
 The application now supports an automated transition from initialization to a linked state.
@@ -74,5 +74,5 @@ stateDiagram-v2
     Ready --> FolderLinked: Manual User Selection
     FolderLinked --> FolderLinked: Handle Update
 ```
-- **Entities**: [`Ready`](../../../src/main.ts#L17) | [`FolderLinked`](../../../src/main.ts#L20)
+- **Entities**: [`Ready`](../../../src/main.ts#L20) | [`FolderLinked`](../../../src/main.ts#L26)
 - **Transitions**: [`attemptReconnection()`](../../../src/services/DirectoryAccessService.ts#L36) | [`requestDirectorySelection()`](../../../src/services/DirectoryAccessService.ts#L22)
