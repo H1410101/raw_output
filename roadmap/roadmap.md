@@ -52,7 +52,7 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: CSV Metadata Extraction & Categorized UI.
 - **Commit Goal**: The `extract_ranks.cjs` script preserves category/subcategory data, and the Benchmark UI displays these as vertical labels on the left side of the table.
 
-### Checkpoint 2.4: Rank Tags
+### Checkpoint 2.4: Rank Tags (Done)
 - **Deliverable**: Rank Calculation Logic & UI Badges.
 - **Commit Goal**: The benchmark table displays a "Rank" column. Each row shows a badge with the calculated rank and progress percentage (e.g., `[Jade + 50%]`) based on the scenario's specific thresholds.
 

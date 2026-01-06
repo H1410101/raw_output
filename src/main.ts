@@ -5,6 +5,8 @@ import { DirectoryMonitoringService } from "./services/DirectoryMonitoringServic
 import { KovaaksChallengeRun } from "./types/kovaaks";
 import { BenchmarkService } from "./services/BenchmarkService";
 import { BenchmarkView } from "./components/BenchmarkView";
+import { HistoryService } from "./services/HistoryService";
+import { RankService } from "./services/RankService";
 
 /**
  * The entry point for the Raw Output application.
@@ -121,7 +123,14 @@ async function initializeApplication(): Promise<void> {
   const csvService = new KovaaksCsvParsingService();
   const monitoringService = new DirectoryMonitoringService();
   const benchmarkService = new BenchmarkService();
-  const benchmarkView = new BenchmarkView(viewBenchmarks, benchmarkService);
+  const historyService = new HistoryService();
+  const rankService = new RankService();
+  const benchmarkView = new BenchmarkView(
+    viewBenchmarks,
+    benchmarkService,
+    historyService,
+    rankService,
+  );
 
   statusDisplay.reportReady();
 
@@ -140,6 +149,7 @@ async function initializeApplication(): Promise<void> {
     csvService,
     recentRunsDisplay,
     benchmarkService,
+    historyService,
   );
 
   linkButton.addEventListener("click", async () => {
@@ -150,6 +160,7 @@ async function initializeApplication(): Promise<void> {
       csvService,
       recentRunsDisplay,
       benchmarkService,
+      historyService,
     );
   });
 
@@ -159,6 +170,7 @@ async function initializeApplication(): Promise<void> {
       csvService,
       recentRunsDisplay,
       benchmarkService,
+      historyService,
     );
   });
 
@@ -174,6 +186,7 @@ async function handleFolderScan(
   csvService: KovaaksCsvParsingService,
   recentRunsDisplay: RecentRunsDisplay,
   benchmarkService: BenchmarkService,
+  historyService: HistoryService,
 ): Promise<void> {
   const folderName = directoryService.currentFolderName;
   if (!folderName) return;
@@ -195,10 +208,14 @@ async function handleFolderScan(
 
       if (parsedData) {
         const scenarioName = parsedData.scenarioName || "Unknown Scenario";
+        const score = parsedData.score || 0;
+
+        await historyService.updateHighscore(scenarioName, score);
+
         parsedRuns.push({
           id: crypto.randomUUID(),
           scenarioName,
-          score: parsedData.score || 0,
+          score,
           completionDate: parsedData.completionDate || new Date(),
           difficulty: benchmarkService.getDifficulty(scenarioName),
         });
@@ -224,6 +241,7 @@ async function attemptInitialReconnection(
   csvService: KovaaksCsvParsingService,
   recentRunsDisplay: RecentRunsDisplay,
   benchmarkService: BenchmarkService,
+  historyService: HistoryService,
 ): Promise<void> {
   const handle = await directoryService.attemptReconnection();
 
@@ -238,6 +256,7 @@ async function attemptInitialReconnection(
       csvService,
       recentRunsDisplay,
       benchmarkService,
+      historyService,
     );
   } else {
     statusDisplay.reportDisconnected();
@@ -251,6 +270,7 @@ async function handleManualFolderSelection(
   csvService: KovaaksCsvParsingService,
   recentRunsDisplay: RecentRunsDisplay,
   benchmarkService: BenchmarkService,
+  historyService: HistoryService,
 ): Promise<void> {
   const handle = await directoryService.requestDirectorySelection();
 
@@ -265,6 +285,7 @@ async function handleManualFolderSelection(
       csvService,
       recentRunsDisplay,
       benchmarkService,
+      historyService,
     );
   }
 }
@@ -275,6 +296,7 @@ function startMonitoring(
   csvService: KovaaksCsvParsingService,
   recentRunsDisplay: RecentRunsDisplay,
   benchmarkService: BenchmarkService,
+  historyService: HistoryService,
 ): void {
   monitoringService.startMonitoring(handle, async (fileHandle) => {
     try {
@@ -284,10 +306,14 @@ function startMonitoring(
 
       if (parsedData) {
         const scenarioName = parsedData.scenarioName || "Unknown Scenario";
+        const score = parsedData.score || 0;
+
+        await historyService.updateHighscore(scenarioName, score);
+
         const run: KovaaksChallengeRun = {
           id: crypto.randomUUID(),
           scenarioName,
-          score: parsedData.score || 0,
+          score,
           completionDate: parsedData.completionDate || new Date(),
           difficulty: benchmarkService.getDifficulty(scenarioName),
         };
@@ -313,12 +339,12 @@ function setupNavigation(
     viewBenchmarks.classList.add("hidden-view");
   });
 
-  navBenchmarks.addEventListener("click", () => {
+  navBenchmarks.addEventListener("click", async () => {
     navBenchmarks.classList.add("active");
     navRecent.classList.remove("active");
     viewBenchmarks.classList.remove("hidden-view");
     viewRecent.classList.add("hidden-view");
-    benchmarkView.render();
+    await benchmarkView.render();
   });
 }
 
