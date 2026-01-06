@@ -1,12 +1,12 @@
 Category,Subcategory,Scenario,Cinnabar,Vermillion,Saffron,Celadon,Cerulean,Lavender,Indigo,Fuchsia,MissColourz,Viscose
 Control Tracking,Arm,WhisphereRawControl,5300,6700,7600,8800,10000,10900,11800,13000,12408,14739
 Control Tracking,Arm,Whisphere,5750,8250,10750,13250,15250,17250,19250,20500,18200,23410
-Control Tracking,Arm,Smoothbot Invincible Goated,1700,2200,2750,3250,3800,4300,4650,5000,4320,5538
+Control Tracking,Arm,SmoothBot Invincible Goated,1700,2200,2750,3250,3800,4300,4650,5000,4320,5538
 Control Tracking,Wrist,Leaptrack Goated 75% Slightly Larger,1400,1750,2000,2250,2500,2750,3000,3275,2841,3472
 Control Tracking,Wrist,Controlsphere rAim Easy,7400,8500,9600,10700,11900,13100,14300,15100,14598,15909
 Control Tracking,Wrist,VT Controlsphere Novice S5 Hard,2100,2500,2950,3250,3550,3800,4100,4400,4218,4881
 Control Tracking,Fingertip,Air Angelic 4 Voltaic Easy,1900,2300,2650,3000,3400,3750,4100,4450,4295,4995
-Control Tracking,Fingertip,Cloverrawcontrol Easy,5000,6100,7000,8100,9200,10100,10900,11700,12084,13788
+Control Tracking,Fingertip,cloverRawControl Easy,5000,6100,7000,8100,9200,10100,10900,11700,12084,13788
 Control Tracking,Fingertip,Controlsphere Far Larger,7800,8600,9300,10000,10800,11700,12700,13600,14319,14823
 Control Tracking,Blending,PGTI Voltaic Easy,800,1100,1400,1700,2000,2300,2750,3200,2639,3950
 Control Tracking,Blending,Air CELESTIAL No UFO Easy,825,840,855,865,881,890,902,908,897,919.11
@@ -18,11 +18,11 @@ Reactive Tracking,Speed,Polarized Hell Easy 20% Slower,1600,1850,2100,2350,2600,
 Reactive Tracking,Reading,Air Pure Intermediate,847,862,876,886,895,902,906,910,906,922
 Reactive Tracking,Reading,Air Voltaic Easy Invincible 4,1800,2150,2500,2950,3350,3750,4150,4450,4032,4918
 Flick Tech,Speed,Pokeball Frenzy Auto TE Wide,1950,2250,2550,2850,3150,3400,3600,3800,3510,4560
-Flick Tech,Speed,1w3ts Reload,66,76,86,96,106,116,126,135,115,148
+Flick Tech,Speed,1w3ts reload,66,76,86,96,106,116,126,135,115,148
 Flick Tech,Speed,voxTargetSwitch 2,78,88,98,107,116,123,130,136,134,145.95
-Flick Tech,Stability,BeanTS,88,103,115,127,136,143,149,156,156,171
+Flick Tech,Stability,beanTS,88,103,115,127,136,143,149,156,156,171
 Flick Tech,Stability,FloatTS Angelic Easy,70,79,86,93,100,107,115,123,125,134
-Flick Tech,Micro,WaldoTS Intermediate,108,117,126,135,144,153,162,170,173,179.95
+Flick Tech,Micro,waldoTS Intermediate,108,117,126,135,144,153,162,170,173,179.95
 Flick Tech,Micro,devTS Goated NR Static 5Bot,600,650,705,760,810,840,870,900,904,937
 Flick Tech,Post-flick,domiSwitch Easy,4200,4700,5200,5700,6150,6600,7100,7600,7003,8206
 Flick Tech,Post-flick,tamTargetSwitch Smooth Easy,22,26,29,32,34,36,38,41,40,42

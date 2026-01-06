@@ -1,12 +1,12 @@
 Category,Subcategory,Scenario,Lemming,Hare,Ermine,Penguin,Fox,Mammoth,Orca,Seal
 Control Tracking,Arm,WhisphereRawControl Larger + Slowed,5500,6700,7800,8700,9600,10500,11400,12500
 Control Tracking,Arm,Whisphere 80%,6300,7700,9000,10000,11000,12000,13000,14500
-Control Tracking,Arm,Smoothbot Invincible Goated 75%,1800,2250,2650,2900,3150,3400,3650,4000
+Control Tracking,Arm,SmoothBot Invincible Goated 75%,1800,2250,2650,2900,3150,3400,3650,4000
 Control Tracking,Wrist,Leaptrack Goated 60% Larger,850,1200,1500,1700,1900,2100,2250,2450
 Control Tracking,Wrist,Controlsphere rAim Easy 90%,6100,6950,7700,8400,9100,9800,10500,11500
 Control Tracking,Wrist,VT Controlsphere Intermediate S5 80%,1850,2300,2700,3000,3300,3600,3850,4100
 Control Tracking,Fingertip,Air Angelic 4 Voltaic Easy 80% (Good Version),1050,1600,2000,2400,2700,3000,3300,3600
-Control Tracking,Fingertip,Cloverrawcontrol Easy 80% Speed,3900,4550,5200,5700,6200,6700,7200,7700
+Control Tracking,Fingertip,cloverRawControl Easy 80% Speed,3900,4550,5200,5700,6200,6700,7200,7700
 Control Tracking,Fingertip,"Controlsphere Far, Far Larger 90%",7600,8150,8700,9200,9800,10200,10900,11500
 Control Tracking,Blending,PGTI Voltaic Easy 80%,350,550,850,1100,1350,1600,1900,2250
 Control Tracking,Blending,Air CELESTIAL No UFO Easy Slowed,820,835,850,861,870,878,884,890
@@ -18,11 +18,11 @@ Reactive Tracking,Speed,Polarized Hell Easy 40% Slower,750,1100,1400,1600,1800,2
 Reactive Tracking,Reading,Air Pure Intermediate Slower No UFO,860,874,886,893,901,907,911,916
 Reactive Tracking,Reading,Air Voltaic Easy Invincible 4 80%,1100,1600,2100,2450,2800,3150,3400,3800
 Flick Tech,Speed,Pokeball Frenzy Auto TE Wide,650,950,1250,1500,1750,2000,2300,2700
-Flick Tech,Speed,1w3ts Reload Larger,36,54,50,58,70,82,92,102
+Flick Tech,Speed,1w3ts reload Larger,36,54,50,58,70,82,92,102
 Flick Tech,Speed,voxTargetSwitch 2 Large,67,78,87,95,103,110,117,123
-Flick Tech,Stability,BeanTS Larger,65,78,90,100,110,120,130,142
+Flick Tech,Stability,beanTS Larger,65,78,90,100,110,120,130,142
 Flick Tech,Stability,FloatTS Angelic Easy Larger,65,74,81,88,95,101,106,111
-Flick Tech,Micro,WaldoTS Novice,65,78,90,100,110,120,130,140
+Flick Tech,Micro,waldoTS Novice,65,78,90,100,110,120,130,140
 Flick Tech,Micro,devTS Goated NR Static 5Bot,350,400,450,500,550,600,640,680
 Flick Tech,Evasive,domiSwitch Easy Slower,3200,3700,4200,4600,5000,5400,5800,6300
 Flick Tech,Evasive,tamTargetSwitch Smooth Easy,7,11,15,18,21,24,26,28

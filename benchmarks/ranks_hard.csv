@@ -6,7 +6,7 @@ Control Tracking,Wrist,Leaptrack Goated 80%,2500,2625,2750,2850,3000,3200,3210
 Control Tracking,Wrist,Controlsphere rAim,9100,9850,10700,11300,11900,12350,12894
 Control Tracking,Wrist,VT Controlsphere Intermediate Hard,2850,3200,3500,3800,4000,4200,4497
 Control Tracking,Fingertip,Air Angelic 4 Voltaic,3300,3650,3850,4100,4225,4350,4440
-Control Tracking,Fingertip,Cloverrawcontrol,7000,7650,8200,8650,9200,10100,10671
+Control Tracking,Fingertip,cloverRawControl,7000,7650,8200,8650,9200,10100,10671
 Control Tracking,Fingertip,Controlsphere Far,8600,9200,9800,10600,11200,12000,12321
 Control Tracking,Blending,PGTI Voltaic,1350,1650,1900,2150,2400,2700,2800
 Control Tracking,Blending,Air CELESTIAL,867,875,885,890,894,897,901.5
@@ -18,11 +18,11 @@ Reactive Tracking,Speed,Polarized Hell 20% Slower,2550,2700,2850,3000,3150,3300,
 Reactive Tracking,Reading,Air Pure,884,890,895,900,905,909,916
 Reactive Tracking,Reading,Air Voltaic Invincible 4,2800,3150,3450,3700,3900,4100,4230
 Flick Tech,Speed,Pokeball Frenzy Auto TE Wide,3550,3725,3850,4000,4100,4200,4560
-Flick Tech,Speed,1w2ts Reload,106,114,121,127,133,138,139
+Flick Tech,Speed,1w2ts reload,106,114,121,127,133,138,139
 Flick Tech,Speed,voxTargetSwitch 2 20% Smaller,103,111,116,121,127,133,134
-Flick Tech,Stability,BeanTS 30% Smaller,119,127,134,139,143,147,150
+Flick Tech,Stability,beanTS 30% Smaller,119,127,134,139,143,147,150
 Flick Tech,Stability,FloatTS Angelic,94,100,105,110,114,118,122
-Flick Tech,Micro,WaldoTS,145,153,160,166,173,178,176
+Flick Tech,Micro,waldoTS,145,153,160,166,173,178,176
 Flick Tech,Micro,devTS Goated NR Static Small 5Bot,750,775,800,825,850,870,873
 Flick Tech,Post-flick,domiSwitch,5550,5950,6250,6550,6850,7200,7433
 Flick Tech,Post-flick,tamTargetSwitch Smooth,32,35,37,39,42,45,45
