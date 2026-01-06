@@ -14,8 +14,9 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.5: Scenario Launch Interactions
 - [x] 2.6: Live Session Best
 - [x] 2.7: New Runs View
-- [x] 2.8: Dot Cloud Visualization
-- [ ] 2.9: Quartile Plot Visualization
-- [ ] 2.10: Visual Settings Placeholder
-- [ ] 2.11: Visual Settings Wiring
-- [ ] 2.12: Milestone - Code Consolidation & Debt Payoff
+- [x] 2.8: Visualization & Fluid Typography
+- [ ] 2.9: Visual Settings Placeholder
+- [ ] 2.10: Visual Settings Wiring
+- [ ] 2.11: Visual Look & Feel Tuning
+- [ ] 2.12: Session Interval Settings
+- [ ] 2.13: Milestone - Code Consolidation & Debt Payoff

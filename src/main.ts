@@ -35,6 +35,16 @@ class ApplicationStatusDisplay {
     this._updateStatusText("Ready");
   }
 
+  public reportScanning(): void {
+    this._updateStatusText("Scanning");
+    this._setScanningState(true);
+  }
+
+  public reportActive(): void {
+    this._updateStatusText("Active");
+    this._setScanningState(false);
+  }
+
   public reportDisconnected(): void {
     this._clearStatusContent();
     this._updateStatusText("Disconnected");
@@ -69,6 +79,17 @@ class ApplicationStatusDisplay {
 
   private _updateStatusText(message: string): void {
     this._statusTextOverlay.textContent = message;
+  }
+
+  private _setScanningState(isScanning: boolean): void {
+    const indicator = this._statusMount.querySelector(".status-indicator");
+    if (indicator) {
+      if (isScanning) {
+        indicator.classList.add("scanning");
+      } else {
+        indicator.classList.remove("scanning");
+      }
+    }
   }
 }
 
@@ -150,6 +171,7 @@ async function initializeApplication(): Promise<void> {
   );
 
   statusDisplay.reportReady();
+  await benchmarkView.render();
 
   setupNavigation(
     navRecent,
@@ -184,11 +206,15 @@ async function initializeApplication(): Promise<void> {
   });
 
   importButton.addEventListener("click", async () => {
+    statusDisplay.reportScanning();
+
     const runs = await ingestionService.synchronizeAvailableRuns();
     recentRunsDisplay.renderRuns(runs);
 
     const newRuns = await ingestionService.getNewRuns();
     newRunsDisplay.renderRuns(newRuns);
+
+    statusDisplay.reportActive();
   });
 
   removeButton.addEventListener("click", () => {
@@ -226,6 +252,7 @@ async function attemptInitialReconnection(
       ingestionService,
       recentRunsDisplay,
       newRunsDisplay,
+      statusDisplay,
     );
   } else {
     statusDisplay.reportDisconnected();
@@ -260,6 +287,7 @@ async function handleManualFolderSelection(
       ingestionService,
       recentRunsDisplay,
       newRunsDisplay,
+      statusDisplay,
     );
   }
 }
@@ -270,14 +298,19 @@ function startMonitoring(
   ingestionService: RunIngestionService,
   recentRunsDisplay: RecentRunsDisplay,
   newRunsDisplay: RecentRunsDisplay,
+  statusDisplay: ApplicationStatusDisplay,
 ): void {
   monitoringService.startMonitoring(handle, async () => {
     try {
+      statusDisplay.reportScanning();
+
       const updatedRuns = await ingestionService.synchronizeAvailableRuns();
       recentRunsDisplay.renderRuns(updatedRuns);
 
       const updatedNewRuns = await ingestionService.getNewRuns();
       newRunsDisplay.renderRuns(updatedNewRuns);
+
+      statusDisplay.reportActive();
     } catch (err) {
       console.error(`Error processing directory update:`, err);
     }

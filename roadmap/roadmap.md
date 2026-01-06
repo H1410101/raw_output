@@ -68,23 +68,29 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Live performance dashboard.
 - **Commit Goal**: A "New Runs" view automatically displays scenarios as they are played, highlighting improvements against the current session best.
 
-### Checkpoint 2.8: Dot Cloud Visualization
-- **Deliverable**: Micro-chart visualization (Strip Plot) for the last 100 plays.
-- **Commit Goal**: A new visual column renders a "Dot Cloud" for each scenario, plotting the last 100 recorded scores as semi-transparent dots to visualize recent density.
+### Checkpoint 2.8: Visualization & Fluid Typography (Done)
+- **Deliverable**: Micro-chart visualization (Strip Plot) and Global CSS fluid typography.
+- **Commit Goal**: 
+  1. A new visual column renders a "Dot Cloud" for each scenario, plotting the last 100 recorded scores as semi-transparent dots.
+  2. Font sizes scale smoothly using the `clamp()` function based on screen resolution, ensuring legibility from 1080p to 4K.
 
-### Checkpoint 2.9: Quartile Plot Visualization
-- **Deliverable**: Statistical aggregation logic and rendering.
-- **Commit Goal**: The visualization layer supports a "Quartile Plot" mode, adding lines for Q1, median, and Q3.
-
-### Checkpoint 2.10: Visual Settings Placeholder
+### Checkpoint 2.9: Visual Settings Placeholder
 - **Deliverable**: Configuration UI shell.
 - **Commit Goal**: A "Visual Settings" menu or toolbar is added to the table interface. It contains the structure for view toggles but does not yet impact the charts.
 
-### Checkpoint 2.11: Visual Settings Wiring
+### Checkpoint 2.10: Visual Settings Wiring
 - **Deliverable**: Reactivity and State Management for visualizations.
-- **Commit Goal**: The "Visual Settings" controls are fully wired up, allowing the user to toggle between Dot Cloud and Quartile Plot views, or adjust visual parameters in real-time.
+- **Commit Goal**: The "Visual Settings" controls are fully wired up, allowing the user to adjust visual parameters in real-time.
 
-### Checkpoint 2.12: Milestone - Code Consolidation & Debt Payoff
+### Checkpoint 2.11: Visual Look & Feel Tuning
+- **Deliverable**: Refined UI styling and micro-interactions.
+- **Commit Goal**: The application's visual density and aesthetic are tuned, including dot cloud opacity, row spacing, and color contrast.
+
+### Checkpoint 2.12: Session Interval Settings
+- **Deliverable**: Configurable session timeout logic.
+- **Commit Goal**: A setting is added to define the session inactivity interval. The UI avoids showing session stats for the last played session if that session is no longer active based on this interval.
+
+### Checkpoint 2.13: Milestone - Code Consolidation & Debt Payoff
 - **Deliverable**: Refactored codebase and consolidated logic.
 - **Commit Goal**: The codebase is cleaned, redundant logic is removed, and architecture is hardened to ensure stability before proceeding to Phase 3.
 

@@ -112,14 +112,20 @@ export class RunIngestionService {
   ): Promise<void> {
     const lastCheck = await this._historyService.getLastCheckTimestamp();
 
-    const newHandles = sortedHandles.filter(
-      (item) => item.date.getTime() > lastCheck,
-    );
+    const newHandles = sortedHandles
+      .filter((item) => item.date.getTime() > lastCheck)
+      .reverse();
 
     for (const item of newHandles) {
       const run = await this._parseRunFromFile(item.handle);
 
       if (run && run.scenarioName && run.score !== undefined) {
+        await this._historyService.recordScore(
+          run.scenarioName,
+          run.score,
+          item.date.getTime(),
+        );
+
         await this._historyService.updateHighscore(run.scenarioName, run.score);
       }
     }

@@ -3,10 +3,11 @@ import { BenchmarkService } from "../services/BenchmarkService";
 import { HistoryService } from "../services/HistoryService";
 import { RankService } from "../services/RankService";
 import { SessionService } from "../services/SessionService";
+import { DotCloudComponent } from "./visualizations/DotCloudComponent";
 
 /**
  * Handles the rendering and interaction logic for the Benchmark scenarios list.
- * Responsibility: Display scenarios filtered by difficulty and manage tab switching.
+ * Responsibility: Display scenarios filtered by difficulty and manage tabular alignment.
  */
 export class BenchmarkView {
   private readonly _mountPoint: HTMLElement;
@@ -49,6 +50,10 @@ export class BenchmarkView {
     this._sessionService.onSessionUpdated(() => {
       this._refreshIfVisible();
     });
+
+    window.addEventListener("resize", () => {
+      this._refreshIfVisible();
+    });
   }
 
   private _refreshIfVisible(): void {
@@ -59,9 +64,6 @@ export class BenchmarkView {
     this.render();
   }
 
-  /**
-   * Clears the mount point and renders the benchmark interface.
-   */
   public async render(): Promise<void> {
     const scenarios = this._benchmarkService.getScenarios(
       this._activeDifficulty,
@@ -94,7 +96,7 @@ export class BenchmarkView {
 
   private _updateLabelPositions(scrollContainer: HTMLElement): void {
     const labels = this._mountPoint.querySelectorAll(
-      ".category-label .vertical-text",
+      ".vertical-text",
     ) as NodeListOf<HTMLElement>;
 
     const containerRect = scrollContainer.getBoundingClientRect();
@@ -309,6 +311,8 @@ export class BenchmarkView {
       this._createVerticalLabel(subcategory, "subcategory"),
     );
 
+    subcategoryGroup.appendChild(this._createSubcategoryHeader());
+
     const scenarioList = document.createElement("div");
 
     scenarioList.className = "scenario-list";
@@ -322,6 +326,50 @@ export class BenchmarkView {
     subcategoryGroup.appendChild(scenarioList);
 
     return subcategoryGroup;
+  }
+
+  private _createSubcategoryHeader(): HTMLElement {
+    const header = document.createElement("div");
+
+    header.className = "subcategory-header";
+
+    const spacer = document.createElement("div");
+
+    spacer.className = "header-spacer";
+
+    const sessionLabel = this._createColumnHeader("Session");
+
+    const allTimeLabel = this._createColumnHeader("All-time");
+
+    const dotSpacer = document.createElement("div");
+
+    dotSpacer.className = "header-dot-spacer";
+
+    const actionSpacer = document.createElement("div");
+
+    actionSpacer.className = "header-action-spacer";
+
+    header.appendChild(spacer);
+
+    header.appendChild(dotSpacer);
+
+    header.appendChild(allTimeLabel);
+
+    header.appendChild(sessionLabel);
+
+    header.appendChild(actionSpacer);
+
+    return header;
+  }
+
+  private _createColumnHeader(text: string): HTMLElement {
+    const label = document.createElement("div");
+
+    label.className = "column-header";
+
+    label.textContent = text;
+
+    return label;
   }
 
   private _createVerticalLabel(
@@ -357,11 +405,11 @@ export class BenchmarkView {
 
     rightContent.className = "row-right-content";
 
-    rightContent.appendChild(this._createSessionRankBadge(scenario));
+    rightContent.appendChild(this._createDotCloudCell(scenario));
 
-    rightContent.appendChild(
-      this._createRankBadge(scenario, highscore, "All-time"),
-    );
+    rightContent.appendChild(this._createRankBadge(scenario, highscore));
+
+    rightContent.appendChild(this._createSessionRankBadge(scenario));
 
     rightContent.appendChild(this._createPlayButton(scenario.name));
 
@@ -384,6 +432,44 @@ export class BenchmarkView {
     return nameSpan;
   }
 
+  private _createDotCloudCell(scenario: BenchmarkScenario): HTMLElement {
+    const container = document.createElement("div");
+
+    container.className = "dot-cloud-container";
+
+    this._historyService.getLastScores(scenario.name, 100).then((scores) => {
+      if (scores.length > 0) {
+        const rankInterval = this._calculateAverageRankInterval(scenario);
+
+        const dotCloud = new DotCloudComponent(
+          scores,
+          scenario.thresholds,
+          rankInterval,
+        );
+
+        const visualization = dotCloud.render();
+
+        container.replaceWith(visualization);
+      }
+    });
+
+    return container;
+  }
+
+  private _calculateAverageRankInterval(scenario: BenchmarkScenario): number {
+    const thresholds = Object.values(scenario.thresholds).sort((a, b) => a - b);
+
+    if (thresholds.length < 2) return 100;
+
+    let totalInterval = 0;
+
+    for (let i = 1; i < thresholds.length; i++) {
+      totalInterval += thresholds[i] - thresholds[i - 1];
+    }
+
+    return totalInterval / (thresholds.length - 1);
+  }
+
   private _createSessionRankBadge(scenario: BenchmarkScenario): HTMLElement {
     const sessionBest = this._sessionService.getScenarioSessionBest(
       scenario.name,
@@ -391,7 +477,11 @@ export class BenchmarkView {
 
     const score = sessionBest ? sessionBest.bestScore : 0;
 
-    const badge = this._createRankBadge(scenario, score, "Session", false);
+    const badge = this._createRankBadge(scenario, score);
+
+    if (score === 0) {
+      badge.style.visibility = "hidden";
+    }
 
     badge.classList.add("session-badge");
 
@@ -401,16 +491,10 @@ export class BenchmarkView {
   private _createRankBadge(
     scenario: BenchmarkScenario,
     score: number,
-    label: string,
-    showUnranked: boolean = true,
   ): HTMLElement {
     const badge = document.createElement("div");
 
     badge.className = "rank-badge-container";
-
-    if (score === 0 && !showUnranked) {
-      return badge;
-    }
 
     const badgeContent = document.createElement("div");
 
@@ -419,8 +503,6 @@ export class BenchmarkView {
     this._fillBadgeContent(badgeContent, scenario, score);
 
     badge.appendChild(badgeContent);
-
-    badge.appendChild(this._createBadgeLabel(label));
 
     return badge;
   }
@@ -444,24 +526,12 @@ export class BenchmarkView {
     `;
   }
 
-  private _createBadgeLabel(text: string): HTMLElement {
-    const label = document.createElement("span");
-
-    label.className = "badge-label";
-
-    label.textContent = text;
-
-    return label;
-  }
-
   private _createPlayButton(scenarioName: string): HTMLElement {
     const playButton = document.createElement("button");
 
     playButton.className = "play-scenario-button";
 
     playButton.title = `Launch ${scenarioName}`;
-
-    playButton.textContent = "Play";
 
     playButton.addEventListener("click", (event) => {
       event.stopPropagation();
