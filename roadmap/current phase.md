@@ -1,4 +1,4 @@
-```raw_output\roadmap\current phase.md#L1-26
+```raw_output\roadmap\current phase.md#L1-27
 # Current Phase: Phase 2: Benchmark Table
 
 ## Status
@@ -24,5 +24,6 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.13: Visual & Tactile Identity
 - [x] 2.13.1: Background Dynamics
 - [x] 2.13.2: Scroll Track Cut-out
+- [x] 2.13.3: Colour & Transparency Tuning
 - [ ] 2.14: SFX Identity
 - [ ] 2.15: Milestone - Code Consolidation & Debt Payoff

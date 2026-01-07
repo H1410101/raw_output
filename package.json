@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "release": "standard-version",
-    "prepare": "husky"
+    "prepare": "husky",
+    "lint:colors": "node scripts/verify_palette_usage.js"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.0",

@@ -110,6 +110,10 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Custom scroll track with glass cut-out and fixed-height tactile thumb.
 - **Commit Goal**: The benchmark table features a stationary glass background with a rounded "cut-out" for the scroll track and a 2rem tactile scroll thumb with hover-to-scroll logic.
 
+### Checkpoint 2.13.3: Colour & Transparency Tuning (Done)
+- **Deliverable**: Calibrated color hierarchy and transparency for primary containers and visualizations.
+- **Commit Goal**: Dot clouds use the "lower band" palette with manual Canvas variable resolution, and primary containers (table, settings, stats popout) utilize reduced opacities and "lower band" typography for better environmental integration.
+
 ### Checkpoint 2.14: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application is no longer fully quiet; it sounds distinctive and has a sound bank that subjectively matches the theme.

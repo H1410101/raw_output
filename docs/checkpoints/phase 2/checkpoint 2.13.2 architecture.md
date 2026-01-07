@@ -1,4 +1,3 @@
-```raw_output\docs\checkpoints\phase 2\checkpoint 2.14.2 architecture.md#L1-37
 # Checkpoint 2.14.2 Architecture: Scroll Track Cut-out Refinement
 
 This document outlines the implementation of the "glass cut-out" effect for the benchmark table's scroll track, ensuring visual consistency and depth in the UI.

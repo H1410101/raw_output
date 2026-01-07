@@ -3,5 +3,5 @@ export interface KovaaksChallengeRun {
   scenarioName: string;
   score: number;
   completionDate: Date;
-  difficulty: "Easier" | "Medium" | "Hard" | null;
+  difficulty: "Easier" | "Medium" | "Harder" | null;
 }

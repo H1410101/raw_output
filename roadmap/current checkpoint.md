@@ -1,18 +1,24 @@
-```raw_output\roadmap\current checkpoint.md#L1-16
-# Current Checkpoint: 2.13.2: Scroll Track Cut-out
+```raw_output\roadmap\current checkpoint.md#L1-20
+# Current Checkpoint: 2.13.3: Colour & Transparency Tuning
 
 ## Status
 Completed
 
 ## Deliverables
-- Stationary glass background layer for the benchmark table container.
-- Implementation of a "cut-out" effect for the scroll track using inverted box-shadows.
-- Fixed-height (2rem) tactile scroll thumb with dual-layer inset shadows.
-- Synchronized custom drag logic to maintain 1:1 mouse tracking.
-- "Hover-to-scroll" behavior on the top and bottom 10% of the thumb.
+- Calibrated color hierarchy for the dot cloud visualization using the "lower band" palette.
+- Manual CSS variable resolution for Canvas rendering to ensure accurate color display.
+- Transitioned benchmark table, settings menu, and stats folder popout to a high-transparency `background-2` configuration.
+- Migrated stats folder popout typography to the "lower band" color tokens.
+- Synchronized tactile scroll thumb and dropdown shadows with the updated panel depth.
 
 ## Summary
-The benchmark table now features a unique, tactile scroll track. By using an inverted mask for the track and a custom-rendered thumb, we've achieved a "glass cut-out" look that remains responsive to both native dragging and a new automated hover-scroll interaction.
+The visual system has undergone a comprehensive tuning pass. By halving opacities twice for primary containers (table, settings, and stats popout) and migrating their structural shadows to the `background-2` palette, we've achieved a lighter, more integrated "glass" aesthetic. Secondary typography across the popout and visualizations now correctly respects the project's "lower band" color tokens, ensuring a cohesive hierarchy.
+
+## Todos before Milestone Checkpoint 2.14
+- remove recent and new, change to a popup
+- add rank names and rank progression
+- add helpful instructional popups hidden behind question marks, that are hidden unless the cursor is close enough. Do so for all-time and session headers, and the stats folder and most actions and unexplained lines in it, as well as the recents tab.
+- create and link real visual settings (under subcheckpoint 2.13.4: Visual Settings)
 
 ## Next Up
 Checkpoint 2.14: SFX Identity

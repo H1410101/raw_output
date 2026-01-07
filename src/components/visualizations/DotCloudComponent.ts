@@ -374,7 +374,11 @@ export class DotCloudComponent {
   ): void {
     if (!this._settings.showGridLines) return;
 
-    context.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    const styles = getComputedStyle(document.documentElement);
+
+    const rgb = styles.getPropertyValue("--lower-band-2-rgb").trim();
+
+    context.strokeStyle = `rgba(${rgb || "73, 108, 147"}, 0.4)`;
 
     context.lineWidth = 1;
 
@@ -392,7 +396,10 @@ export class DotCloudComponent {
     text: string,
     x: number,
   ): void {
-    context.fillStyle = "rgba(255, 255, 255, 0.4)";
+    const styles = getComputedStyle(document.documentElement);
+
+    context.fillStyle =
+      styles.getPropertyValue("--lower-band-1").trim() || "#3d527a";
 
     const metrics = context.measureText(text);
 
@@ -419,10 +426,23 @@ export class DotCloudComponent {
 
     const opacity = Math.max(0, Math.min(1, this._settings.dotOpacity / 100));
 
-    const baseFillStyle = `rgba(0, 242, 255, ${opacity})`;
-    const highlightFillStyle = `rgba(255, 255, 255, ${Math.min(1, opacity + 0.3)})`;
+    const styles = getComputedStyle(document.documentElement);
 
-    context.strokeStyle = `rgba(255, 255, 255, ${Math.min(0.2, opacity)})`;
+    const lowerBand1Rgb =
+      styles.getPropertyValue("--lower-band-1-rgb").trim() || "61, 82, 122";
+
+    const highlightFont1Rgb =
+      styles.getPropertyValue("--highlight-font-1-rgb").trim() ||
+      "224, 217, 187";
+
+    const baseFillStyle = `rgba(${lowerBand1Rgb}, ${opacity})`;
+
+    const highlightFillStyle = `rgba(${highlightFont1Rgb}, ${Math.min(
+      1,
+      opacity + 0.3,
+    )})`;
+
+    context.strokeStyle = `rgba(${lowerBand1Rgb}, ${Math.min(0.2, opacity)})`;
 
     context.lineWidth = this._microDotRadius * 0.5;
 
@@ -442,7 +462,7 @@ export class DotCloudComponent {
       context.fillStyle = isMostRecent ? highlightFillStyle : baseFillStyle;
 
       if (isMostRecent) {
-        context.shadowColor = "rgba(255, 255, 255, 0.8)";
+        context.shadowColor = `rgba(${highlightFont1Rgb}, 0.8)`;
         context.shadowBlur = this._microDotRadius * 2;
       }
 
