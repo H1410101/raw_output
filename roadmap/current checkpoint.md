@@ -1,16 +1,15 @@
-```raw_output\roadmap\current checkpoint.md#L1-15
-# Current Checkpoint: 2.11.1: Reactive Session Expiration
+# Current Checkpoint: 2.12: Inter-session Behaviour
 
 ## Status
 Completed
 
 ## Deliverables
-- Automated session reset timer.
-- UI synchronization on session timeout.
-- Support for session re-acquisition when increasing intervals.
+- Persistent application settings (Visual Settings, Session Interval).
+- Persistent UI state (Last selected difficulty, Popups/Menus state).
+- Consistent restoration of app state across restarts/refreshes.
 
 ## Summary
-The `SessionService` now manages an internal reactive timer that notifies UI listeners exactly when a session expires. To support re-acquisition, session data is preserved until a new run explicitly starts a fresh session, allowing the UI to "re-acquire" and display session bests if the user increases the inactivity threshold.
+The goal is to ensure that all user preferences and UI state are saved locally, providing a seamless experience where the application returns to its exact previous state upon being reopened.
 
 ## Next Up
-Checkpoint 2.12: Inter-session Behaviour
+Checkpoint 2.13: Visual Identity

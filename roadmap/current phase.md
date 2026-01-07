@@ -19,7 +19,7 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.10: Visual Settings Wiring
 - [x] 2.11: Session Interval Settings
 - [x] 2.11.1: Reactive Session Expiration
-- [ ] 2.12: Inter-session Behaviour
+- [x] 2.12: Inter-session Behaviour
 - [ ] 2.13: Visual Identity
 - [ ] 2.14: Tactile Animations
 - [ ] 2.15: SFX Identity

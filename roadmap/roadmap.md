@@ -94,7 +94,7 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Automated session reset timer.
 - **Commit Goal**: The UI automatically refreshes and clears session-specific data when the session timeout is reached, without requiring a manual page refresh or settings change.
 
-### Checkpoint 2.12: Inter-session Behaviour
+### Checkpoint 2.12: Inter-session Behaviour (Done)
 - **Deliverable**: Consistent app behaviour between sessions.
 - **Commit Goal**: Page is retained through app restarts, including settings and popups. All settings are persistent. 
 

@@ -17,6 +17,8 @@ import { DotCloudComponent } from "./visualizations/DotCloudComponent";
  * Handles the rendering and interaction logic for the Benchmark scenarios list.
  * Responsibility: Display scenarios filtered by difficulty and manage tabular alignment.
  */
+import { AppStateService } from "../services/AppStateService";
+
 export class BenchmarkView {
   private readonly _mountPoint: HTMLElement;
 
@@ -28,7 +30,9 @@ export class BenchmarkView {
 
   private readonly _sessionService: SessionService;
 
-  private _activeDifficulty: BenchmarkDifficulty = "Medium";
+  private _activeDifficulty: BenchmarkDifficulty;
+
+  private readonly _appStateService: AppStateService;
 
   private readonly _visualSettingsService: VisualSettingsService;
 
@@ -45,6 +49,7 @@ export class BenchmarkView {
     rankService: RankService,
     sessionService: SessionService,
     sessionSettingsService: SessionSettingsService,
+    appStateService: AppStateService,
   ) {
     this._mountPoint = mountPoint;
 
@@ -55,6 +60,10 @@ export class BenchmarkView {
     this._rankService = rankService;
 
     this._sessionService = sessionService;
+
+    this._appStateService = appStateService;
+
+    this._activeDifficulty = this._appStateService.get_benchmark_difficulty();
 
     this._sessionSettingsService = sessionSettingsService;
 
@@ -116,6 +125,10 @@ export class BenchmarkView {
     );
 
     this._setupStickyCentering();
+
+    if (this._appStateService.get_is_settings_menu_open()) {
+      this._openSettingsMenu();
+    }
   }
 
   private _setupStickyCentering(): void {
@@ -268,7 +281,12 @@ export class BenchmarkView {
 
   private _openSettingsMenu(): void {
     const existing = document.querySelector(".settings-overlay");
-    if (existing) existing.remove();
+
+    if (existing) {
+      return;
+    }
+
+    this._appStateService.set_is_settings_menu_open(true);
 
     const settingsOverlay = this._createSettingsOverlay();
 
@@ -286,6 +304,8 @@ export class BenchmarkView {
 
     overlayElement.addEventListener("click", (event) => {
       if (event.target === overlayElement) {
+        this._appStateService.set_is_settings_menu_open(false);
+
         overlayElement.remove();
       }
     });
@@ -606,6 +626,8 @@ export class BenchmarkView {
     difficulty: BenchmarkDifficulty,
   ): Promise<void> {
     this._activeDifficulty = difficulty;
+
+    this._appStateService.set_benchmark_difficulty(difficulty);
 
     await this.render();
   }

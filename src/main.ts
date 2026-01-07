@@ -9,6 +9,7 @@ import { RankService } from "./services/RankService";
 import { SessionService } from "./services/SessionService";
 import { SessionSettingsService } from "./services/SessionSettingsService";
 import { RunIngestionService } from "./services/RunIngestionService";
+import { AppStateService } from "./services/AppStateService";
 
 /**
  * The entry point for the Raw Output application.
@@ -155,6 +156,7 @@ async function initializeApplication(): Promise<void> {
   const benchmarkService = new BenchmarkService();
   const historyService = new HistoryService();
   const rankService = new RankService();
+  const appStateService = new AppStateService();
   const sessionSettingsService = new SessionSettingsService();
   const sessionService = new SessionService(
     rankService,
@@ -174,6 +176,7 @@ async function initializeApplication(): Promise<void> {
     rankService,
     sessionService,
     sessionSettingsService,
+    appStateService,
   );
 
   sessionService.onSessionUpdated(async () => {
@@ -196,6 +199,7 @@ async function initializeApplication(): Promise<void> {
     benchmarkView,
     ingestionService,
     newRunsDisplay,
+    appStateService,
   );
 
   await attemptInitialReconnection(
@@ -340,17 +344,20 @@ function setupNavigation(
   benchmarkView: BenchmarkView,
   ingestionService: RunIngestionService,
   newRunsDisplay: RecentRunsDisplay,
+  appStateService: AppStateService,
 ): void {
-  navRecent.addEventListener("click", () => {
+  const switch_to_recent = () => {
     navRecent.classList.add("active");
     navNew.classList.remove("active");
     navBenchmarks.classList.remove("active");
     viewRecent.classList.remove("hidden-view");
     viewNew.classList.add("hidden-view");
     viewBenchmarks.classList.add("hidden-view");
-  });
 
-  navNew.addEventListener("click", async () => {
+    appStateService.set_active_tab_id("nav-recent");
+  };
+
+  const switch_to_new = async () => {
     navNew.classList.add("active");
     navRecent.classList.remove("active");
     navBenchmarks.classList.remove("active");
@@ -358,19 +365,41 @@ function setupNavigation(
     viewRecent.classList.add("hidden-view");
     viewBenchmarks.classList.add("hidden-view");
 
-    const newRuns = await ingestionService.getNewRuns();
-    newRunsDisplay.renderRuns(newRuns);
-  });
+    appStateService.set_active_tab_id("nav-new");
 
-  navBenchmarks.addEventListener("click", async () => {
+    const new_runs = await ingestionService.getNewRuns();
+
+    newRunsDisplay.renderRuns(new_runs);
+  };
+
+  const switch_to_benchmarks = async () => {
     navBenchmarks.classList.add("active");
     navRecent.classList.remove("active");
     navNew.classList.remove("active");
     viewBenchmarks.classList.remove("hidden-view");
     viewRecent.classList.add("hidden-view");
     viewNew.classList.add("hidden-view");
+
+    appStateService.set_active_tab_id("nav-benchmarks");
+
     await benchmarkView.render();
-  });
+  };
+
+  navRecent.addEventListener("click", switch_to_recent);
+
+  navNew.addEventListener("click", switch_to_new);
+
+  navBenchmarks.addEventListener("click", switch_to_benchmarks);
+
+  const initial_tab_id = appStateService.get_active_tab_id();
+
+  if (initial_tab_id === "nav-new") {
+    switch_to_new();
+  } else if (initial_tab_id === "nav-benchmarks") {
+    switch_to_benchmarks();
+  } else {
+    switch_to_recent();
+  }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
