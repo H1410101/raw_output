@@ -8,7 +8,7 @@ const benchmarkFiles = import.meta.glob("../../benchmarks/ranks_*.csv", {
   eager: true,
 }) as Record<string, string>;
 
-export type BenchmarkDifficulty = "Easier" | "Medium" | "Hard";
+export type BenchmarkDifficulty = "Easier" | "Medium" | "Harder";
 
 export interface BenchmarkScenario {
   category: string;
@@ -88,7 +88,7 @@ function extractScenarios(csvContent: string): BenchmarkScenario[] {
 const BENCHMARK_MAP: Record<BenchmarkDifficulty, BenchmarkScenario[]> = {
   Easier: [],
   Medium: [],
-  Hard: [],
+  Harder: [],
 };
 
 // Populate the map from imported files
@@ -99,7 +99,7 @@ for (const [path, content] of Object.entries(benchmarkFiles)) {
   } else if (path.includes("medium")) {
     BENCHMARK_MAP.Medium = scenarios;
   } else if (path.includes("hard")) {
-    BENCHMARK_MAP.Hard = scenarios;
+    BENCHMARK_MAP.Harder = scenarios;
   }
 }
 
@@ -122,7 +122,8 @@ export const getScenariosByDifficulty = (
 export const getDifficulty = (
   scenarioName: string,
 ): BenchmarkDifficulty | null => {
-  if (BENCHMARK_MAP.Hard.some((s) => s.name === scenarioName)) return "Hard";
+  if (BENCHMARK_MAP.Harder.some((s) => s.name === scenarioName))
+    return "Harder";
 
   if (BENCHMARK_MAP.Medium.some((s) => s.name === scenarioName))
     return "Medium";

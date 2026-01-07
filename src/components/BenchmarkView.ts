@@ -1,8 +1,8 @@
-import { BenchmarkDifficulty, BenchmarkScenario } from "../data/benchmarks";
 import { BenchmarkService } from "../services/BenchmarkService";
 import { HistoryService } from "../services/HistoryService";
 import { RankService } from "../services/RankService";
 import { SessionService } from "../services/SessionService";
+import { AppStateService } from "../services/AppStateService";
 import {
   VisualSettingsService,
   VisualSettings,
@@ -12,34 +12,19 @@ import {
   SessionSettings,
 } from "../services/SessionSettingsService";
 import { DotCloudComponent } from "./visualizations/DotCloudComponent";
-
-/**
- * Handles the rendering and interaction logic for the Benchmark scenarios list.
- * Responsibility: Display scenarios filtered by difficulty and manage tabular alignment.
- */
-import { AppStateService } from "../services/AppStateService";
+import { BenchmarkScenario } from "../data/benchmarks";
 
 export class BenchmarkView {
   private readonly _mountPoint: HTMLElement;
-
   private readonly _benchmarkService: BenchmarkService;
-
   private readonly _historyService: HistoryService;
-
   private readonly _rankService: RankService;
-
   private readonly _sessionService: SessionService;
-
-  private _activeDifficulty: BenchmarkDifficulty;
-
+  private _activeDifficulty: string;
   private readonly _appStateService: AppStateService;
-
   private readonly _visualSettingsService: VisualSettingsService;
-
   private _currentVisualSettings: VisualSettings;
-
   private readonly _sessionSettingsService: SessionSettingsService;
-
   private _currentSessionSettings: SessionSettings;
 
   constructor(
@@ -52,39 +37,29 @@ export class BenchmarkView {
     appStateService: AppStateService,
   ) {
     this._mountPoint = mountPoint;
-
     this._benchmarkService = benchmarkService;
-
     this._historyService = historyService;
-
     this._rankService = rankService;
-
     this._sessionService = sessionService;
-
     this._appStateService = appStateService;
-
-    this._activeDifficulty = this._appStateService.get_benchmark_difficulty();
-
+    this._visualSettingsService = new VisualSettingsService();
     this._sessionSettingsService = sessionSettingsService;
 
-    this._currentSessionSettings = sessionSettingsService.get_settings();
-
-    this._visualSettingsService = new VisualSettingsService();
-
+    this._activeDifficulty = this._appStateService.get_benchmark_difficulty();
     this._currentVisualSettings = this._visualSettingsService.getSettings();
-
-    this._visualSettingsService.subscribe((settings) => {
-      this._currentVisualSettings = settings;
-      this.render();
-    });
+    this._currentSessionSettings = this._sessionSettingsService.get_settings();
 
     this._subscribeToUpdates();
   }
 
   private _subscribeToUpdates(): void {
+    this._visualSettingsService.subscribe((settings) => {
+      this._currentVisualSettings = settings;
+      this._refreshIfVisible();
+    });
+
     this._sessionSettingsService.subscribe((settings) => {
       this._currentSessionSettings = settings;
-
       this._refreshIfVisible();
     });
 
@@ -111,7 +86,7 @@ export class BenchmarkView {
 
   public async render(): Promise<void> {
     const scenarios = this._benchmarkService.getScenarios(
-      this._activeDifficulty,
+      this._activeDifficulty as any,
     );
 
     const highscores = await this._historyService.getBatchHighscores(
@@ -125,10 +100,6 @@ export class BenchmarkView {
     );
 
     this._setupStickyCentering();
-
-    if (this._appStateService.get_is_settings_menu_open()) {
-      this._openSettingsMenu();
-    }
   }
 
   private _setupStickyCentering(): void {
@@ -247,7 +218,7 @@ export class BenchmarkView {
 
     rightContainer.style.justifyContent = "flex-end";
 
-    rightContainer.appendChild(this._createSettingsButton(container));
+    rightContainer.appendChild(this._createSettingsButton());
 
     headerContainer.appendChild(rightContainer);
 
@@ -258,7 +229,7 @@ export class BenchmarkView {
     return container;
   }
 
-  private _createSettingsButton(_viewContainer: HTMLElement): HTMLElement {
+  private _createSettingsButton(): HTMLElement {
     const settingsButton = document.createElement("button");
 
     settingsButton.className = "visual-settings-button";
@@ -283,10 +254,8 @@ export class BenchmarkView {
     const existing = document.querySelector(".settings-overlay");
 
     if (existing) {
-      return;
+      existing.remove();
     }
-
-    this._appStateService.set_is_settings_menu_open(true);
 
     const settingsOverlay = this._createSettingsOverlay();
 
@@ -304,8 +273,6 @@ export class BenchmarkView {
 
     overlayElement.addEventListener("click", (event) => {
       if (event.target === overlayElement) {
-        this._appStateService.set_is_settings_menu_open(false);
-
         overlayElement.remove();
       }
     });
@@ -320,28 +287,52 @@ export class BenchmarkView {
 
     menuCardElement.appendChild(this._createSettingsMenuTitle());
 
-    // Visualization Group
-    menuCardElement.appendChild(this._createGroupTitle("Visualization"));
+    this._appendVisualizationSettings(menuCardElement);
 
-    menuCardElement.appendChild(
+    this._appendLayoutSettings(menuCardElement);
+
+    this._appendAudioSettings(menuCardElement);
+
+    this._appendSessionSettings(menuCardElement);
+
+    return menuCardElement;
+  }
+
+  private _appendVisualizationSettings(container: HTMLElement): void {
+    container.appendChild(this._createGroupTitle("Visualization"));
+
+    this._appendDotCloudGroup(container);
+
+    container.appendChild(
       this._createSettingToggle(
-        "Show Dot Cloud",
-        this._currentVisualSettings.showDotCloud,
+        "Show Grid Lines",
+        this._currentVisualSettings.showGridLines,
         (checked) =>
-          this._visualSettingsService.updateSetting("showDotCloud", checked),
+          this._visualSettingsService.updateSetting("showGridLines", checked),
       ),
     );
 
-    menuCardElement.appendChild(
+    container.appendChild(
+      this._createSettingToggle(
+        "Highlight Recent",
+        this._currentVisualSettings.highlightRecent,
+        (checked) =>
+          this._visualSettingsService.updateSetting("highlightRecent", checked),
+      ),
+    );
+  }
+
+  private _appendDotCloudGroup(container: HTMLElement): void {
+    const sub_rows = [
       this._createSettingSlider(
         "Dot Opacity",
         this._currentVisualSettings.dotOpacity,
         (value) =>
           this._visualSettingsService.updateSetting("dotOpacity", value),
+        10,
+        100,
+        false,
       ),
-    );
-
-    menuCardElement.appendChild(
       this._createSettingSegmentedControl(
         "Dot Cloud Bounds",
         ["Aligned", "Floating"],
@@ -352,9 +343,6 @@ export class BenchmarkView {
             value as "Aligned" | "Floating",
           ),
       ),
-    );
-
-    menuCardElement.appendChild(
       this._createSettingSegmentedControl(
         "Dot Size",
         ["Small", "Medium", "Large"],
@@ -365,39 +353,64 @@ export class BenchmarkView {
             value as "Small" | "Medium" | "Large",
           ),
       ),
-    );
-
-    menuCardElement.appendChild(
       this._createSettingToggle(
         "Jitter Dots",
         this._currentVisualSettings.dotJitter,
         (checked) =>
           this._visualSettingsService.updateSetting("dotJitter", checked),
       ),
+    ];
+
+    const sub_rows_container = document.createElement("div");
+    sub_rows_container.className = `settings-sub-rows ${
+      this._currentVisualSettings.showDotCloud ? "" : "hidden"
+    }`;
+    sub_rows.forEach((row) => sub_rows_container.appendChild(row));
+
+    const toggle = this._createSettingToggle(
+      "Dot Cloud",
+      this._currentVisualSettings.showDotCloud,
+      (checked) => {
+        this._visualSettingsService.updateSetting("showDotCloud", checked);
+        if (checked) {
+          this._revealSubRows(sub_rows_container);
+        } else {
+          this._hideSubRows(sub_rows_container);
+        }
+      },
     );
 
-    menuCardElement.appendChild(
+    container.appendChild(
+      this._createSettingsGroup(toggle, sub_rows_container),
+    );
+  }
+
+  private _appendLayoutSettings(container: HTMLElement): void {
+    container.appendChild(this._createGroupTitle("Layout"));
+
+    this._appendSizeGroup(container);
+
+    container.appendChild(
       this._createSettingToggle(
-        "Show Grid Lines",
-        this._currentVisualSettings.showGridLines,
+        "Show Session Best",
+        this._currentVisualSettings.showSessionBest,
         (checked) =>
-          this._visualSettingsService.updateSetting("showGridLines", checked),
+          this._visualSettingsService.updateSetting("showSessionBest", checked),
       ),
     );
 
-    menuCardElement.appendChild(
+    container.appendChild(
       this._createSettingToggle(
-        "Highlight Recent",
-        this._currentVisualSettings.highlightRecent,
+        "Show Rank Badges",
+        this._currentVisualSettings.showRankBadges,
         (checked) =>
-          this._visualSettingsService.updateSetting("highlightRecent", checked),
+          this._visualSettingsService.updateSetting("showRankBadges", checked),
       ),
     );
+  }
 
-    // Layout Group
-    menuCardElement.appendChild(this._createGroupTitle("Layout"));
-
-    menuCardElement.appendChild(
+  private _appendSizeGroup(container: HTMLElement): void {
+    const sub_rows = [
       this._createSettingSegmentedControl(
         "Row Height",
         ["Compact", "Normal", "Spacious"],
@@ -408,29 +421,91 @@ export class BenchmarkView {
             value as "Compact" | "Normal" | "Spacious",
           ),
       ),
-    );
-
-    menuCardElement.appendChild(
-      this._createSettingToggle(
-        "Show Session Best",
-        this._currentVisualSettings.showSessionBest,
-        (checked) =>
-          this._visualSettingsService.updateSetting("showSessionBest", checked),
+      this._createSettingSegmentedControl(
+        "Scenario Font Size",
+        ["Small", "Medium", "Large"],
+        this._currentVisualSettings.scenarioFontSize,
+        (value) =>
+          this._visualSettingsService.updateSetting(
+            "scenarioFontSize",
+            value as "Small" | "Medium" | "Large",
+          ),
       ),
-    );
-
-    menuCardElement.appendChild(
-      this._createSettingToggle(
-        "Show Rank Badges",
-        this._currentVisualSettings.showRankBadges,
-        (checked) =>
-          this._visualSettingsService.updateSetting("showRankBadges", checked),
+      this._createSettingSegmentedControl(
+        "Rank Font Size",
+        ["Small", "Medium", "Large"],
+        this._currentVisualSettings.rankFontSize,
+        (value) =>
+          this._visualSettingsService.updateSetting(
+            "rankFontSize",
+            value as "Small" | "Medium" | "Large",
+          ),
       ),
+    ];
+
+    const sub_rows_container = document.createElement("div");
+    sub_rows_container.className = "settings-sub-rows";
+    sub_rows.forEach((row) => sub_rows_container.appendChild(row));
+
+    const master_scaling = this._createSettingSegmentedControl(
+      "Master Scaling",
+      ["0.8x", "1.0x", "1.2x"],
+      "1.0x",
+      () => {},
     );
 
-    menuCardElement.appendChild(this._createGroupTitle("Session"));
+    container.appendChild(
+      this._createSettingsGroup(master_scaling, sub_rows_container),
+    );
+  }
 
-    menuCardElement.appendChild(
+  private _appendAudioSettings(container: HTMLElement): void {
+    container.appendChild(this._createGroupTitle("Audio"));
+
+    const sub_rows: HTMLElement[] = [];
+
+    for (let i = 1; i <= 7; i++) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "setting-item";
+      const label = document.createElement("label");
+      label.textContent = `Audio Placeholder ${i}`;
+      placeholder.appendChild(label);
+      sub_rows.push(placeholder);
+    }
+
+    const sub_rows_container = document.createElement("div");
+    sub_rows_container.className = "settings-sub-rows hidden";
+    sub_rows.forEach((row) => sub_rows_container.appendChild(row));
+
+    const master_volume_slider = this._createSettingSlider(
+      "Master Volume (Placeholder)",
+      0,
+      (value) => {
+        const is_active = value > 0;
+
+        if (is_active && sub_rows_container.classList.contains("hidden")) {
+          this._revealSubRows(sub_rows_container);
+        } else if (
+          !is_active &&
+          !sub_rows_container.classList.contains("hidden")
+        ) {
+          this._hideSubRows(sub_rows_container);
+        }
+      },
+      10,
+      100,
+      true,
+    );
+
+    container.appendChild(
+      this._createSettingsGroup(master_volume_slider, sub_rows_container),
+    );
+  }
+
+  private _appendSessionSettings(container: HTMLElement): void {
+    container.appendChild(this._createGroupTitle("Session"));
+
+    container.appendChild(
       this._createSettingSlider(
         "Session Interval (min)",
         this._currentSessionSettings.sessionTimeoutMinutes,
@@ -441,10 +516,37 @@ export class BenchmarkView {
           ),
         1,
         120,
+        false,
       ),
     );
+  }
 
-    return menuCardElement;
+  private _createSettingsGroup(
+    main_row: HTMLElement,
+    sub_rows_container: HTMLElement,
+  ): HTMLElement {
+    const group_container = document.createElement("div");
+    group_container.className = "settings-group";
+
+    group_container.appendChild(main_row);
+    group_container.appendChild(sub_rows_container);
+
+    return group_container;
+  }
+
+  private _revealSubRows(container: HTMLElement): void {
+    container.classList.remove("hidden");
+    container.style.overflowY = "hidden";
+    setTimeout(() => {
+      if (!container.classList.contains("hidden")) {
+        container.style.overflowY = "auto";
+      }
+    }, 250);
+  }
+
+  private _hideSubRows(container: HTMLElement): void {
+    container.classList.add("hidden");
+    container.style.overflowY = "hidden";
   }
 
   private _createSettingsMenuTitle(): HTMLElement {
@@ -471,23 +573,23 @@ export class BenchmarkView {
 
     container.className = "setting-item toggle-item";
 
-    const labelElement = document.createElement("label");
+    const label_element = document.createElement("label");
 
-    labelElement.textContent = label;
+    label_element.textContent = label;
 
-    const input = document.createElement("input");
+    container.appendChild(label_element);
 
-    input.type = "checkbox";
+    const checkbox = document.createElement("div");
 
-    input.checked = checked;
+    checkbox.className = `circle-checkbox ${checked ? "checked" : ""}`;
+    checkbox.style.transition = "none";
 
-    input.addEventListener("change", (e) => {
-      onChange((e.target as HTMLInputElement).checked);
+    container.appendChild(checkbox);
+    checkbox.addEventListener("click", () => {
+      const is_checked = checkbox.classList.toggle("checked");
+
+      onChange(is_checked);
     });
-
-    container.appendChild(labelElement);
-
-    container.appendChild(input);
 
     return container;
   }
@@ -498,52 +600,136 @@ export class BenchmarkView {
     onChange: (value: number) => void,
     min: number = 0,
     max: number = 100,
+    show_notch: boolean = false,
   ): HTMLElement {
     const container = document.createElement("div");
 
     container.className = "setting-item slider-item";
 
-    const label_container = document.createElement("div");
-
-    label_container.className = "slider-label-container";
-
     const label_element = document.createElement("label");
 
     label_element.textContent = label;
 
-    const value_display = document.createElement("span");
+    container.appendChild(label_element);
 
-    value_display.className = "slider-value-display";
+    const slider_container = document.createElement("div");
 
-    value_display.textContent = value.toString();
+    slider_container.className = "dot-slider-container";
 
-    label_container.appendChild(label_element);
+    const notch = document.createElement("div");
 
-    label_container.appendChild(value_display);
+    notch.className = `slider-notch ${show_notch ? "" : "hidden"}`;
 
-    const input = document.createElement("input");
+    const track = this._createDotTrack(value, min, max, 9, onChange);
 
-    input.type = "range";
+    if (show_notch) {
+      notch.addEventListener("click", () => {
+        onChange(0);
+        this._updateTrackVisuals(track, -1);
+      });
+    }
 
-    input.min = min.toString();
+    slider_container.appendChild(notch);
 
-    input.max = max.toString();
+    slider_container.appendChild(track);
 
-    input.value = value.toString();
-
-    input.addEventListener("input", (event) => {
-      const new_value = parseInt((event.target as HTMLInputElement).value, 10);
-
-      value_display.textContent = new_value.toString();
-
-      onChange(new_value);
-    });
-
-    container.appendChild(label_container);
-
-    container.appendChild(input);
+    container.appendChild(slider_container);
 
     return container;
+  }
+
+  private _createDotTrack(
+    current_value: number,
+    min: number,
+    max: number,
+    dot_count: number,
+    onChange: (value: number) => void,
+  ): HTMLElement {
+    const track = document.createElement("div");
+
+    track.className = "dot-track";
+
+    const selected_index = Math.round(
+      ((current_value - min) / (max - min)) * (dot_count - 1),
+    );
+
+    track.dataset.selectedIndex = selected_index.toString();
+
+    for (let i = 0; i < dot_count; i++) {
+      const dot_container = this._createDot(i, selected_index, () => {
+        const new_value = Math.round(min + (i / (dot_count - 1)) * (max - min));
+
+        this._updateTrackVisuals(track, i);
+
+        onChange(new_value);
+      });
+
+      track.appendChild(dot_container);
+    }
+
+    return track;
+  }
+
+  private _createDot(
+    index: number,
+    selected_index: number,
+    onClick: () => void,
+  ): HTMLElement {
+    const container = document.createElement("div");
+
+    container.className = "dot-socket-container";
+
+    const dot = document.createElement("div");
+
+    dot.className = "dot-target";
+
+    this._applyDotState(dot, index, selected_index);
+
+    container.appendChild(dot);
+
+    container.addEventListener("click", (e) => {
+      e.stopPropagation();
+      onClick();
+    });
+
+    return container;
+  }
+
+  private _updateTrackVisuals(
+    track: HTMLElement,
+    new_selected_index: number,
+  ): void {
+    const dots = track.querySelectorAll(".dot-target");
+    const previous_index = parseInt(track.dataset.selectedIndex || "-1");
+    track.dataset.selectedIndex = new_selected_index.toString();
+
+    dots.forEach((dot, index) => {
+      const distance = Math.abs(index - previous_index);
+      const delay = distance * 0.03;
+
+      const dotEl = dot as HTMLElement;
+      dotEl.style.transition =
+        "background 0.2s ease, box-shadow 0.2s ease, height 0.2s ease, border-radius 0.2s ease";
+      dotEl.style.transitionDelay = `${delay}s`;
+
+      this._applyDotState(dotEl, index, new_selected_index);
+    });
+  }
+
+  private _applyDotState(
+    dot: HTMLElement,
+    index: number,
+    selected_index: number,
+  ): void {
+    dot.classList.remove("pill", "glow", "dull");
+
+    if (index === selected_index) {
+      dot.classList.add("pill");
+    } else if (index < selected_index) {
+      dot.classList.add("glow");
+    } else {
+      dot.classList.add("dull");
+    }
   }
 
   private _createSettingSegmentedControl(
@@ -556,38 +742,29 @@ export class BenchmarkView {
 
     container.className = "setting-item segmented-item";
 
-    const labelElement = document.createElement("label");
+    const label_element = document.createElement("label");
 
-    labelElement.textContent = label;
+    label_element.textContent = label;
 
-    container.appendChild(labelElement);
+    container.appendChild(label_element);
 
-    const controls = document.createElement("div");
+    const track = document.createElement("div");
 
-    controls.className = "segmented-controls";
+    track.className = "multi-select-dots";
 
-    options.forEach((option) => {
-      const button = document.createElement("button");
+    const selected_index = options.indexOf(currentValue);
+    track.dataset.selectedIndex = selected_index.toString();
 
-      button.textContent = option;
-
-      button.className = `segment-button ${
-        option === currentValue ? "active" : ""
-      }`;
-
-      button.addEventListener("click", () => {
+    options.forEach((option, index) => {
+      const dot_container = this._createDot(index, selected_index, () => {
+        this._updateTrackVisuals(track, index);
         onChange(option);
-        // Visual update of buttons
-        controls
-          .querySelectorAll(".segment-button")
-          .forEach((b) => b.classList.remove("active"));
-        button.classList.add("active");
       });
 
-      controls.appendChild(button);
+      track.appendChild(dot_container);
     });
 
-    container.appendChild(controls);
+    container.appendChild(track);
 
     return container;
   }
@@ -597,7 +774,7 @@ export class BenchmarkView {
 
     tabsContainer.className = "difficulty-tabs";
 
-    const difficulties: BenchmarkDifficulty[] = ["Easier", "Medium", "Hard"];
+    const difficulties = ["Easier", "Medium", "Harder"];
 
     difficulties.forEach((difficulty) => {
       tabsContainer.appendChild(this._createTab(difficulty));
@@ -606,7 +783,7 @@ export class BenchmarkView {
     return tabsContainer;
   }
 
-  private _createTab(difficulty: BenchmarkDifficulty): HTMLButtonElement {
+  private _createTab(difficulty: string): HTMLButtonElement {
     const tab = document.createElement("button");
 
     const isActive = this._activeDifficulty === difficulty;
@@ -622,12 +799,10 @@ export class BenchmarkView {
     return tab;
   }
 
-  private async _handleDifficultyChange(
-    difficulty: BenchmarkDifficulty,
-  ): Promise<void> {
+  private async _handleDifficultyChange(difficulty: string): Promise<void> {
     this._activeDifficulty = difficulty;
 
-    this._appStateService.set_benchmark_difficulty(difficulty);
+    this._appStateService.set_benchmark_difficulty(difficulty as any);
 
     await this.render();
   }

@@ -4,6 +4,8 @@ export interface VisualSettings {
   scalingMode: "Aligned" | "Floating";
   dotSize: "Small" | "Medium" | "Large";
   rowHeight: "Compact" | "Normal" | "Spacious";
+  scenarioFontSize: "Small" | "Medium" | "Large";
+  rankFontSize: "Small" | "Medium" | "Large";
   showSessionBest: boolean;
   showRankBadges: boolean;
   dotJitter: boolean;
@@ -68,6 +70,8 @@ export class VisualSettingsService {
       scalingMode: "Aligned",
       dotSize: "Medium",
       rowHeight: "Normal",
+      scenarioFontSize: "Medium",
+      rankFontSize: "Medium",
       showSessionBest: true,
       showRankBadges: true,
       dotJitter: true,
