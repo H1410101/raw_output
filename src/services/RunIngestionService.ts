@@ -25,8 +25,6 @@ export class RunIngestionService {
 
   private readonly _benchmarkService: BenchmarkService;
 
-  private readonly _sessionGapMilliseconds: number = 10 * 60 * 1000;
-
   private readonly _appStartTime: number;
 
   constructor(
@@ -196,6 +194,17 @@ export class RunIngestionService {
       return sessionItems;
     }
 
+    const now = Date.now();
+
+    const mostRecentRunTime = sortedHandles[0].date.getTime();
+
+    if (
+      now - mostRecentRunTime >
+      this._sessionService.session_timeout_milliseconds
+    ) {
+      return sessionItems;
+    }
+
     sessionItems.push(sortedHandles[0]);
 
     for (let i = 1; i < sortedHandles.length; i++) {
@@ -205,7 +214,7 @@ export class RunIngestionService {
 
       const gap = previous.date.getTime() - current.date.getTime();
 
-      if (gap > this._sessionGapMilliseconds) {
+      if (gap > this._sessionService.session_timeout_milliseconds) {
         break;
       }
 

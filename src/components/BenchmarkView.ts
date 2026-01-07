@@ -7,6 +7,10 @@ import {
   VisualSettingsService,
   VisualSettings,
 } from "../services/VisualSettingsService";
+import {
+  SessionSettingsService,
+  SessionSettings,
+} from "../services/SessionSettingsService";
 import { DotCloudComponent } from "./visualizations/DotCloudComponent";
 
 /**
@@ -30,12 +34,17 @@ export class BenchmarkView {
 
   private _currentVisualSettings: VisualSettings;
 
+  private readonly _sessionSettingsService: SessionSettingsService;
+
+  private _currentSessionSettings: SessionSettings;
+
   constructor(
     mountPoint: HTMLElement,
     benchmarkService: BenchmarkService,
     historyService: HistoryService,
     rankService: RankService,
     sessionService: SessionService,
+    sessionSettingsService: SessionSettingsService,
   ) {
     this._mountPoint = mountPoint;
 
@@ -46,6 +55,10 @@ export class BenchmarkView {
     this._rankService = rankService;
 
     this._sessionService = sessionService;
+
+    this._sessionSettingsService = sessionSettingsService;
+
+    this._currentSessionSettings = sessionSettingsService.get_settings();
 
     this._visualSettingsService = new VisualSettingsService();
 
@@ -60,6 +73,12 @@ export class BenchmarkView {
   }
 
   private _subscribeToUpdates(): void {
+    this._sessionSettingsService.subscribe((settings) => {
+      this._currentSessionSettings = settings;
+
+      this._refreshIfVisible();
+    });
+
     this._historyService.onHighscoreUpdated(() => {
       this._refreshIfVisible();
     });
@@ -389,6 +408,22 @@ export class BenchmarkView {
       ),
     );
 
+    menuCardElement.appendChild(this._createGroupTitle("Session"));
+
+    menuCardElement.appendChild(
+      this._createSettingSlider(
+        "Session Interval (min)",
+        this._currentSessionSettings.sessionTimeoutMinutes,
+        (value) =>
+          this._sessionSettingsService.update_setting(
+            "sessionTimeoutMinutes",
+            value,
+          ),
+        1,
+        120,
+      ),
+    );
+
     return menuCardElement;
   }
 
@@ -441,30 +476,50 @@ export class BenchmarkView {
     label: string,
     value: number,
     onChange: (value: number) => void,
+    min: number = 0,
+    max: number = 100,
   ): HTMLElement {
     const container = document.createElement("div");
 
     container.className = "setting-item slider-item";
 
-    const labelElement = document.createElement("label");
+    const label_container = document.createElement("div");
 
-    labelElement.textContent = label;
+    label_container.className = "slider-label-container";
+
+    const label_element = document.createElement("label");
+
+    label_element.textContent = label;
+
+    const value_display = document.createElement("span");
+
+    value_display.className = "slider-value-display";
+
+    value_display.textContent = value.toString();
+
+    label_container.appendChild(label_element);
+
+    label_container.appendChild(value_display);
 
     const input = document.createElement("input");
 
     input.type = "range";
 
-    input.min = "0";
+    input.min = min.toString();
 
-    input.max = "100";
+    input.max = max.toString();
 
     input.value = value.toString();
 
-    input.addEventListener("input", (e) => {
-      onChange(parseInt((e.target as HTMLInputElement).value, 10));
+    input.addEventListener("input", (event) => {
+      const new_value = parseInt((event.target as HTMLInputElement).value, 10);
+
+      value_display.textContent = new_value.toString();
+
+      onChange(new_value);
     });
 
-    container.appendChild(labelElement);
+    container.appendChild(label_container);
 
     container.appendChild(input);
 
@@ -665,10 +720,6 @@ export class BenchmarkView {
 
     header.className = "subcategory-header";
 
-    const spacer = document.createElement("div");
-
-    spacer.className = "header-spacer";
-
     const sessionLabel = this._createColumnHeader("Session");
 
     const allTimeLabel = this._createColumnHeader("All-time");
@@ -681,18 +732,16 @@ export class BenchmarkView {
 
     actionSpacer.className = "header-action-spacer";
 
-    header.appendChild(spacer);
-
-    if (this._currentVisualSettings.showSessionBest) {
-      header.appendChild(sessionLabel);
+    if (this._currentVisualSettings.showDotCloud) {
+      header.appendChild(dotSpacer);
     }
 
     if (this._currentVisualSettings.showRankBadges) {
       header.appendChild(allTimeLabel);
     }
 
-    if (this._currentVisualSettings.showDotCloud) {
-      header.appendChild(dotSpacer);
+    if (this._currentVisualSettings.showSessionBest) {
+      header.appendChild(sessionLabel);
     }
 
     header.appendChild(actionSpacer);
@@ -820,15 +869,17 @@ export class BenchmarkView {
   }
 
   private _createSessionRankBadge(scenario: BenchmarkScenario): HTMLElement {
-    const sessionBest = this._sessionService.getScenarioSessionBest(
+    const session_best = this._sessionService.getScenarioSessionBest(
       scenario.name,
     );
 
-    const score = sessionBest ? sessionBest.bestScore : 0;
+    const score = session_best ? session_best.bestScore : 0;
 
     const badge = this._createRankBadge(scenario, score);
 
-    if (score === 0) {
+    const is_inactive = !this._sessionService.is_session_active();
+
+    if (score === 0 || is_inactive) {
       badge.style.visibility = "hidden";
     }
 

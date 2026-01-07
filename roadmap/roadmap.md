@@ -86,9 +86,13 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Reactivity and State Management for visualizations.
 - **Commit Goal**: The "Visual Settings" controls are fully wired up, allowing the user to adjust visual parameters in real-time.
 
-### Checkpoint 2.11: Session Interval Settings
+### Checkpoint 2.11: Session Interval Settings (Done)
 - **Deliverable**: Configurable session timeout logic.
 - **Commit Goal**: A setting is added to define the session inactivity interval. The UI avoids showing session stats for the last played session if that session is no longer active based on this interval.
+
+### Checkpoint 2.11.1: Reactive Session Expiration (Done)
+- **Deliverable**: Automated session reset timer.
+- **Commit Goal**: The UI automatically refreshes and clears session-specific data when the session timeout is reached, without requiring a manual page refresh or settings change.
 
 ### Checkpoint 2.12: Inter-session Behaviour
 - **Deliverable**: Consistent app behaviour between sessions.

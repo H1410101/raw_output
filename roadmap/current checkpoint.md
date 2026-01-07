@@ -1,15 +1,16 @@
-# Current Checkpoint: 2.11: Session Interval Settings
+```raw_output\roadmap\current checkpoint.md#L1-15
+# Current Checkpoint: 2.11.1: Reactive Session Expiration
 
 ## Status
-In Progress
+Completed
 
 ## Deliverables
-- Configurable session timeout logic.
-- UI setting for inactivity interval.
-- Session statistics filtering based on the defined interval.
+- Automated session reset timer.
+- UI synchronization on session timeout.
+- Support for session re-acquisition when increasing intervals.
 
 ## Summary
-This checkpoint introduces the ability for users to define what constitutes a "session" via an inactivity timeout. The system will use this setting to determine if the most recent runs should be grouped into the current active session or if they belong to a historical one, ensuring the "Live Session" data remains relevant to the user's current training block.
+The `SessionService` now manages an internal reactive timer that notifies UI listeners exactly when a session expires. To support re-acquisition, session data is preserved until a new run explicitly starts a fresh session, allowing the UI to "re-acquire" and display session bests if the user increases the inactivity threshold.
 
 ## Next Up
 Checkpoint 2.12: Inter-session Behaviour

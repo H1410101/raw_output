@@ -376,10 +376,8 @@
                 box-sizing: border-box;
                 border-bottom: none;
                 pointer-events: none;
-            }
-
-            .header-spacer {
-                flex: 1;
+                justify-content: flex-end;
+                gap: 2rem;
             }
 
             .column-header {
@@ -390,7 +388,6 @@
                 color: #404046;
                 text-transform: uppercase;
                 letter-spacing: 0.12em;
-                margin-left: 2rem;
             }
 
             .subcategory-header .column-header:last-of-type {
@@ -404,7 +401,6 @@
 
             .header-action-spacer {
                 width: 2rem;
-                margin-left: 2rem;
             }
 
             .subcategory-body {
@@ -716,6 +712,20 @@
                 font-size: 0.8rem;
                 color: #a0a0aa;
                 white-space: nowrap;
+            }
+
+            .slider-label-container {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                flex: 1;
+            }
+
+            .slider-value-display {
+                font-size: 0.75rem;
+                color: var(--accent-color);
+                font-weight: 600;
+                min-width: 1.5rem;
             }
 
             .setting-item input[type="range"] {

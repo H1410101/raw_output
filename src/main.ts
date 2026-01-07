@@ -7,6 +7,7 @@ import { BenchmarkView } from "./components/BenchmarkView";
 import { HistoryService } from "./services/HistoryService";
 import { RankService } from "./services/RankService";
 import { SessionService } from "./services/SessionService";
+import { SessionSettingsService } from "./services/SessionSettingsService";
 import { RunIngestionService } from "./services/RunIngestionService";
 
 /**
@@ -154,7 +155,11 @@ async function initializeApplication(): Promise<void> {
   const benchmarkService = new BenchmarkService();
   const historyService = new HistoryService();
   const rankService = new RankService();
-  const sessionService = new SessionService(rankService);
+  const sessionSettingsService = new SessionSettingsService();
+  const sessionService = new SessionService(
+    rankService,
+    sessionSettingsService,
+  );
   const ingestionService = new RunIngestionService(
     directoryService,
     csvService,
@@ -168,9 +173,17 @@ async function initializeApplication(): Promise<void> {
     historyService,
     rankService,
     sessionService,
+    sessionSettingsService,
   );
 
+  sessionService.onSessionUpdated(async () => {
+    const newRuns = await ingestionService.getNewRuns();
+
+    newRunsDisplay.renderRuns(newRuns);
+  });
+
   statusDisplay.reportReady();
+
   await benchmarkView.render();
 
   setupNavigation(

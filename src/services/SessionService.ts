@@ -1,5 +1,6 @@
 import { BenchmarkScenario } from "../data/benchmarks";
 import { RankResult, RankService } from "./RankService";
+import { SessionSettingsService } from "./SessionSettingsService";
 
 export type SessionUpdateListener = () => void;
 
@@ -11,12 +12,19 @@ export interface SessionRankRecord {
 
 /**
  * Responsibility: Track session boundaries and best ranks achieved within a session.
- * A session is defined as a series of runs where consecutive runs are no longer than 10 minutes apart.
+ * Supports "Reactive Expiration" via timers and "Session Re-acquisition" by preserving
+ * data until a fresh run explicitly starts a new session window.
  */
 export class SessionService {
-  private readonly _sessionTimeoutMilliseconds: number = 10 * 60 * 1000;
+  private _sessionTimeoutMilliseconds: number = 10 * 60 * 1000;
+
+  public get session_timeout_milliseconds(): number {
+    return this._sessionTimeoutMilliseconds;
+  }
 
   private readonly _rankService: RankService;
+
+  private readonly _sessionSettingsService: SessionSettingsService;
 
   private _lastRunTimestamp: number | null = null;
 
@@ -26,8 +34,17 @@ export class SessionService {
 
   private _sessionUpdateListeners: SessionUpdateListener[] = [];
 
-  constructor(rankService: RankService) {
+  private _expiration_timer_id: number | null = null;
+
+  constructor(
+    rankService: RankService,
+    sessionSettingsService: SessionSettingsService,
+  ) {
     this._rankService = rankService;
+
+    this._sessionSettingsService = sessionSettingsService;
+
+    this._subscribe_to_settings_updates();
   }
 
   public onSessionUpdated(listener: SessionUpdateListener): void {
@@ -56,28 +73,16 @@ export class SessionService {
     }[],
   ): void {
     runs.forEach((run) => {
-      this._refreshSessionIfExpired(run.timestamp.getTime());
+      this._start_new_session_if_expired(run.timestamp.getTime());
 
       this._updateLastRunTimestamp(run.timestamp.getTime());
 
-      if (run.scenario) {
-        const rankResult = this._updateScenarioSessionBest(
-          run.scenarioName,
-          run.score,
-          run.scenario,
-        );
-
-        if (run.difficulty) {
-          this._updateDifficultySessionBest(run.difficulty, rankResult);
-        }
-      }
+      this._process_run_data(run);
     });
 
-    this._notifySessionUpdate();
-  }
+    this._schedule_expiration_check();
 
-  private _notifySessionUpdate(): void {
-    this._sessionUpdateListeners.forEach((listener) => listener());
+    this._notifySessionUpdate();
   }
 
   public getScenarioSessionBest(
@@ -90,6 +95,16 @@ export class SessionService {
     return this._sessionBestPerDifficulty.get(difficulty) || null;
   }
 
+  public is_session_active(current_timestamp: number = Date.now()): boolean {
+    if (this._lastRunTimestamp === null) {
+      return false;
+    }
+
+    const elapsed = current_timestamp - this._lastRunTimestamp;
+
+    return elapsed <= this._sessionTimeoutMilliseconds;
+  }
+
   public resetSession(): void {
     this._sessionBestRanks.clear();
 
@@ -97,27 +112,96 @@ export class SessionService {
 
     this._lastRunTimestamp = null;
 
+    this._clear_expiration_timer();
+
     this._notifySessionUpdate();
   }
 
-  private _refreshSessionIfExpired(currentTimestamp: number): void {
-    if (this._isSessionExpired(currentTimestamp)) {
+  private _subscribe_to_settings_updates(): void {
+    this._sessionSettingsService.subscribe((settings) => {
+      this._sessionTimeoutMilliseconds =
+        settings.sessionTimeoutMinutes * 60 * 1000;
+
+      this._schedule_expiration_check();
+
+      this._notifySessionUpdate();
+    });
+  }
+
+  private _start_new_session_if_expired(currentTimestamp: number): void {
+    const elapsed = this._lastRunTimestamp
+      ? currentTimestamp - this._lastRunTimestamp
+      : 0;
+
+    const is_beyond_timeout = elapsed > this._sessionTimeoutMilliseconds;
+
+    if (this._lastRunTimestamp !== null && is_beyond_timeout) {
       this.resetSession();
     }
   }
 
-  private _isSessionExpired(currentTimestamp: number): boolean {
-    if (this._lastRunTimestamp === null) {
-      return false;
-    }
-
-    const elapsed = currentTimestamp - this._lastRunTimestamp;
-
-    return elapsed > this._sessionTimeoutMilliseconds;
-  }
-
   private _updateLastRunTimestamp(timestamp: number): void {
     this._lastRunTimestamp = timestamp;
+  }
+
+  private _process_run_data(run: {
+    scenarioName: string;
+    score: number;
+    scenario: BenchmarkScenario | null;
+    difficulty: string | null;
+  }): void {
+    if (!run.scenario) {
+      return;
+    }
+
+    const rankResult = this._updateScenarioSessionBest(
+      run.scenarioName,
+      run.score,
+      run.scenario,
+    );
+
+    if (run.difficulty) {
+      this._updateDifficultySessionBest(run.difficulty, rankResult);
+    }
+  }
+
+  private _schedule_expiration_check(): void {
+    this._clear_expiration_timer();
+
+    if (this._lastRunTimestamp === null) {
+      return;
+    }
+
+    const expiration_time =
+      this._lastRunTimestamp + this._sessionTimeoutMilliseconds;
+
+    const delay = expiration_time - Date.now();
+
+    this._set_reactive_timer_or_notify(delay);
+  }
+
+  private _set_reactive_timer_or_notify(delay: number): void {
+    if (delay <= 0) {
+      this._notifySessionUpdate();
+
+      return;
+    }
+
+    this._expiration_timer_id = window.setTimeout(() => {
+      this._notifySessionUpdate();
+    }, delay);
+  }
+
+  private _clear_expiration_timer(): void {
+    if (this._expiration_timer_id !== null) {
+      window.clearTimeout(this._expiration_timer_id);
+
+      this._expiration_timer_id = null;
+    }
+  }
+
+  private _notifySessionUpdate(): void {
+    this._sessionUpdateListeners.forEach((listener) => listener());
   }
 
   private _updateScenarioSessionBest(
@@ -156,12 +240,13 @@ export class SessionService {
   ): void {
     const currentBest = this._sessionBestPerDifficulty.get(difficulty);
 
-    if (
+    const is_new_best =
       !currentBest ||
       rankResult.rankLevel > currentBest.rankLevel ||
       (rankResult.rankLevel === currentBest.rankLevel &&
-        rankResult.progressPercentage > currentBest.progressPercentage)
-    ) {
+        rankResult.progressPercentage > currentBest.progressPercentage);
+
+    if (is_new_best) {
       this._sessionBestPerDifficulty.set(difficulty, rankResult);
     }
   }
