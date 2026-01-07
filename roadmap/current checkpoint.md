@@ -1,18 +1,16 @@
-```raw_output\roadmap\current checkpoint.md#L1-16
-# Current Checkpoint: 2.15: SFX Identity
+# Current Checkpoint: 2.14.1: Background Dynamics
 
 ## Status
-In Progress
+Done
 
 ## Deliverables
-- Centralized `AudioService` for sound management.
-- Interaction SFX for slider dot selection.
-- Hover and activation sounds for primary buttons and tabs.
-- Toggle switch audio feedback.
-- Sound bank integration (0.5x, 1x, etc. pitch variants for variety).
+- A global "dot grid" background (10rem spacing) with 0.05rem blur.
+- Multiple overlapping "opacity ripples" with sharp borders.
+- Slower, multi-directional ripple movement (90s-140s cycles).
+- Depth interaction via backdrop-filter on foreground panels.
 
 ## Summary
-Introducing a distinct SFX identity to complement the tactile visual overhaul. This checkpoint ensures the application provides multi-modal feedback for every meaningful user interaction, reinforcing the "performance tool" feel.
+Adding depth and movement to the application's background to reinforce the new visual identity. The background dynamics will provide a subtle, non-distracting layer of polish that interacts with the foreground elements.
 
 ## Next Up
-Checkpoint 2.16: Milestone - Code Consolidation & Debt Payoff
+Checkpoint 2.15: SFX Identity

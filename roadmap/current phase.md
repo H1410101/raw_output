@@ -22,5 +22,6 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.12: Inter-session Behaviour
 - [x] 2.13: Visual Identity
 - [x] 2.14: Tactile Animations
+- [x] 2.14.1: Background Dynamics
 - [ ] 2.15: SFX Identity
 - [ ] 2.16: Milestone - Code Consolidation & Debt Payoff

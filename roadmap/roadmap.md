@@ -106,6 +106,10 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Refined UI styling and micro-interactions.
 - **Commit Goal**: The application's interactions are made distinctive as well, with subtle animations.
 
+### Checkpoint 2.14.1: Background Dynamics
+- **Deliverable**: Dynamic background dot grid with ripple effects.
+- **Commit Goal**: A dot grid background (10rem spacing, grey dots) is added, featuring transparency ripples and background blur interaction with the benchmark cards.
+
 ### Checkpoint 2.15: SFX Identity
 - **Deliverable**: Sound effects to relevant interactions.
 - **Commit Goal**: The application is no longer fully quiet; it sounds distinctive and has a sound bank that subjectively matches the theme.

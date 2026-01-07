@@ -38,6 +38,105 @@
                 height: 100vh;
             }
 
+            .background-dynamics {
+                position: fixed;
+                inset: 0;
+                z-index: -1;
+                pointer-events: none;
+                opacity: 0.3;
+            }
+
+            .base-grid {
+                position: absolute;
+                inset: 0;
+                background-image: radial-gradient(
+                    circle,
+                    #fff 0.12rem,
+                    transparent 0
+                );
+                background-size: 1.5rem 1.5rem;
+                background-position: center;
+                opacity: 0;
+            }
+
+            .ripple {
+                position: absolute;
+                inset: 0;
+                background-image: radial-gradient(
+                    circle,
+                    #fff 0.12rem,
+                    transparent 0
+                );
+                background-size: 1.5rem 1.5rem;
+                background-position: center;
+                opacity: 0.3;
+                will-change:
+                    mask-image,
+                    -webkit-mask-image;
+
+                --ripple-x: -1000px;
+                --ripple-y: -1000px;
+                --ripple-radius: -1000px;
+                --ripple-thickness: 10rem;
+
+                -webkit-mask-image: radial-gradient(
+                    circle at var(--ripple-x) var(--ripple-y),
+                    transparent
+                        calc(
+                            var(--ripple-radius) - var(--ripple-thickness) * 0.5
+                        ),
+                    black
+                        calc(
+                            var(--ripple-radius) - var(--ripple-thickness) * 0.2
+                        ),
+                    black
+                        calc(
+                            var(--ripple-radius) + var(--ripple-thickness) * 0.2
+                        ),
+                    transparent
+                        calc(
+                            var(--ripple-radius) + var(--ripple-thickness) * 0.5
+                        )
+                );
+                mask-image: radial-gradient(
+                    circle at var(--ripple-x) var(--ripple-y),
+                    transparent
+                        calc(
+                            var(--ripple-radius) - var(--ripple-thickness) * 0.5
+                        ),
+                    black
+                        calc(
+                            var(--ripple-radius) - var(--ripple-thickness) * 0.2
+                        ),
+                    black
+                        calc(
+                            var(--ripple-radius) + var(--ripple-thickness) * 0.2
+                        ),
+                    transparent
+                        calc(
+                            var(--ripple-radius) + var(--ripple-thickness) * 0.5
+                        )
+                );
+            }
+
+            @keyframes ripple-oblique {
+                0% {
+                    mask-position: -400% 400%;
+                }
+                100% {
+                    mask-position: 400% -400%;
+                }
+            }
+
+            @keyframes ripple-sideways {
+                0% {
+                    mask-position: 350% 0%;
+                }
+                100% {
+                    mask-position: -350% 0%;
+                }
+            }
+
             .container {
                 display: flex;
                 flex-direction: column;
@@ -157,7 +256,8 @@
                 top: 100%;
                 right: 0;
                 margin-top: 0.625rem;
-                background: var(--panel-bg);
+                background: rgba(17, 17, 20, 0.6);
+                backdrop-filter: blur(1.5rem);
                 border: 1px solid var(--glass-border);
                 border-radius: 0.75rem;
                 padding: 1rem;
@@ -235,11 +335,13 @@
                 min-height: 0;
                 display: flex;
                 flex-direction: column;
+                background: transparent;
+                backdrop-filter: blur(0.1rem);
             }
 
             .dashboard-panel {
                 flex: 1;
-                background: var(--panel-bg);
+                background: transparent;
                 border: 1px solid var(--glass-border);
                 border-radius: 1.25rem;
                 padding: 1.5rem;
@@ -268,6 +370,12 @@
                 overflow-y: auto;
                 min-height: 0;
                 padding-right: 0.5rem;
+            }
+
+            .benchmark-table {
+                background: rgba(10, 10, 12, 0.85);
+                backdrop-filter: blur(3rem);
+                border-radius: 0.75rem;
             }
 
             .recent-runs-list::-webkit-scrollbar,
@@ -657,7 +765,8 @@
             }
 
             .settings-menu-card {
-                background: #111114;
+                background: rgba(17, 17, 20, 0.8);
+                backdrop-filter: blur(2rem);
                 border: 1px solid var(--glass-border);
                 padding: 1.5rem;
                 border-radius: 1.5rem;
@@ -912,6 +1021,12 @@
         </style>
     </head>
     <body>
+        <div class="background-dynamics">
+            <div class="base-grid"></div>
+            <div class="ripple ripple-1"></div>
+            <div class="ripple ripple-2"></div>
+            <div class="ripple ripple-3"></div>
+        </div>
         <div class="container">
             <header class="app-header">
                 <div class="header-content">
@@ -988,5 +1103,113 @@
         </div>
 
         <script type="module" src="/src/main.ts"></script>
+        <script>
+            class RippleController {
+                constructor(element, durationRange) {
+                    this.element = element;
+                    this.durationRange = durationRange;
+                    const rootFontSize = parseFloat(
+                        getComputedStyle(document.documentElement).fontSize,
+                    );
+                    this.baseThickness = rootFontSize * 10;
+                    this.start();
+                }
+
+                getDistance(x1, y1, x2, y2) {
+                    return Math.sqrt(
+                        Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2),
+                    );
+                }
+
+                start() {
+                    const run = () => {
+                        const width = window.innerWidth;
+                        const height = window.innerHeight;
+
+                        const diagonal = Math.sqrt(
+                            width * width + height * height,
+                        );
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist =
+                            Math.sqrt(Math.random()) * (diagonal * 1.5);
+
+                        const x = width / 2 + Math.cos(angle) * dist;
+                        const y = height / 2 + Math.sin(angle) * dist;
+
+                        const corners = [
+                            { x: 0, y: 0 },
+                            { x: width, y: 0 },
+                            { x: 0, y: height },
+                            { x: width, y: height },
+                        ];
+
+                        const distances = corners.map((c) =>
+                            this.getDistance(x, y, c.x, c.y),
+                        );
+
+                        const thickness =
+                            this.baseThickness * (1 + Math.random() * 2);
+
+                        const isInside =
+                            x >= 0 && x <= width && y >= 0 && y <= height;
+                        const minRadius = isInside
+                            ? -thickness
+                            : Math.min(...distances) - thickness;
+
+                        const maxRadius = Math.max(...distances) + thickness;
+
+                        this.element.style.setProperty("--ripple-x", `${x}px`);
+                        this.element.style.setProperty("--ripple-y", `${y}px`);
+                        this.element.style.setProperty(
+                            "--ripple-thickness",
+                            `${thickness}px`,
+                        );
+
+                        const duration =
+                            (this.durationRange.min +
+                                Math.random() *
+                                    (this.durationRange.max -
+                                        this.durationRange.min)) *
+                            1000;
+                        const startTime = performance.now();
+
+                        const animate = (now) => {
+                            const elapsed = now - startTime;
+                            const progress = Math.min(elapsed / duration, 1);
+                            const currentRadius =
+                                minRadius + (maxRadius - minRadius) * progress;
+
+                            this.element.style.setProperty(
+                                "--ripple-radius",
+                                `${currentRadius}px`,
+                            );
+
+                            if (progress < 1) {
+                                requestAnimationFrame(animate);
+                            } else {
+                                setTimeout(run, Math.random() * 10000);
+                            }
+                        };
+                        requestAnimationFrame(animate);
+                    };
+                    setTimeout(run, Math.random() * 10000);
+                }
+            }
+
+            document.addEventListener("DOMContentLoaded", () => {
+                new RippleController(document.querySelector(".ripple-1"), {
+                    min: 5,
+                    max: 10,
+                });
+                new RippleController(document.querySelector(".ripple-2"), {
+                    min: 10,
+                    max: 15,
+                });
+                new RippleController(document.querySelector(".ripple-3"), {
+                    min: 15,
+                    max: 20,
+                });
+            });
+        </script>
     </body>
 </html>
