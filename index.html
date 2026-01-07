@@ -300,10 +300,9 @@
                 background: rgba(255, 255, 255, 0.05);
             }
 
-            .benchmark-row {
+            .scenario-row {
                 background: transparent;
                 border-bottom: none;
-                padding: 0.2rem 0.75rem;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
@@ -311,12 +310,27 @@
                 cursor: pointer;
             }
 
-            .benchmark-row:hover {
+            .scenario-row:hover {
                 background: rgba(255, 255, 255, 0.02);
             }
 
-            .benchmark-row.selected {
+            .scenario-row.selected {
                 background: rgba(255, 255, 255, 0.1);
+            }
+
+            .row-height-compact {
+                padding: 0.25rem 0.75rem;
+                min-height: 2.5rem;
+            }
+
+            .row-height-normal {
+                padding: 0.5rem 0.75rem;
+                min-height: 3.5rem;
+            }
+
+            .row-height-spacious {
+                padding: 0.75rem 0.75rem;
+                min-height: 4.5rem;
             }
 
             .benchmark-category-group {
@@ -460,7 +474,7 @@
                 transition: color 0.2s ease;
             }
 
-            .benchmark-row.selected .scenario-name {
+            .scenario-row.selected .scenario-name {
                 color: #fff;
             }
 
@@ -486,7 +500,7 @@
                 color: var(--accent-color);
             }
 
-            .benchmark-row .rank-badge-container:last-of-type .rank-progress {
+            .scenario-row .rank-badge-container:last-of-type .rank-progress {
                 color: #80808a;
                 font-size: 0.65rem;
             }
@@ -679,6 +693,16 @@
                 color: #fff;
                 font-weight: 700;
                 letter-spacing: -0.02em;
+            }
+
+            .settings-group-title {
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                color: rgba(255, 255, 255, 0.4);
+                font-weight: 600;
+                margin-top: 0.5rem;
+                margin-bottom: -0.5rem;
             }
 
             .setting-item {

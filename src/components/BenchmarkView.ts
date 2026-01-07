@@ -3,6 +3,10 @@ import { BenchmarkService } from "../services/BenchmarkService";
 import { HistoryService } from "../services/HistoryService";
 import { RankService } from "../services/RankService";
 import { SessionService } from "../services/SessionService";
+import {
+  VisualSettingsService,
+  VisualSettings,
+} from "../services/VisualSettingsService";
 import { DotCloudComponent } from "./visualizations/DotCloudComponent";
 
 /**
@@ -20,7 +24,11 @@ export class BenchmarkView {
 
   private readonly _sessionService: SessionService;
 
-  private _activeDifficulty: BenchmarkDifficulty = "Easier";
+  private _activeDifficulty: BenchmarkDifficulty = "Medium";
+
+  private readonly _visualSettingsService: VisualSettingsService;
+
+  private _currentVisualSettings: VisualSettings;
 
   constructor(
     mountPoint: HTMLElement,
@@ -38,6 +46,15 @@ export class BenchmarkView {
     this._rankService = rankService;
 
     this._sessionService = sessionService;
+
+    this._visualSettingsService = new VisualSettingsService();
+
+    this._currentVisualSettings = this._visualSettingsService.getSettings();
+
+    this._visualSettingsService.subscribe((settings) => {
+      this._currentVisualSettings = settings;
+      this.render();
+    });
 
     this._subscribeToUpdates();
   }
@@ -209,7 +226,7 @@ export class BenchmarkView {
     return container;
   }
 
-  private _createSettingsButton(viewContainer: HTMLElement): HTMLElement {
+  private _createSettingsButton(_viewContainer: HTMLElement): HTMLElement {
     const settingsButton = document.createElement("button");
 
     settingsButton.className = "visual-settings-button";
@@ -224,20 +241,23 @@ export class BenchmarkView {
     `;
 
     settingsButton.addEventListener("click", () => {
-      this._openSettingsMenu(viewContainer);
+      this._openSettingsMenu();
     });
 
     return settingsButton;
   }
 
-  private _openSettingsMenu(viewContainer: HTMLElement): void {
+  private _openSettingsMenu(): void {
+    const existing = document.querySelector(".settings-overlay");
+    if (existing) existing.remove();
+
     const settingsOverlay = this._createSettingsOverlay();
 
     const settingsMenuCard = this._createSettingsMenuCard();
 
     settingsOverlay.appendChild(settingsMenuCard);
 
-    viewContainer.appendChild(settingsOverlay);
+    document.body.appendChild(settingsOverlay);
   }
 
   private _createSettingsOverlay(): HTMLElement {
@@ -261,14 +281,112 @@ export class BenchmarkView {
 
     menuCardElement.appendChild(this._createSettingsMenuTitle());
 
+    // Visualization Group
+    menuCardElement.appendChild(this._createGroupTitle("Visualization"));
+
     menuCardElement.appendChild(
-      this._createSettingToggle("Show Dot Cloud", true),
+      this._createSettingToggle(
+        "Show Dot Cloud",
+        this._currentVisualSettings.showDotCloud,
+        (checked) =>
+          this._visualSettingsService.updateSetting("showDotCloud", checked),
+      ),
     );
 
-    menuCardElement.appendChild(this._createSettingSlider("Dot Opacity", 40));
+    menuCardElement.appendChild(
+      this._createSettingSlider(
+        "Dot Opacity",
+        this._currentVisualSettings.dotOpacity,
+        (value) =>
+          this._visualSettingsService.updateSetting("dotOpacity", value),
+      ),
+    );
 
     menuCardElement.appendChild(
-      this._createSettingSegmentedControl("Scaling", ["Absolute", "Relative"]),
+      this._createSettingSegmentedControl(
+        "Dot Cloud Bounds",
+        ["Aligned", "Floating"],
+        this._currentVisualSettings.scalingMode,
+        (value) =>
+          this._visualSettingsService.updateSetting(
+            "scalingMode",
+            value as "Aligned" | "Floating",
+          ),
+      ),
+    );
+
+    menuCardElement.appendChild(
+      this._createSettingSegmentedControl(
+        "Dot Size",
+        ["Small", "Medium", "Large"],
+        this._currentVisualSettings.dotSize,
+        (value) =>
+          this._visualSettingsService.updateSetting(
+            "dotSize",
+            value as "Small" | "Medium" | "Large",
+          ),
+      ),
+    );
+
+    menuCardElement.appendChild(
+      this._createSettingToggle(
+        "Jitter Dots",
+        this._currentVisualSettings.dotJitter,
+        (checked) =>
+          this._visualSettingsService.updateSetting("dotJitter", checked),
+      ),
+    );
+
+    menuCardElement.appendChild(
+      this._createSettingToggle(
+        "Show Grid Lines",
+        this._currentVisualSettings.showGridLines,
+        (checked) =>
+          this._visualSettingsService.updateSetting("showGridLines", checked),
+      ),
+    );
+
+    menuCardElement.appendChild(
+      this._createSettingToggle(
+        "Highlight Recent",
+        this._currentVisualSettings.highlightRecent,
+        (checked) =>
+          this._visualSettingsService.updateSetting("highlightRecent", checked),
+      ),
+    );
+
+    // Layout Group
+    menuCardElement.appendChild(this._createGroupTitle("Layout"));
+
+    menuCardElement.appendChild(
+      this._createSettingSegmentedControl(
+        "Row Height",
+        ["Compact", "Normal", "Spacious"],
+        this._currentVisualSettings.rowHeight,
+        (value) =>
+          this._visualSettingsService.updateSetting(
+            "rowHeight",
+            value as "Compact" | "Normal" | "Spacious",
+          ),
+      ),
+    );
+
+    menuCardElement.appendChild(
+      this._createSettingToggle(
+        "Show Session Best",
+        this._currentVisualSettings.showSessionBest,
+        (checked) =>
+          this._visualSettingsService.updateSetting("showSessionBest", checked),
+      ),
+    );
+
+    menuCardElement.appendChild(
+      this._createSettingToggle(
+        "Show Rank Badges",
+        this._currentVisualSettings.showRankBadges,
+        (checked) =>
+          this._visualSettingsService.updateSetting("showRankBadges", checked),
+      ),
     );
 
     return menuCardElement;
@@ -282,7 +400,18 @@ export class BenchmarkView {
     return titleElement;
   }
 
-  private _createSettingToggle(label: string, checked: boolean): HTMLElement {
+  private _createGroupTitle(text: string): HTMLElement {
+    const title = document.createElement("div");
+    title.className = "settings-group-title";
+    title.textContent = text;
+    return title;
+  }
+
+  private _createSettingToggle(
+    label: string,
+    checked: boolean,
+    onChange: (checked: boolean) => void,
+  ): HTMLElement {
     const container = document.createElement("div");
 
     container.className = "setting-item toggle-item";
@@ -297,6 +426,10 @@ export class BenchmarkView {
 
     input.checked = checked;
 
+    input.addEventListener("change", (e) => {
+      onChange((e.target as HTMLInputElement).checked);
+    });
+
     container.appendChild(labelElement);
 
     container.appendChild(input);
@@ -304,7 +437,11 @@ export class BenchmarkView {
     return container;
   }
 
-  private _createSettingSlider(label: string, value: number): HTMLElement {
+  private _createSettingSlider(
+    label: string,
+    value: number,
+    onChange: (value: number) => void,
+  ): HTMLElement {
     const container = document.createElement("div");
 
     container.className = "setting-item slider-item";
@@ -323,6 +460,10 @@ export class BenchmarkView {
 
     input.value = value.toString();
 
+    input.addEventListener("input", (e) => {
+      onChange(parseInt((e.target as HTMLInputElement).value, 10));
+    });
+
     container.appendChild(labelElement);
 
     container.appendChild(input);
@@ -333,6 +474,8 @@ export class BenchmarkView {
   private _createSettingSegmentedControl(
     label: string,
     options: string[],
+    currentValue: string,
+    onChange: (value: string) => void,
   ): HTMLElement {
     const container = document.createElement("div");
 
@@ -348,12 +491,23 @@ export class BenchmarkView {
 
     controls.className = "segmented-controls";
 
-    options.forEach((option, index) => {
+    options.forEach((option) => {
       const button = document.createElement("button");
 
       button.textContent = option;
 
-      button.className = `segment-button ${index === 0 ? "active" : ""}`;
+      button.className = `segment-button ${
+        option === currentValue ? "active" : ""
+      }`;
+
+      button.addEventListener("click", () => {
+        onChange(option);
+        // Visual update of buttons
+        controls
+          .querySelectorAll(".segment-button")
+          .forEach((b) => b.classList.remove("active"));
+        button.classList.add("active");
+      });
 
       controls.appendChild(button);
     });
@@ -529,11 +683,17 @@ export class BenchmarkView {
 
     header.appendChild(spacer);
 
-    header.appendChild(dotSpacer);
+    if (this._currentVisualSettings.showSessionBest) {
+      header.appendChild(sessionLabel);
+    }
 
-    header.appendChild(allTimeLabel);
+    if (this._currentVisualSettings.showRankBadges) {
+      header.appendChild(allTimeLabel);
+    }
 
-    header.appendChild(sessionLabel);
+    if (this._currentVisualSettings.showDotCloud) {
+      header.appendChild(dotSpacer);
+    }
 
     header.appendChild(actionSpacer);
 
@@ -575,19 +735,25 @@ export class BenchmarkView {
   ): HTMLElement {
     const row = document.createElement("div");
 
-    row.className = "benchmark-row";
+    row.className = `scenario-row row-height-${this._currentVisualSettings.rowHeight.toLowerCase()}`;
 
-    row.appendChild(this._createNameCell(scenario.name));
+    row.appendChild(this._createNameCell(scenario));
 
     const rightContent = document.createElement("div");
 
     rightContent.className = "row-right-content";
 
-    rightContent.appendChild(this._createDotCloudCell(scenario));
+    if (this._currentVisualSettings.showDotCloud) {
+      rightContent.appendChild(this._createDotCloudCell(scenario));
+    }
 
-    rightContent.appendChild(this._createRankBadge(scenario, highscore));
+    if (this._currentVisualSettings.showRankBadges) {
+      rightContent.appendChild(this._createRankBadge(scenario, highscore));
+    }
 
-    rightContent.appendChild(this._createSessionRankBadge(scenario));
+    if (this._currentVisualSettings.showSessionBest) {
+      rightContent.appendChild(this._createSessionRankBadge(scenario));
+    }
 
     rightContent.appendChild(this._createPlayButton(scenario.name));
 
@@ -600,12 +766,12 @@ export class BenchmarkView {
     return row;
   }
 
-  private _createNameCell(scenarioName: string): HTMLElement {
+  private _createNameCell(scenario: BenchmarkScenario): HTMLElement {
     const nameSpan = document.createElement("span");
 
     nameSpan.className = "scenario-name";
 
-    nameSpan.textContent = scenarioName;
+    nameSpan.textContent = scenario.name;
 
     return nameSpan;
   }
@@ -615,6 +781,10 @@ export class BenchmarkView {
 
     container.className = "dot-cloud-container";
 
+    if (!this._currentVisualSettings.showDotCloud) {
+      return container;
+    }
+
     this._historyService.getLastScores(scenario.name, 100).then((scores) => {
       if (scores.length > 0) {
         const rankInterval = this._calculateAverageRankInterval(scenario);
@@ -622,6 +792,7 @@ export class BenchmarkView {
         const dotCloud = new DotCloudComponent(
           scores,
           scenario.thresholds,
+          this._currentVisualSettings,
           rankInterval,
         );
 

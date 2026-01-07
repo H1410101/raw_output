@@ -1,4 +1,3 @@
-import { KovaaksChallengeRun } from "../types/kovaaks";
 import { BenchmarkScenario } from "../data/benchmarks";
 import { RankResult, RankService } from "./RankService";
 

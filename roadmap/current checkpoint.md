@@ -1,16 +1,15 @@
-```raw_output\roadmap\current checkpoint.md#L1-15
-# Current Checkpoint: 2.10: Visual Settings Wiring
+# Current Checkpoint: 2.11: Session Interval Settings
 
 ## Status
 In Progress
 
 ## Deliverables
-- Reactivity and State Management for visualizations.
-- Event-driven updates from the settings menu to the rendering engine.
-- Persistent or session-based state for visual preferences.
+- Configurable session timeout logic.
+- UI setting for inactivity interval.
+- Session statistics filtering based on the defined interval.
 
 ## Summary
-With the UI shell established, this checkpoint focuses on connecting the interactive controls in the Visual Settings menu to the Dot Cloud rendering logic. Changes to toggles, sliders, and segmented controls will trigger immediate visual updates, allowing users to customize their data view in real-time.
+This checkpoint introduces the ability for users to define what constitutes a "session" via an inactivity timeout. The system will use this setting to determine if the most recent runs should be grouped into the current active session or if they belong to a historical one, ensuring the "Live Session" data remains relevant to the user's current training block.
 
 ## Next Up
-Checkpoint 2.11: Visual Look & Feel Tuning
+Checkpoint 2.12: Inter-session Behaviour

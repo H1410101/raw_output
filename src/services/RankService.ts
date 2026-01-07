@@ -4,6 +4,7 @@ export interface RankResult {
   currentRank: string;
   nextRank: string | null;
   progressPercentage: number;
+  rankLevel: number;
 }
 
 /**
@@ -60,6 +61,7 @@ export class RankService {
         currentRank,
         nextRank: null,
         progressPercentage: 100,
+        rankLevel: index,
       };
     }
 
@@ -73,6 +75,7 @@ export class RankService {
       currentRank,
       nextRank: nextRankEntry[0],
       progressPercentage: progress,
+      rankLevel: index,
     };
   }
 
@@ -102,6 +105,7 @@ export class RankService {
       currentRank: "Unranked",
       nextRank: null,
       progressPercentage: 0,
+      rankLevel: -1,
     };
   }
 }

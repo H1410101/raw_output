@@ -16,7 +16,10 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.7: New Runs View
 - [x] 2.8: Visualization & Fluid Typography
 - [x] 2.9: Visual Settings Placeholder
-- [ ] 2.10: Visual Settings Wiring
-- [ ] 2.11: Visual Look & Feel Tuning
-- [ ] 2.12: Session Interval Settings
-- [ ] 2.13: Milestone - Code Consolidation & Debt Payoff
+- [x] 2.10: Visual Settings Wiring
+- [ ] 2.11: Session Interval Settings
+- [ ] 2.12: Inter-session Behaviour
+- [ ] 2.13: Visual Identity
+- [ ] 2.14: Tactile Animations
+- [ ] 2.15: SFX Identity
+- [ ] 2.16: Milestone - Code Consolidation & Debt Payoff

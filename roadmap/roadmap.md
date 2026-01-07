@@ -82,26 +82,38 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Configuration UI shell.
 - **Commit Goal**: A "Visual Settings" menu or toolbar is added to the table interface. It contains the structure for view toggles but does not yet impact the charts.
 
-### Checkpoint 2.10: Visual Settings Wiring
+### Checkpoint 2.10: Visual Settings Wiring (Done)
 - **Deliverable**: Reactivity and State Management for visualizations.
 - **Commit Goal**: The "Visual Settings" controls are fully wired up, allowing the user to adjust visual parameters in real-time.
 
-### Checkpoint 2.11: Visual Look & Feel Tuning
-- **Deliverable**: Refined UI styling and micro-interactions.
-- **Commit Goal**: The application's visual density and aesthetic are tuned, including dot cloud opacity, row spacing, and color contrast.
-
-### Checkpoint 2.12: Session Interval Settings
+### Checkpoint 2.11: Session Interval Settings
 - **Deliverable**: Configurable session timeout logic.
 - **Commit Goal**: A setting is added to define the session inactivity interval. The UI avoids showing session stats for the last played session if that session is no longer active based on this interval.
 
-### Checkpoint 2.13: Milestone - Code Consolidation & Debt Payoff
+### Checkpoint 2.12: Inter-session Behaviour
+- **Deliverable**: Consistent app behaviour between sessions.
+- **Commit Goal**: Page is retained through app restarts, including settings and popups. All settings are persistent. 
+
+### Checkpoint 2.13: Visual Identity
+- **Deliverable**: Distinct visual identity beyond just "glassmorphism".
+- **Commit Goal**: The application's visual identity is distinctive and looks nothing like its previous glassmorphic look, sporting its own colour palette, visual philosophy, etc. It has consistent theme between all menu items, consistent spacing between items, etc.
+
+### Checkpoint 2.14: Tactile Animations
+- **Deliverable**: Refined UI styling and micro-interactions.
+- **Commit Goal**: The application's interactions are made distinctive as well, with subtle animations.
+
+### Checkpoint 2.15: SFX Identity
+- **Deliverable**: Sound effects to relevant interactions.
+- **Commit Goal**: The application is no longer fully quiet; it sounds distinctive and has a sound bank that subjectively matches the theme.
+
+### Checkpoint 2.16: Milestone - Code Consolidation & Debt Payoff
 - **Deliverable**: Refactored codebase and consolidated logic.
 - **Commit Goal**: The codebase is cleaned, redundant logic is removed, and architecture is hardened to ensure stability before proceeding to Phase 3.
 
 ---
 
 ## Phase 3: Ranked Runs
-**Focus**: Building the active "Session Mode" where users perform their runs with real-time feedback, directed flow, and visual progression.
+**Focus**: Building the active "Session Mode" where users perform their runs with real-time feedback, directed flow, and immersive visual/audio feedback.
 
 ### Checkpoint 3.1: Ranked Session Layout
 - **Deliverable**: Vertical UI Shell.
@@ -119,50 +131,57 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Centering Logic & Data Wiring.
 - **Commit Goal**: The Target Bar is integrated into the "Present" zone of the layout. It mathematically centers the view on the specific Score Target for the active scenario.
 
-### Checkpoint 3.5: Live Feedback Loop
+### Checkpoint 3.5: Visual System Unification & Theme
+- **Deliverable**: Design Token System / Global CSS.
+- **Commit Goal**: The application's color palette, typography, and spacing are unified under a distinct, custom visual theme (not generic UI libraries), verifiable across all existing pages.
+
+### Checkpoint 3.6: Scenario Transitions
+- **Deliverable**: View Transition Logic.
+- **Commit Goal**: Switching between scenarios in the Ranked Session (e.g., finishing "Present" and moving it to "Past") triggers a smooth, coordinated animation rather than an instant snap.
+
+### Checkpoint 3.7: Live Feedback Loop
 - **Deliverable**: Real-time score ingestion and state reactivity.
 - **Commit Goal**: When a new CSV is detected for the active scenario:
   1. "Session Peak" updates.
   2. If Peak < Target: Display is neutral.
   3. If Peak >= Target: Display becomes vibrant; "Next" button activates.
 
-### Checkpoint 3.6: Rank Estimator & Focus Management
-- **Deliverable**: "Current Estimate" display and window-focus handling.
+### Checkpoint 3.8: Rank Estimator
+- **Deliverable**: "Current Estimate" display component.
 - **Commit Goal**: 
   1. A component displays the "Current Estimated Rank" below the scenario.
   2. Achieving a new peak triggers a promotion animation.
-  3. Animations pause if the browser tab/window loses focus.
 
-### Checkpoint 3.7: Infinite Progression
+### Checkpoint 3.9: Audio Feedback
+- **Deliverable**: Sound Manager System.
+- **Commit Goal**: Distinct, satisfying sound effects play for key events: Rank Up, New Highscore, and Session Completion.
+
+### Checkpoint 3.10: Infinite Progression
 - **Deliverable**: Session extension logic.
 - **Commit Goal**: On the final scenario, the "Next" button becomes "One More". Clicking it triggers the selection algorithm to append a new batch of scenarios to the active session.
 
 ---
 
-## Phase 4: Visual Identity & Feel
-**Focus**: Moving beyond standard "glassmorphism" to a distinct visual language, and adding "juice" (animations, sound, tactile feel).
+## Phase 4: Focus-Based Dynamics
+**Focus**: Enhancing the "juice" and responsiveness of the HUD based on user focus and performance milestones.
 
-### Checkpoint 4.1: Visual System Unification
-- **Deliverable**: Design Token System / Global CSS.
-- **Commit Goal**: The application's color palette, typography, and spacing are unified under a distinct, custom visual theme (not generic UI libraries), verifiable across all existing pages.
-
-### Checkpoint 4.2: Scenario Transitions
-- **Deliverable**: View Transition Logic.
-- **Commit Goal**: Switching between scenarios in the Ranked Session (e.g., finishing "Present" and moving it to "Past") triggers a smooth, coordinated animation rather than an instant snap.
-
-### Checkpoint 4.3: Dynamic Rank Indicator
+### Checkpoint 4.1: Dynamic Rank Indicator
 - **Deliverable**: Animated HUD Element.
-- **Commit Goal**: The "Current Rank" indicator physically moves or morphs on the screen in response to score changes. When the window regains focus, these animations wait for a short delay before playing.
+- **Commit Goal**: The "Current Rank" indicator physically moves or morphs on the screen in response to score changes.
+
+### Checkpoint 4.2: Window Focus Awareness
+- **Deliverable**: Focus management logic.
+- **Commit Goal**: High-impact UI feedback and animations are paused or deferred if the browser tab/window loses focus, ensuring the user is present for key milestones.
+
+### Checkpoint 4.3: Focus-Delayed Animations
+- **Deliverable**: Window-focus event handling for animations.
+- **Commit Goal**: When the window regains focus, animations wait for a short, configurable delay before playing, ensuring the user is ready to perceive the feedback.
 
 ### Checkpoint 4.4: Rank Up Ceremony
 - **Deliverable**: Full-screen Overlay/Animation.
 - **Commit Goal**: Achieving a new peak rank triggers a high-impact "Rank Up" animation sequence that takes over the visual hierarchy.
 
-### Checkpoint 4.5: Audio Feedback
-- **Deliverable**: Sound Manager System.
-- **Commit Goal**: Distinct, satisfying sound effects play for key events: Rank Up, New Highscore, and Session Completion.
-
-### Checkpoint 4.6: Infinite Progression Polish
+### Checkpoint 4.5: Infinite Progression Polish
 - **Deliverable**: "One More" Transitions.
 - **Commit Goal**: Triggering the "One More" infinite loop plays a seamless animation and sound effect as new scenarios are dealt into the queue.
 

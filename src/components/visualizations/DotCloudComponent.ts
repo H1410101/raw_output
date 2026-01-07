@@ -1,3 +1,5 @@
+import { VisualSettings } from "../../services/VisualSettingsService";
+
 /**
  * Responsibility: Render a "Dot Cloud" (Strip Plot) of recent performance data.
  * Uses a non-linear segmented scale where the visual distance between rank thresholds is uniform.
@@ -7,6 +9,8 @@ export class DotCloudComponent {
   private readonly _recentScores: number[];
 
   private readonly _rankThresholds: Record<string, number>;
+
+  private readonly _settings: VisualSettings;
 
   private readonly _averageRankInterval: number;
 
@@ -19,9 +23,12 @@ export class DotCloudComponent {
   constructor(
     scores: number[],
     thresholds: Record<string, number>,
+    settings: VisualSettings,
     rankInterval: number = 100,
   ) {
     this._rankThresholds = thresholds;
+
+    this._settings = settings;
 
     this._averageRankInterval = rankInterval;
 
@@ -55,7 +62,13 @@ export class DotCloudComponent {
 
     this._canvasHeight = Math.round(2 * root_font_size);
 
-    this._microDotRadius = root_font_size * 0.1;
+    const sizeModifiers: Record<string, number> = {
+      Small: 0.08,
+      Medium: 0.11,
+      Large: 0.15,
+    };
+    this._microDotRadius =
+      root_font_size * (sizeModifiers[this._settings.dotSize] ?? 0.11);
 
     const superSamplingFactor = 2;
 
@@ -101,11 +114,14 @@ export class DotCloudComponent {
       thresholdValues,
     );
 
-    const { minRU, maxRU } = this._calculateViewBounds(
-      minRU_score,
-      maxRU_score,
-      targetThresholdIndices,
-    );
+    const { minRU, maxRU } =
+      this._settings.scalingMode === "Aligned"
+        ? this._calculateAlignedBounds(minRU_score, maxRU_score)
+        : this._calculateViewBounds(
+            minRU_score,
+            maxRU_score,
+            targetThresholdIndices,
+          );
 
     this._drawRankMetadata(context, sortedPairs, minRU, maxRU, thresholdValues);
 
@@ -214,6 +230,18 @@ export class DotCloudComponent {
     } else if (base > 0) {
       indices.push(base - 1);
     }
+  }
+
+  private _calculateAlignedBounds(
+    minRU_score: number,
+    maxRU_score: number,
+  ): { minRU: number; maxRU: number } {
+    const minRU = Math.floor(minRU_score);
+    const maxRU = Math.ceil(maxRU_score);
+    return {
+      minRU,
+      maxRU: maxRU === minRU ? minRU + 1 : maxRU,
+    };
   }
 
   private _calculateViewBounds(
@@ -344,6 +372,8 @@ export class DotCloudComponent {
     x: number,
     height: number,
   ): void {
+    if (!this._settings.showGridLines) return;
+
     context.strokeStyle = "rgba(255, 255, 255, 0.1)";
 
     context.lineWidth = 1;
@@ -387,13 +417,16 @@ export class DotCloudComponent {
 
     const notchHeight = this._calculateNotchHeight(rootFontSize);
 
-    context.fillStyle = "rgba(0, 242, 255, 0.6)";
+    const opacity = Math.max(0, Math.min(1, this._settings.dotOpacity / 100));
 
-    context.strokeStyle = "rgba(255, 255, 255, 0.2)";
+    const baseFillStyle = `rgba(0, 242, 255, ${opacity})`;
+    const highlightFillStyle = `rgba(255, 255, 255, ${Math.min(1, opacity + 0.3)})`;
+
+    context.strokeStyle = `rgba(255, 255, 255, ${Math.min(0.2, opacity)})`;
 
     context.lineWidth = this._microDotRadius * 0.5;
 
-    this._recentScores.forEach((score) => {
+    this._recentScores.forEach((score, index) => {
       const ru = this._calculateRankUnit(score, thresholds);
 
       const x = this._getHorizontalPosition(ru, minRU, maxRU);
@@ -404,6 +437,15 @@ export class DotCloudComponent {
 
       const finalY = notchHeight / 2 + jitterY;
 
+      const isMostRecent = index === 0 && this._settings.highlightRecent;
+
+      context.fillStyle = isMostRecent ? highlightFillStyle : baseFillStyle;
+
+      if (isMostRecent) {
+        context.shadowColor = "rgba(255, 255, 255, 0.8)";
+        context.shadowBlur = this._microDotRadius * 2;
+      }
+
       context.beginPath();
 
       context.arc(x, finalY, this._microDotRadius, 0, Math.PI * 2);
@@ -411,6 +453,10 @@ export class DotCloudComponent {
       context.fill();
 
       context.stroke();
+
+      if (isMostRecent) {
+        context.shadowBlur = 0;
+      }
     });
   }
 
@@ -421,6 +467,8 @@ export class DotCloudComponent {
   }
 
   private _calculateVerticalJitter(density: number, height: number): number {
+    if (!this._settings.dotJitter) return 0;
+
     if (density <= 1) return 0;
 
     const intensity = Math.min((density - 1) / 14, 1);
