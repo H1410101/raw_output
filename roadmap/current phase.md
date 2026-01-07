@@ -1,3 +1,4 @@
+```raw_output\roadmap\current phase.md#L1-26
 # Current Phase: Phase 2: Benchmark Table
 
 ## Status
@@ -20,9 +21,8 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.11: Session Interval Settings
 - [x] 2.11.1: Reactive Session Expiration
 - [x] 2.12: Inter-session Behaviour
-- [x] 2.13: Visual Identity
-- [x] 2.14: Tactile Animations
-- [x] 2.14.1: Background Dynamics
-- [x] 2.14.2: Scroll Track Cut-out
-- [ ] 2.15: SFX Identity
-- [ ] 2.16: Milestone - Code Consolidation & Debt Payoff
+- [x] 2.13: Visual & Tactile Identity
+- [x] 2.13.1: Background Dynamics
+- [x] 2.13.2: Scroll Track Cut-out
+- [ ] 2.14: SFX Identity
+- [ ] 2.15: Milestone - Code Consolidation & Debt Payoff

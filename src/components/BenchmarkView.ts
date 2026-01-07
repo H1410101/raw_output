@@ -26,6 +26,11 @@ export class BenchmarkView {
   private _currentVisualSettings: VisualSettings;
   private readonly _sessionSettingsService: SessionSettingsService;
   private _currentSessionSettings: SessionSettings;
+  private _autoScrollTimer: number | null = null;
+  private _scrollDirection: number = 0;
+  private _isDragging: boolean = false;
+  private _dragStartY: number = 0;
+  private _dragStartScrollTop: number = 0;
 
   constructor(
     mountPoint: HTMLElement,
@@ -812,18 +817,161 @@ export class BenchmarkView {
     highscores: Record<string, number>,
   ): HTMLElement {
     const container = document.createElement("div");
-
     container.className = "benchmark-table-container";
 
     const table = document.createElement("div");
-
     table.className = "benchmark-table";
+
+    const customThumb = document.createElement("div");
+    customThumb.className = "custom-scroll-thumb";
+
+    this._setupScrollSync(table, customThumb);
+    this._setupDragScroll(table, customThumb);
+    this._setupAutoScroll(container, table, customThumb);
 
     this._appendCategorizedScenarios(table, scenarios, highscores);
 
     container.appendChild(table);
+    container.appendChild(customThumb);
 
     return container;
+  }
+
+  private _setupScrollSync(table: HTMLElement, thumb: HTMLElement): void {
+    table.addEventListener("scroll", () =>
+      this._syncThumbPosition(table, thumb),
+    );
+
+    requestAnimationFrame(() => this._syncThumbPosition(table, thumb));
+  }
+
+  private _syncThumbPosition(table: HTMLElement, thumb: HTMLElement): void {
+    const scrollRange = table.scrollHeight - table.clientHeight;
+
+    if (scrollRange <= 0) {
+      thumb.style.display = "none";
+      return;
+    }
+
+    thumb.style.display = "block";
+
+    const trackRange = table.clientHeight - 32;
+    const thumbHeight = thumb.offsetHeight || 32;
+    const availableTrack = trackRange - thumbHeight;
+
+    const scrollRatio = table.scrollTop / scrollRange;
+    const translateY = scrollRatio * availableTrack;
+
+    thumb.style.transform = `translateY(${translateY}px)`;
+  }
+
+  private _setupDragScroll(table: HTMLElement, thumb: HTMLElement): void {
+    thumb.addEventListener("mousedown", (event) => {
+      this._isDragging = true;
+      this._dragStartY = event.clientY;
+      this._dragStartScrollTop = table.scrollTop;
+      this._stopAutoScroll();
+
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    window.addEventListener("mousemove", (event) => {
+      if (!this._isDragging) return;
+
+      const deltaY = event.clientY - this._dragStartY;
+      const scrollRange = table.scrollHeight - table.clientHeight;
+      const trackRange = table.clientHeight - 32;
+      const thumbHeight = thumb.offsetHeight || 32;
+      const availableTrack = trackRange - thumbHeight;
+
+      if (availableTrack <= 0) return;
+
+      const scrollPerPixel = scrollRange / availableTrack;
+      table.scrollTop = this._dragStartScrollTop + deltaY * scrollPerPixel;
+    });
+
+    window.addEventListener("mouseup", () => {
+      this._isDragging = false;
+    });
+  }
+
+  private _setupAutoScroll(
+    container: HTMLElement,
+    table: HTMLElement,
+    thumb: HTMLElement,
+  ): void {
+    container.addEventListener("mousemove", (event) =>
+      this._handleContainerHover(event, table, thumb),
+    );
+
+    container.addEventListener("mouseleave", () => this._stopAutoScroll());
+  }
+
+  private _handleContainerHover(
+    event: MouseEvent,
+    table: HTMLElement,
+    thumb: HTMLElement,
+  ): void {
+    if (this._isDragging || event.buttons !== 0) {
+      this._stopAutoScroll();
+      return;
+    }
+
+    const rect = thumb.getBoundingClientRect();
+    const isInsideX = event.clientX >= rect.left && event.clientX <= rect.right;
+    const isInsideY = event.clientY >= rect.top && event.clientY <= rect.bottom;
+
+    if (!isInsideX || !isInsideY) {
+      this._stopAutoScroll();
+      return;
+    }
+
+    const relativeY = event.clientY - rect.top;
+    const threshold = rect.height * 0.1;
+
+    if (relativeY < threshold) {
+      this._startAutoScroll(table, -1);
+    } else if (relativeY > rect.height - threshold) {
+      this._startAutoScroll(table, 1);
+    } else {
+      this._stopAutoScroll();
+    }
+  }
+
+  private _startAutoScroll(table: HTMLElement, direction: number): void {
+    if (this._scrollDirection === direction) {
+      return;
+    }
+
+    this._stopAutoScroll();
+
+    this._scrollDirection = direction;
+
+    this._animateAutoScroll(table);
+  }
+
+  private _animateAutoScroll(table: HTMLElement): void {
+    const scroll = (): void => {
+      if (this._scrollDirection === 0) {
+        return;
+      }
+
+      table.scrollTop += this._scrollDirection * 8;
+
+      this._autoScrollTimer = requestAnimationFrame(scroll);
+    };
+
+    this._autoScrollTimer = requestAnimationFrame(scroll);
+  }
+
+  private _stopAutoScroll(): void {
+    if (this._autoScrollTimer !== null) {
+      cancelAnimationFrame(this._autoScrollTimer);
+      this._autoScrollTimer = null;
+    }
+
+    this._scrollDirection = 0;
   }
 
   private _appendCategorizedScenarios(

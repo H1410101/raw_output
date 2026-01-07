@@ -98,23 +98,23 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Consistent app behaviour between sessions.
 - **Commit Goal**: Page is retained through app restarts, including settings and popups. All settings are persistent. 
 
-### Checkpoint 2.13: Visual Identity
-- **Deliverable**: Distinct visual identity beyond just "glassmorphism".
-- **Commit Goal**: The application's visual identity is distinctive and looks nothing like its previous glassmorphic look, sporting its own colour palette, visual philosophy, etc. It has consistent theme between all menu items, consistent spacing between items, etc.
+### Checkpoint 2.13: Visual & Tactile Identity (Done)
+- **Deliverable**: Distinct visual identity and micro-interactions.
+- **Commit Goal**: The application's visual identity and interactions are distinctive, featuring a unique color palette, spacing, and subtle animations that move away from generic glassmorphism.
 
-### Checkpoint 2.14: Tactile Animations
-- **Deliverable**: Refined UI styling and micro-interactions.
-- **Commit Goal**: The application's interactions are made distinctive as well, with subtle animations.
-
-### Checkpoint 2.14.1: Background Dynamics
+### Checkpoint 2.13.1: Background Dynamics (Done)
 - **Deliverable**: Dynamic background dot grid with ripple effects.
 - **Commit Goal**: A dot grid background (10rem spacing, grey dots) is added, featuring transparency ripples and background blur interaction with the benchmark cards.
 
-### Checkpoint 2.15: SFX Identity
-- **Deliverable**: Sound effects to relevant interactions.
+### Checkpoint 2.13.2: Scroll Track Cut-out (Done)
+- **Deliverable**: Custom scroll track with glass cut-out and fixed-height tactile thumb.
+- **Commit Goal**: The benchmark table features a stationary glass background with a rounded "cut-out" for the scroll track and a 2rem tactile scroll thumb with hover-to-scroll logic.
+
+### Checkpoint 2.14: SFX Identity
+- **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application is no longer fully quiet; it sounds distinctive and has a sound bank that subjectively matches the theme.
 
-### Checkpoint 2.16: Milestone - Code Consolidation & Debt Payoff
+### Checkpoint 2.15: Milestone - Code Consolidation & Debt Payoff
 - **Deliverable**: Refactored codebase and consolidated logic.
 - **Commit Goal**: The codebase is cleaned, redundant logic is removed, and architecture is hardened to ensure stability before proceeding to Phase 3.
 
