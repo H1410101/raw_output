@@ -27,7 +27,7 @@ This allows the render loop to iterate through categories, then subcategories, t
 2.  **Subcategory Group**: A nested container within a category that houses a vertical subcategory label and the list of individual scenario rows.
 3.  **Vertical Labels**: Implemented using CSS writing modes to rotate text anticlockwise. 
     - **Category Labels**: Dynamically centered within the visible viewport using JavaScript. As the user scrolls through a large category, the label "follows" the scroll to remain visible and centered.
-    - **Subcategory Labels**: Vertically centered within their specific subcategory container using static CSS positioning.
+    - **Subcategory Labels**: Vertically centered within their specific subcategory container using CSS positioning.
 
 ## Styling & Layout
 The layout uses a Flexbox-based nesting strategy:
@@ -35,7 +35,7 @@ The layout uses a Flexbox-based nesting strategy:
 - **`benchmark-subcategory-group`**: `display: flex`. The subcategory label and scenario list sit side-by-side.
 - **`vertical-text`**: 
     - `writing-mode: vertical-rl` for vertical orientation.
-    - `transform: rotate(180deg)` to ensure text reads from top to bottom (effectively an anticlockwise 90-degree rotation from the horizontal plane).
+    - `transform: translate(-50%, -50%) rotate(180deg)` with `top: 50%; left: 50%` to ensure text is perfectly centered within its track and reads from top to bottom.
     - `white-space: nowrap` to prevent wrapping within the narrow vertical gutters.
 
 This structure provides a clear visual anchor for the user, allowing them to scan by category (e.g., "Flick Tech") and subcategory (e.g., "Evasive") before looking at specific scenario names.

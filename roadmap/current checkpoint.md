@@ -1,16 +1,17 @@
-# Current Checkpoint: 2.14.1: Background Dynamics
+```raw_output\roadmap\current checkpoint.md#L1-16
+# Current Checkpoint: 2.14.2: Scroll Track Cut-out
 
 ## Status
-Done
+Completed
 
 ## Deliverables
-- A global "dot grid" background (10rem spacing) with 0.05rem blur.
-- Multiple overlapping "opacity ripples" with sharp borders.
-- Slower, multi-directional ripple movement (90s-140s cycles).
-- Depth interaction via backdrop-filter on foreground panels.
+- Stationary glass background layer for the benchmark table container.
+- Implementation of a "cut-out" effect for the scroll track using inverted box-shadows.
+- Rounded geometry for the scroll track hole to match scroll thumb aesthetics.
+- Removal of redundant background colors on individual benchmark rows/categories.
 
 ## Summary
-Adding depth and movement to the application's background to reinforce the new visual identity. The background dynamics will provide a subtle, non-distracting layer of polish that interacts with the foreground elements.
+The benchmark table now features a refined "cut-out" scroll track. By using a stationary pseudo-element with a massive spread shadow, we've created a persistent glass tint that avoids the scroll track area, providing a more professional and integrated "glassmorphism" look.
 
 ## Next Up
 Checkpoint 2.15: SFX Identity

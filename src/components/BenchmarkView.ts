@@ -811,13 +811,19 @@ export class BenchmarkView {
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
   ): HTMLElement {
+    const container = document.createElement("div");
+
+    container.className = "benchmark-table-container";
+
     const table = document.createElement("div");
 
     table.className = "benchmark-table";
 
     this._appendCategorizedScenarios(table, scenarios, highscores);
 
-    return table;
+    container.appendChild(table);
+
+    return container;
   }
 
   private _appendCategorizedScenarios(
