@@ -96,9 +96,9 @@ export class BenchmarkSettingsController {
   }
 
   private _appendSections(card: HTMLElement): void {
-    this._sectionRenderer.appendVisualizationSection(card, this._currentVisualSettings);
     this._sectionRenderer.appendLayoutSection(card, this._currentVisualSettings);
     this._sectionRenderer.appendAudioSection(card);
+    this._sectionRenderer.appendVisualizationSection(card, this._currentVisualSettings);
     this._sectionRenderer.appendSessionSection(card, this._currentSessionSettings);
   }
 

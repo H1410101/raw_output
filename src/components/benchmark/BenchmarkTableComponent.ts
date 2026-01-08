@@ -27,7 +27,6 @@ export interface BenchmarkTableDependencies {
 export class BenchmarkTableComponent {
   private _visualSettings: VisualSettings;
   private readonly _rowRenderer: BenchmarkRowRenderer;
-  private readonly _focusService: FocusManagementService;
   private readonly _appStateService: AppStateService;
   private readonly _rowElements: Map<string, HTMLElement> = new Map();
   private _labelPositioner: BenchmarkLabelPositioner | null = null;
@@ -39,7 +38,6 @@ export class BenchmarkTableComponent {
    */
   public constructor(dependencies: BenchmarkTableDependencies) {
     this._visualSettings = dependencies.visualSettings;
-    this._focusService = dependencies.focusService;
     this._appStateService = dependencies.appStateService;
     this._rowRenderer = new BenchmarkRowRenderer(
       dependencies.historyService,
@@ -56,10 +54,7 @@ export class BenchmarkTableComponent {
    * @param highscores - A map of all-time highscores.
    * @returns The root container of the table.
    */
-  public render(
-    scenarios: BenchmarkScenario[],
-    highscores: Record<string, number>,
-  ): HTMLElement {
+  public render(scenarios: BenchmarkScenario[], highscores: Record<string, number>): HTMLElement {
     const tableContainer: HTMLDivElement = document.createElement("div");
     const scrollArea: HTMLDivElement = document.createElement("div");
     const scrollThumb: HTMLDivElement = document.createElement("div");
@@ -113,16 +108,8 @@ export class BenchmarkTableComponent {
 
     this._visualSettings = settings;
     this._rowRenderer.updateVisualSettings(settings);
-    this._updateRowHeights(settings.rowHeight);
 
     return false;
-  }
-
-  private _updateRowHeights(rowHeight: string): void {
-    this._rowElements.forEach((row: HTMLElement): void => {
-      const rowHeightClass: string = `row-height-${rowHeight.toLowerCase()}`;
-      row.className = row.className.replace(/row-height-\w+/, rowHeightClass);
-    });
   }
 
   /**
@@ -131,10 +118,7 @@ export class BenchmarkTableComponent {
    * @param scenario - The scenario data.
    * @param highscore - The current highscore.
    */
-  public updateScenarioRow(
-    scenario: BenchmarkScenario,
-    highscore: number,
-  ): void {
+  public updateScenarioRow(scenario: BenchmarkScenario, highscore: number): void {
     const row: HTMLElement | undefined = this._rowElements.get(scenario.name);
     if (row) {
       this._rowRenderer.updateRow(row, scenario, highscore);
@@ -156,7 +140,6 @@ export class BenchmarkTableComponent {
 
   private _applyFocusHighlight(row: HTMLElement): void {
     row.classList.add("focused-scenario");
-
     setTimeout((): void => {
       row.classList.remove("focused-scenario");
     }, 2000);
@@ -167,13 +150,12 @@ export class BenchmarkTableComponent {
     scrollArea: HTMLElement,
     thumb: HTMLElement,
   ): void {
-    const scrollController: BenchmarkScrollController =
-      new BenchmarkScrollController(
-        scrollArea,
-        thumb,
-        container,
-        this._appStateService,
-      );
+    const scrollController: BenchmarkScrollController = new BenchmarkScrollController(
+      scrollArea,
+      thumb,
+      container,
+      this._appStateService,
+    );
 
     scrollController.initialize();
     this._labelPositioner = new BenchmarkLabelPositioner(scrollArea);
@@ -182,7 +164,6 @@ export class BenchmarkTableComponent {
 
   private _restoreScrollPosition(scrollArea: HTMLElement): void {
     const savedScrollTop: number = this._appStateService.getBenchmarkScrollTop();
-
     requestAnimationFrame((): void => {
       scrollArea.scrollTop = savedScrollTop;
     });
@@ -197,10 +178,7 @@ export class BenchmarkTableComponent {
       this._groupScenariosByCategory(scenarios);
 
     scenarioGroups.forEach(
-      (
-        subcategories: Map<string, BenchmarkScenario[]>,
-        categoryName: string,
-      ): void => {
+      (subcategories: Map<string, BenchmarkScenario[]>, categoryName: string): void => {
         const categoryElement: HTMLElement = this._createCategoryGroup(
           categoryName,
           subcategories,
@@ -221,9 +199,7 @@ export class BenchmarkTableComponent {
         categoryMap.set(scenario.category, new Map());
       }
 
-      const subcategoryMap: Map<string, BenchmarkScenario[]> = categoryMap.get(
-        scenario.category,
-      )!;
+      const subcategoryMap: Map<string, BenchmarkScenario[]> = categoryMap.get(scenario.category)!;
 
       if (!subcategoryMap.has(scenario.subcategory)) {
         subcategoryMap.set(scenario.subcategory, []);
@@ -258,16 +234,10 @@ export class BenchmarkTableComponent {
     subcategories: Map<string, BenchmarkScenario[]>,
     highscores: Record<string, number>,
   ): void {
-    subcategories.forEach(
-      (scenarios: BenchmarkScenario[], subName: string): void => {
-        const subGroup: HTMLElement = this._createSubcategoryGroup(
-          subName,
-          scenarios,
-          highscores,
-        );
-        container.appendChild(subGroup);
-      },
-    );
+    subcategories.forEach((scenarios: BenchmarkScenario[], subName: string): void => {
+      const subGroup: HTMLElement = this._createSubcategoryGroup(subName, scenarios, highscores);
+      container.appendChild(subGroup);
+    });
   }
 
   private _createSubcategoryGroup(
@@ -338,10 +308,7 @@ export class BenchmarkTableComponent {
     return spacer;
   }
 
-  private _createVerticalLabel(
-    text: string,
-    type: "category" | "subcategory",
-  ): HTMLElement {
+  private _createVerticalLabel(text: string, type: "category" | "subcategory"): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
     const span: HTMLSpanElement = document.createElement("span");
 

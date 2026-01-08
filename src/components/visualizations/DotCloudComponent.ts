@@ -1,10 +1,8 @@
 import { VisualSettings } from "../../services/VisualSettingsService";
 import { ScoreProcessor, ScoreEntry } from "./ScoreProcessor";
 import { RankScaleMapper } from "./RankScaleMapper";
-import {
-  DotCloudCanvasRenderer,
-  RenderContext,
-} from "./DotCloudCanvasRenderer";
+import { ScalingService } from "../../services/ScalingService";
+import { DotCloudCanvasRenderer, RenderContext } from "./DotCloudCanvasRenderer";
 
 /**
  * Configuration for initializing a DotCloudComponent.
@@ -46,18 +44,13 @@ export class DotCloudComponent {
     this._rankThresholds = configuration.thresholds;
     this._settings = configuration.settings;
     this._isLatestInSession = configuration.isLatestInSession;
-    this._recentEntries = ScoreProcessor.processTemporalScores(
-      configuration.entries,
+    this._recentEntries = ScoreProcessor.processTemporalScores(configuration.entries);
+
+    const thresholdValues: number[] = Object.values(configuration.thresholds).sort(
+      (a: number, b: number) => a - b,
     );
 
-    const thresholdValues: number[] = Object.values(
-      configuration.thresholds,
-    ).sort((a: number, b: number) => a - b);
-
-    this._mapper = new RankScaleMapper(
-      thresholdValues,
-      configuration.rankInterval ?? 100,
-    );
+    this._mapper = new RankScaleMapper(thresholdValues, configuration.rankInterval ?? 100);
   }
 
   /**
@@ -130,7 +123,6 @@ export class DotCloudComponent {
 
     this._canvas = this._createScaledCanvas();
     this._container.appendChild(this._canvas);
-
     this._performRenderCycle();
 
     return this._container;
@@ -187,22 +179,15 @@ export class DotCloudComponent {
   }
 
   private _initializeCanvasDimensions(): void {
-    const rootFontSize: number = parseFloat(
-      getComputedStyle(document.documentElement).fontSize,
-    );
+    const rootFontSize: number = parseFloat(getComputedStyle(document.documentElement).fontSize);
 
-    this._canvasWidth = Math.round(14 * rootFontSize);
-    this._canvasHeight = Math.round(2 * rootFontSize);
+    const baseWidth: number = 400;
+    this._canvasWidth = Math.round(ScalingService.getScaledValue(baseWidth, this._settings, "dotCloudWidth"));
+    const baseHeight: number = 2 * rootFontSize;
+    this._canvasHeight = Math.round(ScalingService.getScaledValue(baseHeight, this._settings, "dotCloudSize"));
 
-    const sizeModifiers: Record<string, number> = {
-      small: 0.08,
-      medium: 0.11,
-      large: 0.15,
-    };
-
-    const modifier: number =
-      sizeModifiers[this._settings.dotSize.toLowerCase()] ?? 0.11;
-    this._microDotRadius = rootFontSize * modifier;
+    const baseDotRadius: number = rootFontSize * 0.11;
+    this._microDotRadius = ScalingService.getScaledValue(baseDotRadius, this._settings, "visDotSize");
   }
 
   private _initializeRenderer(canvas: HTMLCanvasElement, scale: number): void {
@@ -213,7 +198,6 @@ export class DotCloudComponent {
     }
 
     context.setTransform(scale, 0, 0, scale, 0, 0);
-
     this._renderer = new DotCloudCanvasRenderer(context, this._mapper);
   }
 
@@ -244,28 +228,23 @@ export class DotCloudComponent {
     }
 
     const context: RenderContext = this._createRenderContext();
-
     this._renderer.draw(context);
   }
 
   private _createRenderContext(): RenderContext {
-    const sortedThresholds: [string, number][] = Object.entries(
-      this._rankThresholds,
-    ).sort((a: [string, number], b: [string, number]) => a[1] - b[1]);
-
-    const bounds: { minRU: number; maxRU: number } =
-      this._calculateViewBounds();
-
-    const scores: number[] = this._recentEntries.map(
-      (entry: ScoreEntry): number => entry.score,
+    const sortedThresholds: [string, number][] = Object.entries(this._rankThresholds).sort(
+      (a: [string, number], b: [string, number]) => a[1] - b[1],
     );
 
-    const rootFontSize: number = parseFloat(
-      getComputedStyle(document.documentElement).fontSize,
+    const bounds: { minRU: number; maxRU: number } = this._calculateViewBounds();
+    const scores: number[] = this._recentEntries.map((entry: ScoreEntry): number =>
+      this._mapper.calculateRankUnit(entry.score)
     );
+
+    const rootFontSize: number = parseFloat(getComputedStyle(document.documentElement).fontSize);
 
     return {
-      scores,
+      scoresInRankUnits: scores,
       sortedThresholds,
       bounds,
       isLatestFromSession: this._isLatestInSession,
@@ -280,25 +259,16 @@ export class DotCloudComponent {
   }
 
   private _calculateViewBounds(): { minRU: number; maxRU: number } {
-    const scores: number[] = this._recentEntries.map(
-      (entry: ScoreEntry): number => entry.score,
-    );
+    const scores: number[] = this._recentEntries.map((entry: ScoreEntry): number => entry.score);
 
-    const minRUScore: number = this._mapper.calculateRankUnit(
-      Math.min(...scores),
-    );
-    const maxRUScore: number = this._mapper.calculateRankUnit(
-      Math.max(...scores),
-    );
+    const minRUScore: number = this._mapper.calculateRankUnit(Math.min(...scores));
+    const maxRUScore: number = this._mapper.calculateRankUnit(Math.max(...scores));
 
     if (this._settings.scalingMode === "Aligned") {
       return this._mapper.calculateAlignedBounds(minRUScore, maxRUScore);
     }
 
-    const indices: number[] = this._mapper.identifyRelevantThresholds(
-      minRUScore,
-      maxRUScore,
-    );
+    const indices: number[] = this._mapper.identifyRelevantThresholds(minRUScore, maxRUScore);
 
     return this._mapper.calculateViewBounds(minRUScore, maxRUScore, indices);
   }

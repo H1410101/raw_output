@@ -1,16 +1,28 @@
+import { ScalingLevel, SCALING_FACTORS } from "./ScalingService";
+
 export interface VisualSettings {
   showDotCloud: boolean;
   dotOpacity: number;
   scalingMode: "Aligned" | "Floating";
-  dotSize: "Small" | "Medium" | "Large";
-  rowHeight: "Compact" | "Normal" | "Spacious";
-  scenarioFontSize: "Small" | "Medium" | "Large";
-  rankFontSize: "Small" | "Medium" | "Large";
+  dotSize: ScalingLevel; // This is layout dot size
+  visDotSize: ScalingLevel; // This is visualization dot size (independent of master scaling)
+  masterScaling: ScalingLevel;
+  verticalSpacing: ScalingLevel;
+  scenarioFontSize: ScalingLevel;
+  rankFontSize: ScalingLevel;
+  launchButtonSize: ScalingLevel;
+  headerFontSize: ScalingLevel;
+  labelFontSize: ScalingLevel;
+  dotCloudSize: ScalingLevel;
+  dotCloudWidth: ScalingLevel;
+  horizontalSpacing: ScalingLevel;
+  visRankFontSize: ScalingLevel;
   showSessionBest: boolean;
   showAllTimeBest: boolean;
-  dotJitter: boolean;
+  dotJitterIntensity: ScalingLevel;
   showRankNotches: boolean;
   highlightLatestRun: boolean;
+  audioVolume: number;
 }
 
 /**
@@ -18,9 +30,7 @@ export interface VisualSettings {
  */
 export class VisualSettingsService {
   private static readonly _storageKey: string = "visual_settings";
-
   private _currentSettings: VisualSettings;
-
   private _listeners: ((settings: VisualSettings) => void)[] = [];
 
   /**
@@ -28,6 +38,7 @@ export class VisualSettingsService {
    */
   public constructor() {
     this._currentSettings = this._loadFromStorage();
+    this._applyCssVariables(this._currentSettings);
   }
 
   /**
@@ -50,9 +61,8 @@ export class VisualSettingsService {
     value: VisualSettings[K],
   ): void {
     this._currentSettings[key] = value;
-
+    this._applyCssVariables(this._currentSettings);
     this._saveToStorage();
-
     this._notifyListeners();
   }
 
@@ -64,7 +74,6 @@ export class VisualSettingsService {
    */
   public subscribe(listener: (settings: VisualSettings) => void): () => void {
     this._listeners.push(listener);
-
     listener(this.getSettings());
 
     return (): void => {
@@ -75,11 +84,32 @@ export class VisualSettingsService {
     };
   }
 
+  private _applyCssVariables(settings: VisualSettings): void {
+    const root: HTMLElement = document.documentElement;
+
+    const apply = (varName: string, level: ScalingLevel): void => {
+      root.style.setProperty(
+        varName,
+        (SCALING_FACTORS[level] ?? SCALING_FACTORS.Normal).toString(),
+      );
+    };
+
+    apply("--master-scale", settings.masterScaling);
+    apply("--vertical-spacing-multiplier", settings.verticalSpacing);
+    apply("--scenario-font-multiplier", settings.scenarioFontSize);
+    apply("--rank-font-multiplier", settings.rankFontSize);
+    apply("--launch-button-multiplier", settings.launchButtonSize);
+    apply("--header-font-multiplier", settings.headerFontSize);
+    apply("--label-font-multiplier", settings.labelFontSize);
+    apply("--dot-cloud-multiplier", settings.dotCloudSize);
+    apply("--dot-cloud-width-multiplier", settings.dotCloudWidth);
+    apply("--dot-cloud-horizontal-multiplier", settings.horizontalSpacing);
+    apply("--vis-rank-font-multiplier", settings.visRankFontSize);
+  }
+
   private _loadFromStorage(): VisualSettings {
     try {
-      const stored: string | null = localStorage.getItem(
-        VisualSettingsService._storageKey,
-      );
+      const stored: string | null = localStorage.getItem(VisualSettingsService._storageKey);
 
       if (stored) {
         return { ...this._getDefaults(), ...JSON.parse(stored) };
@@ -96,22 +126,31 @@ export class VisualSettingsService {
       showDotCloud: true,
       dotOpacity: 40,
       scalingMode: "Aligned",
-      dotSize: "Medium",
-      rowHeight: "Normal",
-      scenarioFontSize: "Medium",
-      rankFontSize: "Medium",
+      dotSize: "Normal",
+      visDotSize: "Normal",
+      masterScaling: "Normal",
+      verticalSpacing: "Normal",
+      scenarioFontSize: "Normal",
+      rankFontSize: "Normal",
+      launchButtonSize: "Normal",
+      headerFontSize: "Normal",
+      labelFontSize: "Normal",
+      dotCloudSize: "Normal",
+      dotCloudWidth: "Normal",
+      horizontalSpacing: "Normal",
+      visRankFontSize: "Normal",
       showSessionBest: true,
       showAllTimeBest: true,
-      dotJitter: true,
+      dotJitterIntensity: "Normal",
       showRankNotches: true,
       highlightLatestRun: true,
+      audioVolume: 80,
     };
   }
 
   private _saveToStorage(): void {
     try {
       const serialized: string = JSON.stringify(this._currentSettings);
-
       localStorage.setItem(VisualSettingsService._storageKey, serialized);
     } catch (error: unknown) {
       void error;
@@ -120,11 +159,8 @@ export class VisualSettingsService {
 
   private _notifyListeners(): void {
     const settings: VisualSettings = this.getSettings();
-
-    this._listeners.forEach(
-      (listener: (settings: VisualSettings) => void): void => {
-        listener(settings);
-      },
-    );
+    this._listeners.forEach((listener: (settings: VisualSettings) => void): void => {
+      listener(settings);
+    });
   }
 }

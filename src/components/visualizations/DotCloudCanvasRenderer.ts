@@ -1,11 +1,12 @@
 import { VisualSettings } from "../../services/VisualSettingsService";
 import { RankScaleMapper } from "./RankScaleMapper";
+import { ScalingService, SCALING_FACTORS } from "../../services/ScalingService";
 
 /**
  * Immutable data snapshot required for a single render pass.
  */
 export interface RenderContext {
-  readonly scores: number[];
+  readonly scoresInRankUnits: number[];
   readonly sortedThresholds: [string, number][];
   readonly bounds: { minRU: number; maxRU: number };
   readonly isLatestFromSession: boolean;
@@ -61,7 +62,11 @@ export class DotCloudCanvasRenderer {
 
     this.drawMetadata(context);
 
-    this.drawPerformanceDots(context);
+    // Calculate density context for jitter
+    const densities: number[] = this._calculateLocalDensities(context.scoresInRankUnits);
+    const peakDensity: number = densities.length > 0 ? Math.max(...densities) : 1;
+
+    this.drawPerformanceDots(context, densities, peakDensity);
   }
 
   /**
@@ -75,9 +80,10 @@ export class DotCloudCanvasRenderer {
     const notchHeight: number = this._calculateNotchHeight(
       rootFontSize,
       context.dimensions.height,
+      context.settings,
     );
 
-    this._setupLabelStyles(rootFontSize);
+    this._setupLabelStyles(rootFontSize, context.settings);
 
     const indices: number[] = this._mapper.identifyRelevantThresholds(
       context.bounds.minRU,
@@ -93,13 +99,20 @@ export class DotCloudCanvasRenderer {
    * Draws the performance dots representing historical scores.
    *
    * @param context - The render context to use.
+   * @param densities - Array of local densities corresponding to context.scores.
+   * @param peakDensity - Maximum density value in the current dataset.
    */
-  public drawPerformanceDots(context: RenderContext): void {
+  public drawPerformanceDots(
+    context: RenderContext,
+    densities: number[],
+    peakDensity: number
+  ): void {
     const rootFontSize: number = context.dimensions.rootFontSize;
 
     const notchHeight: number = this._calculateNotchHeight(
       rootFontSize,
       context.dimensions.height,
+      context.settings,
     );
 
     const opacity: number = this._getNormalizedOpacity(context.settings);
@@ -114,11 +127,13 @@ export class DotCloudCanvasRenderer {
 
     this._setupStrokeStyles(styles, opacity, context.dimensions.dotRadius);
 
-    context.scores.forEach((score: number, index: number): void => {
+    context.scoresInRankUnits.forEach((score: number, index: number): void => {
       this._renderIndividualScore(score, index, context, {
         notchHeight,
         baseStyle,
         highlightStyle,
+        localDensity: densities[index] || 1,
+        peakDensity,
       });
     });
   }
@@ -151,7 +166,13 @@ export class DotCloudCanvasRenderer {
     score: number,
     index: number,
     context: RenderContext,
-    visuals: { notchHeight: number; baseStyle: string; highlightStyle: string },
+    visuals: {
+      notchHeight: number;
+      baseStyle: string;
+      highlightStyle: string;
+      localDensity: number;
+      peakDensity: number;
+    },
   ): void {
     const x: number = this._calculateHorizontalPosition(
       score,
@@ -160,10 +181,13 @@ export class DotCloudCanvasRenderer {
     );
 
     const finalY: number = this._calculateFinalY(
-      score,
-      context.scores,
       visuals.notchHeight,
       context.settings,
+      index,
+      visuals.localDensity,
+      visuals.peakDensity,
+      context.scoresInRankUnits.length,
+      context.dimensions.dotRadius,
     );
 
     const isRecent: boolean = this._isLatestSessionRun(
@@ -180,12 +204,10 @@ export class DotCloudCanvasRenderer {
   }
 
   private _calculateHorizontalPosition(
-    score: number,
+    rankUnit: number,
     bounds: { minRU: number; maxRU: number },
     canvasWidth: number,
   ): number {
-    const rankUnit: number = this._mapper.calculateRankUnit(score);
-
     return this._mapper.getHorizontalPosition(
       rankUnit,
       bounds.minRU,
@@ -195,17 +217,22 @@ export class DotCloudCanvasRenderer {
   }
 
   private _calculateFinalY(
-    score: number,
-    allScores: number[],
     notchHeight: number,
     settings: VisualSettings,
+    index: number,
+    localDensity: number,
+    peakDensity: number,
+    totalCount: number,
+    dotRadius: number,
   ): number {
-    const density: number = this._calculateLocalDensity(score, allScores);
-
     const jitterY: number = this._calculateVerticalJitter(
-      density,
       notchHeight,
       settings,
+      index,
+      localDensity,
+      peakDensity,
+      totalCount,
+      dotRadius,
     );
 
     return notchHeight / 2 + jitterY;
@@ -294,35 +321,64 @@ export class DotCloudCanvasRenderer {
     this._context.fillText(text, clampedX, Math.floor(canvasHeight));
   }
 
-  private _calculateLocalDensity(target: number, scores: number[]): number {
-    const windowSize: number = 5;
-
-    return scores.filter(
-      (score: number): boolean => Math.abs(score - target) <= windowSize,
-    ).length;
+  private _calculateLocalDensities(rankUnits: number[]): number[] {
+    const windowSize: number = 0.2; // 0.2 rank units (effective rank score)
+    return rankUnits.map((target: number): number => {
+      return rankUnits.filter(
+        (ru: number): boolean => Math.abs(ru - target) <= windowSize,
+      ).length;
+    });
   }
 
   private _calculateVerticalJitter(
-    density: number,
-    height: number,
+    notchHeight: number,
     settings: VisualSettings,
+    index: number,
+    localDensity: number,
+    peakDensity: number,
+    totalCount: number,
+    dotRadius: number,
   ): number {
-    if (!settings.dotJitter || density <= 1) {
+    const jitterMultiplier: number =
+      SCALING_FACTORS[settings.dotJitterIntensity] ?? 0;
+
+    if (jitterMultiplier === 0 || localDensity <= 1) {
       return 0;
     }
 
-    const intensity: number = Math.min((density - 1) / 14, 1);
+    // Interval [-local_max, local_max]
+    // local_max = global_max_dot_height * local_density/global_max_density * sqrt(global_num_dots/max_num_dots)
+    // global_max_dot_height is the maximum jitter that keeps the dot on screen
+    const globalMaxDotHeight: number = notchHeight / 2 - dotRadius;
 
-    const range: number = height * 0.6 * intensity;
+    const maxNumDotsBaseline: number = 100;
+    const densityRatio: number = localDensity / peakDensity;
+    const populationRatio: number = Math.sqrt(
+      Math.min(totalCount / maxNumDotsBaseline, 1),
+    );
 
-    return (Math.random() - 0.5) * range;
+    const localMax: number =
+      globalMaxDotHeight * jitterMultiplier * densityRatio * populationRatio;
+
+    // Deterministic pseudo-random value in interval [-localMax, localMax]
+    const rawSin: number = Math.sin(index * 12.9898 + 78.233) * 43758.5453;
+    const stableRandom: number = (Math.abs(rawSin % 1) - 0.5) * 2; // [-1, 1]
+
+    return stableRandom * localMax;
   }
 
   private _calculateNotchHeight(
     rootFontSize: number,
     canvasHeight: number,
+    settings: VisualSettings,
   ): number {
-    const labelBuffer: number = rootFontSize * 0.7;
+    const multiplier: number = ScalingService.calculateMultiplier(
+      settings.masterScaling,
+      settings.visRankFontSize,
+    );
+    const rankFontSize: number = rootFontSize * 0.5 * multiplier;
+    const gap: number = rankFontSize * 0.2;
+    const labelBuffer: number = rankFontSize + gap;
 
     return canvasHeight - labelBuffer;
   }
@@ -331,8 +387,12 @@ export class DotCloudCanvasRenderer {
     return Math.max(0, Math.min(1, settings.dotOpacity / 100));
   }
 
-  private _setupLabelStyles(rootFontSize: number): void {
-    const fontSize: number = rootFontSize * 0.5;
+  private _setupLabelStyles(rootFontSize: number, settings: VisualSettings): void {
+    const multiplier: number = ScalingService.calculateMultiplier(
+      settings.masterScaling,
+      settings.visRankFontSize,
+    );
+    const fontSize: number = rootFontSize * 0.5 * multiplier;
 
     this._context.font = `600 ${fontSize}px Outfit, sans-serif`;
 

@@ -3,22 +3,23 @@ import {
   VisualSettingsService,
   VisualSettings,
 } from "../../services/VisualSettingsService";
+import { ScalingLevel } from "../../services/ScalingService";
 import {
   SessionSettingsService,
-  SessionSettings,
 } from "../../services/SessionSettingsService";
 
 /**
- * Handles the construction and event wiring of specific sections within the settings menu.
+ * Responsible for rendering specific sections of the settings menu.
  */
 export class SettingsSectionRenderer {
   private readonly _visualSettingsService: VisualSettingsService;
-  private readonly _sessionSettingsService: SessionSettingsService;
+
+  private static readonly _SCALING_OPTIONS: ScalingLevel[] = ["Min", "Small", "Normal", "Large", "Max"];
 
   /**
-   * Initializes the renderer with the required configuration services.
+   * Initializes the renderer with required services.
    *
-   * @param visualSettingsService - Service for managing visualization and layout settings.
+   * @param visualSettingsService - Service for managing visual configuration.
    * @param sessionSettingsService - Service for managing session-specific settings.
    */
   public constructor(
@@ -26,226 +27,227 @@ export class SettingsSectionRenderer {
     sessionSettingsService: SessionSettingsService,
   ) {
     this._visualSettingsService = visualSettingsService;
-    this._sessionSettingsService = sessionSettingsService;
+    void sessionSettingsService;
   }
 
   /**
-   * Appends the visualization-related settings group to the provided container.
+   * Builds and appends the visualization settings section.
    *
-   * @param container - The parent container element.
-   * @param settings - The current visual settings state.
+   * @param container - The element to append settings to.
+   * @param settings - Current visual settings.
    */
-  public appendVisualizationSection(
-    container: HTMLElement,
-    settings: VisualSettings,
-  ): void {
+  public appendVisualizationSection(container: HTMLElement, settings: VisualSettings): void {
     container.appendChild(SettingsUiFactory.createGroupTitle("Visualization"));
-    this._appendDotCloudConfiguration(container, settings);
+
+    // Nested Dot Cloud Settings
+    const dotCloudToggle: HTMLElement = SettingsUiFactory.createToggle(
+      "Show Dot Cloud",
+      settings.showDotCloud,
+      (val: boolean): void =>
+        this._visualSettingsService.updateSetting("showDotCloud", val),
+    );
+
+    const dotCloudSubRows: HTMLDivElement = document.createElement("div");
+    dotCloudSubRows.className = "settings-sub-rows";
+    if (!settings.showDotCloud) {
+      dotCloudSubRows.classList.add("hidden");
+    }
+
+    this._appendDotCloudOptions(dotCloudSubRows, settings);
+    container.appendChild(SettingsUiFactory.createSettingsGroup(dotCloudToggle, dotCloudSubRows));
+  }
+
+  private _appendDotCloudOptions(container: HTMLElement, settings: VisualSettings): void {
+    container.appendChild(this._createVisDotSizeControl(settings));
+    container.appendChild(this._createVisRankFontControl(settings));
+
+    container.appendChild(
+      SettingsUiFactory.createSlider({
+        label: "Dot Opacity",
+        value: settings.dotOpacity,
+        min: 10,
+        max: 100,
+        unit: "%",
+        onChange: (val: number): void =>
+          this._visualSettingsService.updateSetting("dotOpacity", val),
+      }),
+    );
+
+    container.appendChild(
+      SettingsUiFactory.createSegmentedControl(
+        "Dot Jitter",
+        SettingsSectionRenderer._SCALING_OPTIONS,
+        settings.dotJitterIntensity,
+        (val: string): void =>
+          this._visualSettingsService.updateSetting(
+            "dotJitterIntensity",
+            val as ScalingLevel,
+          ),
+        "left-aligned",
+        0,
+      ),
+    );
+
+    container.appendChild(
+      SettingsUiFactory.createToggle(
+        "Show Rank Notches",
+        settings.showRankNotches,
+        (val: boolean): void =>
+          this._visualSettingsService.updateSetting("showRankNotches", val),
+      ),
+    );
+
+    container.appendChild(
+      SettingsUiFactory.createToggle(
+        "Highlight Latest",
+        settings.highlightLatestRun,
+        (val: boolean): void =>
+          this._visualSettingsService.updateSetting("highlightLatestRun", val),
+      ),
+    );
   }
 
   /**
-   * Appends the layout and sizing settings group to the provided container.
+   * Builds and appends the layout settings section.
    *
-   * @param container - The parent container element.
-   * @param settings - The current visual settings state.
+   * @param container - The element to append settings to.
+   * @param settings - Current visual settings.
    */
-  public appendLayoutSection(
-    container: HTMLElement,
-    settings: VisualSettings,
-  ): void {
-    container.appendChild(SettingsUiFactory.createGroupTitle("Layout"));
-    this._appendSizeConfiguration(container, settings);
+  public appendLayoutSection(container: HTMLElement, settings: VisualSettings): void {
+    container.appendChild(SettingsUiFactory.createGroupTitle("Layout Scaling"));
+    this._appendScalingConfiguration(container, settings);
+  }
+
+  /**
+   * Builds and appends the audio settings section.
+   *
+   * @param container - The element to append settings to.
+   */
+  public appendAudioSection(container: HTMLElement): void {
+    const settings: VisualSettings = this._visualSettingsService.getSettings();
+    container.appendChild(SettingsUiFactory.createGroupTitle("Audio"));
+
+    const volumeSlider: HTMLElement = SettingsUiFactory.createSlider({
+      label: "Master Volume",
+      value: settings.audioVolume,
+      min: 0,
+      max: 100,
+      unit: "%",
+      showNotch: true,
+      onChange: (val: number): void =>
+        this._visualSettingsService.updateSetting("audioVolume", val),
+    });
+
+    const audioSubRows: HTMLDivElement = document.createElement("div");
+    audioSubRows.className = "settings-sub-rows";
+    this._fillAudioPlaceholders(audioSubRows);
+
+    container.appendChild(SettingsUiFactory.createSettingsGroup(volumeSlider, audioSubRows));
+  }
+
+  /**
+   * Builds and appends the session settings section.
+   *
+   * @param container - The element to append settings to.
+   * @param settings - Current session settings.
+   */
+  public appendSessionSection(container: HTMLElement, settings: any): void {
+    const visualSettings: VisualSettings = this._visualSettingsService.getSettings();
+
+    container.appendChild(SettingsUiFactory.createGroupTitle("Information"));
 
     container.appendChild(
       SettingsUiFactory.createToggle(
         "Show Session Best",
-        settings.showSessionBest,
-        (checked: boolean): void =>
-          this._visualSettingsService.updateSetting("showSessionBest", checked),
+        visualSettings.showSessionBest,
+        (val: boolean): void =>
+          this._visualSettingsService.updateSetting("showSessionBest", val),
       ),
     );
 
     container.appendChild(
       SettingsUiFactory.createToggle(
         "Show All-Time Best",
-        settings.showAllTimeBest,
-        (checked: boolean): void =>
-          this._visualSettingsService.updateSetting("showAllTimeBest", checked),
+        visualSettings.showAllTimeBest,
+        (val: boolean): void =>
+          this._visualSettingsService.updateSetting("showAllTimeBest", val),
       ),
     );
+
+    void settings;
   }
 
-  /**
-   * Appends the audio settings group, including placeholder logic.
-   *
-   * @param container - The parent container element.
-   */
-  public appendAudioSection(container: HTMLElement): void {
-    container.appendChild(SettingsUiFactory.createGroupTitle("Audio"));
-
-    const subRowsContainer: HTMLDivElement = document.createElement("div");
-    subRowsContainer.className = "settings-sub-rows hidden";
-    this._fillAudioPlaceholders(subRowsContainer);
-
-    const masterVolume: HTMLElement = SettingsUiFactory.createSlider({
-      label: "Master Volume (Placeholder)",
-      unit: "%",
-      value: 0,
-      min: 0,
-      max: 100,
-      showNotch: true,
-      onChange: (value: number): void =>
-        this._toggleVisibility(subRowsContainer, value > 0),
-    });
-
-    container.appendChild(SettingsUiFactory.createSettingsGroup(masterVolume, subRowsContainer));
-  }
-
-  /**
-   * Appends the session-related configuration group.
-   *
-   * @param container - The parent container element.
-   * @param settings - The current session settings state.
-   */
-  public appendSessionSection(
-    container: HTMLElement,
-    settings: SessionSettings,
-  ): void {
-    container.appendChild(SettingsUiFactory.createGroupTitle("Session"));
-
-    const intervalSlider: HTMLElement = SettingsUiFactory.createSlider({
-      label: "Session Interval",
-      unit: "min",
-      value: settings.sessionTimeoutMinutes,
-      options: [1, 5, 10, 15, 30, 60, 120],
-      showNotch: false,
-      onChange: (value: number): void =>
-        this._sessionSettingsService.updateSetting("sessionTimeoutMinutes", value),
-    });
-
-    container.appendChild(intervalSlider);
-  }
-
-  private _appendDotCloudConfiguration(
-    container: HTMLElement,
-    settings: VisualSettings,
-  ): void {
-    const subRowsContainer: HTMLDivElement = document.createElement("div");
-    const visibilityClass: string = settings.showDotCloud ? "" : "hidden";
-
-    subRowsContainer.className = `settings-sub-rows ${visibilityClass}`;
-    this._appendDotCloudSubRows(subRowsContainer, settings);
-
-    const mainToggle: HTMLElement = SettingsUiFactory.createToggle(
-      "Dot Cloud",
-      settings.showDotCloud,
-      (checked: boolean): void => {
-        this._visualSettingsService.updateSetting("showDotCloud", checked);
-        this._toggleVisibility(subRowsContainer, checked);
-      },
-    );
-
-    container.appendChild(SettingsUiFactory.createSettingsGroup(mainToggle, subRowsContainer));
-  }
-
-  private _appendDotCloudSubRows(container: HTMLElement, settings: VisualSettings): void {
-    const subRows: HTMLElement[] = [
-      this._createDotOpacitySlider(settings),
-      this._createDotBoundsControl(settings),
-      this._createDotSizeControl(settings),
-      this._createDotJitterToggle(settings),
-      this._createHighlightLatestToggle(settings),
-      this._createRankNotchToggle(settings),
-    ];
-
-    subRows.forEach((row: HTMLElement): void => {
-      container.appendChild(row);
-    });
-  }
-
-  private _createDotOpacitySlider(settings: VisualSettings): HTMLElement {
-    return SettingsUiFactory.createSlider({
-      label: "Dot Opacity",
-      unit: "%",
-      value: settings.dotOpacity,
-      min: 10,
-      max: 100,
-      onChange: (val: number): void =>
-        this._visualSettingsService.updateSetting("dotOpacity", val),
-    });
-  }
-
-  private _createDotBoundsControl(settings: VisualSettings): HTMLElement {
+  private _createVisRankFontControl(settings: VisualSettings): HTMLElement {
     return SettingsUiFactory.createSegmentedControl(
-      "Dot Cloud Bounds",
-      ["Aligned", "Floating"],
-      settings.scalingMode,
+      "Rank Text Size",
+      SettingsSectionRenderer._SCALING_OPTIONS,
+      settings.visRankFontSize,
       (val: string): void =>
-        this._visualSettingsService.updateSetting("scalingMode", val as "Aligned" | "Floating"),
+        this._visualSettingsService.updateSetting("visRankFontSize", val as ScalingLevel),
     );
   }
 
-  private _createDotSizeControl(settings: VisualSettings): HTMLElement {
+  private _createVisDotSizeControl(settings: VisualSettings): HTMLElement {
     return SettingsUiFactory.createSegmentedControl(
-      "Dot Size",
-      ["Small", "Medium", "Large"],
-      settings.dotSize,
+      "Vis Dot Size",
+      SettingsSectionRenderer._SCALING_OPTIONS,
+      settings.visDotSize,
       (val: string): void =>
-        this._visualSettingsService.updateSetting("dotSize", val as "Small" | "Medium" | "Large"),
+        this._visualSettingsService.updateSetting("visDotSize", val as ScalingLevel),
     );
   }
 
-  private _createDotJitterToggle(settings: VisualSettings): HTMLElement {
-    return SettingsUiFactory.createToggle(
-      "Jitter Dots",
-      settings.dotJitter,
-      (checked: boolean): void =>
-        this._visualSettingsService.updateSetting("dotJitter", checked),
+  private _createDotCloudHeightControl(settings: VisualSettings): HTMLElement {
+    return SettingsUiFactory.createSegmentedControl(
+      "Dot Cloud Height",
+      SettingsSectionRenderer._SCALING_OPTIONS,
+      settings.dotCloudSize,
+      (val: string): void =>
+        this._visualSettingsService.updateSetting("dotCloudSize", val as ScalingLevel),
     );
   }
 
-  private _createHighlightLatestToggle(settings: VisualSettings): HTMLElement {
-    return SettingsUiFactory.createToggle(
-      "Highlight Latest Run",
-      settings.highlightLatestRun,
-      (checked: boolean): void =>
-        this._visualSettingsService.updateSetting("highlightLatestRun", checked),
+  private _createDotCloudWidthControl(settings: VisualSettings): HTMLElement {
+    return SettingsUiFactory.createSegmentedControl(
+      "Dot Cloud Width",
+      SettingsSectionRenderer._SCALING_OPTIONS,
+      settings.dotCloudWidth,
+      (val: string): void =>
+        this._visualSettingsService.updateSetting("dotCloudWidth", val as ScalingLevel),
     );
   }
 
-  private _createRankNotchToggle(settings: VisualSettings): HTMLElement {
-    return SettingsUiFactory.createToggle(
-      "Show Rank Notches",
-      settings.showRankNotches,
-      (checked: boolean): void =>
-        this._visualSettingsService.updateSetting("showRankNotches", checked),
-    );
-  }
-
-  private _appendSizeConfiguration(
+  private _appendScalingConfiguration(
     container: HTMLElement,
     settings: VisualSettings,
   ): void {
     const subRowsContainer: HTMLDivElement = document.createElement("div");
     subRowsContainer.className = "settings-sub-rows";
 
-    this._appendSizeSubRows(subRowsContainer, settings);
+    this._appendScalingSubRows(subRowsContainer, settings);
 
     const masterScaling: HTMLElement = SettingsUiFactory.createSegmentedControl(
-      "Master Scaling",
-      ["0.8x", "1.0x", "1.2x"],
-      "1.0x",
-      (): void => { },
+      "Master Scale",
+      SettingsSectionRenderer._SCALING_OPTIONS,
+      settings.masterScaling,
+      (val: string): void =>
+        this._visualSettingsService.updateSetting("masterScaling", val as ScalingLevel),
     );
 
     container.appendChild(SettingsUiFactory.createSettingsGroup(masterScaling, subRowsContainer));
   }
 
-  private _appendSizeSubRows(container: HTMLElement, settings: VisualSettings): void {
+  private _appendScalingSubRows(container: HTMLElement, settings: VisualSettings): void {
     const subRows: HTMLElement[] = [
-      this._createRowHeightControl(settings),
+      this._createVerticalSpacingControl(settings),
       this._createScenarioFontControl(settings),
       this._createRankFontControl(settings),
+      this._createLaunchButtonSizeControl(settings),
+      this._createHeaderFontControl(settings),
+      this._createLabelFontControl(settings),
+      this._createDotCloudHeightControl(settings),
+      this._createDotCloudWidthControl(settings),
+      this._createHorizontalSpacingControl(settings),
     ];
 
     subRows.forEach((row: HTMLElement): void => {
@@ -253,73 +255,81 @@ export class SettingsSectionRenderer {
     });
   }
 
-  private _createRowHeightControl(settings: VisualSettings): HTMLElement {
+  private _createHorizontalSpacingControl(settings: VisualSettings): HTMLElement {
     return SettingsUiFactory.createSegmentedControl(
-      "Row Height",
-      ["Compact", "Normal", "Spacious"],
-      settings.rowHeight,
+      "Horizontal Spacing",
+      SettingsSectionRenderer._SCALING_OPTIONS,
+      settings.horizontalSpacing,
       (val: string): void =>
-        this._visualSettingsService.updateSetting(
-          "rowHeight",
-          val as "Compact" | "Normal" | "Spacious",
-        ),
+        this._visualSettingsService.updateSetting("horizontalSpacing", val as ScalingLevel),
+    );
+  }
+
+  private _createVerticalSpacingControl(settings: VisualSettings): HTMLElement {
+    return SettingsUiFactory.createSegmentedControl(
+      "Vertical Spacing",
+      SettingsSectionRenderer._SCALING_OPTIONS,
+      settings.verticalSpacing,
+      (val: string): void =>
+        this._visualSettingsService.updateSetting("verticalSpacing", val as ScalingLevel),
     );
   }
 
   private _createScenarioFontControl(settings: VisualSettings): HTMLElement {
     return SettingsUiFactory.createSegmentedControl(
-      "Scenario Font Size",
-      ["Small", "Medium", "Large"],
+      "Scenario Name Size",
+      SettingsSectionRenderer._SCALING_OPTIONS,
       settings.scenarioFontSize,
       (val: string): void =>
-        this._visualSettingsService.updateSetting(
-          "scenarioFontSize",
-          val as "Small" | "Medium" | "Large",
-        ),
+        this._visualSettingsService.updateSetting("scenarioFontSize", val as ScalingLevel),
     );
   }
 
   private _createRankFontControl(settings: VisualSettings): HTMLElement {
     return SettingsUiFactory.createSegmentedControl(
-      "Rank Font Size",
-      ["Small", "Medium", "Large"],
+      "Rank Display Size",
+      SettingsSectionRenderer._SCALING_OPTIONS,
       settings.rankFontSize,
       (val: string): void =>
-        this._visualSettingsService.updateSetting(
-          "rankFontSize",
-          val as "Small" | "Medium" | "Large",
-        ),
+        this._visualSettingsService.updateSetting("rankFontSize", val as ScalingLevel),
     );
   }
 
-  private _toggleVisibility(container: HTMLElement, isVisible: boolean): void {
-    if (isVisible) {
-      container.classList.remove("hidden");
-      this._enableScrollAfterDelay(container);
-
-      return;
-    }
-
-    container.classList.add("hidden");
-    container.style.overflowY = "hidden";
+  private _createLaunchButtonSizeControl(settings: VisualSettings): HTMLElement {
+    return SettingsUiFactory.createSegmentedControl(
+      "Launch Button Size",
+      SettingsSectionRenderer._SCALING_OPTIONS,
+      settings.launchButtonSize,
+      (val: string): void =>
+        this._visualSettingsService.updateSetting("launchButtonSize", val as ScalingLevel),
+    );
   }
 
-  private _enableScrollAfterDelay(container: HTMLElement): void {
-    container.style.overflowY = "hidden";
+  private _createHeaderFontControl(settings: VisualSettings): HTMLElement {
+    return SettingsUiFactory.createSegmentedControl(
+      "Header Text Size",
+      SettingsSectionRenderer._SCALING_OPTIONS,
+      settings.headerFontSize,
+      (val: string): void =>
+        this._visualSettingsService.updateSetting("headerFontSize", val as ScalingLevel),
+    );
+  }
 
-    setTimeout((): void => {
-      if (!container.classList.contains("hidden")) {
-        container.style.overflowY = "auto";
-      }
-    }, 250);
+  private _createLabelFontControl(settings: VisualSettings): HTMLElement {
+    return SettingsUiFactory.createSegmentedControl(
+      "Category Label Size",
+      SettingsSectionRenderer._SCALING_OPTIONS,
+      settings.labelFontSize,
+      (val: string): void =>
+        this._visualSettingsService.updateSetting("labelFontSize", val as ScalingLevel),
+    );
   }
 
   private _fillAudioPlaceholders(container: HTMLElement): void {
-    for (let i: number = 1; i <= 7; i++) {
+    for (let i: number = 1; i <= 3; i++) {
       const item: HTMLDivElement = document.createElement("div");
       item.className = "setting-item";
-      item.innerHTML = `<label>Audio Placeholder ${i}</label>`;
-
+      item.innerHTML = `<label>Audio Source ${i}</label>`;
       container.appendChild(item);
     }
   }
