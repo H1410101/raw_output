@@ -237,14 +237,14 @@ export class DotCloudComponent {
     );
 
     const bounds: { minRU: number; maxRU: number } = this._calculateViewBounds();
-    const scores: number[] = this._recentEntries.map((entry: ScoreEntry): number =>
+    const scoresInRankUnits: number[] = this._recentEntries.map((entry: ScoreEntry): number =>
       this._mapper.calculateRankUnit(entry.score)
     );
 
     const rootFontSize: number = parseFloat(getComputedStyle(document.documentElement).fontSize);
 
     return {
-      scoresInRankUnits: scores,
+      scoresInRankUnits,
       sortedThresholds,
       bounds,
       isLatestFromSession: this._isLatestInSession,

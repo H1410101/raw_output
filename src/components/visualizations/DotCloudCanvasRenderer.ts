@@ -1,6 +1,6 @@
 import { VisualSettings } from "../../services/VisualSettingsService";
 import { RankScaleMapper } from "./RankScaleMapper";
-import { ScalingService, SCALING_FACTORS } from "../../services/ScalingService";
+import { ScalingService, ScalingLevel } from "../../services/ScalingService";
 
 /**
  * Immutable data snapshot required for a single render pass.
@@ -235,7 +235,7 @@ export class DotCloudCanvasRenderer {
       dotRadius,
     );
 
-    return notchHeight / 2 + jitterY;
+    return (notchHeight) / 2 + jitterY;
   }
 
   private _isLatestSessionRun(
@@ -322,12 +322,36 @@ export class DotCloudCanvasRenderer {
   }
 
   private _calculateLocalDensities(rankUnits: number[]): number[] {
-    const windowSize: number = 0.2; // 0.2 rank units (effective rank score)
+    const windowSizeInRu: number = 0.5;
+
     return rankUnits.map((target: number): number => {
       return rankUnits.filter(
-        (ru: number): boolean => Math.abs(ru - target) <= windowSize,
-      ).length;
+        (rankUnit: number): boolean => Math.abs(rankUnit - target) <= windowSizeInRu,
+      ).map(
+        (rankUnit: number): number => Math.pow(Math.abs(rankUnit - target) / windowSizeInRu, 1)
+      ).reduce(
+        (a: number, b: number): number => a + b, 0
+      );
     });
+  }
+
+  /**
+   * A seeded pseudorandom number generator function based on splitmix64.
+   * 
+   * Found at https://gist.github.com/tommyettinger/46a874533244883189143505d203312c.
+   * Credit to @tommyettinger for the algorithm, and deleted user @ghost for implementation in javascript.
+   * 
+   * @param seed - The seed value to use for the random number generator.
+   * @returns number between -1 and 1.
+   */
+  private _seededRandom(seed: number): number {
+    let z: number = (seed += 0x9e3779b9);
+    z ^= z >>> 16;
+    z = Math.imul(z, 0x21f0aaad);
+    z ^= z >>> 15;
+    z = Math.imul(z, 0x735a2d97);
+    z ^= z >>> 15;
+    return ((z >>> 0) / 0xFFFFFFFF) * 2 - 1;
   }
 
   private _calculateVerticalJitter(
@@ -339,8 +363,17 @@ export class DotCloudCanvasRenderer {
     totalCount: number,
     dotRadius: number,
   ): number {
+
+    const JITTER_SCALE: Record<ScalingLevel, number> = {
+      Min: 0,
+      Small: 0.25,
+      Normal: 0.5,
+      Large: 0.75,
+      Max: 1,
+    };
+
     const jitterMultiplier: number =
-      SCALING_FACTORS[settings.dotJitterIntensity] ?? 0;
+      JITTER_SCALE[settings.dotJitterIntensity] ?? 0;
 
     if (jitterMultiplier === 0 || localDensity <= 1) {
       return 0;
@@ -352,17 +385,13 @@ export class DotCloudCanvasRenderer {
     const globalMaxDotHeight: number = notchHeight / 2 - dotRadius;
 
     const maxNumDotsBaseline: number = 100;
-    const densityRatio: number = localDensity / peakDensity;
-    const populationRatio: number = Math.sqrt(
-      Math.min(totalCount / maxNumDotsBaseline, 1),
-    );
+    const densityRatio: number = Math.pow(localDensity / peakDensity, 3);
+    const populationRatio: number = 0.25 + 0.75 * totalCount / maxNumDotsBaseline;
 
     const localMax: number =
       globalMaxDotHeight * jitterMultiplier * densityRatio * populationRatio;
 
-    // Deterministic pseudo-random value in interval [-localMax, localMax]
-    const rawSin: number = Math.sin(index * 12.9898 + 78.233) * 43758.5453;
-    const stableRandom: number = (Math.abs(rawSin % 1) - 0.5) * 2; // [-1, 1]
+    const stableRandom: number = this._seededRandom(index);
 
     return stableRandom * localMax;
   }
