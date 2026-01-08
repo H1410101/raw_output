@@ -130,9 +130,21 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Extrapolated rank progress for top-tier performance.
 - **Commit Goal**: Rank badges display percentages exceeding 100% when the highest rank is surpassed, scaled by the final rank interval.
 
-### Checkpoint 2.16: Auto Focus Run
+### Checkpoint 2.16: Auto Focus Run (Done)
 - **Deliverable**: New runs refresh the benchmark row, and automatically scroll so that it is centered.
 - **Commit Goal**: Doing a new Kovaak's run automatically makes the UI jump to the appropriate difficulty (or prefer the one nearest to the current difficulty), and scrolls so that the session rank is shown.
+
+### Checkpoint 2.16.1: Settings Cleanup & Refinement (Done)
+- **Deliverable**: Visual setting renames and slider tactile improvements.
+- **Commit Goal**: Audio placeholder slider uses 10% increments, and settings are reorganized for better clarity.
+
+### Checkpoint 2.16.2: Lazy Re-rendering Fixes
+- **Deliverable**: Resolved synchronization issues in dot cloud rendering.
+- **Commit Goal**: Dot clouds re-render reliably and efficiently when settings or data change, without orphaned canvas elements.
+
+### Checkpoint 2.16.3: Settings Functionality
+- **Deliverable**: Functional implementation of remaining placeholder settings.
+- **Commit Goal**: Settings like Master Scaling and audio placeholders are wired to functional systems.
 
 ### Checkpoint 2.17: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.

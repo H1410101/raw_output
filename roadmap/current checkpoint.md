@@ -1,14 +1,14 @@
-```raw_output\roadmap\current checkpoint.md#L1-13
-# Current Checkpoint: 2.16: Auto Focus Run
+# Current Checkpoint: 2.16.1: Settings Cleanup & Refinement
 
 ## Status
-Done
+Completed
 
 ## Deliverables
-- [x] Implement automatic scrolling or focus transition to the most relevant benchmark scenario after a run.
-- [x] Define logic for "relevance" (e.g., last played, next milestone, or improved score).
-- [x] Ensure smooth visual transition to the focused element.
-- [x] Implement lazy re-rendering for benchmark rows to optimize performance during real-time updates.
+- [x] Rename visual settings for clarity ("Highlight Latest Run", "Show Rank Notches", "Show All-Time Best").
+- [x] Nest "Highlight Latest Run" under "Dot Cloud" configuration.
+- [x] Implement tactile slider enhancements (Zero-Notch interaction).
+- [x] Add dynamic value display to settings sliders with calibrated styling.
+- [x] Refine default dot increments to 10% for improved precision.
 
 ## Next Up
-Checkpoint 2.17: SFX Identity
+2.16.2: Lazy Re-rendering Bugs

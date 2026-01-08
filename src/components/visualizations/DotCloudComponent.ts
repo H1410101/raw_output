@@ -1,17 +1,29 @@
 import { VisualSettings } from "../../services/VisualSettingsService";
-import { ScoreProcessor } from "./ScoreProcessor";
+import { ScoreProcessor, ScoreEntry } from "./ScoreProcessor";
 import { RankScaleMapper } from "./RankScaleMapper";
 import { DotCloudCanvasRenderer } from "./DotCloudCanvasRenderer";
+
+/**
+ * Configuration for initializing a DotCloudComponent.
+ */
+export interface DotCloudConfiguration {
+  readonly entries: ScoreEntry[];
+  readonly thresholds: Record<string, number>;
+  readonly settings: VisualSettings;
+  readonly isLatestInSession: boolean;
+  readonly rankInterval?: number;
+}
 
 /**
  * Responsibility: Orchestrate the rendering of a "Dot Cloud" (Strip Plot) of recent performance data.
  * Coordinates data processing, coordinate mapping, and canvas rendering.
  */
 export class DotCloudComponent {
-  private readonly _recentScores: number[];
+  private readonly _recentEntries: ScoreEntry[];
   private readonly _rankThresholds: Record<string, number>;
   private readonly _settings: VisualSettings;
   private readonly _mapper: RankScaleMapper;
+  private readonly _isLatestInSession: boolean;
   private _canvasWidth: number = 160;
   private _canvasHeight: number = 24;
   private _microDotRadius: number = 1;
@@ -19,25 +31,24 @@ export class DotCloudComponent {
   /**
    * Initializes the component with score data and visualization settings.
    *
-   * @param scores - Array of raw score values to process.
-   * @param thresholds - Map of rank names to their threshold values.
-   * @param settings - Current visual configuration.
-   * @param rankInterval - The numeric interval between ranks.
+   * @param configuration - The setup parameters for the visualization.
    */
-  public constructor(
-    scores: number[],
-    thresholds: Record<string, number>,
-    settings: VisualSettings,
-    rankInterval: number = 100,
-  ) {
-    this._rankThresholds = thresholds;
-    this._settings = settings;
-    this._recentScores = ScoreProcessor.processTemporalScores(scores);
-
-    const thresholdValues: number[] = Object.values(thresholds).sort(
-      (a: number, b: number) => a - b,
+  public constructor(configuration: DotCloudConfiguration) {
+    this._rankThresholds = configuration.thresholds;
+    this._settings = configuration.settings;
+    this._isLatestInSession = configuration.isLatestInSession;
+    this._recentEntries = ScoreProcessor.processTemporalScores(
+      configuration.entries,
     );
-    this._mapper = new RankScaleMapper(thresholdValues, rankInterval);
+
+    const thresholdValues: number[] = Object.values(
+      configuration.thresholds,
+    ).sort((a: number, b: number) => a - b);
+
+    this._mapper = new RankScaleMapper(
+      thresholdValues,
+      configuration.rankInterval ?? 100,
+    );
   }
 
   /**
@@ -49,7 +60,7 @@ export class DotCloudComponent {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "dot-cloud-container";
 
-    if (this._recentScores.length === 0) {
+    if (this._recentEntries.length === 0) {
       return container;
     }
 
@@ -129,15 +140,24 @@ export class DotCloudComponent {
     const { minRU, maxRU } = this._calculateViewBounds();
 
     renderer.drawMetadata(sortedPairs, minRU, maxRU);
-    renderer.drawPerformanceDots(this._recentScores, minRU, maxRU);
+
+    const scores: number[] = this._recentEntries.map(
+      (entry: ScoreEntry): number => entry.score,
+    );
+
+    renderer.drawPerformanceDots(scores, minRU, maxRU, this._isLatestInSession);
   }
 
   private _calculateViewBounds(): { minRU: number; maxRU: number } {
+    const scores: number[] = this._recentEntries.map(
+      (entry: ScoreEntry): number => entry.score,
+    );
+
     const minRUScore: number = this._mapper.calculateRankUnit(
-      Math.min(...this._recentScores),
+      Math.min(...scores),
     );
     const maxRUScore: number = this._mapper.calculateRankUnit(
-      Math.max(...this._recentScores),
+      Math.max(...scores),
     );
 
     if (this._settings.scalingMode === "Aligned") {

@@ -7,10 +7,10 @@ export interface VisualSettings {
   scenarioFontSize: "Small" | "Medium" | "Large";
   rankFontSize: "Small" | "Medium" | "Large";
   showSessionBest: boolean;
-  showRankBadges: boolean;
+  showAllTimeBest: boolean;
   dotJitter: boolean;
-  showGridLines: boolean;
-  highlightRecent: boolean;
+  showRankNotches: boolean;
+  highlightLatestRun: boolean;
 }
 
 /**
@@ -101,10 +101,10 @@ export class VisualSettingsService {
       scenarioFontSize: "Medium",
       rankFontSize: "Medium",
       showSessionBest: true,
-      showRankBadges: true,
+      showAllTimeBest: true,
       dotJitter: true,
-      showGridLines: true,
-      highlightRecent: true,
+      showRankNotches: true,
+      highlightLatestRun: true,
     };
   }
 

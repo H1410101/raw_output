@@ -44,24 +44,6 @@ export class SettingsSectionRenderer {
     container.appendChild(SettingsUiFactory.createGroupTitle("Visualization"));
 
     this._appendDotCloudConfiguration(container, settings);
-
-    container.appendChild(
-      SettingsUiFactory.createToggle(
-        "Show Grid Lines",
-        settings.showGridLines,
-        (checked: boolean): void =>
-          this._visualSettingsService.updateSetting("showGridLines", checked),
-      ),
-    );
-
-    container.appendChild(
-      SettingsUiFactory.createToggle(
-        "Highlight Recent",
-        settings.highlightRecent,
-        (checked: boolean): void =>
-          this._visualSettingsService.updateSetting("highlightRecent", checked),
-      ),
-    );
   }
 
   /**
@@ -89,10 +71,10 @@ export class SettingsSectionRenderer {
 
     container.appendChild(
       SettingsUiFactory.createToggle(
-        "Show Rank Badges",
-        settings.showRankBadges,
+        "Show All-Time Best",
+        settings.showAllTimeBest,
         (checked: boolean): void =>
-          this._visualSettingsService.updateSetting("showRankBadges", checked),
+          this._visualSettingsService.updateSetting("showAllTimeBest", checked),
       ),
     );
   }
@@ -113,6 +95,7 @@ export class SettingsSectionRenderer {
 
     const masterVolume: HTMLElement = SettingsUiFactory.createSlider({
       label: "Master Volume (Placeholder)",
+      unit: "%",
       value: 0,
       min: 0,
       max: 100,
@@ -139,10 +122,10 @@ export class SettingsSectionRenderer {
     container.appendChild(SettingsUiFactory.createGroupTitle("Session"));
 
     const intervalSlider: HTMLElement = SettingsUiFactory.createSlider({
-      label: "Session Interval (min)",
+      label: "Session Interval",
+      unit: "min",
       value: settings.sessionTimeoutMinutes,
-      min: 1,
-      max: 120,
+      options: [1, 5, 10, 15, 30, 60, 120],
       showNotch: false,
       onChange: (value: number): void =>
         this._sessionSettingsService.updateSetting(
@@ -188,12 +171,15 @@ export class SettingsSectionRenderer {
       this._createDotBoundsControl(settings),
       this._createDotSizeControl(settings),
       this._createDotJitterToggle(settings),
+      this._createHighlightLatestToggle(settings),
+      this._createRankNotchToggle(settings),
     ];
   }
 
   private _createDotOpacitySlider(settings: VisualSettings): HTMLElement {
     return SettingsUiFactory.createSlider({
       label: "Dot Opacity",
+      unit: "%",
       value: settings.dotOpacity,
       min: 10,
       max: 100,
@@ -234,6 +220,27 @@ export class SettingsSectionRenderer {
       settings.dotJitter,
       (checked: boolean): void =>
         this._visualSettingsService.updateSetting("dotJitter", checked),
+    );
+  }
+
+  private _createHighlightLatestToggle(settings: VisualSettings): HTMLElement {
+    return SettingsUiFactory.createToggle(
+      "Highlight Latest Run",
+      settings.highlightLatestRun,
+      (checked: boolean): void =>
+        this._visualSettingsService.updateSetting(
+          "highlightLatestRun",
+          checked,
+        ),
+    );
+  }
+
+  private _createRankNotchToggle(settings: VisualSettings): HTMLElement {
+    return SettingsUiFactory.createToggle(
+      "Show Rank Notches",
+      settings.showRankNotches,
+      (checked: boolean): void =>
+        this._visualSettingsService.updateSetting("showRankNotches", checked),
     );
   }
 

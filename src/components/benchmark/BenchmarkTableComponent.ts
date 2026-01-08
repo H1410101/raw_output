@@ -267,7 +267,7 @@ export class BenchmarkTableComponent {
       header.appendChild(this._createSpacer("header-dot-spacer"));
     }
 
-    if (this._visualSettings.showRankBadges) {
+    if (this._visualSettings.showAllTimeBest) {
       header.appendChild(this._createColumnHeader("All-time"));
     }
 

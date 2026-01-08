@@ -41,6 +41,8 @@ export class BenchmarkView {
 
   private _activeDifficulty: DifficultyTier;
 
+  private _refreshTimeoutId: number | null = null;
+
   /**
    * Initializes the view with required dependencies and sub-controllers.
    *
@@ -91,6 +93,8 @@ export class BenchmarkView {
    * Renders the benchmark view content based on current state.
    */
   public async render(): Promise<void> {
+    this._cancelPendingRefresh();
+
     const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
       this._activeDifficulty,
     );
@@ -191,7 +195,18 @@ export class BenchmarkView {
       return;
     }
 
-    this.render();
+    this._cancelPendingRefresh();
+
+    this._refreshTimeoutId = window.setTimeout((): void => {
+      this.render();
+    }, 50);
+  }
+
+  private _cancelPendingRefresh(): void {
+    if (this._refreshTimeoutId !== null) {
+      window.clearTimeout(this._refreshTimeoutId);
+      this._refreshTimeoutId = null;
+    }
   }
 
   private _createViewContainer(

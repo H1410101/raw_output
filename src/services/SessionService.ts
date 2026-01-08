@@ -37,6 +37,8 @@ export class SessionService {
 
   private _lastRunTimestamp: number | null = null;
 
+  private _sessionStartTimestamp: number | null = null;
+
   private readonly _sessionBestRanks: Map<string, SessionRankRecord> =
     new Map();
 
@@ -162,6 +164,15 @@ export class SessionService {
   }
 
   /**
+   * Returns the timestamp when the current session first started.
+   *
+   * @returns The start timestamp or null if no session.
+   */
+  public get sessionStartTimestamp(): number | null {
+    return this._sessionStartTimestamp;
+  }
+
+  /**
    * Determines if a session is currently considered active based on the timeout.
    *
    * @param currentTimestamp - Optional timestamp to check against.
@@ -186,6 +197,8 @@ export class SessionService {
     this._sessionBestPerDifficulty.clear();
 
     this._lastRunTimestamp = null;
+
+    this._sessionStartTimestamp = null;
 
     this._clearExpirationTimer();
 
@@ -214,6 +227,10 @@ export class SessionService {
 
     if (this._lastRunTimestamp !== null && isBeyondTimeout) {
       this.resetSession();
+    }
+
+    if (this._sessionStartTimestamp === null) {
+      this._sessionStartTimestamp = currentTimestamp;
     }
   }
 

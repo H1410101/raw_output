@@ -76,11 +76,13 @@ export class DotCloudCanvasRenderer {
    * @param scores - Array of historical score values.
    * @param minRU - Minimum rank unit in the current view.
    * @param maxRU - Maximum rank unit in the current view.
+   * @param isLatestFromSession - Whether the latest score is from the current session.
    */
   public drawPerformanceDots(
     scores: number[],
     minRU: number,
     maxRU: number,
+    isLatestFromSession: boolean = false,
   ): void {
     const rootFontSize: number = this._getRootFontSize();
     const notchHeight: number = this._calculateNotchHeight(rootFontSize);
@@ -98,7 +100,7 @@ export class DotCloudCanvasRenderer {
       this._renderIndividualScore(
         score,
         index,
-        { allScores: scores, minRU, maxRU },
+        { allScores: scores, minRU, maxRU, isLatestFromSession },
         { notchHeight, baseStyle, highlightStyle },
       );
     });
@@ -125,32 +127,66 @@ export class DotCloudCanvasRenderer {
   private _renderIndividualScore(
     score: number,
     index: number,
-    performance: { allScores: number[]; minRU: number; maxRU: number },
+    performance: {
+      allScores: number[];
+      minRU: number;
+      maxRU: number;
+      isLatestFromSession: boolean;
+    },
     visuals: { notchHeight: number; baseStyle: string; highlightStyle: string },
   ): void {
+    const x: number = this._calculateHorizontalPosition(score, performance);
+
+    const finalY: number = this._calculateFinalY(
+      score,
+      performance.allScores,
+      visuals.notchHeight,
+    );
+
+    const isRecent: boolean = this._isLatestSessionRun(
+      index,
+      performance.isLatestFromSession,
+    );
+
+    this._drawDot({ x, y: finalY }, isRecent, {
+      base: visuals.baseStyle,
+      highlight: visuals.highlightStyle,
+    });
+  }
+
+  private _calculateHorizontalPosition(
+    score: number,
+    performance: { minRU: number; maxRU: number },
+  ): number {
     const rankUnit: number = this._mapper.calculateRankUnit(score);
-    const x: number = this._mapper.getHorizontalPosition(
+
+    return this._mapper.getHorizontalPosition(
       rankUnit,
       performance.minRU,
       performance.maxRU,
       this._canvasWidth,
     );
+  }
 
-    const density: number = this._calculateLocalDensity(
-      score,
-      performance.allScores,
-    );
-    const jitterY: number = this._calculateVerticalJitter(
-      density,
-      visuals.notchHeight,
-    );
-    const finalY: number = visuals.notchHeight / 2 + jitterY;
+  private _calculateFinalY(
+    score: number,
+    allScores: number[],
+    notchHeight: number,
+  ): number {
+    const density: number = this._calculateLocalDensity(score, allScores);
 
-    const isRecent: boolean = index === 0 && this._settings.highlightRecent;
-    this._drawDot({ x, y: finalY }, isRecent, {
-      base: visuals.baseStyle,
-      highlight: visuals.highlightStyle,
-    });
+    const jitterY: number = this._calculateVerticalJitter(density, notchHeight);
+
+    return notchHeight / 2 + jitterY;
+  }
+
+  private _isLatestSessionRun(
+    index: number,
+    isLatestFromSession: boolean,
+  ): boolean {
+    return (
+      index === 0 && this._settings.highlightLatestRun && isLatestFromSession
+    );
   }
 
   private _drawDot(
@@ -175,7 +211,7 @@ export class DotCloudCanvasRenderer {
   }
 
   private _drawVerticalNotch(x: number, height: number): void {
-    if (!this._settings.showGridLines) {
+    if (!this._settings.showRankNotches) {
       return;
     }
 

@@ -217,21 +217,21 @@ export class HistoryService {
   }
 
   /**
-   * Retrieves the most recent scores for a specific scenario.
+   * Retrieves the most recent scores with their timestamps for a specific scenario.
    *
    * @param scenarioName - The name of the scenario.
    * @param limit - Maximum number of recent scores to return.
-   * @returns A promise resolving to an array of scores.
+   * @returns A promise resolving to an array of score entries.
    */
   public async getLastScores(
     scenarioName: string,
     limit: number = 100,
-  ): Promise<number[]> {
+  ): Promise<{ score: number; timestamp: number }[]> {
     const database: IDBDatabase = await this._getDatabase();
 
     return new Promise(
       (
-        resolve: (value: number[]) => void,
+        resolve: (value: { score: number; timestamp: number }[]) => void,
         reject: (reason: unknown) => void,
       ): void => {
         const transaction: IDBTransaction = database.transaction(
@@ -243,7 +243,7 @@ export class HistoryService {
           .objectStore(this._scoresStoreName)
           .index("scenarioName");
 
-        const scores: number[] = [];
+        const scores: { score: number; timestamp: number }[] = [];
 
         const request: IDBRequest<IDBCursorWithValue | null> = index.openCursor(
           IDBKeyRange.only(scenarioName),
@@ -260,18 +260,24 @@ export class HistoryService {
 
   private _processScoreCursor(
     event: Event,
-    scores: number[],
+    scores: { score: number; timestamp: number }[],
     limit: number,
-    resolve: (value: number[]) => void,
+    resolve: (value: { score: number; timestamp: number }[]) => void,
   ): void {
     const cursor: IDBCursorWithValue | null = (
       event.target as IDBRequest<IDBCursorWithValue | null>
     ).result;
 
     if (cursor && scores.length < limit) {
-      const entry: { score: number } = cursor.value as { score: number };
+      const entry: { score: number; timestamp: number } = cursor.value as {
+        score: number;
+        timestamp: number;
+      };
 
-      scores.push(entry.score);
+      scores.push({
+        score: entry.score,
+        timestamp: entry.timestamp,
+      });
 
       cursor.continue();
     } else {

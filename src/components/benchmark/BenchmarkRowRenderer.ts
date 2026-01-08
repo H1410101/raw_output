@@ -4,6 +4,7 @@ import { RankService } from "../../services/RankService";
 import { SessionService } from "../../services/SessionService";
 import { VisualSettings } from "../../services/VisualSettingsService";
 import { DotCloudComponent } from "../visualizations/DotCloudComponent";
+import { ScoreEntry } from "../visualizations/ScoreProcessor";
 
 /**
  * Responsible for rendering a single row within the benchmark table.
@@ -128,7 +129,7 @@ export class BenchmarkRowRenderer {
       wrapper.appendChild(this._createDotCloudCell(scenario));
     }
 
-    if (this._visualSettings.showRankBadges) {
+    if (this._visualSettings.showAllTimeBest) {
       wrapper.appendChild(this._createRankBadge(scenario, highscore));
     }
 
@@ -142,31 +143,65 @@ export class BenchmarkRowRenderer {
 
     container.className = "dot-cloud-container";
 
-    this._historyService
-      .getLastScores(scenario.name, 100)
-      .then((scores: number[]): void => {
-        if (scores.length > 0) {
-          this._injectDotCloudVisualization(container, scenario, scores);
-        }
-      });
+    this._setupLazyLoading(container, scenario);
 
     return container;
+  }
+
+  private _setupLazyLoading(
+    container: HTMLElement,
+    scenario: BenchmarkScenario,
+  ): void {
+    const observer: IntersectionObserver = new IntersectionObserver(
+      (entries: IntersectionObserverEntry[]): void => {
+        entries.forEach((entry: IntersectionObserverEntry): void => {
+          if (entry.isIntersecting) {
+            observer.disconnect();
+
+            this._loadDotCloudData(container, scenario);
+          }
+        });
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(container);
+  }
+
+  private _loadDotCloudData(
+    container: HTMLElement,
+    scenario: BenchmarkScenario,
+  ): void {
+    this._historyService
+      .getLastScores(scenario.name, 100)
+      .then((entries: ScoreEntry[]): void => {
+        if (entries.length > 0) {
+          this._injectDotCloudVisualization(container, scenario, entries);
+        }
+      });
   }
 
   private _injectDotCloudVisualization(
     container: HTMLElement,
     scenario: BenchmarkScenario,
-    scores: number[],
+    entries: ScoreEntry[],
   ): void {
     const averageRankInterval: number =
       this._calculateAverageRankInterval(scenario);
 
-    const dotCloud: DotCloudComponent = new DotCloudComponent(
-      scores,
-      scenario.thresholds,
-      this._visualSettings,
-      averageRankInterval,
-    );
+    const sessionStart: number | null =
+      this._sessionService.sessionStartTimestamp;
+
+    const isLatestInSession: boolean =
+      sessionStart !== null && entries[0].timestamp >= sessionStart;
+
+    const dotCloud: DotCloudComponent = new DotCloudComponent({
+      entries,
+      thresholds: scenario.thresholds,
+      settings: this._visualSettings,
+      isLatestInSession,
+      rankInterval: averageRankInterval,
+    });
 
     container.replaceWith(dotCloud.render());
   }
