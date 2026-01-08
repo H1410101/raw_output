@@ -1,18 +1,21 @@
 import {
   getDifficulty,
-  BenchmarkDifficulty,
+  DifficultyTier,
   getScenariosByDifficulty,
   BenchmarkScenario,
 } from "../data/benchmarks";
 
+/**
+ * Service for accessing and filtering benchmark scenario data.
+ */
 export class BenchmarkService {
   /**
    * Determines the difficulty level of a scenario based on Viscose Benchmark rules.
    *
    * @param scenarioName - The name of the Kovaak's scenario.
-   * @returns The associated BenchmarkDifficulty level, or null if not found.
+   * @returns The associated DifficultyTier level, or null if not found.
    */
-  public getDifficulty(scenarioName: string): BenchmarkDifficulty | null {
+  public getDifficulty(scenarioName: string): DifficultyTier | null {
     return getDifficulty(scenarioName);
   }
 
@@ -22,7 +25,7 @@ export class BenchmarkService {
    * @param difficulty - The difficulty level to filter by.
    * @returns An array of scenarios belonging to the specified difficulty.
    */
-  public getScenarios(difficulty: BenchmarkDifficulty): BenchmarkScenario[] {
+  public getScenarios(difficulty: DifficultyTier): BenchmarkScenario[] {
     return getScenariosByDifficulty(difficulty);
   }
 }

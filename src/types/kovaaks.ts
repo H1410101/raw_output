@@ -1,5 +1,5 @@
 export interface KovaaksChallengeRun {
-  id: string;
+  runId: string;
   scenarioName: string;
   score: number;
   completionDate: Date;

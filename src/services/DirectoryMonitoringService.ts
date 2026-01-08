@@ -4,7 +4,7 @@
  */
 export class DirectoryMonitoringService {
     private _intervalId: number | null = null;
-    private _knownFileNames: Set<string> = new Set();
+    private readonly _knownFileNames: Set<string> = new Set();
     private _isPolling: boolean = false;
 
     /**
@@ -51,6 +51,7 @@ export class DirectoryMonitoringService {
 
     /**
      * Synchronizes the internal set of known filenames without triggering callbacks.
+     * @param handle
      */
     private async _syncKnownFiles(handle: FileSystemDirectoryHandle): Promise<void> {
         this._knownFileNames.clear();
@@ -63,6 +64,8 @@ export class DirectoryMonitoringService {
 
     /**
      * Polls the directory for changes and identifies new files.
+     * @param handle
+     * @param onFileAdded
      */
     private async _poll(
         handle: FileSystemDirectoryHandle,

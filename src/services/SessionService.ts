@@ -1,26 +1,35 @@
 import { BenchmarkScenario } from "../data/benchmarks";
 import { RankResult, RankService } from "./RankService";
-import { SessionSettingsService } from "./SessionSettingsService";
+import {
+  SessionSettings,
+  SessionSettingsService,
+} from "./SessionSettingsService";
 
+/**
+ * Listener callback for session state changes.
+ */
 export type SessionUpdateListener = () => void;
 
+/**
+ * Represents the best performance achieved for a specific scenario within a session.
+ */
 export interface SessionRankRecord {
-  scenarioName: string;
-  bestScore: number;
-  rankResult: RankResult;
+  /** The unique identifier of the scenario. */
+  readonly scenarioName: string;
+  /** The numeric highscore achieved this session. */
+  readonly bestScore: number;
+  /** The calculated rank and progress for that score. */
+  readonly rankResult: RankResult;
 }
 
 /**
- * Responsibility: Track session boundaries and best ranks achieved within a session.
+ * Tracks session boundaries and best ranks achieved within a single session.
+ *
  * Supports "Reactive Expiration" via timers and "Session Re-acquisition" by preserving
  * data until a fresh run explicitly starts a new session window.
  */
 export class SessionService {
   private _sessionTimeoutMilliseconds: number = 10 * 60 * 1000;
-
-  public get session_timeout_milliseconds(): number {
-    return this._sessionTimeoutMilliseconds;
-  }
 
   private readonly _rankService: RankService;
 
@@ -28,15 +37,23 @@ export class SessionService {
 
   private _lastRunTimestamp: number | null = null;
 
-  private _sessionBestRanks: Map<string, SessionRankRecord> = new Map();
+  private readonly _sessionBestRanks: Map<string, SessionRankRecord> =
+    new Map();
 
-  private _sessionBestPerDifficulty: Map<string, RankResult> = new Map();
+  private readonly _sessionBestPerDifficulty: Map<string, RankResult> =
+    new Map();
 
-  private _sessionUpdateListeners: SessionUpdateListener[] = [];
+  private readonly _sessionUpdateListeners: SessionUpdateListener[] = [];
 
-  private _expiration_timer_id: number | null = null;
+  private _expirationTimerId: number | null = null;
 
-  constructor(
+  /**
+   * Initializes the SessionService with required rank and settings dependencies.
+   *
+   * @param rankService - Service for calculating ranks from scores.
+   * @param sessionSettingsService - Service providing session timeout configuration.
+   */
+  public constructor(
     rankService: RankService,
     sessionSettingsService: SessionSettingsService,
   ) {
@@ -44,25 +61,54 @@ export class SessionService {
 
     this._sessionSettingsService = sessionSettingsService;
 
-    this._subscribe_to_settings_updates();
+    this._subscribeToSettingsUpdates();
   }
 
+  /**
+   * Returns the current session timeout duration in milliseconds.
+   *
+   * @returns The timeout duration.
+   */
+  public get sessionTimeoutMilliseconds(): number {
+    return this._sessionTimeoutMilliseconds;
+  }
+
+  /**
+   * Registers a callback to be notified when the session data or status changes.
+   *
+   * @param listener - The callback function.
+   */
   public onSessionUpdated(listener: SessionUpdateListener): void {
     this._sessionUpdateListeners.push(listener);
   }
 
-  public registerRun(
-    scenarioName: string,
-    score: number,
-    scenario: BenchmarkScenario | null,
-    difficulty: string | null,
-    timestamp: Date = new Date(),
-  ): void {
-    this.registerMultipleRuns([
-      { scenarioName, score, scenario, difficulty, timestamp },
-    ]);
+  /**
+   * Registers a single run result into the session tracking system.
+   *
+   * @param run - The details of the training run.
+   * @param run.scenarioName - The name of the scenario.
+   * @param run.score - The score achieved.
+   * @param run.scenario - The benchmark scenario data.
+   * @param run.difficulty - The difficulty tier.
+   * @param run.timestamp - Optional completion timestamp.
+   */
+  public registerRun(run: {
+    scenarioName: string;
+    score: number;
+    scenario: BenchmarkScenario | null;
+    difficulty: string | null;
+    timestamp?: Date;
+  }): void {
+    const timestamp: Date = run.timestamp ?? new Date();
+
+    this.registerMultipleRuns([{ ...run, timestamp }]);
   }
 
+  /**
+   * Registers multiple run results, ensuring session boundaries are respected.
+   *
+   * @param runs - Array of run data objects.
+   */
   public registerMultipleRuns(
     runs: {
       scenarioName: string;
@@ -72,39 +118,60 @@ export class SessionService {
       timestamp: Date;
     }[],
   ): void {
-    runs.forEach((run) => {
-      this._start_new_session_if_expired(run.timestamp.getTime());
+    runs.forEach((run): void => {
+      this._startNewSessionIfExpired(run.timestamp.getTime());
 
       this._updateLastRunTimestamp(run.timestamp.getTime());
 
-      this._process_run_data(run);
+      this._processRunData(run);
     });
 
-    this._schedule_expiration_check();
+    this._scheduleExpirationCheck();
 
     this._notifySessionUpdate();
   }
 
+  /**
+   * Retrieves the best score and rank achieved for a scenario in this session.
+   *
+   * @param scenarioName - The name of the scenario.
+   * @returns The rank record or null if not played this session.
+   */
   public getScenarioSessionBest(
     scenarioName: string,
   ): SessionRankRecord | null {
     return this._sessionBestRanks.get(scenarioName) || null;
   }
 
+  /**
+   * Retrieves the highest rank achieved within a specific difficulty tier this session.
+   *
+   * @param difficulty - The difficulty tier name.
+   * @returns The rank result or null if no qualifying runs.
+   */
   public getDifficultySessionBest(difficulty: string): RankResult | null {
     return this._sessionBestPerDifficulty.get(difficulty) || null;
   }
 
-  public is_session_active(current_timestamp: number = Date.now()): boolean {
+  /**
+   * Determines if a session is currently considered active based on the timeout.
+   *
+   * @param currentTimestamp - Optional timestamp to check against.
+   * @returns True if the session is active.
+   */
+  public isSessionActive(currentTimestamp: number = Date.now()): boolean {
     if (this._lastRunTimestamp === null) {
       return false;
     }
 
-    const elapsed = current_timestamp - this._lastRunTimestamp;
+    const elapsed: number = currentTimestamp - this._lastRunTimestamp;
 
     return elapsed <= this._sessionTimeoutMilliseconds;
   }
 
+  /**
+   * Clears all session data and resets the active state.
+   */
   public resetSession(): void {
     this._sessionBestRanks.clear();
 
@@ -112,30 +179,32 @@ export class SessionService {
 
     this._lastRunTimestamp = null;
 
-    this._clear_expiration_timer();
+    this._clearExpirationTimer();
 
     this._notifySessionUpdate();
   }
 
-  private _subscribe_to_settings_updates(): void {
-    this._sessionSettingsService.subscribe((settings) => {
-      this._sessionTimeoutMilliseconds =
-        settings.sessionTimeoutMinutes * 60 * 1000;
+  private _subscribeToSettingsUpdates(): void {
+    this._sessionSettingsService.subscribe(
+      (settings: SessionSettings): void => {
+        this._sessionTimeoutMilliseconds =
+          settings.sessionTimeoutMinutes * 60 * 1000;
 
-      this._schedule_expiration_check();
+        this._scheduleExpirationCheck();
 
-      this._notifySessionUpdate();
-    });
+        this._notifySessionUpdate();
+      },
+    );
   }
 
-  private _start_new_session_if_expired(currentTimestamp: number): void {
-    const elapsed = this._lastRunTimestamp
-      ? currentTimestamp - this._lastRunTimestamp
-      : 0;
+  private _startNewSessionIfExpired(currentTimestamp: number): void {
+    const lastRun: number = this._lastRunTimestamp || 0;
 
-    const is_beyond_timeout = elapsed > this._sessionTimeoutMilliseconds;
+    const elapsed: number = currentTimestamp - lastRun;
 
-    if (this._lastRunTimestamp !== null && is_beyond_timeout) {
+    const isBeyondTimeout: boolean = elapsed > this._sessionTimeoutMilliseconds;
+
+    if (this._lastRunTimestamp !== null && isBeyondTimeout) {
       this.resetSession();
     }
   }
@@ -144,7 +213,7 @@ export class SessionService {
     this._lastRunTimestamp = timestamp;
   }
 
-  private _process_run_data(run: {
+  private _processRunData(run: {
     scenarioName: string;
     score: number;
     scenario: BenchmarkScenario | null;
@@ -154,7 +223,7 @@ export class SessionService {
       return;
     }
 
-    const rankResult = this._updateScenarioSessionBest(
+    const rankResult: RankResult = this._updateScenarioSessionBest(
       run.scenarioName,
       run.score,
       run.scenario,
@@ -165,43 +234,47 @@ export class SessionService {
     }
   }
 
-  private _schedule_expiration_check(): void {
-    this._clear_expiration_timer();
+  private _scheduleExpirationCheck(): void {
+    this._clearExpirationTimer();
 
     if (this._lastRunTimestamp === null) {
       return;
     }
 
-    const expiration_time =
+    const expirationTime: number =
       this._lastRunTimestamp + this._sessionTimeoutMilliseconds;
 
-    const delay = expiration_time - Date.now();
+    const delay: number = expirationTime - Date.now();
 
-    this._set_reactive_timer_or_notify(delay);
+    this._setReactiveTimerOrNotify(delay);
   }
 
-  private _set_reactive_timer_or_notify(delay: number): void {
+  private _setReactiveTimerOrNotify(delay: number): void {
     if (delay <= 0) {
       this._notifySessionUpdate();
 
       return;
     }
 
-    this._expiration_timer_id = window.setTimeout(() => {
+    this._expirationTimerId = window.setTimeout((): void => {
       this._notifySessionUpdate();
     }, delay);
   }
 
-  private _clear_expiration_timer(): void {
-    if (this._expiration_timer_id !== null) {
-      window.clearTimeout(this._expiration_timer_id);
+  private _clearExpirationTimer(): void {
+    if (this._expirationTimerId !== null) {
+      window.clearTimeout(this._expirationTimerId);
 
-      this._expiration_timer_id = null;
+      this._expirationTimerId = null;
     }
   }
 
   private _notifySessionUpdate(): void {
-    this._sessionUpdateListeners.forEach((listener) => listener());
+    this._sessionUpdateListeners.forEach(
+      (listener: SessionUpdateListener): void => {
+        listener();
+      },
+    );
   }
 
   private _updateScenarioSessionBest(
@@ -209,7 +282,8 @@ export class SessionService {
     score: number,
     scenario: BenchmarkScenario,
   ): RankResult {
-    const currentBest = this._sessionBestRanks.get(scenarioName);
+    const currentBest: SessionRankRecord | undefined =
+      this._sessionBestRanks.get(scenarioName);
 
     if (!currentBest || score > currentBest.bestScore) {
       return this._setNewScenarioSessionBest(scenarioName, score, scenario);
@@ -223,7 +297,10 @@ export class SessionService {
     score: number,
     scenario: BenchmarkScenario,
   ): RankResult {
-    const rankResult = this._rankService.calculateRank(score, scenario);
+    const rankResult: RankResult = this._rankService.calculateRank(
+      score,
+      scenario,
+    );
 
     this._sessionBestRanks.set(scenarioName, {
       scenarioName,
@@ -238,15 +315,16 @@ export class SessionService {
     difficulty: string,
     rankResult: RankResult,
   ): void {
-    const currentBest = this._sessionBestPerDifficulty.get(difficulty);
+    const currentBest: RankResult | undefined =
+      this._sessionBestPerDifficulty.get(difficulty);
 
-    const is_new_best =
+    const isNewBest: boolean =
       !currentBest ||
       rankResult.rankLevel > currentBest.rankLevel ||
       (rankResult.rankLevel === currentBest.rankLevel &&
         rankResult.progressPercentage > currentBest.progressPercentage);
 
-    if (is_new_best) {
+    if (isNewBest) {
       this._sessionBestPerDifficulty.set(difficulty, rankResult);
     }
   }

@@ -5,6 +5,9 @@
 export class ScoreProcessor {
   /**
    * Processes raw scores by removing outliers and selecting recent temporal samples.
+   *
+   * @param scores - Array of raw performance scores to process.
+   * @returns Array of processed scores reflecting recent performance.
    */
   public static processTemporalScores(scores: number[]): number[] {
     const validScores: number[] = scores.filter(

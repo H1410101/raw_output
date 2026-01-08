@@ -6,13 +6,22 @@ export class RankScaleMapper {
   private readonly _thresholds: number[];
   private readonly _averageRankInterval: number;
 
-  constructor(thresholds: number[], averageRankInterval: number = 100) {
+  /**
+   * Initializes the mapper with rank thresholds and scaling context.
+   *
+   * @param thresholds - Numeric values for each rank threshold.
+   * @param averageRankInterval - Expected gap between ranks for extrapolation.
+   */
+  public constructor(thresholds: number[], averageRankInterval: number = 100) {
     this._thresholds = thresholds;
     this._averageRankInterval = averageRankInterval;
   }
 
   /**
    * Converts a raw performance score into its equivalent position on the Rank Unit scale.
+   *
+   * @param score - The numeric performance score.
+   * @returns The calculated Rank Unit position.
    */
   public calculateRankUnit(score: number): number {
     if (this._thresholds.length === 0) {
@@ -34,6 +43,12 @@ export class RankScaleMapper {
 
   /**
    * Determines the horizontal pixel position on a canvas for a given RU value.
+   *
+   * @param rankUnit - The value on the Rank Unit scale.
+   * @param minRU - The minimum RU value in the view.
+   * @param maxRU - The maximum RU value in the view.
+   * @param canvasWidth - Total width of the drawing area.
+   * @returns The horizontal pixel coordinate.
    */
   public getHorizontalPosition(
     rankUnit: number,
@@ -54,11 +69,15 @@ export class RankScaleMapper {
 
   /**
    * Identifies rank indices that are relevant (visible) within the current RU bounds.
+   *
+   * @param minRU - Current minimum Rank Unit bound.
+   * @param maxRU - Current maximum Rank Unit bound.
+   * @returns Array of indices pointing to visible thresholds.
    */
   public identifyRelevantThresholds(minRU: number, maxRU: number): number[] {
     const visibleIndices: number[] = this._thresholds
-      .map((_: number, index: number) => index)
-      .filter((index: number) => index >= minRU && index <= maxRU);
+      .map((unusedValue: number, index: number): number => index)
+      .filter((index: number): boolean => index >= minRU && index <= maxRU);
 
     const highestIndex: number = this._thresholds.length - 1;
 
@@ -76,6 +95,10 @@ export class RankScaleMapper {
 
   /**
    * Calculates bounds aligned to whole rank units.
+   *
+   * @param minRUScore - Minimum score in RU.
+   * @param maxRUScore - Maximum score in RU.
+   * @returns Object containing the calculated bounds.
    */
   public calculateAlignedBounds(
     minRUScore: number,
@@ -92,6 +115,11 @@ export class RankScaleMapper {
 
   /**
    * Calculates view bounds that prioritize fitting relevant thresholds with padding.
+   *
+   * @param minRUScore - Minimum score in RU.
+   * @param maxRUScore - Maximum score in RU.
+   * @param thresholdIndices - Indices of thresholds to keep visible.
+   * @returns Object containing the calculated bounds.
    */
   public calculateViewBounds(
     minRUScore: number,
@@ -231,6 +259,7 @@ export class RankScaleMapper {
   ): void {
     if (baseIndex < maxPossible) {
       indices.push(baseIndex + 1);
+
       return;
     }
 

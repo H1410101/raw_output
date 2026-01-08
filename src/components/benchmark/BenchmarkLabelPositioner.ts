@@ -1,110 +1,123 @@
+/**
+ * Manages the "sticky" vertical alignment of labels within the benchmark table.
+ *
+ * Ensures that category and subcategory labels remain centered within the visible
+ * portion of their respective tracks as the user scrolls.
+ */
 export class BenchmarkLabelPositioner {
   private readonly _scrollContainer: HTMLElement;
 
-  constructor(scrollContainer: HTMLElement) {
+  /**
+   * Initializes the positioner with the scrollable container.
+   *
+   * @param scrollContainer - The element whose scroll events will trigger re-positioning.
+   */
+  public constructor(scrollContainer: HTMLElement) {
     this._scrollContainer = scrollContainer;
   }
 
+  /**
+   * Attaches scroll listeners and performs the initial layout calculation.
+   */
   public initialize(): void {
-    this._scrollContainer.addEventListener("scroll", () =>
-      this._update_all_label_positions(),
-    );
+    this._scrollContainer.addEventListener("scroll", (): void => {
+      this._updateAllLabelPositions();
+    });
 
-    this._update_all_label_positions();
+    this._updateAllLabelPositions();
   }
 
-  private _update_all_label_positions(): void {
-    const labels = this._scrollContainer.querySelectorAll(
-      ".vertical-text",
-    ) as NodeListOf<HTMLElement>;
+  private _updateAllLabelPositions(): void {
+    const labels: NodeListOf<HTMLElement> =
+      this._scrollContainer.querySelectorAll(".vertical-text");
 
-    const container_rectangle = this._scrollContainer.getBoundingClientRect();
+    const containerRectangle: DOMRect =
+      this._scrollContainer.getBoundingClientRect();
 
-    labels.forEach((label) => {
-      this._update_single_label_position(label, container_rectangle);
+    labels.forEach((label: HTMLElement): void => {
+      this._updateSingleLabelPosition(label, containerRectangle);
     });
   }
 
-  private _update_single_label_position(
+  private _updateSingleLabelPosition(
     label: HTMLElement,
-    container_rectangle: DOMRect,
+    containerRectangle: DOMRect,
   ): void {
-    const label_track = label.parentElement;
+    const labelTrack: HTMLElement | null = label.parentElement;
 
-    if (!label_track) {
+    if (!labelTrack) {
       return;
     }
 
-    const track_rectangle = label_track.getBoundingClientRect();
+    const trackRectangle: DOMRect = labelTrack.getBoundingClientRect();
 
-    if (this._is_track_smaller_than_label(track_rectangle, label)) {
-      this._center_label_in_track(label);
+    if (this._isTrackSmallerThanLabel(trackRectangle, label)) {
+      this._centerLabelInTrack(label);
 
       return;
     }
 
-    this._stick_label_to_visible_center(
-      label,
-      track_rectangle,
-      container_rectangle,
-    );
+    this._stickLabelToVisibleCenter(label, trackRectangle, containerRectangle);
   }
 
-  private _is_track_smaller_than_label(
-    track_rectangle: DOMRect,
+  private _isTrackSmallerThanLabel(
+    trackRectangle: DOMRect,
     label: HTMLElement,
   ): boolean {
-    return track_rectangle.height <= label.offsetHeight;
+    return trackRectangle.height <= label.offsetHeight;
   }
 
-  private _center_label_in_track(label: HTMLElement): void {
+  private _centerLabelInTrack(label: HTMLElement): void {
     label.style.top = "50%";
   }
 
-  private _stick_label_to_visible_center(
+  private _stickLabelToVisibleCenter(
     label: HTMLElement,
-    track_rectangle: DOMRect,
-    container_rectangle: DOMRect,
+    trackRectangle: DOMRect,
+    containerRectangle: DOMRect,
   ): void {
-    const visible_top_edge = Math.max(
-      track_rectangle.top,
-      container_rectangle.top,
+    const visibleTopEdge: number = Math.max(
+      trackRectangle.top,
+      containerRectangle.top,
     );
 
-    const visible_bottom_edge = Math.min(
-      track_rectangle.bottom,
-      container_rectangle.bottom,
+    const visibleBottomEdge: number = Math.min(
+      trackRectangle.bottom,
+      containerRectangle.bottom,
     );
 
-    const visible_height = Math.max(0, visible_bottom_edge - visible_top_edge);
+    const visibleHeight: number = Math.max(
+      0,
+      visibleBottomEdge - visibleTopEdge,
+    );
 
-    const visible_center_y = visible_top_edge + visible_height / 2;
+    const visibleCenterY: number = visibleTopEdge + visibleHeight / 2;
 
-    const relative_center_in_track = visible_center_y - track_rectangle.top;
+    const relativeCenterInTrack: number = visibleCenterY - trackRectangle.top;
 
-    this._apply_clamped_label_position(
+    this._applyClampedLabelPosition(
       label,
-      relative_center_in_track,
-      track_rectangle.height,
+      relativeCenterInTrack,
+      trackRectangle.height,
     );
   }
 
-  private _apply_clamped_label_position(
+  private _applyClampedLabelPosition(
     label: HTMLElement,
-    target_y_position: number,
-    track_height: number,
+    targetYPosition: number,
+    trackHeight: number,
   ): void {
-    const label_half_height = label.offsetHeight / 2;
+    const labelHalfHeight: number = label.offsetHeight / 2;
 
-    const minimum_top_offset = label_half_height;
+    const minimumTopOffset: number = labelHalfHeight;
 
-    const maximum_top_offset = track_height - label_half_height;
+    const maximumTopOffset: number = trackHeight - labelHalfHeight;
 
-    const clamped_top_value = Math.max(
-      minimum_top_offset,
-      Math.min(maximum_top_offset, target_y_position),
+    const clampedTopValue: number = Math.max(
+      minimumTopOffset,
+      Math.min(maximumTopOffset, targetYPosition),
     );
 
-    label.style.top = `${clamped_top_value}px`;
+    label.style.top = `${clampedTopValue}px`;
   }
 }

@@ -114,15 +114,27 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Calibrated color hierarchy and transparency for primary containers and visualizations.
 - **Commit Goal**: Dot clouds use the "lower band" palette with manual Canvas variable resolution, and primary containers (table, settings, stats popout) utilize reduced opacities and "lower band" typography for better environmental integration.
 
-### Checkpoint 2.14: Milestone - Technical Debt Payoff
-- **Deliverable**: Refactored codebase and consolidated logic.
-- **Commit Goal**: The codebase is cleaned, redundant logic is removed, and architecture is hardened to ensure stability before proceeding to Phase 3.
+### Checkpoint 2.14.0: Technical Debt Payoff I (Done)
+- **Deliverable**: Refactored core controllers and service layer.
+- **Commit Goal**: Core logic is decomposed into smaller, single-responsibility helpers following the 20-line rule.
 
-### Checkpoint 2.15: Visual Tuning Refinement
+### Checkpoint 2.14.1: Technical Debt Payoff II (Done)
+- **Deliverable**: Refactored visualization and UI components.
+- **Commit Goal**: Complex UI rendering and math logic are extracted into specialized processors and renderers.
+
+### Checkpoint 2.14.2: ESLint Setup (Done)
+- **Deliverable**: Automated style and architecture enforcement.
+- **Commit Goal**: ESLint is configured to strictly enforce project standards (line limits, naming conventions, type requirements) and passes on the refactored codebase.
+
+### Checkpoint 2.15: Auto Focus Run
+- **Deliverable**: New runs refresh the benchmark row, and automatically scroll so that it is centered.
+- **Commit Goal**: Doing a new Kovaak's run automatically makes the UI jump to the appropriate difficulty (or prefer the one nearest to the current difficulty), and scrolls so that the session rank is shown.
+
+### Checkpoint 2.16: Tactile Refinement
 - **Deliverable**: Refined visual elements and micro-interactions.
 - **Commit Goal**: UI components across the application exhibit a polished, cohesive visual style with consistent animations.
 
-### Checkpoint 2.16: SFX Identity
+### Checkpoint 2.17: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application is no longer fully quiet; it sounds distinctive and has a sound bank that subjectively matches the theme.
 

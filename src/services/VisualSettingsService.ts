@@ -13,21 +13,38 @@ export interface VisualSettings {
   highlightRecent: boolean;
 }
 
+/**
+ * Service for managing and persisting visual preferences and display settings.
+ */
 export class VisualSettingsService {
-  private static readonly _STORAGE_KEY = "visual_settings";
+  private static readonly _storageKey: string = "visual_settings";
 
   private _currentSettings: VisualSettings;
 
   private _listeners: ((settings: VisualSettings) => void)[] = [];
 
-  constructor() {
+  /**
+   * Initializes the service and loads settings from local storage.
+   */
+  public constructor() {
     this._currentSettings = this._loadFromStorage();
   }
 
+  /**
+   * Retrieves a snapshot of the current visual settings.
+   *
+   * @returns A copy of the current settings.
+   */
   public getSettings(): VisualSettings {
     return { ...this._currentSettings };
   }
 
+  /**
+   * Updates a specific visual setting and persists the change.
+   *
+   * @param key - The setting key to update.
+   * @param value - The new value for the setting.
+   */
   public updateSetting<K extends keyof VisualSettings>(
     key: K,
     value: VisualSettings[K],
@@ -39,25 +56,36 @@ export class VisualSettingsService {
     this._notifyListeners();
   }
 
+  /**
+   * Registers a listener to be notified when visual settings change.
+   *
+   * @param listener - Callback function receiving the updated settings.
+   * @returns An unsubscription function.
+   */
   public subscribe(listener: (settings: VisualSettings) => void): () => void {
     this._listeners.push(listener);
 
     listener(this.getSettings());
 
-    return () => {
-      this._listeners = this._listeners.filter((l) => l !== listener);
+    return (): void => {
+      this._listeners = this._listeners.filter(
+        (existing: (settings: VisualSettings) => void): boolean =>
+          existing !== listener,
+      );
     };
   }
 
   private _loadFromStorage(): VisualSettings {
     try {
-      const stored = localStorage.getItem(VisualSettingsService._STORAGE_KEY);
+      const stored: string | null = localStorage.getItem(
+        VisualSettingsService._storageKey,
+      );
 
       if (stored) {
         return { ...this._getDefaults(), ...JSON.parse(stored) };
       }
-    } catch (error) {
-      // Fallback to defaults on error
+    } catch (error: unknown) {
+      void error;
     }
 
     return this._getDefaults();
@@ -82,17 +110,21 @@ export class VisualSettingsService {
 
   private _saveToStorage(): void {
     try {
-      const serialized = JSON.stringify(this._currentSettings);
+      const serialized: string = JSON.stringify(this._currentSettings);
 
-      localStorage.setItem(VisualSettingsService._STORAGE_KEY, serialized);
-    } catch (error) {
-      // Ignore storage errors
+      localStorage.setItem(VisualSettingsService._storageKey, serialized);
+    } catch (error: unknown) {
+      void error;
     }
   }
 
   private _notifyListeners(): void {
-    const settings = this.getSettings();
+    const settings: VisualSettings = this.getSettings();
 
-    this._listeners.forEach((listener) => listener(settings));
+    this._listeners.forEach(
+      (listener: (settings: VisualSettings) => void): void => {
+        listener(settings);
+      },
+    );
   }
 }

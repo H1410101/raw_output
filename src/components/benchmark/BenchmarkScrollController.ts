@@ -1,189 +1,274 @@
+/**
+ * Manages custom scrollbar behavior for the benchmark table.
+ *
+ * Provides synchronization between the scroll container and a custom thumb,
+ * as well as drag-and-drop and hover-auto-scroll functionality.
+ */
 export class BenchmarkScrollController {
   private readonly _scrollContainer: HTMLElement;
+
   private readonly _scrollThumb: HTMLElement;
+
   private readonly _hoverContainer: HTMLElement;
+
   private _autoScrollTimer: number | null = null;
+
   private _activeScrollDirection: number = 0;
+
   private _isUserDragging: boolean = false;
+
   private _dragStartMouseY: number = 0;
+
   private _dragStartScrollTop: number = 0;
 
-  constructor(
+  /**
+   * Initializes the controller with the necessary DOM elements.
+   *
+   * @param scrollContainer - The scrollable area.
+   * @param scrollThumb - The custom thumb element to be translated.
+   * @param hoverContainer - The container used for hover-detection (auto-scroll).
+   */
+  public constructor(
     scrollContainer: HTMLElement,
     scrollThumb: HTMLElement,
     hoverContainer: HTMLElement,
   ) {
     this._scrollContainer = scrollContainer;
+
     this._scrollThumb = scrollThumb;
+
     this._hoverContainer = hoverContainer;
   }
 
+  /**
+   * Attaches event listeners and performs the initial synchronization.
+   */
   public initialize(): void {
-    this._setup_scroll_synchronization();
-    this._setup_drag_interaction();
-    this._setup_hover_auto_scroll();
+    this._setupScrollSynchronization();
+
+    this._setupDragInteraction();
+
+    this._setupHoverAutoScroll();
   }
 
-  private _setup_scroll_synchronization(): void {
-    this._scrollContainer.addEventListener("scroll", () =>
-      this._synchronize_thumb_position(),
-    );
+  private _setupScrollSynchronization(): void {
+    this._scrollContainer.addEventListener("scroll", (): void => {
+      this._synchronizeThumbPosition();
+    });
 
-    requestAnimationFrame(() => this._synchronize_thumb_position());
+    requestAnimationFrame((): void => {
+      this._synchronizeThumbPosition();
+    });
   }
 
-  private _synchronize_thumb_position(): void {
-    const total_scroll_range =
-      this._scrollContainer.scrollHeight - this._scrollContainer.clientHeight;
+  private _synchronizeThumbPosition(): void {
+    const scrollHeight: number = this._scrollContainer.scrollHeight;
 
-    if (total_scroll_range <= 0) {
+    const clientHeight: number = this._scrollContainer.clientHeight;
+
+    const totalScrollRange: number = scrollHeight - clientHeight;
+
+    if (totalScrollRange <= 0) {
       this._scrollThumb.style.display = "none";
+
       return;
     }
 
     this._scrollThumb.style.display = "block";
 
-    this._apply_thumb_translation(total_scroll_range);
+    this._applyThumbTranslation(totalScrollRange);
   }
 
-  private _apply_thumb_translation(total_scroll_range: number): void {
-    const track_height_limit = this._scrollContainer.clientHeight - 32;
-    const thumb_element_height = this._scrollThumb.offsetHeight || 32;
-    const available_track_span = track_height_limit - thumb_element_height;
+  private _applyThumbTranslation(totalScrollRange: number): void {
+    const trackPadding: number = 32;
 
-    const scroll_percentage_ratio =
-      this._scrollContainer.scrollTop / total_scroll_range;
-    const vertical_translation = scroll_percentage_ratio * available_track_span;
+    const trackHeightLimit: number =
+      this._scrollContainer.clientHeight - trackPadding;
 
-    this._scrollThumb.style.transform = `translateY(${vertical_translation}px)`;
+    const thumbElementHeight: number =
+      this._scrollThumb.offsetHeight || trackPadding;
+
+    const availableTrackSpan: number = trackHeightLimit - thumbElementHeight;
+
+    const scrollPercentageRatio: number =
+      this._scrollContainer.scrollTop / totalScrollRange;
+
+    const verticalTranslation: number =
+      scrollPercentageRatio * availableTrackSpan;
+
+    this._scrollThumb.style.transform = `translateY(${verticalTranslation}px)`;
   }
 
-  private _setup_drag_interaction(): void {
-    this._scrollThumb.addEventListener("mousedown", (event) =>
-      this._handle_drag_start(event),
+  private _setupDragInteraction(): void {
+    this._scrollThumb.addEventListener(
+      "mousedown",
+      (event: MouseEvent): void => {
+        this._handleDragStart(event);
+      },
     );
 
-    window.addEventListener("mousemove", (event) =>
-      this._handle_global_mouse_move(event),
-    );
+    window.addEventListener("mousemove", (event: MouseEvent): void => {
+      this._handleGlobalMouseMove(event);
+    });
 
-    window.addEventListener("mouseup", () => this._handle_drag_end());
+    window.addEventListener("mouseup", (): void => {
+      this._handleDragEnd();
+    });
   }
 
-  private _handle_drag_start(event: MouseEvent): void {
+  private _handleDragStart(event: MouseEvent): void {
     this._isUserDragging = true;
+
     this._dragStartMouseY = event.clientY;
+
     this._dragStartScrollTop = this._scrollContainer.scrollTop;
 
-    this._stop_auto_scroll_loop();
+    this._stopAutoScrollLoop();
 
     event.preventDefault();
+
     event.stopPropagation();
   }
 
-  private _handle_global_mouse_move(event: MouseEvent): void {
+  private _handleGlobalMouseMove(event: MouseEvent): void {
     if (!this._isUserDragging) {
       return;
     }
 
-    const mouse_delta_y = event.clientY - this._dragStartMouseY;
-    const total_scroll_range =
-      this._scrollContainer.scrollHeight - this._scrollContainer.clientHeight;
+    const mouseDeltaY: number = event.clientY - this._dragStartMouseY;
 
-    const track_height_limit = this._scrollContainer.clientHeight - 32;
-    const thumb_element_height = this._scrollThumb.offsetHeight || 32;
-    const available_track_span = track_height_limit - thumb_element_height;
+    const scrollHeight: number = this._scrollContainer.scrollHeight;
 
-    if (available_track_span <= 0) {
+    const clientHeight: number = this._scrollContainer.clientHeight;
+
+    const totalScrollRange: number = scrollHeight - clientHeight;
+
+    this._updateScrollTopFromDrag(mouseDeltaY, totalScrollRange);
+  }
+
+  private _updateScrollTopFromDrag(
+    mouseDeltaY: number,
+    totalScrollRange: number,
+  ): void {
+    const trackPadding: number = 32;
+
+    const trackHeightLimit: number =
+      this._scrollContainer.clientHeight - trackPadding;
+
+    const thumbElementHeight: number =
+      this._scrollThumb.offsetHeight || trackPadding;
+
+    const availableTrackSpan: number = trackHeightLimit - thumbElementHeight;
+
+    if (availableTrackSpan <= 0) {
       return;
     }
 
-    const scroll_units_per_pixel = total_scroll_range / available_track_span;
+    const scrollUnitsPerPixel: number = totalScrollRange / availableTrackSpan;
+
     this._scrollContainer.scrollTop =
-      this._dragStartScrollTop + mouse_delta_y * scroll_units_per_pixel;
+      this._dragStartScrollTop + mouseDeltaY * scrollUnitsPerPixel;
   }
 
-  private _handle_drag_end(): void {
+  private _handleDragEnd(): void {
     this._isUserDragging = false;
   }
 
-  private _setup_hover_auto_scroll(): void {
-    this._hoverContainer.addEventListener("mousemove", (event) =>
-      this._evaluate_hover_scrolling(event),
+  private _setupHoverAutoScroll(): void {
+    this._hoverContainer.addEventListener(
+      "mousemove",
+      (event: MouseEvent): void => {
+        this._evaluateHoverScrolling(event);
+      },
     );
 
-    this._hoverContainer.addEventListener("mouseleave", () =>
-      this._stop_auto_scroll_loop(),
-    );
+    this._hoverContainer.addEventListener("mouseleave", (): void => {
+      this._stopAutoScrollLoop();
+    });
   }
 
-  private _evaluate_hover_scrolling(event: MouseEvent): void {
+  private _evaluateHoverScrolling(event: MouseEvent): void {
     if (this._isUserDragging || event.buttons !== 0) {
-      this._stop_auto_scroll_loop();
+      this._stopAutoScrollLoop();
+
       return;
     }
 
-    const thumb_rectangle = this._scrollThumb.getBoundingClientRect();
-    const is_inside_thumb_horizontally =
-      event.clientX >= thumb_rectangle.left &&
-      event.clientX <= thumb_rectangle.right;
-    const is_inside_thumb_vertically =
-      event.clientY >= thumb_rectangle.top &&
-      event.clientY <= thumb_rectangle.bottom;
+    const thumbRectangle: DOMRect = this._scrollThumb.getBoundingClientRect();
 
-    if (!is_inside_thumb_horizontally || !is_inside_thumb_vertically) {
-      this._stop_auto_scroll_loop();
+    const isInsideHorizontally: boolean =
+      event.clientX >= thumbRectangle.left &&
+      event.clientX <= thumbRectangle.right;
+
+    const isInsideVertically: boolean =
+      event.clientY >= thumbRectangle.top &&
+      event.clientY <= thumbRectangle.bottom;
+
+    if (!isInsideHorizontally || !isInsideVertically) {
+      this._stopAutoScrollLoop();
+
       return;
     }
 
-    this._determine_auto_scroll_direction(event, thumb_rectangle);
+    this._determineAutoScrollDirection(event, thumbRectangle);
   }
 
-  private _determine_auto_scroll_direction(
+  private _determineAutoScrollDirection(
     event: MouseEvent,
-    thumb_rectangle: DOMRect,
+    thumbRectangle: DOMRect,
   ): void {
-    const relative_y_in_thumb = event.clientY - thumb_rectangle.top;
-    const activation_threshold = thumb_rectangle.height * 0.1;
+    const relativeYInThumb: number = event.clientY - thumbRectangle.top;
 
-    if (relative_y_in_thumb < activation_threshold) {
-      this._start_auto_scroll_loop(-1);
-    } else if (relative_y_in_thumb > thumb_rectangle.height - activation_threshold) {
-      this._start_auto_scroll_loop(1);
-    } else {
-      this._stop_auto_scroll_loop();
+    const activationThreshold: number = thumbRectangle.height * 0.1;
+
+    if (relativeYInThumb < activationThreshold) {
+      this._startAutoScrollLoop(-1);
+
+      return;
     }
+
+    if (relativeYInThumb > thumbRectangle.height - activationThreshold) {
+      this._startAutoScrollLoop(1);
+
+      return;
+    }
+
+    this._stopAutoScrollLoop();
   }
 
-  private _start_auto_scroll_loop(direction: number): void {
+  private _startAutoScrollLoop(direction: number): void {
     if (this._activeScrollDirection === direction) {
       return;
     }
 
-    this._stop_auto_scroll_loop();
+    this._stopAutoScrollLoop();
 
     this._activeScrollDirection = direction;
 
-    this._execute_auto_scroll_step();
+    this._executeAutoScrollStep();
   }
 
-  private _execute_auto_scroll_step(): void {
-    const scroll_animation_step = (): void => {
+  private _executeAutoScrollStep(): void {
+    const scrollAnimationStep = (): void => {
       if (this._activeScrollDirection === 0) {
         return;
       }
 
-      this._scrollContainer.scrollTop += this._activeScrollDirection * 8;
+      const scrollSpeed: number = 8;
 
-      this._autoScrollTimer = requestAnimationFrame(scroll_animation_step);
+      this._scrollContainer.scrollTop +=
+        this._activeScrollDirection * scrollSpeed;
+
+      this._autoScrollTimer = requestAnimationFrame(scrollAnimationStep);
     };
 
-    this._autoScrollTimer = requestAnimationFrame(scroll_animation_step);
+    this._autoScrollTimer = requestAnimationFrame(scrollAnimationStep);
   }
 
-  private _stop_auto_scroll_loop(): void {
+  private _stopAutoScrollLoop(): void {
     if (this._autoScrollTimer !== null) {
       cancelAnimationFrame(this._autoScrollTimer);
+
       this._autoScrollTimer = null;
     }
 

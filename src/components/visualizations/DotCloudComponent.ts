@@ -16,7 +16,15 @@ export class DotCloudComponent {
   private _canvasHeight: number = 24;
   private _microDotRadius: number = 1;
 
-  constructor(
+  /**
+   * Initializes the component with score data and visualization settings.
+   *
+   * @param scores - Array of raw score values to process.
+   * @param thresholds - Map of rank names to their threshold values.
+   * @param settings - Current visual configuration.
+   * @param rankInterval - The numeric interval between ranks.
+   */
+  public constructor(
     scores: number[],
     thresholds: Record<string, number>,
     settings: VisualSettings,
@@ -34,6 +42,8 @@ export class DotCloudComponent {
 
   /**
    * Renders the component into a container element.
+   *
+   * @returns The constructed HTMLElement containing the visualization.
    */
   public render(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
@@ -44,6 +54,7 @@ export class DotCloudComponent {
     }
 
     container.appendChild(this._createScaledCanvas());
+
     return container;
   }
 
@@ -74,12 +85,13 @@ export class DotCloudComponent {
     this._canvasHeight = Math.round(2 * rootFontSize);
 
     const sizeModifiers: Record<string, number> = {
-      Small: 0.08,
-      Medium: 0.11,
-      Large: 0.15,
+      small: 0.08,
+      medium: 0.11,
+      large: 0.15,
     };
 
-    const modifier: number = sizeModifiers[this._settings.dotSize] ?? 0.11;
+    const modifier: number =
+      sizeModifiers[this._settings.dotSize.toLowerCase()] ?? 0.11;
     this._microDotRadius = rootFontSize * modifier;
   }
 
@@ -99,9 +111,11 @@ export class DotCloudComponent {
       context,
       this._settings,
       this._mapper,
-      this._canvasWidth,
-      this._canvasHeight,
-      this._microDotRadius,
+      {
+        width: this._canvasWidth,
+        height: this._canvasHeight,
+        dotRadius: this._microDotRadius,
+      },
     );
 
     this._performRenderCycle(renderer);

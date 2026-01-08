@@ -7,77 +7,112 @@ import { VisualSettingsService } from "../services/VisualSettingsService";
 import { SessionSettingsService } from "../services/SessionSettingsService";
 import { BenchmarkTableComponent } from "./benchmark/BenchmarkTableComponent";
 import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsController";
-import { BenchmarkScenario } from "../data/benchmarks";
+import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 
+/**
+ * Orchestrates the benchmark table view, handling difficulty tabs and settings.
+ */
 export class BenchmarkView {
   private readonly _mountPoint: HTMLElement;
-  private readonly _benchmarkService: BenchmarkService;
-  private readonly _historyService: HistoryService;
-  private readonly _rankService: RankService;
-  private readonly _sessionService: SessionService;
-  private readonly _appStateService: AppStateService;
-  private readonly _visualSettingsService: VisualSettingsService;
-  private readonly _sessionSettingsService: SessionSettingsService;
-  private readonly _settingsController: BenchmarkSettingsController;
-  private _activeDifficulty: string;
 
-  constructor(
+  private readonly _benchmarkService: BenchmarkService;
+
+  private readonly _historyService: HistoryService;
+
+  private readonly _rankService: RankService;
+
+  private readonly _sessionService: SessionService;
+
+  private readonly _appStateService: AppStateService;
+
+  private readonly _visualSettingsService: VisualSettingsService;
+
+  private readonly _sessionSettingsService: SessionSettingsService;
+
+  private readonly _settingsController: BenchmarkSettingsController;
+
+  private _activeDifficulty: DifficultyTier;
+
+  /**
+   * Initializes the view with required dependencies and sub-controllers.
+   *
+   * @param mountPoint - The DOM element where the view is rendered.
+   * @param services - Object containing core application services.
+   * @param services.benchmark
+   * @param services.history
+   * @param services.rank
+   * @param services.session
+   * @param services.sessionSettings
+   * @param appStateService - Service for persisting UI state.
+   */
+  public constructor(
     mountPoint: HTMLElement,
-    benchmarkService: BenchmarkService,
-    historyService: HistoryService,
-    rankService: RankService,
-    sessionService: SessionService,
-    sessionSettingsService: SessionSettingsService,
+    services: {
+      benchmark: BenchmarkService;
+      history: HistoryService;
+      rank: RankService;
+      session: SessionService;
+      sessionSettings: SessionSettingsService;
+    },
     appStateService: AppStateService,
   ) {
     this._mountPoint = mountPoint;
-    this._benchmarkService = benchmarkService;
-    this._historyService = historyService;
-    this._rankService = rankService;
-    this._sessionService = sessionService;
+    this._benchmarkService = services.benchmark;
+    this._historyService = services.history;
+    this._rankService = services.rank;
+    this._sessionService = services.session;
     this._appStateService = appStateService;
     this._visualSettingsService = new VisualSettingsService();
-    this._sessionSettingsService = sessionSettingsService;
+    this._sessionSettingsService = services.sessionSettings;
 
-    this._activeDifficulty = this._appStateService.get_benchmark_difficulty();
+    this._activeDifficulty =
+      this._appStateService.getBenchmarkDifficulty() as DifficultyTier;
 
     this._settingsController = new BenchmarkSettingsController(
       this._visualSettingsService,
       this._sessionSettingsService,
     );
 
-    this._subscribe_to_service_updates();
+    this._subscribeToServiceUpdates();
   }
 
+  /**
+   * Renders the benchmark view content based on current state.
+   */
   public async render(): Promise<void> {
-    const scenarios = this._benchmarkService.getScenarios(
-      this._activeDifficulty as any,
+    const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
+      this._activeDifficulty,
     );
 
-    const highscores = await this._historyService.getBatchHighscores(
-      scenarios.map((scenario) => scenario.name),
-    );
+    const highscores: Record<string, number> =
+      await this._historyService.getBatchHighscores(
+        scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
+      );
 
     this._mountPoint.innerHTML = "";
 
     this._mountPoint.appendChild(
-      this._create_view_container(scenarios, highscores),
+      this._createViewContainer(scenarios, highscores),
     );
   }
 
-  private _subscribe_to_service_updates(): void {
-    this._visualSettingsService.subscribe(() => this._refresh_if_visible());
+  private _subscribeToServiceUpdates(): void {
+    this._visualSettingsService.subscribe((): void => this._refreshIfVisible());
 
-    this._sessionSettingsService.subscribe(() => this._refresh_if_visible());
+    this._sessionSettingsService.subscribe((): void =>
+      this._refreshIfVisible(),
+    );
 
-    this._historyService.onHighscoreUpdated(() => this._refresh_if_visible());
+    this._historyService.onHighscoreUpdated((): void =>
+      this._refreshIfVisible(),
+    );
 
-    this._sessionService.onSessionUpdated(() => this._refresh_if_visible());
+    this._sessionService.onSessionUpdated((): void => this._refreshIfVisible());
 
-    window.addEventListener("resize", () => this._refresh_if_visible());
+    window.addEventListener("resize", (): void => this._refreshIfVisible());
   }
 
-  private _refresh_if_visible(): void {
+  private _refreshIfVisible(): void {
     if (this._mountPoint.classList.contains("hidden-view")) {
       return;
     }
@@ -85,45 +120,45 @@ export class BenchmarkView {
     this.render();
   }
 
-  private _create_view_container(
+  private _createViewContainer(
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
   ): HTMLElement {
-    const container = document.createElement("div");
+    const container: HTMLDivElement = document.createElement("div");
 
     container.className = "benchmark-view-container";
 
-    container.appendChild(this._create_header_controls());
+    container.appendChild(this._createHeaderControls());
 
-    container.appendChild(this._create_table_element(scenarios, highscores));
+    container.appendChild(this._createTableElement(scenarios, highscores));
 
     return container;
   }
 
-  private _create_header_controls(): HTMLElement {
-    const header = document.createElement("div");
+  private _createHeaderControls(): HTMLElement {
+    const header: HTMLDivElement = document.createElement("div");
 
     header.className = "benchmark-header-controls";
 
-    header.appendChild(this._create_spacer());
+    header.appendChild(this._createSpacer());
 
-    header.appendChild(this._create_difficulty_tabs());
+    header.appendChild(this._createDifficultyTabs());
 
-    header.appendChild(this._create_right_control_group());
+    header.appendChild(this._createRightControlGroup());
 
     return header;
   }
 
-  private _create_spacer(): HTMLElement {
-    const spacer = document.createElement("div");
+  private _createSpacer(): HTMLElement {
+    const spacer: HTMLDivElement = document.createElement("div");
 
     spacer.style.flex = "1";
 
     return spacer;
   }
 
-  private _create_right_control_group(): HTMLElement {
-    const group = document.createElement("div");
+  private _createRightControlGroup(): HTMLElement {
+    const group: HTMLDivElement = document.createElement("div");
 
     group.style.flex = "1";
 
@@ -131,28 +166,28 @@ export class BenchmarkView {
 
     group.style.justifyContent = "flex-end";
 
-    group.appendChild(this._create_settings_button());
+    group.appendChild(this._createSettingsButton());
 
     return group;
   }
 
-  private _create_settings_button(): HTMLElement {
-    const button = document.createElement("button");
+  private _createSettingsButton(): HTMLElement {
+    const button: HTMLButtonElement = document.createElement("button");
 
     button.className = "visual-settings-button";
 
     button.title = "Visual Settings";
 
-    button.innerHTML = this._get_settings_icon_svg();
+    button.innerHTML = this._getSettingsIconSvg();
 
-    button.addEventListener("click", () =>
-      this._settingsController.open_settings_menu(),
+    button.addEventListener("click", (): void =>
+      this._settingsController.openSettingsMenu(),
     );
 
     return button;
   }
 
-  private _get_settings_icon_svg(): string {
+  private _getSettingsIconSvg(): string {
     return `
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="3"></circle>
@@ -161,53 +196,58 @@ export class BenchmarkView {
     `;
   }
 
-  private _create_difficulty_tabs(): HTMLElement {
-    const container = document.createElement("div");
+  private _createDifficultyTabs(): HTMLElement {
+    const container: HTMLDivElement = document.createElement("div");
 
     container.className = "difficulty-tabs";
 
-    ["Easier", "Medium", "Harder"].forEach((difficulty) => {
-      container.appendChild(this._create_tab(difficulty));
-    });
+    (["easier", "medium", "harder"] as DifficultyTier[]).forEach(
+      (difficulty: DifficultyTier): void => {
+        container.appendChild(this._createTab(difficulty));
+      },
+    );
 
     return container;
   }
 
-  private _create_tab(difficulty: string): HTMLButtonElement {
-    const tab = document.createElement("button");
+  private _createTab(difficulty: DifficultyTier): HTMLButtonElement {
+    const tab: HTMLButtonElement = document.createElement("button");
 
-    const is_active = this._activeDifficulty === difficulty;
+    const isActive: boolean = this._activeDifficulty === difficulty;
 
-    tab.className = `tab-button ${is_active ? "active" : ""}`;
+    tab.className = `tab-button ${isActive ? "active" : ""}`;
 
-    tab.textContent = difficulty;
+    tab.textContent = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
 
-    tab.addEventListener("click", () =>
-      this._handle_difficulty_change(difficulty),
+    tab.addEventListener(
+      "click",
+      (): Promise<void> => this._handleDifficultyChange(difficulty),
     );
 
     return tab;
   }
 
-  private async _handle_difficulty_change(difficulty: string): Promise<void> {
+  private async _handleDifficultyChange(
+    difficulty: DifficultyTier,
+  ): Promise<void> {
     this._activeDifficulty = difficulty;
 
-    this._appStateService.set_benchmark_difficulty(difficulty as any);
+    this._appStateService.setBenchmarkDifficulty(difficulty);
 
     await this.render();
   }
 
-  private _create_table_element(
+  private _createTableElement(
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
   ): HTMLElement {
-    const table_component = new BenchmarkTableComponent(
+    const tableComponent: BenchmarkTableComponent = new BenchmarkTableComponent(
       this._historyService,
       this._rankService,
       this._sessionService,
       this._visualSettingsService.getSettings(),
     );
 
-    return table_component.render(scenarios, highscores);
+    return tableComponent.render(scenarios, highscores);
   }
 }

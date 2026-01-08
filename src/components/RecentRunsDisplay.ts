@@ -1,26 +1,48 @@
 import { KovaaksChallengeRun } from "../types/kovaaks";
 
+/**
+ * Handles the rendering and dynamic updating of recent run lists in the UI.
+ */
 export class RecentRunsDisplay {
   private readonly _listMountPoint: HTMLElement;
 
-  constructor(listMountPoint: HTMLElement) {
+  /**
+   * Initializes the display with a target DOM element for the list.
+   *
+   * @param listMountPoint - The element where run items will be appended.
+   */
+  public constructor(listMountPoint: HTMLElement) {
     this._listMountPoint = listMountPoint;
   }
 
+  /**
+   * Replaces the current list content with a new set of runs.
+   *
+   * @param runs - Array of run data to display.
+   */
   public renderRuns(runs: KovaaksChallengeRun[]): void {
     this._clearListContent();
 
-    runs.forEach((run) => {
-      const runItem = this._createRunItemElement(run);
+    runs.forEach((run: KovaaksChallengeRun): void => {
+      const runItem: HTMLElement = this._createRunItemElement(run);
+
       this._listMountPoint.appendChild(runItem);
     });
   }
 
+  /**
+   * Adds a single run to the top of the list, enforcing a maximum item count.
+   *
+   * @param run - The new run data to prepend.
+   */
   public prependRun(run: KovaaksChallengeRun): void {
-    const runItem = this._createRunItemElement(run);
+    const runItem: HTMLElement = this._createRunItemElement(run);
+
     this._listMountPoint.prepend(runItem);
 
-    if (this._listMountPoint.children.length > 10) {
+    const maxItems: number = 10;
+
+    if (this._listMountPoint.children.length > maxItems) {
       this._listMountPoint.lastElementChild?.remove();
     }
   }
@@ -30,18 +52,19 @@ export class RecentRunsDisplay {
   }
 
   private _createRunItemElement(run: KovaaksChallengeRun): HTMLElement {
-    const listItem = document.createElement("li");
+    const listItem: HTMLLIElement = document.createElement("li");
+
     listItem.className = "run-item";
+
+    const difficultyTag: string = run.difficulty
+      ? `<span class="run-tag tag-${run.difficulty.toLowerCase()}">${run.difficulty}</span>`
+      : "";
 
     listItem.innerHTML = `
             <div class="run-info">
                 <span class="run-scenario">
                     ${run.scenarioName}
-                    ${
-                      run.difficulty
-                        ? `<span class="run-tag tag-${run.difficulty.toLowerCase()}">${run.difficulty}</span>`
-                        : ""
-                    }
+                    ${difficultyTag}
                 </span>
                 <span class="run-date">${this._formatDate(run.completionDate)}</span>
             </div>
@@ -54,11 +77,13 @@ export class RecentRunsDisplay {
   }
 
   private _formatDate(date: Date): string {
-    return date.toLocaleDateString("en-US", {
+    const options: Intl.DateTimeFormatOptions = {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-    });
+    };
+
+    return date.toLocaleDateString("en-US", options);
   }
 }

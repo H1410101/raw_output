@@ -7,17 +7,30 @@ import { BenchmarkRowRenderer } from "./BenchmarkRowRenderer";
 import { BenchmarkScrollController } from "./BenchmarkScrollController";
 import { BenchmarkLabelPositioner } from "./BenchmarkLabelPositioner";
 
+/**
+ * Orchestrates the rendering of the benchmark table, including categorization and custom scrolling.
+ */
 export class BenchmarkTableComponent {
   private readonly _visualSettings: VisualSettings;
+
   private readonly _rowRenderer: BenchmarkRowRenderer;
 
-  constructor(
+  /**
+   * Initializes the table component with required services and settings.
+   *
+   * @param historyService - Service for fetching historical score data.
+   * @param rankService - Service for rank calculations.
+   * @param sessionService - Service for tracking session progress.
+   * @param visualSettings - The current visual configuration.
+   */
+  public constructor(
     historyService: HistoryService,
     rankService: RankService,
     sessionService: SessionService,
     visualSettings: VisualSettings,
   ) {
     this._visualSettings = visualSettings;
+
     this._rowRenderer = new BenchmarkRowRenderer(
       historyService,
       rankService,
@@ -26,177 +39,225 @@ export class BenchmarkTableComponent {
     );
   }
 
+  /**
+   * Renders the complete benchmark table structure.
+   *
+   * @param scenarios - The list of scenarios to display.
+   * @param highscores - A map of all-time highscores.
+   * @returns The root container of the table.
+   */
   public render(
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
   ): HTMLElement {
-    const table_container = document.createElement("div");
-    table_container.className = "benchmark-table-container";
+    const tableContainer: HTMLDivElement = document.createElement("div");
 
-    const scroll_area = document.createElement("div");
-    scroll_area.className = "benchmark-table";
+    const scrollArea: HTMLDivElement = document.createElement("div");
 
-    const scroll_thumb = document.createElement("div");
-    scroll_thumb.className = "custom-scroll-thumb";
+    const scrollThumb: HTMLDivElement = document.createElement("div");
 
-    this._append_categorized_content(scroll_area, scenarios, highscores);
-    this._initialize_controllers(table_container, scroll_area, scroll_thumb);
+    tableContainer.className = "benchmark-table-container";
 
-    table_container.appendChild(scroll_area);
-    table_container.appendChild(scroll_thumb);
+    scrollArea.className = "benchmark-table";
 
-    return table_container;
+    scrollThumb.className = "custom-scroll-thumb";
+
+    this._appendCategorizedContent(scrollArea, scenarios, highscores);
+
+    this._initializeControllers(tableContainer, scrollArea, scrollThumb);
+
+    tableContainer.appendChild(scrollArea);
+
+    tableContainer.appendChild(scrollThumb);
+
+    return tableContainer;
   }
 
-  private _initialize_controllers(
+  private _initializeControllers(
     container: HTMLElement,
-    scroll_area: HTMLElement,
+    scrollArea: HTMLElement,
     thumb: HTMLElement,
   ): void {
-    const scroll_controller = new BenchmarkScrollController(
-      scroll_area,
-      thumb,
-      container,
-    );
-    scroll_controller.initialize();
+    const scrollController: BenchmarkScrollController =
+      new BenchmarkScrollController(scrollArea, thumb, container);
 
-    const label_positioner = new BenchmarkLabelPositioner(scroll_area);
-    label_positioner.initialize();
+    scrollController.initialize();
+
+    const labelPositioner: BenchmarkLabelPositioner =
+      new BenchmarkLabelPositioner(scrollArea);
+
+    labelPositioner.initialize();
   }
 
-  private _append_categorized_content(
+  private _appendCategorizedContent(
     container: HTMLElement,
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
   ): void {
-    const scenario_groups = this._group_scenarios_by_category(scenarios);
+    const scenarioGroups: Map<
+      string,
+      Map<string, BenchmarkScenario[]>
+    > = this._groupScenariosByCategory(scenarios);
 
-    scenario_groups.forEach((subcategories, category_name) => {
-      const category_element = this._create_category_group(
-        category_name,
-        subcategories,
-        highscores,
-      );
-      container.appendChild(category_element);
-    });
+    scenarioGroups.forEach(
+      (
+        subcategories: Map<string, BenchmarkScenario[]>,
+        categoryName: string,
+      ): void => {
+        const categoryElement: HTMLElement = this._createCategoryGroup(
+          categoryName,
+          subcategories,
+          highscores,
+        );
+
+        container.appendChild(categoryElement);
+      },
+    );
   }
 
-  private _group_scenarios_by_category(
+  private _groupScenariosByCategory(
     scenarios: BenchmarkScenario[],
   ): Map<string, Map<string, BenchmarkScenario[]>> {
-    const category_map = new Map<string, Map<string, BenchmarkScenario[]>>();
+    const categoryMap: Map<string, Map<string, BenchmarkScenario[]>> = new Map<
+      string,
+      Map<string, BenchmarkScenario[]>
+    >();
 
-    scenarios.forEach((scenario) => {
-      if (!category_map.has(scenario.category)) {
-        category_map.set(scenario.category, new Map());
+    scenarios.forEach((scenario: BenchmarkScenario): void => {
+      if (!categoryMap.has(scenario.category)) {
+        categoryMap.set(scenario.category, new Map());
       }
 
-      const subcategory_map = category_map.get(scenario.category)!;
+      const subcategoryMap: Map<string, BenchmarkScenario[]> = categoryMap.get(
+        scenario.category,
+      )!;
 
-      if (!subcategory_map.has(scenario.subcategory)) {
-        subcategory_map.set(scenario.subcategory, []);
+      if (!subcategoryMap.has(scenario.subcategory)) {
+        subcategoryMap.set(scenario.subcategory, []);
       }
 
-      subcategory_map.get(scenario.subcategory)!.push(scenario);
+      subcategoryMap.get(scenario.subcategory)!.push(scenario);
     });
 
-    return category_map;
+    return categoryMap;
   }
 
-  private _create_category_group(
+  private _createCategoryGroup(
     name: string,
     subcategories: Map<string, BenchmarkScenario[]>,
     highscores: Record<string, number>,
   ): HTMLElement {
-    const group_element = document.createElement("div");
-    group_element.className = "benchmark-category-group";
+    const groupElement: HTMLDivElement = document.createElement("div");
 
-    group_element.appendChild(this._create_vertical_label(name, "category"));
+    const subcategoryContainer: HTMLDivElement = document.createElement("div");
 
-    const subcategory_container = document.createElement("div");
-    subcategory_container.className = "subcategory-container";
+    groupElement.className = "benchmark-category-group";
 
-    subcategories.forEach((scenarios, sub_name) => {
-      const sub_group = this._create_subcategory_group(
-        sub_name,
-        scenarios,
-        highscores,
-      );
-      subcategory_container.appendChild(sub_group);
-    });
+    subcategoryContainer.className = "subcategory-container";
 
-    group_element.appendChild(subcategory_container);
-    return group_element;
+    groupElement.appendChild(this._createVerticalLabel(name, "category"));
+
+    subcategories.forEach(
+      (scenarios: BenchmarkScenario[], subName: string): void => {
+        const subGroup: HTMLElement = this._createSubcategoryGroup(
+          subName,
+          scenarios,
+          highscores,
+        );
+
+        subcategoryContainer.appendChild(subGroup);
+      },
+    );
+
+    groupElement.appendChild(subcategoryContainer);
+
+    return groupElement;
   }
 
-  private _create_subcategory_group(
+  private _createSubcategoryGroup(
     name: string,
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
   ): HTMLElement {
-    const sub_group = document.createElement("div");
-    sub_group.className = "benchmark-subcategory-group";
+    const subGroup: HTMLDivElement = document.createElement("div");
 
-    sub_group.appendChild(this._create_vertical_label(name, "subcategory"));
-    sub_group.appendChild(this._create_subcategory_header());
+    const listElement: HTMLDivElement = document.createElement("div");
 
-    const list_element = document.createElement("div");
-    list_element.className = "scenario-list";
+    subGroup.className = "benchmark-subcategory-group";
 
-    scenarios.forEach((scenario) => {
-      const score = highscores[scenario.name] || 0;
-      list_element.appendChild(this._rowRenderer.render_row(scenario, score));
+    listElement.className = "scenario-list";
+
+    subGroup.appendChild(this._createVerticalLabel(name, "subcategory"));
+
+    subGroup.appendChild(this._createSubcategoryHeader());
+
+    scenarios.forEach((scenario: BenchmarkScenario): void => {
+      const score: number = highscores[scenario.name] || 0;
+
+      listElement.appendChild(this._rowRenderer.renderRow(scenario, score));
     });
 
-    sub_group.appendChild(list_element);
-    return sub_group;
+    subGroup.appendChild(listElement);
+
+    return subGroup;
   }
 
-  private _create_subcategory_header(): HTMLElement {
-    const header = document.createElement("div");
+  private _createSubcategoryHeader(): HTMLElement {
+    const header: HTMLDivElement = document.createElement("div");
+
     header.className = "subcategory-header";
 
     if (this._visualSettings.showDotCloud) {
-      header.appendChild(this._create_spacer("header-dot-spacer"));
+      header.appendChild(this._createSpacer("header-dot-spacer"));
     }
 
     if (this._visualSettings.showRankBadges) {
-      header.appendChild(this._create_column_header("All-time"));
+      header.appendChild(this._createColumnHeader("All-time"));
     }
 
     if (this._visualSettings.showSessionBest) {
-      header.appendChild(this._create_column_header("Session"));
+      header.appendChild(this._createColumnHeader("Session"));
     }
 
-    header.appendChild(this._create_spacer("header-action-spacer"));
+    header.appendChild(this._createSpacer("header-action-spacer"));
+
     return header;
   }
 
-  private _create_column_header(text: string): HTMLElement {
-    const header = document.createElement("div");
+  private _createColumnHeader(text: string): HTMLElement {
+    const header: HTMLDivElement = document.createElement("div");
+
     header.className = "column-header";
+
     header.textContent = text;
+
     return header;
   }
 
-  private _create_spacer(class_name: string): HTMLElement {
-    const spacer = document.createElement("div");
-    spacer.className = class_name;
+  private _createSpacer(className: string): HTMLElement {
+    const spacer: HTMLDivElement = document.createElement("div");
+
+    spacer.className = className;
+
     return spacer;
   }
 
-  private _create_vertical_label(
+  private _createVerticalLabel(
     text: string,
     type: "category" | "subcategory",
   ): HTMLElement {
-    const container = document.createElement("div");
+    const container: HTMLDivElement = document.createElement("div");
+
+    const span: HTMLSpanElement = document.createElement("span");
+
     container.className = `vertical-label-container ${type}-label`;
 
-    const span = document.createElement("span");
     span.className = "vertical-text";
+
     span.textContent = text;
 
     container.appendChild(span);
+
     return container;
   }
 }

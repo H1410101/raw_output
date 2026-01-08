@@ -5,7 +5,7 @@ import { DirectoryAccessPersistenceService } from "./DirectoryAccessPersistenceS
  * Responsibility: Securely request, verify, and manage folder handles.
  */
 export class DirectoryAccessService {
-  private static readonly _KOVAAKS_STATS_PATH_PARTS = [
+  private static readonly _kovaaksStatsPathParts: string[] = [
     "steamapps",
     "common",
     "FPSAimTrainer",
@@ -18,7 +18,10 @@ export class DirectoryAccessService {
   private _logicalPath: string = "";
   private _originalSelectionName: string = "";
 
-  constructor() {
+  /**
+   * Initializes the service and its persistence layer.
+   */
+  public constructor() {
     this._persistenceService = new DirectoryAccessPersistenceService();
   }
 
@@ -28,11 +31,15 @@ export class DirectoryAccessService {
    */
   public async requestDirectorySelection(): Promise<FileSystemDirectoryHandle | null> {
     try {
-      const handle = await window.showDirectoryPicker();
+      const handle: FileSystemDirectoryHandle =
+        await window.showDirectoryPicker();
+
       await this._handleSuccessfulSelection(handle);
+
       return this._directoryHandle;
     } catch (error) {
       this._handlePickerError(error);
+
       return null;
     }
   }
@@ -49,34 +56,57 @@ export class DirectoryAccessService {
       this._directoryHandle = persistedData.handle;
       this._logicalPath = persistedData.handle.name;
       this._originalSelectionName = persistedData.originalName;
+
       return persistedData.handle;
     }
 
     return null;
   }
 
+  /**
+   * Enumerates all files within the currently active directory handle.
+   *
+   * @returns A promise resolving to an array of file handles.
+   */
   public async getDirectoryFiles(): Promise<FileSystemFileHandle[]> {
     if (!this._directoryHandle) {
       return [];
     }
 
     const files: FileSystemFileHandle[] = [];
+
     for await (const entry of this._directoryHandle.values()) {
       if (entry.kind === "file") {
         files.push(entry as FileSystemFileHandle);
       }
     }
+
     return files;
   }
 
+  /**
+   * Gets the name of the currently selected directory.
+   *
+   * @returns The folder name, or null if no selection exists.
+   */
   public get currentFolderName(): string | null {
     return this._directoryHandle?.name ?? null;
   }
 
+  /**
+   * Gets the descriptive logical path representing the selection.
+   *
+   * @returns The full logical path string.
+   */
   public get fullLogicalPath(): string {
     return this._logicalPath;
   }
 
+  /**
+   * Gets the name of the root directory selected by the user.
+   *
+   * @returns The original selection name.
+   */
   public get originalSelectionName(): string {
     return this._originalSelectionName;
   }
@@ -107,53 +137,68 @@ export class DirectoryAccessService {
   /**
    * Attempts to find a 'stats' directory within the provided handle by following the known suffix.
    * Targets: steamapps \ common \ FPSAimTrainer \ FPSAimTrainer \ stats
+   *
+   * @param handle - The root handle to start discovery from.
+   * @returns A promise resolving to the discovered stats handle and logical path.
    */
   private async _discoverStatsFolder(
     handle: FileSystemDirectoryHandle,
   ): Promise<{ statsHandle: FileSystemDirectoryHandle; path: string }> {
-    const currentName = handle.name.toLowerCase();
-    const parts = DirectoryAccessService._KOVAAKS_STATS_PATH_PARTS;
+    const indices: number[] = this._findPotentialStartIndices(handle.name);
 
-    const potentialIndices = parts
-      .map((part, index) => (part.toLowerCase() === currentName ? index : -1))
-      .filter((index) => index !== -1);
+    for (const startIndex of indices) {
+      const result = await this._tryTraverseFromIndex(handle, startIndex);
 
-    if (potentialIndices.length === 0) {
-      return { statsHandle: handle, path: handle.name };
-    }
-
-    for (const startIndex of potentialIndices) {
-      let current = handle;
-      let pathSegments = [handle.name];
-      let isValidPath = true;
-
-      for (let i = startIndex + 1; i < parts.length; i++) {
-        try {
-          current = await current.getDirectoryHandle(parts[i]);
-          pathSegments.push(parts[i]);
-        } catch {
-          isValidPath = false;
-          break;
-        }
-      }
-
-      if (isValidPath) {
-        return { statsHandle: current, path: pathSegments.join(" \\ ") };
+      if (result) {
+        return result;
       }
     }
 
     return { statsHandle: handle, path: handle.name };
   }
 
+  private _findPotentialStartIndices(currentName: string): number[] {
+    const lowerName: string = currentName.toLowerCase();
+    const parts: string[] = DirectoryAccessService._kovaaksStatsPathParts;
+
+    return parts
+      .map((part: string, index: number): number =>
+        part.toLowerCase() === lowerName ? index : -1,
+      )
+      .filter((index: number): boolean => index !== -1);
+  }
+
+  private async _tryTraverseFromIndex(
+    handle: FileSystemDirectoryHandle,
+    startIndex: number,
+  ): Promise<{ statsHandle: FileSystemDirectoryHandle; path: string } | null> {
+    const parts: string[] = DirectoryAccessService._kovaaksStatsPathParts;
+    let current: FileSystemDirectoryHandle = handle;
+    const pathSegments: string[] = [handle.name];
+
+    for (let i: number = startIndex + 1; i < parts.length; i++) {
+      try {
+        current = await current.getDirectoryHandle(parts[i]);
+        pathSegments.push(parts[i]);
+      } catch {
+        return null;
+      }
+    }
+
+    return { statsHandle: current, path: pathSegments.join(" \\ ") };
+  }
+
   private async _verifyPermission(
     handle: FileSystemDirectoryHandle,
   ): Promise<boolean> {
     const permissionStatus = await handle.queryPermission({ mode: "read" });
+
     return permissionStatus === "granted";
   }
 
   private _handlePickerError(error: unknown): void {
-    const isAbortError = error instanceof Error && error.name === "AbortError";
+    const isAbortError: boolean =
+      error instanceof Error && error.name === "AbortError";
 
     if (!isAbortError) {
       console.error("Critical Failure in Directory Access Service:", error);

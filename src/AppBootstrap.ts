@@ -14,27 +14,43 @@ import { ApplicationStatusView } from "./components/ui/ApplicationStatusView";
 import { NavigationController } from "./components/NavigationController";
 
 /**
- * Responsibility: Orchestrate service instantiation and dependency wiring.
- * Acts as the composition root for the application's core logic and UI components.
+ * Orchestrate service instantiation and dependency wiring.
  */
 export class AppBootstrap {
   private readonly _directoryService: DirectoryAccessService;
+
   private readonly _csvService: KovaaksCsvParsingService;
+
   private readonly _monitoringService: DirectoryMonitoringService;
+
   private readonly _benchmarkService: BenchmarkService;
+
   private readonly _historyService: HistoryService;
+
   private readonly _rankService: RankService;
+
   private readonly _appStateService: AppStateService;
+
   private readonly _sessionSettingsService: SessionSettingsService;
+
   private readonly _sessionService: SessionService;
+
   private readonly _ingestionService: RunIngestionService;
+
   private readonly _statusView: ApplicationStatusView;
+
   private readonly _recentRunsDisplay: RecentRunsDisplay;
+
   private readonly _newRunsDisplay: RecentRunsDisplay;
+
   private readonly _benchmarkView: BenchmarkView;
+
   private readonly _navigationController: NavigationController;
 
-  constructor() {
+  /**
+   * Initializes the application's core logic and UI components.
+   */
+  public constructor() {
     this._directoryService = new DirectoryAccessService();
     this._csvService = new KovaaksCsvParsingService();
     this._monitoringService = new DirectoryMonitoringService();
@@ -49,30 +65,37 @@ export class AppBootstrap {
       this._sessionSettingsService,
     );
 
-    this._ingestionService = new RunIngestionService(
-      this._directoryService,
-      this._csvService,
-      this._historyService,
-      this._sessionService,
-      this._benchmarkService,
-    );
+    this._ingestionService = new RunIngestionService({
+      directoryService: this._directoryService,
+      csvService: this._csvService,
+      historyService: this._historyService,
+      sessionService: this._sessionService,
+      benchmarkService: this._benchmarkService,
+    });
 
     this._statusView = this._createStatusView();
+
     this._recentRunsDisplay = this._createDisplay("recent-runs-list");
+
     this._newRunsDisplay = this._createDisplay("new-runs-list");
 
     this._benchmarkView = this._createBenchmarkView();
+
     this._navigationController = this._createNavigationController();
   }
 
   /**
-   * Initializes the application lifecycle and triggers initial rendering.
+   * Triggers initial rendering and system initialization.
    */
   public async initialize(): Promise<void> {
     this._setupSessionInteractions();
+
     this._statusView.reportReady();
+
     await this._benchmarkView.render();
+
     this._navigationController.initialize();
+
     this._setupActionListeners();
 
     await this._attemptInitialReconnection();
@@ -86,40 +109,49 @@ export class AppBootstrap {
     );
   }
 
-  private _createDisplay(id: string): RecentRunsDisplay {
-    return new RecentRunsDisplay(this._getRequiredElement(id));
+  private _createDisplay(elementId: string): RecentRunsDisplay {
+    return new RecentRunsDisplay(this._getRequiredElement(elementId));
   }
 
   private _createBenchmarkView(): BenchmarkView {
     return new BenchmarkView(
       this._getRequiredElement("view-benchmarks"),
-      this._benchmarkService,
-      this._historyService,
-      this._rankService,
-      this._sessionService,
-      this._sessionSettingsService,
+      {
+        benchmark: this._benchmarkService,
+        history: this._historyService,
+        rank: this._rankService,
+        session: this._sessionService,
+        sessionSettings: this._sessionSettingsService,
+      },
       this._appStateService,
     );
   }
 
   private _createNavigationController(): NavigationController {
     return new NavigationController(
-      this._getRequiredButton("nav-recent"),
-      this._getRequiredButton("nav-new"),
-      this._getRequiredButton("nav-benchmarks"),
-      this._getRequiredElement("view-recent"),
-      this._getRequiredElement("view-new"),
-      this._getRequiredElement("view-benchmarks"),
-      this._benchmarkView,
-      this._ingestionService,
-      this._newRunsDisplay,
-      this._appStateService,
+      {
+        recentButton: this._getRequiredButton("nav-recent"),
+        newButton: this._getRequiredButton("nav-new"),
+        benchmarksButton: this._getRequiredButton("nav-benchmarks"),
+      },
+      {
+        recentView: this._getRequiredElement("view-recent"),
+        newView: this._getRequiredElement("view-new"),
+        benchmarksView: this._getRequiredElement("view-benchmarks"),
+      },
+      {
+        benchmarkView: this._benchmarkView,
+        ingestionService: this._ingestionService,
+        newRunsDisplay: this._newRunsDisplay,
+        appStateService: this._appStateService,
+      },
     );
   }
 
   private _setupSessionInteractions(): void {
-    this._sessionService.onSessionUpdated(async () => {
+    this._sessionService.onSessionUpdated(async (): Promise<void> => {
       const newRuns = await this._ingestionService.getNewRuns();
+
       this._newRunsDisplay.renderRuns(newRuns);
     });
   }
@@ -127,22 +159,23 @@ export class AppBootstrap {
   private _setupActionListeners(): void {
     this._getRequiredButton("link-folder-button").addEventListener(
       "click",
-      () => this._handleManualFolderSelection(),
+      (): Promise<void> => this._handleManualFolderSelection(),
     );
 
     this._getRequiredButton("import-csv-button").addEventListener(
       "click",
-      () => this._handleManualImport(),
+      (): Promise<void> => this._handleManualImport(),
     );
 
     this._getRequiredButton("remove-folder-button").addEventListener(
       "click",
-      () => this._handleFolderRemoval(),
+      (): void => this._handleFolderRemoval(),
     );
   }
 
   private async _attemptInitialReconnection(): Promise<void> {
-    const handle = await this._directoryService.attemptReconnection();
+    const handle: FileSystemDirectoryHandle | null =
+      await this._directoryService.attemptReconnection();
 
     if (handle) {
       this._statusView.reportFolderReconnected(
@@ -151,6 +184,7 @@ export class AppBootstrap {
       );
 
       await this._synchronizeAndMonitor(handle);
+
       return;
     }
 
@@ -158,7 +192,8 @@ export class AppBootstrap {
   }
 
   private async _handleManualFolderSelection(): Promise<void> {
-    const handle = await this._directoryService.requestDirectorySelection();
+    const handle: FileSystemDirectoryHandle | null =
+      await this._directoryService.requestDirectorySelection();
 
     if (handle) {
       this._statusView.reportFolderLinked(
@@ -174,9 +209,11 @@ export class AppBootstrap {
     this._statusView.reportScanning();
 
     const runs = await this._ingestionService.synchronizeAvailableRuns();
+
     this._recentRunsDisplay.renderRuns(runs);
 
     const newRuns = await this._ingestionService.getNewRuns();
+
     this._newRunsDisplay.renderRuns(newRuns);
 
     this._statusView.reportActive();
@@ -184,7 +221,9 @@ export class AppBootstrap {
 
   private _handleFolderRemoval(): void {
     this._directoryService.clearStoredHandle();
+
     this._monitoringService.stopMonitoring();
+
     this._statusView.reportDisconnected();
   }
 
@@ -192,39 +231,52 @@ export class AppBootstrap {
     handle: FileSystemDirectoryHandle,
   ): Promise<void> {
     const runs = await this._ingestionService.synchronizeAvailableRuns();
+
     this._recentRunsDisplay.renderRuns(runs);
 
     const newRuns = await this._ingestionService.getNewRuns();
+
     this._newRunsDisplay.renderRuns(newRuns);
 
     this._startMonitoring(handle);
   }
 
   private _startMonitoring(handle: FileSystemDirectoryHandle): void {
-    this._monitoringService.startMonitoring(handle, async () => {
+    this._monitoringService.startMonitoring(handle, async (): Promise<void> => {
       this._statusView.reportScanning();
-      const updatedRuns = await this._ingestionService.synchronizeAvailableRuns();
+
+      const updatedRuns =
+        await this._ingestionService.synchronizeAvailableRuns();
+
       this._recentRunsDisplay.renderRuns(updatedRuns);
 
       const updatedNewRuns = await this._ingestionService.getNewRuns();
+
       this._newRunsDisplay.renderRuns(updatedNewRuns);
+
       this._statusView.reportActive();
     });
   }
 
-  private _getRequiredElement(id: string): HTMLElement {
-    const element = document.getElementById(id);
+  private _getRequiredElement(elementId: string): HTMLElement {
+    const element: HTMLElement | null = document.getElementById(elementId);
+
     if (!element) {
-      throw new Error(`Required application mount point not found: ${id}`);
+      throw new Error(
+        `Required application mount point not found: ${elementId}`,
+      );
     }
+
     return element;
   }
 
-  private _getRequiredButton(id: string): HTMLButtonElement {
-    const element = this._getRequiredElement(id);
+  private _getRequiredButton(buttonId: string): HTMLButtonElement {
+    const element: HTMLElement = this._getRequiredElement(buttonId);
+
     if (!(element instanceof HTMLButtonElement)) {
-      throw new Error(`Element is not a button: ${id}`);
+      throw new Error(`Element is not a button: ${buttonId}`);
     }
+
     return element;
   }
 }

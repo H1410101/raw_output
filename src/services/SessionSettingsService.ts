@@ -2,106 +2,117 @@
  * Configuration parameters for session behavior.
  */
 export interface SessionSettings {
-  /**
-   * The number of minutes of inactivity before a session is considered expired.
-   */
+  /** The number of minutes of inactivity before a session is considered expired. */
   sessionTimeoutMinutes: number;
 }
 
 /**
- * Responsibility: Manage persistence and notification of session-related configuration.
+ * Manages persistence and notification of session-related configuration.
  */
 export class SessionSettingsService {
-  private static readonly _STORAGE_KEY = "session_settings";
+  private static readonly _storageKey: string = "session_settings";
 
   private _currentSettings: SessionSettings;
 
   private _listeners: ((settings: SessionSettings) => void)[] = [];
 
-  constructor() {
-    this._currentSettings = this._load_from_storage();
+  /**
+   * Initializes the service by loading settings from local storage.
+   */
+  public constructor() {
+    this._currentSettings = this._loadFromStorage();
   }
 
   /**
    * Retrieves a snapshot of the current session settings.
+   *
+   * @returns A copy of the current settings.
    */
-  public get_settings(): SessionSettings {
+  public getSettings(): SessionSettings {
     return { ...this._currentSettings };
   }
 
   /**
    * Updates a specific session setting and persists the change.
+   *
+   * @param key - The setting key to update.
+   * @param value - The new value for the setting.
    */
-  public update_setting<K extends keyof SessionSettings>(
+  public updateSetting<K extends keyof SessionSettings>(
     key: K,
     value: SessionSettings[K],
   ): void {
     this._currentSettings[key] = value;
 
-    this._save_to_storage();
+    this._saveToStorage();
 
-    this._notify_listeners();
+    this._notifyListeners();
   }
 
   /**
    * Subscribes to changes in session settings.
-   * Immediately calls the listener with the current settings upon subscription.
+   *
+   * @param listener - Callback function receiving updated settings.
+   * @returns An unsubscription function.
    */
   public subscribe(listener: (settings: SessionSettings) => void): () => void {
     this._listeners.push(listener);
 
-    listener(this.get_settings());
+    listener(this.getSettings());
 
-    return () => {
+    return (): void => {
       this._listeners = this._listeners.filter(
-        (existing_listener) => existing_listener !== listener,
+        (existingListener: (settings: SessionSettings) => void): boolean =>
+          existingListener !== listener,
       );
     };
   }
 
-  private _load_from_storage(): SessionSettings {
+  private _loadFromStorage(): SessionSettings {
     try {
-      const stored_settings = localStorage.getItem(
-        SessionSettingsService._STORAGE_KEY,
+      const storedSettings: string | null = localStorage.getItem(
+        SessionSettingsService._storageKey,
       );
 
-      if (stored_settings) {
+      if (storedSettings) {
         return {
-          ...this._get_defaults(),
-          ...JSON.parse(stored_settings),
+          ...this._getDefaults(),
+          ...JSON.parse(storedSettings),
         };
       }
-    } catch (error) {
-      // Fallback to defaults
+    } catch {
+      // Fallback to defaults on corruption or access error
     }
 
-    return this._get_defaults();
+    return this._getDefaults();
   }
 
-  private _get_defaults(): SessionSettings {
+  private _getDefaults(): SessionSettings {
     return {
       sessionTimeoutMinutes: 10,
     };
   }
 
-  private _save_to_storage(): void {
+  private _saveToStorage(): void {
     try {
-      const serialized_settings = JSON.stringify(this._currentSettings);
+      const serializedSettings: string = JSON.stringify(this._currentSettings);
 
       localStorage.setItem(
-        SessionSettingsService._STORAGE_KEY,
-        serialized_settings,
+        SessionSettingsService._storageKey,
+        serializedSettings,
       );
-    } catch (error) {
-      // Ignore storage errors
+    } catch {
+      // Ignore storage errors to avoid crashing non-critical UI settings
     }
   }
 
-  private _notify_listeners(): void {
-    const settings = this.get_settings();
+  private _notifyListeners(): void {
+    const settings: SessionSettings = this.getSettings();
 
-    this._listeners.forEach((listener) => {
-      listener(settings);
-    });
+    this._listeners.forEach(
+      (listener: (settings: SessionSettings) => void): void => {
+        listener(settings);
+      },
+    );
   }
 }

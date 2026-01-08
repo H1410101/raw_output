@@ -4,45 +4,93 @@ import { BenchmarkView } from "./BenchmarkView";
 import { RecentRunsDisplay } from "./RecentRunsDisplay";
 
 /**
- * Responsibility: Manages application-level navigation and view switching.
+ * Interface for navigation trigger elements.
+ */
+export interface NavButtons {
+  /** Button for Recent Runs view. */
+  readonly recentButton: HTMLButtonElement;
+  /** Button for New Runs view. */
+  readonly newButton: HTMLButtonElement;
+  /** Button for Benchmarks view. */
+  readonly benchmarksButton: HTMLButtonElement;
+}
+
+/**
+ * Interface for top-level view containers.
+ */
+export interface ViewContainers {
+  /** Container for the Recent Runs view. */
+  readonly recentView: HTMLElement;
+  /** Container for the New Runs view. */
+  readonly newView: HTMLElement;
+  /** Container for the Benchmarks view. */
+  readonly benchmarksView: HTMLElement;
+}
+
+/**
+ * Services and components required for navigation logic.
+ */
+export interface NavDependencies {
+  /** The benchmark view component. */
+  readonly benchmarkView: BenchmarkView;
+  /** Service for ingesting new runs. */
+  readonly ingestionService: RunIngestionService;
+  /** Display component for new runs. */
+  readonly newRunsDisplay: RecentRunsDisplay;
+  /** Service for managing application state. */
+  readonly appStateService: AppStateService;
+}
+
+/**
+ * Manages application-level navigation and view switching.
+ *
  * Syncs the visual state of buttons and containers with the underlying application state.
  */
 export class NavigationController {
   private readonly _navRecent: HTMLButtonElement;
+
   private readonly _navNew: HTMLButtonElement;
+
   private readonly _navBenchmarks: HTMLButtonElement;
+
   private readonly _viewRecent: HTMLElement;
+
   private readonly _viewNew: HTMLElement;
+
   private readonly _viewBenchmarks: HTMLElement;
+
   private readonly _benchmarkView: BenchmarkView;
+
   private readonly _ingestionService: RunIngestionService;
+
   private readonly _newRunsDisplay: RecentRunsDisplay;
+
   private readonly _appStateService: AppStateService;
 
-  constructor(
-    navRecent: HTMLButtonElement,
-    navNew: HTMLButtonElement,
-    navBenchmarks: HTMLButtonElement,
-    viewRecent: HTMLElement,
-    viewNew: HTMLElement,
-    viewBenchmarks: HTMLElement,
-    benchmarkView: BenchmarkView,
-    ingestionService: RunIngestionService,
-    newRunsDisplay: RecentRunsDisplay,
-    appStateService: AppStateService,
+  /**
+   * Initializes the controller with grouped navigation elements and dependencies.
+   *
+   * @param buttons - Navigation button elements.
+   * @param views - View container elements.
+   * @param dependencies - Required services and components.
+   */
+  public constructor(
+    buttons: NavButtons,
+    views: ViewContainers,
+    dependencies: NavDependencies,
   ) {
-    this._navRecent = navRecent;
-    this._navNew = navNew;
-    this._navBenchmarks = navBenchmarks;
+    this._navRecent = buttons.recentButton;
+    this._navNew = buttons.newButton;
+    this._navBenchmarks = buttons.benchmarksButton;
 
-    this._viewRecent = viewRecent;
-    this._viewNew = viewNew;
-    this._viewBenchmarks = viewBenchmarks;
+    this._viewRecent = views.recentView;
+    this._viewNew = views.newView;
+    this._viewBenchmarks = views.benchmarksView;
 
-    this._benchmarkView = benchmarkView;
-    this._ingestionService = ingestionService;
-    this._newRunsDisplay = newRunsDisplay;
-    this._appStateService = appStateService;
+    this._benchmarkView = dependencies.benchmarkView;
+    this._ingestionService = dependencies.ingestionService;
+    this._newRunsDisplay = dependencies.newRunsDisplay;
+    this._appStateService = dependencies.appStateService;
   }
 
   /**
@@ -50,27 +98,36 @@ export class NavigationController {
    */
   public initialize(): void {
     this._setupListeners();
+
     this._restoreInitialTab();
   }
 
   private _setupListeners(): void {
-    this._navRecent.addEventListener("click", () => this._switchToRecent());
-    this._navNew.addEventListener("click", () => this._switchToNew());
-    this._navBenchmarks.addEventListener("click", () =>
-      this._switchToBenchmarks(),
-    );
+    this._navRecent.addEventListener("click", (): void => {
+      this._switchToRecent();
+    });
+
+    this._navNew.addEventListener("click", (): Promise<void> => {
+      return this._switchToNew();
+    });
+
+    this._navBenchmarks.addEventListener("click", (): Promise<void> => {
+      return this._switchToBenchmarks();
+    });
   }
 
   private _restoreInitialTab(): void {
-    const initialTabId: string = this._appStateService.get_active_tab_id();
+    const initialTabId: string = this._appStateService.getActiveTabId();
 
     if (initialTabId === "nav-new") {
       this._switchToNew();
+
       return;
     }
 
     if (initialTabId === "nav-benchmarks") {
       this._switchToBenchmarks();
+
       return;
     }
 
@@ -79,23 +136,30 @@ export class NavigationController {
 
   private _switchToRecent(): void {
     this._updateActiveNav(this._navRecent);
+
     this._updateVisibleView(this._viewRecent);
-    this._appStateService.set_active_tab_id("nav-recent");
+
+    this._appStateService.setActiveTabId("nav-recent");
   }
 
   private async _switchToNew(): Promise<void> {
     this._updateActiveNav(this._navNew);
+
     this._updateVisibleView(this._viewNew);
-    this._appStateService.set_active_tab_id("nav-new");
+
+    this._appStateService.setActiveTabId("nav-new");
 
     const newRuns = await this._ingestionService.getNewRuns();
+
     this._newRunsDisplay.renderRuns(newRuns);
   }
 
   private async _switchToBenchmarks(): Promise<void> {
     this._updateActiveNav(this._navBenchmarks);
+
     this._updateVisibleView(this._viewBenchmarks);
-    this._appStateService.set_active_tab_id("nav-benchmarks");
+
+    this._appStateService.setActiveTabId("nav-benchmarks");
 
     await this._benchmarkView.render();
   }

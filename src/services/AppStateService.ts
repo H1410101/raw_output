@@ -1,118 +1,155 @@
-import { BenchmarkDifficulty } from "../data/benchmarks";
+import { DifficultyTier } from "../data/benchmarks";
 
 /**
  * Encapsulates the transient UI state that should persist between sessions.
  */
 export interface AppState {
-  /**
-   * The ID of the currently active navigation tab (e.g., 'nav-recent', 'nav-benchmarks').
-   */
+  /** The ID of the currently active navigation tab (e.g., 'nav-recent', 'nav-benchmarks'). */
   activeTabId: string;
-
-  /**
-   * The last selected difficulty level in the Benchmark view.
-   */
-  benchmarkDifficulty: BenchmarkDifficulty;
-
-  /**
-   * Whether the visual settings menu is currently open.
-   */
+  /** The last selected difficulty level in the Benchmark view. */
+  benchmarkDifficulty: DifficultyTier;
+  /** Whether the visual settings menu is currently open. */
   isSettingsMenuOpen: boolean;
 }
 
 /**
- * Responsibility: Manage persistence of UI-related state to ensure a consistent experience across restarts.
+ * Manages persistence of UI-related state to ensure a consistent experience across restarts.
  */
 export class AppStateService {
-  private static readonly _STORAGE_KEY = "raw_output_app_state";
+  private static readonly _storageKey: string = "raw_output_app_state";
 
-  private _state: AppState;
+  private readonly _state: AppState;
 
-  constructor() {
-    this._state = this._load_from_storage();
+  /**
+   * Initializes the service by loading state from local storage.
+   */
+  public constructor() {
+    this._state = this._loadFromStorage();
   }
 
   /**
    * Retrieves the ID of the last active navigation tab.
+   *
+   * @returns The tab identifier.
    */
-  public get_active_tab_id(): string {
+  public getActiveTabId(): string {
     return this._state.activeTabId;
   }
 
   /**
    * Persists the ID of the currently active navigation tab.
+   *
+   * @param tabId - The unique identifier of the tab.
    */
-  public set_active_tab_id(id: string): void {
-    this._state.activeTabId = id;
+  public setActiveTabId(tabId: string): void {
+    this._state.activeTabId = tabId;
 
-    this._save_to_storage();
+    this._saveToStorage();
   }
 
   /**
    * Retrieves the last selected benchmark difficulty.
+   *
+   * @returns The difficulty tier.
    */
-  public get_benchmark_difficulty(): BenchmarkDifficulty {
+  public getBenchmarkDifficulty(): DifficultyTier {
     return this._state.benchmarkDifficulty;
   }
 
   /**
    * Persists the selected benchmark difficulty.
+   *
+   * @param difficulty - The difficulty tier to save.
    */
-  public set_benchmark_difficulty(difficulty: BenchmarkDifficulty): void {
+  public setBenchmarkDifficulty(difficulty: DifficultyTier): void {
     this._state.benchmarkDifficulty = difficulty;
 
-    this._save_to_storage();
+    this._saveToStorage();
   }
 
   /**
    * Retrieves whether the visual settings menu should be open.
+   *
+   * @returns True if the menu is open.
    */
-  public get_is_settings_menu_open(): boolean {
+  public getIsSettingsMenuOpen(): boolean {
     return this._state.isSettingsMenuOpen;
   }
 
   /**
    * Persists the open state of the visual settings menu.
+   *
+   * @param isOpen - The new visibility state.
    */
-  public set_is_settings_menu_open(isOpen: boolean): void {
+  public setIsSettingsMenuOpen(isOpen: boolean): void {
     this._state.isSettingsMenuOpen = isOpen;
 
-    this._save_to_storage();
+    this._saveToStorage();
   }
 
-  private _load_from_storage(): AppState {
+  private _loadFromStorage(): AppState {
     try {
-      const serialized_state = localStorage.getItem(
-        AppStateService._STORAGE_KEY,
+      const serializedState: string | null = localStorage.getItem(
+        AppStateService._storageKey,
       );
 
-      if (serialized_state) {
+      if (serializedState) {
+        const parsedState: Partial<AppState> = JSON.parse(
+          serializedState,
+        ) as unknown as Partial<AppState>;
+
         return {
-          ...this._get_defaults(),
-          ...JSON.parse(serialized_state),
+          ...this._getDefaults(),
+          ...this._getValidatedState(parsedState),
         };
       }
-    } catch (error) {
+    } catch {
       // Fallback to defaults on corruption or access error
     }
 
-    return this._get_defaults();
+    return this._getDefaults();
   }
 
-  private _get_defaults(): AppState {
+  private _getValidatedState(
+    parsedState: Partial<AppState>,
+  ): Partial<AppState> {
+    const validatedState: Partial<AppState> = { ...parsedState };
+
+    const isDifficultyValid: boolean = this._isDifficultyValid(
+      parsedState.benchmarkDifficulty,
+    );
+
+    if (!isDifficultyValid) {
+      delete validatedState.benchmarkDifficulty;
+    }
+
+    return validatedState;
+  }
+
+  private _isDifficultyValid(
+    difficulty: unknown,
+  ): difficulty is DifficultyTier {
+    return (
+      difficulty === "easier" ||
+      difficulty === "medium" ||
+      difficulty === "harder"
+    );
+  }
+
+  private _getDefaults(): AppState {
     return {
       activeTabId: "nav-benchmarks",
-      benchmarkDifficulty: "Medium",
+      benchmarkDifficulty: "medium",
       isSettingsMenuOpen: false,
     };
   }
 
-  private _save_to_storage(): void {
+  private _saveToStorage(): void {
     try {
-      const serialized_state = JSON.stringify(this._state);
+      const serializedState: string = JSON.stringify(this._state);
 
-      localStorage.setItem(AppStateService._STORAGE_KEY, serialized_state);
-    } catch (error) {
+      localStorage.setItem(AppStateService._storageKey, serializedState);
+    } catch {
       // Ignore storage errors to prevent app crashes
     }
   }
