@@ -378,6 +378,7 @@ export class BenchmarkView {
       historyService: this._historyService,
       rankService: this._rankService,
       sessionService: this._sessionService,
+      appStateService: this._appStateService,
       visualSettings: this._visualSettingsService.getSettings(),
       focusService: this._focusService,
     });

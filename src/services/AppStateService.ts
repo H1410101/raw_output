@@ -10,6 +10,8 @@ export interface AppState {
   benchmarkDifficulty: DifficultyTier;
   /** Whether the visual settings menu is currently open. */
   isSettingsMenuOpen: boolean;
+  /** The last recorded scroll position of the benchmark table. */
+  benchmarkScrollTop: number;
 }
 
 /**
@@ -87,6 +89,26 @@ export class AppStateService {
     this._saveToStorage();
   }
 
+  /**
+   * Retrieves the last persisted scroll position of the benchmark table.
+   *
+   * @returns The scroll offset in pixels.
+   */
+  public getBenchmarkScrollTop(): number {
+    return this._state.benchmarkScrollTop;
+  }
+
+  /**
+   * Persists the current scroll position of the benchmark table.
+   *
+   * @param scrollTop - The vertical scroll offset in pixels.
+   */
+  public setBenchmarkScrollTop(scrollTop: number): void {
+    this._state.benchmarkScrollTop = scrollTop;
+
+    this._saveToStorage();
+  }
+
   private _loadFromStorage(): AppState {
     try {
       const serializedState: string | null = localStorage.getItem(
@@ -141,6 +163,7 @@ export class AppStateService {
       activeTabId: "nav-benchmarks",
       benchmarkDifficulty: "medium",
       isSettingsMenuOpen: false,
+      benchmarkScrollTop: 0,
     };
   }
 

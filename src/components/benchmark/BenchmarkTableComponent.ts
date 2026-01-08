@@ -2,6 +2,7 @@ import { BenchmarkScenario } from "../../data/benchmarks";
 import { HistoryService } from "../../services/HistoryService";
 import { RankService } from "../../services/RankService";
 import { SessionService } from "../../services/SessionService";
+import { AppStateService } from "../../services/AppStateService";
 import { VisualSettings } from "../../services/VisualSettingsService";
 import { FocusManagementService } from "../../services/FocusManagementService";
 import { BenchmarkRowRenderer } from "./BenchmarkRowRenderer";
@@ -15,6 +16,7 @@ export interface BenchmarkTableDependencies {
   readonly historyService: HistoryService;
   readonly rankService: RankService;
   readonly sessionService: SessionService;
+  readonly appStateService: AppStateService;
   readonly visualSettings: VisualSettings;
   readonly focusService: FocusManagementService;
 }
@@ -29,7 +31,11 @@ export class BenchmarkTableComponent {
 
   private readonly _focusService: FocusManagementService;
 
+  private readonly _appStateService: AppStateService;
+
   private readonly _rowElements: Map<string, HTMLElement> = new Map();
+
+  private _labelPositioner: BenchmarkLabelPositioner | null = null;
 
   /**
    * Initializes the table component with required services and settings.
@@ -40,6 +46,8 @@ export class BenchmarkTableComponent {
     this._visualSettings = dependencies.visualSettings;
 
     this._focusService = dependencies.focusService;
+
+    this._appStateService = dependencies.appStateService;
 
     this._rowRenderer = new BenchmarkRowRenderer(
       dependencies.historyService,
@@ -78,6 +86,8 @@ export class BenchmarkTableComponent {
 
     this._initializeControllers(tableContainer, scrollArea, scrollThumb);
 
+    this._restoreScrollPosition(scrollArea);
+
     tableContainer.appendChild(scrollArea);
 
     tableContainer.appendChild(scrollThumb);
@@ -90,6 +100,8 @@ export class BenchmarkTableComponent {
    */
   public destroy(): void {
     this._rowRenderer.destroyAll();
+
+    this._labelPositioner?.destroy();
 
     this._clearExistingRows();
   }
@@ -176,14 +188,28 @@ export class BenchmarkTableComponent {
     thumb: HTMLElement,
   ): void {
     const scrollController: BenchmarkScrollController =
-      new BenchmarkScrollController(scrollArea, thumb, container);
+      new BenchmarkScrollController(
+        scrollArea,
+        thumb,
+        container,
+        this._appStateService,
+      );
 
     scrollController.initialize();
+    scrollController.initialize();
 
-    const labelPositioner: BenchmarkLabelPositioner =
-      new BenchmarkLabelPositioner(scrollArea);
+    this._labelPositioner = new BenchmarkLabelPositioner(scrollArea);
 
-    labelPositioner.initialize();
+    this._labelPositioner.initialize();
+  }
+
+  private _restoreScrollPosition(scrollArea: HTMLElement): void {
+    const savedScrollTop: number =
+      this._appStateService.getBenchmarkScrollTop();
+
+    requestAnimationFrame((): void => {
+      scrollArea.scrollTop = savedScrollTop;
+    });
   }
 
   private _appendCategorizedContent(

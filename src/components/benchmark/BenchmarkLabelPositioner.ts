@@ -7,6 +7,8 @@
 export class BenchmarkLabelPositioner {
   private readonly _scrollContainer: HTMLElement;
 
+  private _resizeObserver: ResizeObserver | null = null;
+
   /**
    * Initializes the positioner with the scrollable container.
    *
@@ -24,7 +26,24 @@ export class BenchmarkLabelPositioner {
       this._updateAllLabelPositions();
     });
 
+    this._setupResizeObservation();
+
     this._updateAllLabelPositions();
+  }
+
+  /**
+   * Disconnects observers and releases resources.
+   */
+  public destroy(): void {
+    this._resizeObserver?.disconnect();
+  }
+
+  private _setupResizeObservation(): void {
+    this._resizeObserver = new ResizeObserver((): void => {
+      this._updateAllLabelPositions();
+    });
+
+    this._resizeObserver.observe(this._scrollContainer);
   }
 
   private _updateAllLabelPositions(): void {

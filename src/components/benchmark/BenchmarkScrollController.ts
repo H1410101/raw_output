@@ -1,3 +1,5 @@
+import { AppStateService } from "../../services/AppStateService";
+
 /**
  * Manages custom scrollbar behavior for the benchmark table.
  *
@@ -10,6 +12,8 @@ export class BenchmarkScrollController {
   private readonly _scrollThumb: HTMLElement;
 
   private readonly _hoverContainer: HTMLElement;
+
+  private readonly _appStateService: AppStateService;
 
   private _autoScrollTimer: number | null = null;
 
@@ -27,17 +31,21 @@ export class BenchmarkScrollController {
    * @param scrollContainer - The scrollable area.
    * @param scrollThumb - The custom thumb element to be translated.
    * @param hoverContainer - The container used for hover-detection (auto-scroll).
+   * @param appStateService - Service for persisting UI state.
    */
   public constructor(
     scrollContainer: HTMLElement,
     scrollThumb: HTMLElement,
     hoverContainer: HTMLElement,
+    appStateService: AppStateService,
   ) {
     this._scrollContainer = scrollContainer;
 
     this._scrollThumb = scrollThumb;
 
     this._hoverContainer = hoverContainer;
+
+    this._appStateService = appStateService;
   }
 
   /**
@@ -54,11 +62,19 @@ export class BenchmarkScrollController {
   private _setupScrollSynchronization(): void {
     this._scrollContainer.addEventListener("scroll", (): void => {
       this._synchronizeThumbPosition();
+
+      this._persistScrollPosition();
     });
 
     requestAnimationFrame((): void => {
       this._synchronizeThumbPosition();
     });
+  }
+
+  private _persistScrollPosition(): void {
+    this._appStateService.setBenchmarkScrollTop(
+      this._scrollContainer.scrollTop,
+    );
   }
 
   private _synchronizeThumbPosition(): void {
