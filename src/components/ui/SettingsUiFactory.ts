@@ -50,11 +50,9 @@ export class SettingsUiFactory {
     onChange: (checked: boolean) => void,
   ): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
-
     container.className = "setting-item toggle-item";
 
     container.appendChild(this._createLabel(label));
-
     container.appendChild(this._createToggleCircle(isChecked, onChange));
 
     return container;
@@ -68,24 +66,13 @@ export class SettingsUiFactory {
    */
   public static createSlider(configuration: SliderConfiguration): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
-
     const min: number = configuration.min ?? 0;
-
     const max: number = configuration.max ?? 100;
-
-    const dotCount: number = configuration.options
-      ? configuration.options.length
-      : 10;
+    const dotCount: number = configuration.options ? configuration.options.length : 10;
 
     container.className = "setting-item slider-item";
-
-    container.appendChild(
-      this._createLabel(configuration.label, configuration),
-    );
-
-    container.appendChild(
-      this._createSliderContainer(configuration, min, max, dotCount),
-    );
+    container.appendChild(this._createLabel(configuration.label, configuration));
+    container.appendChild(this._createSliderContainer(configuration, min, max, dotCount));
 
     return container;
   }
@@ -106,14 +93,10 @@ export class SettingsUiFactory {
     onChange: (value: string) => void,
   ): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
-
     container.className = "setting-item segmented-item";
 
     container.appendChild(this._createLabel(label));
-
-    container.appendChild(
-      this._createSegmentedTrack(options, currentValue, onChange),
-    );
+    container.appendChild(this._createSegmentedTrack(options, currentValue, onChange));
 
     return container;
   }
@@ -126,9 +109,7 @@ export class SettingsUiFactory {
    */
   public static createGroupTitle(text: string): HTMLElement {
     const title: HTMLDivElement = document.createElement("div");
-
     title.className = "settings-group-title";
-
     title.textContent = text;
 
     return title;
@@ -146,11 +127,9 @@ export class SettingsUiFactory {
     subRowsContainer: HTMLElement,
   ): HTMLElement {
     const groupContainer: HTMLDivElement = document.createElement("div");
-
     groupContainer.className = "settings-group";
 
     groupContainer.appendChild(mainRow);
-
     groupContainer.appendChild(subRowsContainer);
 
     return groupContainer;
@@ -164,39 +143,26 @@ export class SettingsUiFactory {
    */
   public static updateTrackVisuals(track: HTMLElement, newIndex: number): void {
     const dots: NodeListOf<Element> = track.querySelectorAll(".dot-target");
-
     const oldIndex: number = parseInt(track.dataset.selectedIndex || "-1");
 
     track.dataset.selectedIndex = newIndex.toString();
-
     dots.forEach((dot: Element, index: number): void => {
       const dotElement: HTMLElement = dot as HTMLElement;
-
       this._applyTransitionToDot(dotElement, index, oldIndex);
-
       this._applyDotState(dotElement, index, newIndex);
     });
   }
 
-  private static _createLabel(
-    text: string,
-    config?: SliderConfiguration,
-  ): HTMLElement {
+  private static _createLabel(text: string, config?: SliderConfiguration): HTMLElement {
     const labelElement: HTMLLabelElement = document.createElement("label");
-
     labelElement.textContent = text;
 
     if (config?.unit) {
       const valueSpan: HTMLSpanElement = document.createElement("span");
-
       valueSpan.className = "slider-value-display";
-
       valueSpan.style.color = "var(--lower-band-3)";
-
       valueSpan.style.marginLeft = "0.5rem";
-
       valueSpan.textContent = `${config.value}${config.unit}`;
-
       labelElement.appendChild(valueSpan);
     }
 
@@ -208,14 +174,11 @@ export class SettingsUiFactory {
     onChange: (checked: boolean) => void,
   ): HTMLElement {
     const checkbox: HTMLDivElement = document.createElement("div");
-
     checkbox.className = `circle-checkbox ${isChecked ? "checked" : ""}`;
-
     checkbox.style.transition = "none";
 
     checkbox.addEventListener("click", (): void => {
       const newState: boolean = checkbox.classList.toggle("checked");
-
       onChange(newState);
     });
 
@@ -232,32 +195,46 @@ export class SettingsUiFactory {
     const showNotch: boolean = config.showNotch ?? false;
     sliderContainer.className = "dot-slider-container";
 
-    const track: HTMLElement = this._createDotTrack({
+    const track: HTMLElement = this._createTrackWithEvents(config, min, max, dotCount, sliderContainer);
+    const notch: HTMLElement = this._createNotchWithEvents(config, min, track, sliderContainer);
+
+    sliderContainer.appendChild(notch);
+    sliderContainer.appendChild(track);
+
+    return sliderContainer;
+  }
+
+  private static _createTrackWithEvents(
+    config: SliderConfiguration,
+    min: number,
+    max: number,
+    dotCount: number,
+    container: HTMLElement,
+  ): HTMLElement {
+    return this._createDotTrack({
       currentValue: config.value,
       bounds: { min, max },
       dotCount,
       options: config.options,
-      onChange: (value: number): void =>
-        this._handleSliderUpdate(sliderContainer, value, config),
-      hasNotch: showNotch,
+      onChange: (value: number): void => this._handleSliderUpdate(container, value, config),
+      hasNotch: config.showNotch ?? false,
     });
+  }
 
-    const notch: HTMLElement = this._createSliderNotch(
-      showNotch,
+  private static _createNotchWithEvents(
+    config: SliderConfiguration,
+    min: number,
+    track: HTMLElement,
+    container: HTMLElement,
+  ): HTMLElement {
+    return this._createSliderNotch(
+      config.showNotch ?? false,
       config.value === min,
-
       (): void => {
         this.updateTrackVisuals(track, -1);
-
-        this._handleSliderUpdate(sliderContainer, min, config);
+        this._handleSliderUpdate(container, min, config);
       },
     );
-
-    sliderContainer.appendChild(notch);
-
-    sliderContainer.appendChild(track);
-
-    return sliderContainer;
   }
 
   private static _handleSliderUpdate(
@@ -268,10 +245,7 @@ export class SettingsUiFactory {
     const parent: HTMLElement | null = sliderContainer.parentElement;
 
     if (parent && config.unit) {
-      const display: HTMLElement | null = parent.querySelector(
-        ".slider-value-display",
-      );
-
+      const display: HTMLElement | null = parent.querySelector(".slider-value-display");
       if (display) {
         display.textContent = `${newValue}${config.unit}`;
       }
@@ -291,41 +265,39 @@ export class SettingsUiFactory {
 
     if (visible) {
       notch.addEventListener("click", (event: MouseEvent): void => {
-        const current: HTMLElement = event.currentTarget as HTMLElement;
-        const parent: HTMLElement | null = current.parentElement;
-
-        if (parent) {
-          parent
-            .querySelectorAll(".slider-notch")
-            .forEach((element: Element): void =>
-              element.classList.remove("active"),
-            );
-        }
-
-        current.classList.add("active");
-        onClick();
+        this._handleNotchClick(event, onClick);
       });
     }
 
     return notch;
   }
 
+  private static _handleNotchClick(event: MouseEvent, onClick: () => void): void {
+    const current: HTMLElement = event.currentTarget as HTMLElement;
+    const parent: HTMLElement | null = current.parentElement;
+
+    if (parent) {
+      parent
+        .querySelectorAll(".slider-notch")
+        .forEach((element: Element): void => element.classList.remove("active"));
+    }
+
+    current.classList.add("active");
+    onClick();
+  }
+
   private static _createDotTrack(config: DotTrackConfiguration): HTMLElement {
     const track: HTMLDivElement = document.createElement("div");
     const range: number = config.bounds.max - config.bounds.min;
-    const totalSteps: number = config.hasNotch
-      ? config.dotCount
-      : config.dotCount - 1;
+    const totalSteps: number = config.hasNotch ? config.dotCount : config.dotCount - 1;
     const stepSize: number = config.options ? 1 : range / totalSteps;
 
     this._initializeTrack(track, config, stepSize);
-
     this._appendDotsToTrack(
       track,
       config.dotCount,
       parseInt(track.dataset.selectedIndex || "-1"),
-      (index: number): void =>
-        this._handleDotSelection(index, config, stepSize),
+      (index: number): void => this._handleDotSelection(index, config, stepSize),
     );
 
     return track;
@@ -339,11 +311,11 @@ export class SettingsUiFactory {
     const selectedIndex: number = config.options
       ? config.options.indexOf(config.currentValue)
       : this._calculateSelectedIndex(
-          config.currentValue,
-          config.bounds.min,
-          stepSize,
-          config.hasNotch,
-        );
+        config.currentValue,
+        config.bounds.min,
+        stepSize,
+        config.hasNotch,
+      );
 
     track.className = "dot-track";
     track.dataset.selectedIndex = selectedIndex.toString();
@@ -356,7 +328,6 @@ export class SettingsUiFactory {
   ): void {
     if (config.options) {
       config.onChange(config.options[index]);
-
       return;
     }
 
@@ -387,85 +358,61 @@ export class SettingsUiFactory {
     onIndexSelect: (index: number) => void,
   ): void {
     for (let index: number = 0; index < dotCount; index++) {
-      const dot: HTMLElement = this._createDot(
-        index,
-        selectedIndex,
-        (): void => {
-          const parent: HTMLElement | null = track.parentElement;
-          const notch: HTMLElement | null = parent
-            ? parent.querySelector(".slider-notch")
-            : null;
-
-          if (notch) {
-            notch.classList.remove("active");
-          }
-
-          this.updateTrackVisuals(track, index);
-          onIndexSelect(index);
-        },
-      );
-
+      const dot: HTMLElement = this._createDot(index, selectedIndex, (): void => {
+        this._updateTrackOnSelection(track, index);
+        onIndexSelect(index);
+      });
       track.appendChild(dot);
     }
   }
 
-  private static _createDot(
-    index: number,
-    selectedIndex: number,
-    onClick: () => void,
-  ): HTMLElement {
-    const container: HTMLDivElement = document.createElement("div");
+  private static _updateTrackOnSelection(track: HTMLElement, index: number): void {
+    const parent: HTMLElement | null = track.parentElement;
+    const notch: HTMLElement | null = parent ? parent.querySelector(".slider-notch") : null;
 
+    if (notch) {
+      notch.classList.remove("active");
+    }
+
+    this.updateTrackVisuals(track, index);
+  }
+
+  private static _createDot(index: number, selectedIndex: number, onClick: () => void): HTMLElement {
+    const container: HTMLDivElement = document.createElement("div");
     const dotElement: HTMLDivElement = document.createElement("div");
 
     container.className = "dot-socket-container";
-
     dotElement.className = "dot-target";
-
     this._applyDotState(dotElement, index, selectedIndex);
 
     container.appendChild(dotElement);
-
     container.addEventListener("click", (event: MouseEvent): void => {
       event.stopPropagation();
-
       onClick();
     });
 
     return container;
   }
 
-  private static _applyTransitionToDot(
-    dot: HTMLElement,
-    index: number,
-    oldIndex: number,
-  ): void {
+  private static _applyTransitionToDot(dot: HTMLElement, index: number, oldIndex: number): void {
     const distance: number = Math.abs(index - oldIndex);
-
     const delay: number = distance * 0.03;
 
     dot.style.transition =
       "background 0.2s ease, box-shadow 0.2s ease, height 0.2s ease, border-radius 0.2s ease";
-
     dot.style.transitionDelay = `${delay}s`;
   }
 
-  private static _applyDotState(
-    dot: HTMLElement,
-    index: number,
-    selectedIndex: number,
-  ): void {
+  private static _applyDotState(dot: HTMLElement, index: number, selectedIndex: number): void {
     dot.classList.remove("pill", "glow", "dull");
 
     if (index === selectedIndex) {
       dot.classList.add("pill");
-
       return;
     }
 
     if (index < selectedIndex) {
       dot.classList.add("glow");
-
       return;
     }
 
@@ -478,24 +425,16 @@ export class SettingsUiFactory {
     onChange: (value: string) => void,
   ): HTMLElement {
     const track: HTMLDivElement = document.createElement("div");
-
     const selectedIndex: number = options.indexOf(currentValue);
 
     track.className = "multi-select-dots";
-
     track.dataset.selectedIndex = selectedIndex.toString();
 
     options.forEach((option: string, index: number): void => {
-      const dot: HTMLElement = this._createDot(
-        index,
-        selectedIndex,
-        (): void => {
-          this.updateTrackVisuals(track, index);
-
-          onChange(option);
-        },
-      );
-
+      const dot: HTMLElement = this._createDot(index, selectedIndex, (): void => {
+        this.updateTrackVisuals(track, index);
+        onChange(option);
+      });
       track.appendChild(dot);
     });
 

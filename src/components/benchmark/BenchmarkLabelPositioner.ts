@@ -6,7 +6,6 @@
  */
 export class BenchmarkLabelPositioner {
   private readonly _scrollContainer: HTMLElement;
-
   private _resizeObserver: ResizeObserver | null = null;
 
   /**
@@ -28,7 +27,9 @@ export class BenchmarkLabelPositioner {
 
     this._setupResizeObservation();
 
-    this._updateAllLabelPositions();
+    requestAnimationFrame((): void => {
+      this._updateAllLabelPositions();
+    });
   }
 
   /**
@@ -49,9 +50,7 @@ export class BenchmarkLabelPositioner {
   private _updateAllLabelPositions(): void {
     const labels: NodeListOf<HTMLElement> =
       this._scrollContainer.querySelectorAll(".vertical-text");
-
-    const containerRectangle: DOMRect =
-      this._scrollContainer.getBoundingClientRect();
+    const containerRectangle: DOMRect = this._scrollContainer.getBoundingClientRect();
 
     labels.forEach((label: HTMLElement): void => {
       this._updateSingleLabelPosition(label, containerRectangle);
@@ -63,16 +62,13 @@ export class BenchmarkLabelPositioner {
     containerRectangle: DOMRect,
   ): void {
     const labelTrack: HTMLElement | null = label.parentElement;
-
     if (!labelTrack) {
       return;
     }
 
     const trackRectangle: DOMRect = labelTrack.getBoundingClientRect();
-
     if (this._isTrackSmallerThanLabel(trackRectangle, label)) {
       this._centerLabelInTrack(label);
-
       return;
     }
 
@@ -99,26 +95,16 @@ export class BenchmarkLabelPositioner {
       trackRectangle.top,
       containerRectangle.top,
     );
-
     const visibleBottomEdge: number = Math.min(
       trackRectangle.bottom,
       containerRectangle.bottom,
     );
 
-    const visibleHeight: number = Math.max(
-      0,
-      visibleBottomEdge - visibleTopEdge,
-    );
-
+    const visibleHeight: number = Math.max(0, visibleBottomEdge - visibleTopEdge);
     const visibleCenterY: number = visibleTopEdge + visibleHeight / 2;
-
     const relativeCenterInTrack: number = visibleCenterY - trackRectangle.top;
 
-    this._applyClampedLabelPosition(
-      label,
-      relativeCenterInTrack,
-      trackRectangle.height,
-    );
+    this._applyClampedLabelPosition(label, relativeCenterInTrack, trackRectangle.height);
   }
 
   private _applyClampedLabelPosition(
@@ -127,9 +113,7 @@ export class BenchmarkLabelPositioner {
     trackHeight: number,
   ): void {
     const labelHalfHeight: number = label.offsetHeight / 2;
-
     const minimumTopOffset: number = labelHalfHeight;
-
     const maximumTopOffset: number = trackHeight - labelHalfHeight;
 
     const clampedTopValue: number = Math.max(

@@ -8,21 +8,14 @@ import { AppStateService } from "../../services/AppStateService";
  */
 export class BenchmarkScrollController {
   private readonly _scrollContainer: HTMLElement;
-
   private readonly _scrollThumb: HTMLElement;
-
   private readonly _hoverContainer: HTMLElement;
-
   private readonly _appStateService: AppStateService;
 
   private _autoScrollTimer: number | null = null;
-
   private _activeScrollDirection: number = 0;
-
   private _isUserDragging: boolean = false;
-
   private _dragStartMouseY: number = 0;
-
   private _dragStartScrollTop: number = 0;
 
   /**
@@ -40,11 +33,8 @@ export class BenchmarkScrollController {
     appStateService: AppStateService,
   ) {
     this._scrollContainer = scrollContainer;
-
     this._scrollThumb = scrollThumb;
-
     this._hoverContainer = hoverContainer;
-
     this._appStateService = appStateService;
   }
 
@@ -53,62 +43,49 @@ export class BenchmarkScrollController {
    */
   public initialize(): void {
     this._setupScrollSynchronization();
-
     this._setupDragInteraction();
-
     this._setupHoverAutoScroll();
-  }
-
-  private _setupScrollSynchronization(): void {
-    this._scrollContainer.addEventListener("scroll", (): void => {
-      this._synchronizeThumbPosition();
-
-      this._persistScrollPosition();
-    });
 
     requestAnimationFrame((): void => {
       this._synchronizeThumbPosition();
     });
   }
 
+  private _setupScrollSynchronization(): void {
+    this._scrollContainer.addEventListener("scroll", (): void => {
+      this._synchronizeThumbPosition();
+      this._persistScrollPosition();
+    });
+  }
+
   private _persistScrollPosition(): void {
-    this._appStateService.setBenchmarkScrollTop(
-      this._scrollContainer.scrollTop,
-    );
+    this._appStateService.setBenchmarkScrollTop(this._scrollContainer.scrollTop);
   }
 
   private _synchronizeThumbPosition(): void {
     const scrollHeight: number = this._scrollContainer.scrollHeight;
-
     const clientHeight: number = this._scrollContainer.clientHeight;
-
     const totalScrollRange: number = scrollHeight - clientHeight;
 
     if (totalScrollRange <= 0) {
       this._scrollThumb.style.display = "none";
-
       return;
     }
 
     this._scrollThumb.style.display = "block";
-
     this._applyThumbTranslation(totalScrollRange);
   }
 
   private _applyThumbTranslation(totalScrollRange: number): void {
     const trackPadding: number = 32;
-
     const trackHeightLimit: number =
       this._scrollContainer.clientHeight - trackPadding;
-
     const thumbElementHeight: number =
       this._scrollThumb.offsetHeight || trackPadding;
-
     const availableTrackSpan: number = trackHeightLimit - thumbElementHeight;
 
     const scrollPercentageRatio: number =
       this._scrollContainer.scrollTop / totalScrollRange;
-
     const verticalTranslation: number =
       scrollPercentageRatio * availableTrackSpan;
 
@@ -116,12 +93,9 @@ export class BenchmarkScrollController {
   }
 
   private _setupDragInteraction(): void {
-    this._scrollThumb.addEventListener(
-      "mousedown",
-      (event: MouseEvent): void => {
-        this._handleDragStart(event);
-      },
-    );
+    this._scrollThumb.addEventListener("mousedown", (event: MouseEvent): void => {
+      this._handleDragStart(event);
+    });
 
     window.addEventListener("mousemove", (event: MouseEvent): void => {
       this._handleGlobalMouseMove(event);
@@ -134,15 +108,11 @@ export class BenchmarkScrollController {
 
   private _handleDragStart(event: MouseEvent): void {
     this._isUserDragging = true;
-
     this._dragStartMouseY = event.clientY;
-
     this._dragStartScrollTop = this._scrollContainer.scrollTop;
 
     this._stopAutoScrollLoop();
-
     event.preventDefault();
-
     event.stopPropagation();
   }
 
@@ -152,11 +122,8 @@ export class BenchmarkScrollController {
     }
 
     const mouseDeltaY: number = event.clientY - this._dragStartMouseY;
-
     const scrollHeight: number = this._scrollContainer.scrollHeight;
-
     const clientHeight: number = this._scrollContainer.clientHeight;
-
     const totalScrollRange: number = scrollHeight - clientHeight;
 
     this._updateScrollTopFromDrag(mouseDeltaY, totalScrollRange);
@@ -167,13 +134,10 @@ export class BenchmarkScrollController {
     totalScrollRange: number,
   ): void {
     const trackPadding: number = 32;
-
     const trackHeightLimit: number =
       this._scrollContainer.clientHeight - trackPadding;
-
     const thumbElementHeight: number =
       this._scrollThumb.offsetHeight || trackPadding;
-
     const availableTrackSpan: number = trackHeightLimit - thumbElementHeight;
 
     if (availableTrackSpan <= 0) {
@@ -181,7 +145,6 @@ export class BenchmarkScrollController {
     }
 
     const scrollUnitsPerPixel: number = totalScrollRange / availableTrackSpan;
-
     this._scrollContainer.scrollTop =
       this._dragStartScrollTop + mouseDeltaY * scrollUnitsPerPixel;
   }
@@ -191,12 +154,9 @@ export class BenchmarkScrollController {
   }
 
   private _setupHoverAutoScroll(): void {
-    this._hoverContainer.addEventListener(
-      "mousemove",
-      (event: MouseEvent): void => {
-        this._evaluateHoverScrolling(event);
-      },
-    );
+    this._hoverContainer.addEventListener("mousemove", (event: MouseEvent): void => {
+      this._evaluateHoverScrolling(event);
+    });
 
     this._hoverContainer.addEventListener("mouseleave", (): void => {
       this._stopAutoScrollLoop();
@@ -206,23 +166,17 @@ export class BenchmarkScrollController {
   private _evaluateHoverScrolling(event: MouseEvent): void {
     if (this._isUserDragging || event.buttons !== 0) {
       this._stopAutoScrollLoop();
-
       return;
     }
 
     const thumbRectangle: DOMRect = this._scrollThumb.getBoundingClientRect();
-
     const isInsideHorizontally: boolean =
-      event.clientX >= thumbRectangle.left &&
-      event.clientX <= thumbRectangle.right;
-
+      event.clientX >= thumbRectangle.left && event.clientX <= thumbRectangle.right;
     const isInsideVertically: boolean =
-      event.clientY >= thumbRectangle.top &&
-      event.clientY <= thumbRectangle.bottom;
+      event.clientY >= thumbRectangle.top && event.clientY <= thumbRectangle.bottom;
 
     if (!isInsideHorizontally || !isInsideVertically) {
       this._stopAutoScrollLoop();
-
       return;
     }
 
@@ -234,18 +188,15 @@ export class BenchmarkScrollController {
     thumbRectangle: DOMRect,
   ): void {
     const relativeYInThumb: number = event.clientY - thumbRectangle.top;
-
     const activationThreshold: number = thumbRectangle.height * 0.1;
 
     if (relativeYInThumb < activationThreshold) {
       this._startAutoScrollLoop(-1);
-
       return;
     }
 
     if (relativeYInThumb > thumbRectangle.height - activationThreshold) {
       this._startAutoScrollLoop(1);
-
       return;
     }
 
@@ -258,9 +209,7 @@ export class BenchmarkScrollController {
     }
 
     this._stopAutoScrollLoop();
-
     this._activeScrollDirection = direction;
-
     this._executeAutoScrollStep();
   }
 
@@ -271,9 +220,7 @@ export class BenchmarkScrollController {
       }
 
       const scrollSpeed: number = 8;
-
-      this._scrollContainer.scrollTop +=
-        this._activeScrollDirection * scrollSpeed;
+      this._scrollContainer.scrollTop += this._activeScrollDirection * scrollSpeed;
 
       this._autoScrollTimer = requestAnimationFrame(scrollAnimationStep);
     };
@@ -284,7 +231,6 @@ export class BenchmarkScrollController {
   private _stopAutoScrollLoop(): void {
     if (this._autoScrollTimer !== null) {
       cancelAnimationFrame(this._autoScrollTimer);
-
       this._autoScrollTimer = null;
     }
 
