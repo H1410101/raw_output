@@ -10,6 +10,6 @@
 ## Current Status
 
 - **Phase 1**: Completed
-- **Phase 2**: In Progress (Checkpoint 2.15)
+- **Phase 2**: In Progress (Checkpoint 2.14)
 - **Phase 3**: Planned
 - **Phase 4**: Planned

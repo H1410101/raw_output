@@ -114,13 +114,17 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Calibrated color hierarchy and transparency for primary containers and visualizations.
 - **Commit Goal**: Dot clouds use the "lower band" palette with manual Canvas variable resolution, and primary containers (table, settings, stats popout) utilize reduced opacities and "lower band" typography for better environmental integration.
 
-### Checkpoint 2.14: SFX Identity
-- **Deliverable**: Sound effects for relevant interactions.
-- **Commit Goal**: The application is no longer fully quiet; it sounds distinctive and has a sound bank that subjectively matches the theme.
-
-### Checkpoint 2.15: Milestone - Code Consolidation & Debt Payoff
+### Checkpoint 2.14: Milestone - Technical Debt Payoff
 - **Deliverable**: Refactored codebase and consolidated logic.
 - **Commit Goal**: The codebase is cleaned, redundant logic is removed, and architecture is hardened to ensure stability before proceeding to Phase 3.
+
+### Checkpoint 2.15: Visual Tuning Refinement
+- **Deliverable**: Refined visual elements and micro-interactions.
+- **Commit Goal**: UI components across the application exhibit a polished, cohesive visual style with consistent animations.
+
+### Checkpoint 2.16: SFX Identity
+- **Deliverable**: Sound effects for relevant interactions.
+- **Commit Goal**: The application is no longer fully quiet; it sounds distinctive and has a sound bank that subjectively matches the theme.
 
 ---
 
