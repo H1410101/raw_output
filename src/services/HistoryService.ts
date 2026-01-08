@@ -14,14 +14,15 @@ export class HistoryService {
 
   private _db: IDBDatabase | null = null;
 
-  private readonly _highscoreCallbacks: (() => void)[] = [];
+  private readonly _highscoreCallbacks: ((scenarioName?: string) => void)[] =
+    [];
 
   /**
    * Registers a callback to be executed when a highscore is updated.
    *
    * @param callback - The function to invoke on updates.
    */
-  public onHighscoreUpdated(callback: () => void): void {
+  public onHighscoreUpdated(callback: (scenarioName?: string) => void): void {
     this._highscoreCallbacks.push(callback);
   }
 
@@ -74,8 +75,9 @@ export class HistoryService {
 
     await this._persistHighscore(scenarioName, score);
 
-    this._highscoreCallbacks.forEach((callback: () => void): void =>
-      callback(),
+    this._highscoreCallbacks.forEach(
+      (callback: (scenarioName: string) => void): void =>
+        callback(scenarioName),
     );
 
     return true;

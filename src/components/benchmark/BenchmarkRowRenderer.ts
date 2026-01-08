@@ -54,6 +54,8 @@ export class BenchmarkRowRenderer {
 
     rowElement.className = `scenario-row ${rowHeightClass}`;
 
+    rowElement.setAttribute("data-scenario-name", scenario.name);
+
     rowElement.appendChild(this._createNameCell(scenario.name));
 
     rowElement.appendChild(
@@ -65,6 +67,31 @@ export class BenchmarkRowRenderer {
     });
 
     return rowElement;
+  }
+
+  /**
+   * Updates the content of an existing row element without recreating it.
+   *
+   * @param rowElement - The existing HTMLElement of the row.
+   * @param scenario - The scenario data to apply.
+   * @param highscore - The current all-time highscore.
+   */
+  public updateRow(
+    rowElement: HTMLElement,
+    scenario: BenchmarkScenario,
+    highscore: number,
+  ): void {
+    const oldRightContent: Element | null =
+      rowElement.querySelector(".row-right-content");
+
+    if (oldRightContent) {
+      const newRightContent: HTMLElement = this._createRightContentWrapper(
+        scenario,
+        highscore,
+      );
+
+      oldRightContent.replaceWith(newRightContent);
+    }
   }
 
   private _createNameCell(scenarioName: string): HTMLElement {

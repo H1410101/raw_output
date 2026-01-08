@@ -8,7 +8,7 @@ import {
 /**
  * Listener callback for session state changes.
  */
-export type SessionUpdateListener = () => void;
+export type SessionUpdateListener = (updatedScenarioNames?: string[]) => void;
 
 /**
  * Represents the best performance achieved for a specific scenario within a session.
@@ -118,17 +118,25 @@ export class SessionService {
       timestamp: Date;
     }[],
   ): void {
+    const updatedScenarioNames: string[] = [];
+
     runs.forEach((run): void => {
       this._startNewSessionIfExpired(run.timestamp.getTime());
 
       this._updateLastRunTimestamp(run.timestamp.getTime());
 
       this._processRunData(run);
+
+      if (run.scenario) {
+        updatedScenarioNames.push(run.scenarioName);
+      }
     });
 
     this._scheduleExpirationCheck();
 
-    this._notifySessionUpdate();
+    const uniqueUpdatedNames: string[] = [...new Set(updatedScenarioNames)];
+
+    this._notifySessionUpdate(uniqueUpdatedNames);
   }
 
   /**
@@ -269,10 +277,10 @@ export class SessionService {
     }
   }
 
-  private _notifySessionUpdate(): void {
+  private _notifySessionUpdate(updatedScenarioNames?: string[]): void {
     this._sessionUpdateListeners.forEach(
       (listener: SessionUpdateListener): void => {
-        listener();
+        listener(updatedScenarioNames);
       },
     );
   }

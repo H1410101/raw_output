@@ -548,6 +548,22 @@
                 background: rgba(var(--highlight-font-2-rgb), 0.1);
             }
 
+            @keyframes row-focus-pulse {
+                0% {
+                    background: rgba(var(--highlight-font-2-rgb), 0);
+                }
+                30% {
+                    background: rgba(var(--highlight-font-2-rgb), 0.25);
+                }
+                100% {
+                    background: rgba(var(--highlight-font-2-rgb), 0);
+                }
+            }
+
+            .scenario-row.focused-scenario {
+                animation: row-focus-pulse 2s ease-out;
+            }
+
             .row-height-compact {
                 padding: 0.25rem 0.75rem;
                 min-height: 2.5rem;

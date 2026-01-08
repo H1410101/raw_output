@@ -1,13 +1,14 @@
 ```raw_output\roadmap\current checkpoint.md#L1-13
-# Current Checkpoint: 2.15: Visual Tuning Refinement
+# Current Checkpoint: 2.16: Auto Focus Run
 
 ## Status
 Done
 
 ## Deliverables
-- [x] Update the rank progress display to allow percentages exceeding 100% for the highest rank.
-- [x] Scale the "beyond-rank" progress using the interval between the two highest rank thresholds.
-- [x] Ensure consistent application of this scaling for both all-time and session-best rank badges.
+- [x] Implement automatic scrolling or focus transition to the most relevant benchmark scenario after a run.
+- [x] Define logic for "relevance" (e.g., last played, next milestone, or improved score).
+- [x] Ensure smooth visual transition to the focused element.
+- [x] Implement lazy re-rendering for benchmark rows to optimize performance during real-time updates.
 
 ## Next Up
-Checkpoint 2.16: Auto Focus Run
+Checkpoint 2.17: SFX Identity

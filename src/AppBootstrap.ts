@@ -12,6 +12,7 @@ import { RunIngestionService } from "./services/RunIngestionService";
 import { AppStateService } from "./services/AppStateService";
 import { ApplicationStatusView } from "./components/ui/ApplicationStatusView";
 import { NavigationController } from "./components/NavigationController";
+import { FocusManagementService } from "./services/FocusManagementService";
 
 /**
  * Orchestrate service instantiation and dependency wiring.
@@ -37,6 +38,8 @@ export class AppBootstrap {
 
   private readonly _ingestionService: RunIngestionService;
 
+  private readonly _focusService: FocusManagementService;
+
   private readonly _statusView: ApplicationStatusView;
 
   private readonly _recentRunsDisplay: RecentRunsDisplay;
@@ -59,6 +62,8 @@ export class AppBootstrap {
     this._rankService = new RankService();
     this._appStateService = new AppStateService();
     this._sessionSettingsService = new SessionSettingsService();
+
+    this._focusService = new FocusManagementService();
 
     this._sessionService = new SessionService(
       this._rankService,
@@ -122,6 +127,7 @@ export class AppBootstrap {
         rank: this._rankService,
         session: this._sessionService,
         sessionSettings: this._sessionSettingsService,
+        focus: this._focusService,
       },
       this._appStateService,
     );
@@ -253,6 +259,13 @@ export class AppBootstrap {
       const updatedNewRuns = await this._ingestionService.getNewRuns();
 
       this._newRunsDisplay.renderRuns(updatedNewRuns);
+
+      if (updatedRuns.length > 0) {
+        this._focusService.focusScenario(
+          updatedRuns[0].scenarioName,
+          "NEW_SCORE",
+        );
+      }
 
       this._statusView.reportActive();
     });

@@ -3,9 +3,21 @@ import { HistoryService } from "../../services/HistoryService";
 import { RankService } from "../../services/RankService";
 import { SessionService } from "../../services/SessionService";
 import { VisualSettings } from "../../services/VisualSettingsService";
+import { FocusManagementService } from "../../services/FocusManagementService";
 import { BenchmarkRowRenderer } from "./BenchmarkRowRenderer";
 import { BenchmarkScrollController } from "./BenchmarkScrollController";
 import { BenchmarkLabelPositioner } from "./BenchmarkLabelPositioner";
+
+/**
+ * Collection of services and settings required for BenchmarkTableComponent.
+ */
+export interface BenchmarkTableDependencies {
+  readonly historyService: HistoryService;
+  readonly rankService: RankService;
+  readonly sessionService: SessionService;
+  readonly visualSettings: VisualSettings;
+  readonly focusService: FocusManagementService;
+}
 
 /**
  * Orchestrates the rendering of the benchmark table, including categorization and custom scrolling.
@@ -15,27 +27,25 @@ export class BenchmarkTableComponent {
 
   private readonly _rowRenderer: BenchmarkRowRenderer;
 
+  private readonly _focusService: FocusManagementService;
+
+  private readonly _rowElements: Map<string, HTMLElement> = new Map();
+
   /**
    * Initializes the table component with required services and settings.
    *
-   * @param historyService - Service for fetching historical score data.
-   * @param rankService - Service for rank calculations.
-   * @param sessionService - Service for tracking session progress.
-   * @param visualSettings - The current visual configuration.
+   * @param dependencies - Object containing required services and visual configuration.
    */
-  public constructor(
-    historyService: HistoryService,
-    rankService: RankService,
-    sessionService: SessionService,
-    visualSettings: VisualSettings,
-  ) {
-    this._visualSettings = visualSettings;
+  public constructor(dependencies: BenchmarkTableDependencies) {
+    this._visualSettings = dependencies.visualSettings;
+
+    this._focusService = dependencies.focusService;
 
     this._rowRenderer = new BenchmarkRowRenderer(
-      historyService,
-      rankService,
-      sessionService,
-      visualSettings,
+      dependencies.historyService,
+      dependencies.rankService,
+      dependencies.sessionService,
+      dependencies.visualSettings,
     );
   }
 
@@ -62,6 +72,8 @@ export class BenchmarkTableComponent {
 
     scrollThumb.className = "custom-scroll-thumb";
 
+    this._rowElements.clear();
+
     this._appendCategorizedContent(scrollArea, scenarios, highscores);
 
     this._initializeControllers(tableContainer, scrollArea, scrollThumb);
@@ -71,6 +83,46 @@ export class BenchmarkTableComponent {
     tableContainer.appendChild(scrollThumb);
 
     return tableContainer;
+  }
+
+  /**
+   * Updates a specific scenario row with new data.
+   *
+   * @param scenario - The scenario data.
+   * @param highscore - The current highscore.
+   */
+  public updateScenarioRow(
+    scenario: BenchmarkScenario,
+    highscore: number,
+  ): void {
+    const row: HTMLElement | undefined = this._rowElements.get(scenario.name);
+
+    if (row) {
+      this._rowRenderer.updateRow(row, scenario, highscore);
+    }
+  }
+
+  /**
+   * Focuses and scrolls to a specific scenario row.
+   *
+   * @param scenarioName - The name of the scenario to focus.
+   */
+  public focusScenario(scenarioName: string): void {
+    const row: HTMLElement | undefined = this._rowElements.get(scenarioName);
+
+    if (row) {
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
+
+      this._applyFocusHighlight(row);
+    }
+  }
+
+  private _applyFocusHighlight(row: HTMLElement): void {
+    row.classList.add("focused-scenario");
+
+    setTimeout((): void => {
+      row.classList.remove("focused-scenario");
+    }, 2000);
   }
 
   private _initializeControllers(
@@ -194,7 +246,11 @@ export class BenchmarkTableComponent {
     scenarios.forEach((scenario: BenchmarkScenario): void => {
       const score: number = highscores[scenario.name] || 0;
 
-      listElement.appendChild(this._rowRenderer.renderRow(scenario, score));
+      const row: HTMLElement = this._rowRenderer.renderRow(scenario, score);
+
+      this._rowElements.set(scenario.name, row);
+
+      listElement.appendChild(row);
     });
 
     subGroup.appendChild(listElement);

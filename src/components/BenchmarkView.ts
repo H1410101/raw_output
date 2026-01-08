@@ -5,6 +5,10 @@ import { SessionService } from "../services/SessionService";
 import { AppStateService } from "../services/AppStateService";
 import { VisualSettingsService } from "../services/VisualSettingsService";
 import { SessionSettingsService } from "../services/SessionSettingsService";
+import {
+  FocusManagementService,
+  FocusState,
+} from "../services/FocusManagementService";
 import { BenchmarkTableComponent } from "./benchmark/BenchmarkTableComponent";
 import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsController";
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
@@ -29,7 +33,11 @@ export class BenchmarkView {
 
   private readonly _sessionSettingsService: SessionSettingsService;
 
+  private readonly _focusService: FocusManagementService;
+
   private readonly _settingsController: BenchmarkSettingsController;
+
+  private _tableComponent: BenchmarkTableComponent | null = null;
 
   private _activeDifficulty: DifficultyTier;
 
@@ -43,6 +51,7 @@ export class BenchmarkView {
    * @param services.rank
    * @param services.session
    * @param services.sessionSettings
+   * @param services.focus - Service for managing focused scenarios.
    * @param appStateService - Service for persisting UI state.
    */
   public constructor(
@@ -53,6 +62,7 @@ export class BenchmarkView {
       rank: RankService;
       session: SessionService;
       sessionSettings: SessionSettingsService;
+      focus: FocusManagementService;
     },
     appStateService: AppStateService,
   ) {
@@ -61,6 +71,7 @@ export class BenchmarkView {
     this._historyService = services.history;
     this._rankService = services.rank;
     this._sessionService = services.session;
+    this._focusService = services.focus;
     this._appStateService = appStateService;
     this._visualSettingsService = new VisualSettingsService();
     this._sessionSettingsService = services.sessionSettings;
@@ -94,6 +105,8 @@ export class BenchmarkView {
     this._mountPoint.appendChild(
       this._createViewContainer(scenarios, highscores),
     );
+
+    this._applyActiveFocus();
   }
 
   private _subscribeToServiceUpdates(): void {
@@ -103,13 +116,74 @@ export class BenchmarkView {
       this._refreshIfVisible(),
     );
 
-    this._historyService.onHighscoreUpdated((): void =>
-      this._refreshIfVisible(),
-    );
+    this._subscribeToScoreUpdates();
 
-    this._sessionService.onSessionUpdated((): void => this._refreshIfVisible());
+    this._subscribeToFocusUpdates();
 
     window.addEventListener("resize", (): void => this._refreshIfVisible());
+  }
+
+  private _subscribeToScoreUpdates(): void {
+    this._historyService.onHighscoreUpdated((scenarioName?: string): void => {
+      if (scenarioName) {
+        this._updateSingleScenario(scenarioName);
+      } else {
+        this._refreshIfVisible();
+      }
+    });
+
+    this._sessionService.onSessionUpdated((updatedNames?: string[]): void => {
+      if (updatedNames) {
+        updatedNames.forEach((name: string): void => {
+          this._updateSingleScenario(name);
+        });
+      } else {
+        this._refreshIfVisible();
+      }
+    });
+  }
+
+  private _subscribeToFocusUpdates(): void {
+    this._focusService.subscribe((state: FocusState): void => {
+      if (
+        this._tableComponent &&
+        !this._mountPoint.classList.contains("hidden-view")
+      ) {
+        this._tableComponent.focusScenario(state.scenarioName);
+      }
+    });
+  }
+
+  private _applyActiveFocus(): void {
+    const focusState: FocusState | null = this._focusService.getFocusState();
+
+    if (focusState && this._tableComponent) {
+      this._tableComponent.focusScenario(focusState.scenarioName);
+
+      this._focusService.clearFocus();
+    }
+  }
+
+  private async _updateSingleScenario(scenarioName: string): Promise<void> {
+    if (!this._tableComponent) {
+      return;
+    }
+
+    const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
+      this._activeDifficulty,
+    );
+
+    const scenario: BenchmarkScenario | undefined = scenarios.find(
+      (benchmarkScenario: BenchmarkScenario): boolean =>
+        benchmarkScenario.name === scenarioName,
+    );
+
+    if (scenario) {
+      const highscore: number =
+        await this._historyService.getHighscore(scenarioName);
+
+      this._tableComponent.updateScenarioRow(scenario, highscore);
+    }
   }
 
   private _refreshIfVisible(): void {
@@ -241,13 +315,14 @@ export class BenchmarkView {
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
   ): HTMLElement {
-    const tableComponent: BenchmarkTableComponent = new BenchmarkTableComponent(
-      this._historyService,
-      this._rankService,
-      this._sessionService,
-      this._visualSettingsService.getSettings(),
-    );
+    this._tableComponent = new BenchmarkTableComponent({
+      historyService: this._historyService,
+      rankService: this._rankService,
+      sessionService: this._sessionService,
+      visualSettings: this._visualSettingsService.getSettings(),
+      focusService: this._focusService,
+    });
 
-    return tableComponent.render(scenarios, highscores);
+    return this._tableComponent.render(scenarios, highscores);
   }
 }
