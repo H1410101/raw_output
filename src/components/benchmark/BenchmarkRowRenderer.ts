@@ -16,7 +16,12 @@ export class BenchmarkRowRenderer {
 
   private readonly _sessionService: SessionService;
 
-  private readonly _visualSettings: VisualSettings;
+  private _visualSettings: VisualSettings;
+
+  private readonly _dotCloudRegistry: Map<string, DotCloudComponent> =
+    new Map();
+
+  private _loadCounter: number = 0;
 
   /**
    * Initializes the renderer with required services.
@@ -71,6 +76,30 @@ export class BenchmarkRowRenderer {
   }
 
   /**
+   * Cleans up all active dot cloud components managed by this renderer.
+   */
+  public destroyAll(): void {
+    this._dotCloudRegistry.forEach((component: DotCloudComponent): void => {
+      component.destroy();
+    });
+
+    this._dotCloudRegistry.clear();
+  }
+
+  /**
+   * Updates the visual settings for the renderer and all active dot clouds.
+   *
+   * @param settings - The new visual settings state.
+   */
+  public updateVisualSettings(settings: VisualSettings): void {
+    this._visualSettings = settings;
+
+    this._dotCloudRegistry.forEach((component: DotCloudComponent): void => {
+      component.updateConfiguration(settings);
+    });
+  }
+
+  /**
    * Updates the content of an existing row element without recreating it.
    *
    * @param rowElement - The existing HTMLElement of the row.
@@ -82,17 +111,92 @@ export class BenchmarkRowRenderer {
     scenario: BenchmarkScenario,
     highscore: number,
   ): void {
-    const oldRightContent: Element | null =
-      rowElement.querySelector(".row-right-content");
+    this._updateRankBadges(rowElement, scenario, highscore);
 
-    if (oldRightContent) {
-      const newRightContent: HTMLElement = this._createRightContentWrapper(
-        scenario,
-        highscore,
-      );
+    this._updateDotCloud(rowElement, scenario);
+  }
 
-      oldRightContent.replaceWith(newRightContent);
+  private _updateRankBadges(
+    rowElement: HTMLElement,
+    scenario: BenchmarkScenario,
+    highscore: number,
+  ): void {
+    const allTimeBadge: HTMLElement | null = rowElement.querySelector(
+      ".rank-badge-container:not(.session-badge) .badge-content",
+    );
+
+    if (allTimeBadge) {
+      this._fillBadgeContent(allTimeBadge, scenario, highscore);
     }
+
+    this._updateSessionBadge(rowElement, scenario);
+  }
+
+  private _updateSessionBadge(
+    rowElement: HTMLElement,
+    scenario: BenchmarkScenario,
+  ): void {
+    const sessionBadge: HTMLElement | null =
+      rowElement.querySelector(".session-badge");
+
+    if (!sessionBadge) {
+      return;
+    }
+
+    const sessionBest = this._sessionService.getScenarioSessionBest(
+      scenario.name,
+    );
+
+    const bestScore: number = sessionBest ? sessionBest.bestScore : 0;
+
+    const content: HTMLElement | null =
+      sessionBadge.querySelector(".badge-content");
+
+    if (content) {
+      this._fillBadgeContent(content, scenario, bestScore);
+    }
+
+    const isSessionActive: boolean = this._sessionService.isSessionActive();
+
+    sessionBadge.style.visibility =
+      bestScore === 0 || !isSessionActive ? "hidden" : "visible";
+  }
+
+  private _updateDotCloud(
+    rowElement: HTMLElement,
+    scenario: BenchmarkScenario,
+  ): void {
+    const component: DotCloudComponent | undefined = this._dotCloudRegistry.get(
+      scenario.name,
+    );
+
+    if (component) {
+      this._refreshComponentData(component, scenario);
+    }
+  }
+
+  private _refreshComponentData(
+    component: DotCloudComponent,
+    scenario: BenchmarkScenario,
+  ): void {
+    this._historyService
+      .getLastScores(scenario.name, 100)
+      .then((entries: ScoreEntry[]): void => {
+        const sessionStart: number | null =
+          this._sessionService.sessionStartTimestamp;
+
+        const isLatestInSession: boolean =
+          sessionStart !== null &&
+          entries.length > 0 &&
+          entries[0].timestamp >= sessionStart;
+
+        component.updateData(
+          entries,
+          scenario.thresholds,
+          isLatestInSession,
+          this._calculateAverageRankInterval(scenario),
+        );
+      });
   }
 
   private _createNameCell(scenarioName: string): HTMLElement {
@@ -143,7 +247,11 @@ export class BenchmarkRowRenderer {
 
     container.className = "dot-cloud-container";
 
-    this._setupLazyLoading(container, scenario);
+    const loadId: number = ++this._loadCounter;
+
+    container.dataset.loadId = loadId.toString();
+
+    this._setupLazyLoading(container, scenario, loadId);
 
     return container;
   }
@@ -151,6 +259,7 @@ export class BenchmarkRowRenderer {
   private _setupLazyLoading(
     container: HTMLElement,
     scenario: BenchmarkScenario,
+    loadId: number,
   ): void {
     const observer: IntersectionObserver = new IntersectionObserver(
       (entries: IntersectionObserverEntry[]): void => {
@@ -158,7 +267,7 @@ export class BenchmarkRowRenderer {
           if (entry.isIntersecting) {
             observer.disconnect();
 
-            this._loadDotCloudData(container, scenario);
+            this._loadDotCloudData(container, scenario, loadId);
           }
         });
       },
@@ -171,11 +280,14 @@ export class BenchmarkRowRenderer {
   private _loadDotCloudData(
     container: HTMLElement,
     scenario: BenchmarkScenario,
+    loadId: number,
   ): void {
     this._historyService
       .getLastScores(scenario.name, 100)
       .then((entries: ScoreEntry[]): void => {
-        if (entries.length > 0) {
+        const currentId: string | undefined = container.dataset.loadId;
+
+        if (entries.length > 0 && currentId === loadId.toString()) {
           this._injectDotCloudVisualization(container, scenario, entries);
         }
       });
@@ -202,6 +314,8 @@ export class BenchmarkRowRenderer {
       isLatestInSession,
       rankInterval: averageRankInterval,
     });
+
+    this._dotCloudRegistry.set(scenario.name, dotCloud);
 
     container.replaceWith(dotCloud.render());
   }

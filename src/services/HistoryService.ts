@@ -17,6 +17,9 @@ export class HistoryService {
   private readonly _highscoreCallbacks: ((scenarioName?: string) => void)[] =
     [];
 
+  private readonly _scoreRecordedCallbacks: ((scenarioName: string) => void)[] =
+    [];
+
   /**
    * Registers a callback to be executed when a highscore is updated.
    *
@@ -24,6 +27,15 @@ export class HistoryService {
    */
   public onHighscoreUpdated(callback: (scenarioName?: string) => void): void {
     this._highscoreCallbacks.push(callback);
+  }
+
+  /**
+   * Registers a callback to be executed when any new score is recorded.
+   *
+   * @param callback - The function to invoke on new score records.
+   */
+  public onScoreRecorded(callback: (scenarioName: string) => void): void {
+    this._scoreRecordedCallbacks.push(callback);
   }
 
   /**
@@ -209,7 +221,14 @@ export class HistoryService {
           timestamp,
         });
 
-        request.onsuccess = (): void => resolve();
+        request.onsuccess = (): void => {
+          this._scoreRecordedCallbacks.forEach(
+            (callback: (scenarioName: string) => void): void =>
+              callback(scenarioName),
+          );
+
+          resolve();
+        };
 
         request.onerror = (): void => reject(request.error);
       },

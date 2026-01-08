@@ -190,7 +190,7 @@ export class RunIngestionService {
   ): Promise<void> {
     const sessionItems = this._identifyLatestSessionItems(sortedHandles);
 
-    this._sessionService.resetSession();
+    this._sessionService.resetSession(true);
 
     const runsToRegister = await this._parseSessionRuns(sessionItems);
 

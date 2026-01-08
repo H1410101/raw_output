@@ -190,8 +190,10 @@ export class SessionService {
 
   /**
    * Clears all session data and resets the active state.
+   *
+   * @param silent - If true, listeners will not be notified of the reset.
    */
-  public resetSession(): void {
+  public resetSession(silent: boolean = false): void {
     this._sessionBestRanks.clear();
 
     this._sessionBestPerDifficulty.clear();
@@ -202,7 +204,9 @@ export class SessionService {
 
     this._clearExpirationTimer();
 
-    this._notifySessionUpdate();
+    if (!silent) {
+      this._notifySessionUpdate();
+    }
   }
 
   private _subscribeToSettingsUpdates(): void {

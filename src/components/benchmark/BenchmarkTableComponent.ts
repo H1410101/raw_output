@@ -23,7 +23,7 @@ export interface BenchmarkTableDependencies {
  * Orchestrates the rendering of the benchmark table, including categorization and custom scrolling.
  */
 export class BenchmarkTableComponent {
-  private readonly _visualSettings: VisualSettings;
+  private _visualSettings: VisualSettings;
 
   private readonly _rowRenderer: BenchmarkRowRenderer;
 
@@ -72,7 +72,7 @@ export class BenchmarkTableComponent {
 
     scrollThumb.className = "custom-scroll-thumb";
 
-    this._rowElements.clear();
+    this._clearExistingRows();
 
     this._appendCategorizedContent(scrollArea, scenarios, highscores);
 
@@ -83,6 +83,51 @@ export class BenchmarkTableComponent {
     tableContainer.appendChild(scrollThumb);
 
     return tableContainer;
+  }
+
+  /**
+   * Cleans up resources, including row references and any active controllers.
+   */
+  public destroy(): void {
+    this._rowRenderer.destroyAll();
+
+    this._clearExistingRows();
+  }
+
+  /**
+   * Removes all row references to allow for garbage collection.
+   */
+  private _clearExistingRows(): void {
+    this._rowElements.clear();
+  }
+
+  /**
+   * Updates all rows with new visual settings without re-rendering the entire table.
+   *
+   * @param settings - The new visual settings.
+   * @returns True if a full re-render is required due to structural changes.
+   */
+  public updateVisualSettings(settings: VisualSettings): boolean {
+    const structuralChange: boolean =
+      this._visualSettings.showDotCloud !== settings.showDotCloud ||
+      this._visualSettings.showSessionBest !== settings.showSessionBest ||
+      this._visualSettings.showAllTimeBest !== settings.showAllTimeBest;
+
+    if (structuralChange) {
+      return true;
+    }
+
+    this._visualSettings = settings;
+
+    this._rowRenderer.updateVisualSettings(settings);
+
+    this._rowElements.forEach((row: HTMLElement): void => {
+      const rowHeightClass: string = `row-height-${settings.rowHeight.toLowerCase()}`;
+
+      row.className = row.className.replace(/row-height-\w+/, rowHeightClass);
+    });
+
+    return false;
   }
 
   /**

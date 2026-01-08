@@ -3,7 +3,10 @@ import { HistoryService } from "../services/HistoryService";
 import { RankService } from "../services/RankService";
 import { SessionService } from "../services/SessionService";
 import { AppStateService } from "../services/AppStateService";
-import { VisualSettingsService } from "../services/VisualSettingsService";
+import {
+  VisualSettingsService,
+  VisualSettings,
+} from "../services/VisualSettingsService";
 import { SessionSettingsService } from "../services/SessionSettingsService";
 import {
   FocusManagementService,
@@ -42,6 +45,14 @@ export class BenchmarkView {
   private _activeDifficulty: DifficultyTier;
 
   private _refreshTimeoutId: number | null = null;
+
+  private _lastRenderedWidth: number = 0;
+
+  private readonly _handleWindowResize: () => void = (): void => {
+    if (window.innerWidth !== this._lastRenderedWidth) {
+      this._refreshIfVisible();
+    }
+  };
 
   /**
    * Initializes the view with required dependencies and sub-controllers.
@@ -104,17 +115,46 @@ export class BenchmarkView {
         scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
       );
 
+    this._tableComponent?.destroy();
+
     this._mountPoint.innerHTML = "";
 
     this._mountPoint.appendChild(
       this._createViewContainer(scenarios, highscores),
     );
 
+    this._lastRenderedWidth = window.innerWidth;
+
     this._applyActiveFocus();
   }
 
+  /**
+   * Cleans up the view, including sub-components and global listeners.
+   */
+  public destroy(): void {
+    this._cancelPendingRefresh();
+
+    this._tableComponent?.destroy();
+
+    window.removeEventListener("resize", this._handleWindowResize);
+  }
+
   private _subscribeToServiceUpdates(): void {
-    this._visualSettingsService.subscribe((): void => this._refreshIfVisible());
+    this._visualSettingsService.subscribe((settings: VisualSettings): void => {
+      if (
+        this._tableComponent &&
+        !this._mountPoint.classList.contains("hidden-view")
+      ) {
+        const requiresFullRender: boolean =
+          this._tableComponent.updateVisualSettings(settings);
+
+        if (!requiresFullRender) {
+          return;
+        }
+      }
+
+      this._refreshIfVisible();
+    });
 
     this._sessionSettingsService.subscribe((): void =>
       this._refreshIfVisible(),
@@ -124,7 +164,7 @@ export class BenchmarkView {
 
     this._subscribeToFocusUpdates();
 
-    window.addEventListener("resize", (): void => this._refreshIfVisible());
+    window.addEventListener("resize", this._handleWindowResize);
   }
 
   private _subscribeToScoreUpdates(): void {
@@ -134,6 +174,10 @@ export class BenchmarkView {
       } else {
         this._refreshIfVisible();
       }
+    });
+
+    this._historyService.onScoreRecorded((scenarioName: string): void => {
+      this._updateSingleScenario(scenarioName);
     });
 
     this._sessionService.onSessionUpdated((updatedNames?: string[]): void => {
