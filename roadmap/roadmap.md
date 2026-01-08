@@ -126,13 +126,13 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Automated style and architecture enforcement.
 - **Commit Goal**: ESLint is configured to strictly enforce project standards (line limits, naming conventions, type requirements) and passes on the refactored codebase.
 
-### Checkpoint 2.15: Auto Focus Run
+### Checkpoint 2.15: Visual Tuning Refinement (Done)
+- **Deliverable**: Extrapolated rank progress for top-tier performance.
+- **Commit Goal**: Rank badges display percentages exceeding 100% when the highest rank is surpassed, scaled by the final rank interval.
+
+### Checkpoint 2.16: Auto Focus Run
 - **Deliverable**: New runs refresh the benchmark row, and automatically scroll so that it is centered.
 - **Commit Goal**: Doing a new Kovaak's run automatically makes the UI jump to the appropriate difficulty (or prefer the one nearest to the current difficulty), and scrolls so that the session rank is shown.
-
-### Checkpoint 2.16: Tactile Refinement
-- **Deliverable**: Refined visual elements and micro-interactions.
-- **Commit Goal**: UI components across the application exhibit a polished, cohesive visual style with consistent animations.
 
 ### Checkpoint 2.17: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.

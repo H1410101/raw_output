@@ -1,14 +1,13 @@
-```raw_output\roadmap\current checkpoint.md#L1-16
-# Current Checkpoint: 2.14.2: ESLint Setup
+```raw_output\roadmap\current checkpoint.md#L1-13
+# Current Checkpoint: 2.15: Visual Tuning Refinement
 
 ## Status
 Done
 
 ## Deliverables
-- Configure ESLint with strict TypeScript and JSDoc rules.
-- Enforce the 20-line method limit and 10-line logic group limit.
-- Validate private member naming conventions (`_` prefix).
-- Ensure explicit type annotations and readonly properties where applicable.
+- [x] Update the rank progress display to allow percentages exceeding 100% for the highest rank.
+- [x] Scale the "beyond-rank" progress using the interval between the two highest rank thresholds.
+- [x] Ensure consistent application of this scaling for both all-time and session-best rank badges.
 
 ## Next Up
-Checkpoint 2.15: Visual Tuning Refinement
+Checkpoint 2.16: Auto Focus Run

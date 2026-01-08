@@ -26,5 +26,6 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.13.2: Scroll Track Cut-out
 - [x] 2.13.3: Colour & Transparency Tuning
 - [x] 2.14: Milestone - Technical Debt Payoff
-- [ ] 2.15: Visual Tuning Refinement
-- [ ] 2.16: SFX Identity
+- [x] 2.15: Visual Tuning Refinement
+- [ ] 2.16: Auto Focus Run
+- [ ] 2.17: SFX Identity

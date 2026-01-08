@@ -75,9 +75,9 @@ export class RankScaleMapper {
    * @returns Array of indices pointing to visible thresholds.
    */
   public identifyRelevantThresholds(minRU: number, maxRU: number): number[] {
-    const visibleIndices: number[] = this._thresholds
-      .map((unusedValue: number, index: number): number => index)
-      .filter((index: number): boolean => index >= minRU && index <= maxRU);
+    const visibleIndices: number[] = Array.from(this._thresholds.keys()).filter(
+      (index: number): boolean => index >= minRU && index <= maxRU,
+    );
 
     const highestIndex: number = this._thresholds.length - 1;
 

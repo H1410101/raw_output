@@ -1,112 +1,138 @@
-/**
- * Dynamically imports all benchmark CSV files from the benchmarks directory.
- * Using Vite's glob import with 'as: "raw"' to get the file contents as strings.
- */
-const benchmarkFiles = import.meta.glob("../../benchmarks/ranks_*.csv", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
+const benchmarkFiles: Record<string, string> = import.meta.glob(
+  "../../benchmarks/ranks_*.csv",
+  {
+    query: "?raw",
+    import: "default",
+    eager: true,
+  },
+) as Record<string, string>;
 
 export type DifficultyTier = "easier" | "medium" | "harder";
 
 export interface BenchmarkScenario {
-  category: string;
-  subcategory: string;
-  name: string;
-  thresholds: Record<string, number>;
+  readonly category: string;
+  readonly subcategory: string;
+  readonly name: string;
+  readonly thresholds: Record<string, number>;
 }
 
-/**
- * Parses a CSV line while respecting quoted strings that may contain commas.
- *
- * @param line - The raw CSV line string.
- * @returns An array of parsed string columns.
- */
-function parseCsvLine(line: string): string[] {
+function _parseCsvLine(line: string): string[] {
   const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
+  let currentAccumulator: string = "";
+  let isCurrentlyInQuotes: boolean = false;
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
-      result.push(current.trim());
-      current = "";
+  for (
+    let characterIndex: number = 0;
+    characterIndex < line.length;
+    characterIndex++
+  ) {
+    const character: string = line[characterIndex];
+
+    if (character === '"') {
+      isCurrentlyInQuotes = !isCurrentlyInQuotes;
+    } else if (character === "," && !isCurrentlyInQuotes) {
+      result.push(currentAccumulator.trim());
+      currentAccumulator = "";
     } else {
-      current += char;
+      currentAccumulator += character;
     }
   }
-  result.push(current.trim());
+
+  result.push(currentAccumulator.trim());
 
   return result;
 }
 
-/**
- * Extracts scenario data from a raw CSV string.
- *
- * @param csvContent - The raw content of the CSV file.
- * @returns An array of BenchmarkScenario objects.
- */
-function extractScenarios(csvContent: string): BenchmarkScenario[] {
-  const lines = csvContent.split(/\r?\n/).filter((line) => line.trim() !== "");
+function _extractScenariosFromCsv(csvContent: string): BenchmarkScenario[] {
+  const lines: string[] = csvContent
+    .split(/\r?\n/)
+    .filter((line: string): boolean => line.trim() !== "");
 
-  if (lines.length <= 1) return [];
+  if (lines.length <= 1) {
+    return [];
+  }
 
-  const header = parseCsvLine(lines[0]);
+  const header: string[] = _parseCsvLine(lines[0]);
 
-  const thresholdKeys = header.slice(3);
+  const thresholdKeys: string[] = header.slice(3);
 
-  return lines.slice(1).map((line) => {
-    const columns = parseCsvLine(line);
-
-    const category = columns[0] || "";
-
-    const subcategory = columns[1] || "";
-
-    let name = columns[2] || "";
-
-    if (name.startsWith('"') && name.endsWith('"')) {
-      name = name.substring(1, name.length - 1);
-    }
-
-    const thresholds: Record<string, number> = {};
-
-    thresholdKeys.forEach((key, index) => {
-      const value = parseFloat(columns[index + 3]);
-
-      if (!isNaN(value)) {
-        thresholds[key] = value;
-      }
-    });
-
-    return {
-      category,
-      subcategory,
-      name,
-      thresholds,
-    };
+  return lines.slice(1).map((line: string): BenchmarkScenario => {
+    return _parseScenarioRow(line, thresholdKeys);
   });
 }
 
-// Internal cache for benchmark lists derived from CSVs
-const BENCHMARK_MAP: Record<DifficultyTier, BenchmarkScenario[]> = {
-  easier: [],
-  medium: [],
-  harder: [],
-};
+function _parseScenarioRow(
+  line: string,
+  thresholdKeys: string[],
+): BenchmarkScenario {
+  const columns: string[] = _parseCsvLine(line);
 
-// Populate the map from imported files
-for (const [path, content] of Object.entries(benchmarkFiles)) {
-  const scenarios = extractScenarios(content);
-  if (path.includes("easier")) {
-    BENCHMARK_MAP.easier = scenarios;
-  } else if (path.includes("medium")) {
-    BENCHMARK_MAP.medium = scenarios;
-  } else if (path.includes("hard")) {
-    BENCHMARK_MAP.harder = scenarios;
+  return {
+    category: columns[0] || "",
+    subcategory: columns[1] || "",
+    name: _cleanScenarioNameString(columns[2] || ""),
+    thresholds: _extractThresholdValues(columns, thresholdKeys),
+  };
+}
+
+function _cleanScenarioNameString(rawName: string): string {
+  if (rawName.startsWith('"') && rawName.endsWith('"')) {
+    return rawName.substring(1, rawName.length - 1);
+  }
+
+  return rawName;
+}
+
+function _extractThresholdValues(
+  columns: string[],
+  thresholdKeys: string[],
+): Record<string, number> {
+  const thresholds: Record<string, number> = {};
+
+  thresholdKeys.forEach((key: string, index: number): void => {
+    const value: number = parseFloat(columns[index + 3]);
+
+    if (!isNaN(value)) {
+      thresholds[key] = value;
+    }
+  });
+
+  return thresholds;
+}
+
+const BENCHMARK_MAP: Record<DifficultyTier, BenchmarkScenario[]> =
+  _initializeBenchmarkData();
+
+function _initializeBenchmarkData(): Record<
+  DifficultyTier,
+  BenchmarkScenario[]
+> {
+  const map: Record<DifficultyTier, BenchmarkScenario[]> = {
+    easier: [],
+    medium: [],
+    harder: [],
+  };
+
+  for (const [filePath, content] of Object.entries(benchmarkFiles)) {
+    const scenarios: BenchmarkScenario[] = _extractScenariosFromCsv(content);
+
+    _populateTierInMap(map, filePath, scenarios);
+  }
+
+  return map;
+}
+
+function _populateTierInMap(
+  map: Record<DifficultyTier, BenchmarkScenario[]>,
+  filePath: string,
+  scenarios: BenchmarkScenario[],
+): void {
+  if (filePath.includes("easier")) {
+    map.easier = scenarios;
+  } else if (filePath.includes("medium")) {
+    map.medium = scenarios;
+  } else if (filePath.includes("hard")) {
+    map.harder = scenarios;
   }
 }
 
@@ -135,29 +161,26 @@ export const getScenariosByDifficulty = (
  * @returns The identified DifficultyTier or null.
  */
 export const getDifficulty = (scenarioName: string): DifficultyTier | null => {
-  if (
-    BENCHMARK_MAP.harder.some(
-      (scenario: BenchmarkScenario): boolean => scenario.name === scenarioName,
-    )
-  ) {
+  if (_isScenarioInDifficultyTier(scenarioName, "harder")) {
     return "harder";
   }
 
-  if (
-    BENCHMARK_MAP.medium.some(
-      (scenario: BenchmarkScenario): boolean => scenario.name === scenarioName,
-    )
-  ) {
+  if (_isScenarioInDifficultyTier(scenarioName, "medium")) {
     return "medium";
   }
 
-  if (
-    BENCHMARK_MAP.easier.some(
-      (scenario: BenchmarkScenario): boolean => scenario.name === scenarioName,
-    )
-  ) {
+  if (_isScenarioInDifficultyTier(scenarioName, "easier")) {
     return "easier";
   }
 
   return null;
 };
+
+function _isScenarioInDifficultyTier(
+  scenarioName: string,
+  tier: DifficultyTier,
+): boolean {
+  return BENCHMARK_MAP[tier].some(
+    (scenario: BenchmarkScenario): boolean => scenario.name === scenarioName,
+  );
+}

@@ -113,8 +113,8 @@ export default tseslint.config(
         },
       ],
 
-      // Structure: Max 5 blank lines (for 5 groups + return)
-      "no-multiple-empty-lines": ["error", { max: 5, maxEOF: 1 }],
+      // Structure: Max 4 blank lines (for 5 groups)
+      "no-multiple-empty-lines": ["error", { max: 4, maxEOF: 1 }],
 
       // Enforce blank lines before returns to help separate logic groups
       "padding-line-between-statements": [
