@@ -9,6 +9,8 @@ export interface ScoreVisualContext {
   readonly notchHeight: number;
   readonly baseStyle: string;
   readonly highlightStyle: string;
+  readonly latestStyle: string;
+  readonly highlightRgb: string;
   readonly localDensity: number;
   readonly peakDensity: number;
 }
@@ -91,7 +93,6 @@ export class DotCloudCanvasRenderer {
    */
   public drawMetadata(context: RenderContext): void {
     const rootFontSize: number = context.dimensions.rootFontSize;
-
     const notchHeight: number = this._calculateNotchHeight(
       rootFontSize,
       context.dimensions.height,
@@ -100,13 +101,17 @@ export class DotCloudCanvasRenderer {
 
     this._setupLabelStyles(rootFontSize, context.settings);
 
+    const styles: CSSStyleDeclaration = getComputedStyle(this._context.canvas);
+    const labelColor: string =
+      styles.getPropertyValue("--vis-label-color").trim() || "#3d527a";
+
     const indices: number[] = this._mapper.identifyRelevantThresholds(
       context.bounds.minRU,
       context.bounds.maxRU,
     );
 
     indices.forEach((idx: number): void => {
-      this._renderThresholdMetadata(idx, notchHeight, context);
+      this._renderThresholdMetadata(idx, notchHeight, labelColor, context);
     });
   }
 
@@ -123,46 +128,40 @@ export class DotCloudCanvasRenderer {
     peakDensity: number,
   ): void {
     const rootFontSize: number = context.dimensions.rootFontSize;
-
     const notchHeight: number = this._calculateNotchHeight(
       rootFontSize,
       context.dimensions.height,
       context.settings,
     );
 
+    const styles: CSSStyleDeclaration = getComputedStyle(this._context.canvas);
     const opacity: number = this._getNormalizedOpacity(context.settings);
 
-    const styles: CSSStyleDeclaration = getComputedStyle(
-      document.documentElement,
-    );
-
     const baseStyle: string = this._getBaseFillStyle(styles, opacity);
-
     const highlightStyle: string = this._getHighlightFillStyle(styles, opacity);
+    const latestStyle: string = this._getLatestFillStyle(styles, opacity);
+    const highlightRgb: string =
+      styles.getPropertyValue("--vis-highlight-rgb").trim() || "84, 133, 171";
 
     this._setupStrokeStyles(styles, opacity, context.dimensions.dotRadius);
 
     for (let i = context.scoresInRankUnits.length - 1; i >= 0; i--) {
-      const visuals: ScoreVisualContext = {
+      this._renderIndividualScore(context.scoresInRankUnits[i], i, context, {
         notchHeight,
         baseStyle,
         highlightStyle,
+        latestStyle,
+        highlightRgb,
         localDensity: densities[i] || 1,
         peakDensity,
-      };
-
-      this._renderIndividualScore(
-        context.scoresInRankUnits[i],
-        i,
-        context,
-        visuals,
-      );
+      });
     }
   }
 
   private _renderThresholdMetadata(
     index: number,
     notchHeight: number,
+    labelColor: string,
     context: RenderContext,
   ): void {
     const [name]: [string, number] = context.sortedThresholds[index];
@@ -174,13 +173,13 @@ export class DotCloudCanvasRenderer {
       context.dimensions.width,
     );
 
-    this._drawVerticalNotch(x, notchHeight, context.settings);
+    this._drawVerticalNotch(x, notchHeight, labelColor, context.settings);
 
     this._drawClampedRankLabel(
       name.toUpperCase(),
       x,
-      context.dimensions.width,
-      context.dimensions.height,
+      labelColor,
+      context.dimensions,
     );
   }
 
@@ -198,16 +197,21 @@ export class DotCloudCanvasRenderer {
 
     const finalY: number = this._calculateFinalY(context, index, visuals);
 
-    const isRecent: boolean = this._isLatestSessionRun(
-      index,
-      context.isLatestFromSession,
-      context.settings,
-    );
+    const isLatest: boolean =
+      index === 0 && context.settings.highlightLatestRun;
+    const isSessionHighlight: boolean = isLatest && context.isLatestFromSession;
 
-    this._drawDot({ x, y: finalY }, isRecent, {
-      base: visuals.baseStyle,
-      highlight: visuals.highlightStyle,
+    let dotStyle: string = visuals.baseStyle;
+    if (isSessionHighlight) {
+      dotStyle = visuals.highlightStyle;
+    } else if (isLatest) {
+      dotStyle = visuals.latestStyle;
+    }
+
+    this._drawDot({ x, y: finalY }, isSessionHighlight, {
+      style: dotStyle,
       dotRadius: context.dimensions.dotRadius,
+      highlightRgb: visuals.highlightRgb,
     });
   }
 
@@ -238,23 +242,15 @@ export class DotCloudCanvasRenderer {
     return visuals.notchHeight / 2 + jitterY;
   }
 
-  private _isLatestSessionRun(
-    index: number,
-    isLatestFromSession: boolean,
-    settings: VisualSettings,
-  ): boolean {
-    return index === 0 && settings.highlightLatestRun && isLatestFromSession;
-  }
-
   private _drawDot(
     position: { x: number; y: number },
-    isRecent: boolean,
-    styles: { base: string; highlight: string; dotRadius: number },
+    useGlow: boolean,
+    styles: { style: string; dotRadius: number; highlightRgb: string },
   ): void {
-    this._context.fillStyle = isRecent ? styles.highlight : styles.base;
+    this._context.fillStyle = styles.style;
 
-    if (isRecent) {
-      this._applyHighlightShadow(styles.dotRadius);
+    if (useGlow) {
+      this._applyHighlightShadow(styles.dotRadius, styles.highlightRgb);
     }
 
     this._context.beginPath();
@@ -265,7 +261,7 @@ export class DotCloudCanvasRenderer {
 
     this._context.stroke();
 
-    if (isRecent) {
+    if (useGlow) {
       this._context.shadowBlur = 0;
     }
   }
@@ -273,19 +269,16 @@ export class DotCloudCanvasRenderer {
   private _drawVerticalNotch(
     x: number,
     height: number,
+    labelColor: string,
     settings: VisualSettings,
   ): void {
     if (!settings.showRankNotches) {
       return;
     }
 
-    const styles: CSSStyleDeclaration = getComputedStyle(
-      document.documentElement,
-    );
+    this._context.strokeStyle = labelColor;
 
-    const rgb: string = styles.getPropertyValue("--lower-band-2-rgb").trim();
-
-    this._context.strokeStyle = `rgba(${rgb || "73, 108, 147"}, 0.4)`;
+    this._context.globalAlpha = 0.4;
 
     this._context.lineWidth = 1;
 
@@ -296,29 +289,27 @@ export class DotCloudCanvasRenderer {
     this._context.lineTo(x, height);
 
     this._context.stroke();
+
+    this._context.globalAlpha = 1.0;
   }
 
   private _drawClampedRankLabel(
     text: string,
     x: number,
-    canvasWidth: number,
-    canvasHeight: number,
+    labelColor: string,
+    dimensions: { width: number; height: number },
   ): void {
-    const styles: CSSStyleDeclaration = getComputedStyle(
-      document.documentElement,
-    );
-
-    this._context.fillStyle = styles.getPropertyValue("--lower-band-1").trim();
+    this._context.fillStyle = labelColor;
 
     const metrics: TextMetrics = this._context.measureText(text);
 
     const halfWidth: number = metrics.width / 2;
 
     const clampedX: number = Math.round(
-      Math.max(halfWidth, Math.min(canvasWidth - halfWidth, x)),
+      Math.max(halfWidth, Math.min(dimensions.width - halfWidth, x)),
     );
 
-    this._context.fillText(text, clampedX, Math.floor(canvasHeight));
+    this._context.fillText(text, clampedX, Math.floor(dimensions.height));
   }
 
   private _calculateLocalDensities(rankUnits: number[]): number[] {
@@ -442,7 +433,7 @@ export class DotCloudCanvasRenderer {
     opacity: number,
   ): string {
     const rgb: string =
-      styles.getPropertyValue("--lower-band-1-rgb").trim() || "61, 82, 122";
+      styles.getPropertyValue("--vis-dot-rgb").trim() || "61, 82, 122";
 
     return `rgba(${rgb}, ${opacity})`;
   }
@@ -452,10 +443,19 @@ export class DotCloudCanvasRenderer {
     opacity: number,
   ): string {
     const rgb: string =
-      styles.getPropertyValue("--highlight-font-1-rgb").trim() ||
-      "224, 217, 187";
+      styles.getPropertyValue("--vis-highlight-rgb").trim() || "84, 133, 171";
 
-    return `rgba(${rgb}, ${Math.min(1, opacity + 0.3)})`;
+    return `rgba(${rgb}, ${Math.min(1, opacity + 0.4)})`;
+  }
+
+  private _getLatestFillStyle(
+    styles: CSSStyleDeclaration,
+    opacity: number,
+  ): string {
+    const rgb: string =
+      styles.getPropertyValue("--vis-latest-rgb").trim() || "73, 108, 147";
+
+    return `rgba(${rgb}, ${Math.min(1, opacity + 0.2)})`;
   }
 
   private _setupStrokeStyles(
@@ -464,23 +464,15 @@ export class DotCloudCanvasRenderer {
     dotRadius: number,
   ): void {
     const rgb: string =
-      styles.getPropertyValue("--lower-band-1-rgb").trim() || "61, 82, 122";
+      styles.getPropertyValue("--vis-dot-rgb").trim() || "61, 82, 122";
 
     this._context.strokeStyle = `rgba(${rgb}, ${Math.min(0.2, opacity)})`;
 
     this._context.lineWidth = dotRadius * 0.5;
   }
 
-  private _applyHighlightShadow(dotRadius: number): void {
-    const styles: CSSStyleDeclaration = getComputedStyle(
-      document.documentElement,
-    );
-
-    const rgb: string =
-      styles.getPropertyValue("--highlight-font-1-rgb").trim() ||
-      "224, 217, 187";
-
-    this._context.shadowColor = `rgba(${rgb}, 0.8)`;
+  private _applyHighlightShadow(dotRadius: number, highlightRgb: string): void {
+    this._context.shadowColor = `rgba(${highlightRgb}, 0.8)`;
 
     this._context.shadowBlur = dotRadius * 2;
   }

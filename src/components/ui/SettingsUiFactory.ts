@@ -238,7 +238,7 @@ export class SettingsUiFactory {
       const notch: HTMLElement = this._createNotchWithEvents(
         config,
         min,
-        track,
+        sliderContainer,
         sliderContainer,
       );
       sliderContainer.appendChild(notch);
@@ -276,7 +276,7 @@ export class SettingsUiFactory {
       config.showNotch ?? false,
       config.value === min,
       (): void => {
-        this.updateTrackVisuals(track, -1);
+        this.updateTrackVisuals(track, 0);
         this._handleSliderUpdate(container, min, config);
       },
     );
@@ -306,17 +306,28 @@ export class SettingsUiFactory {
     isActive: boolean,
     onClick: () => void,
   ): HTMLElement {
+    const container: HTMLDivElement = document.createElement("div");
+    container.className = "dot-socket-container";
+
     const notch: HTMLDivElement = document.createElement("div");
     const activeClass: string = isActive ? "active" : "";
     notch.className = `slider-notch ${visible ? "" : "hidden"} ${activeClass}`;
 
+    if (!isActive) {
+      notch.classList.add("dull");
+    }
+
+    this._applyTransitionToItem(notch, 0);
+
+    container.appendChild(notch);
+
     if (visible) {
-      notch.addEventListener("click", (event: MouseEvent): void => {
+      container.addEventListener("click", (event: MouseEvent): void => {
         this._handleNotchClick(event, onClick);
       });
     }
 
-    return notch;
+    return container;
   }
 
   private static _handleNotchClick(

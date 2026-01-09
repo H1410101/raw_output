@@ -14,7 +14,8 @@ export class BenchmarkRowRenderer {
   private readonly _rankService: RankService;
   private readonly _sessionService: SessionService;
   private _visualSettings: VisualSettings;
-  private readonly _dotCloudRegistry: Map<string, DotCloudComponent> = new Map();
+  private readonly _dotCloudRegistry: Map<string, DotCloudComponent> =
+    new Map();
   private _loadCounter: number = 0;
 
   /**
@@ -44,16 +45,33 @@ export class BenchmarkRowRenderer {
    * @param highscore - The all-time highscore for this scenario.
    * @returns The constructed row HTMLElement.
    */
-  public renderRow(scenario: BenchmarkScenario, highscore: number): HTMLElement {
+  public renderRow(
+    scenario: BenchmarkScenario,
+    highscore: number,
+  ): HTMLElement {
     const rowElement: HTMLElement = document.createElement("div");
     rowElement.className = "scenario-row";
     rowElement.setAttribute("data-scenario-name", scenario.name);
 
     rowElement.appendChild(this._createNameCell(scenario.name));
-    rowElement.appendChild(this._createRightContentWrapper(scenario, highscore));
+
+    if (this._visualSettings.showDotCloud) {
+      rowElement.appendChild(this._createDotCloudCell(scenario));
+    }
+
+    if (this._visualSettings.showAllTimeBest) {
+      rowElement.appendChild(this._createRankBadge(scenario, highscore));
+    }
+
+    if (this._visualSettings.showSessionBest) {
+      rowElement.appendChild(this._createSessionRankBadge(scenario));
+    }
+
+    rowElement.appendChild(this._createPlayButton(scenario.name));
 
     rowElement.addEventListener("click", (): void => {
       rowElement.classList.toggle("selected");
+      this._dotCloudRegistry.get(scenario.name)?.requestUpdate();
     });
 
     return rowElement;
@@ -89,7 +107,11 @@ export class BenchmarkRowRenderer {
    * @param scenario - The scenario data to apply.
    * @param highscore - The current all-time highscore.
    */
-  public updateRow(rowElement: HTMLElement, scenario: BenchmarkScenario, highscore: number): void {
+  public updateRow(
+    rowElement: HTMLElement,
+    scenario: BenchmarkScenario,
+    highscore: number,
+  ): void {
     this._updateRankBadges(rowElement, scenario, highscore);
     this._updateDotCloud(scenario);
   }
@@ -110,44 +132,62 @@ export class BenchmarkRowRenderer {
     this._updateSessionBadge(rowElement, scenario);
   }
 
-  private _updateSessionBadge(rowElement: HTMLElement, scenario: BenchmarkScenario): void {
-    const sessionBadge: HTMLElement | null = rowElement.querySelector(".session-badge");
+  private _updateSessionBadge(
+    rowElement: HTMLElement,
+    scenario: BenchmarkScenario,
+  ): void {
+    const sessionBadge: HTMLElement | null =
+      rowElement.querySelector(".session-badge");
     if (!sessionBadge) {
       return;
     }
 
-    const sessionBest = this._sessionService.getScenarioSessionBest(scenario.name);
+    const sessionBest = this._sessionService.getScenarioSessionBest(
+      scenario.name,
+    );
     const bestScore: number = sessionBest ? sessionBest.bestScore : 0;
-    const content: HTMLElement | null = sessionBadge.querySelector(".badge-content");
+    const content: HTMLElement | null =
+      sessionBadge.querySelector(".badge-content");
 
     if (content) {
       this._fillBadgeContent(content, scenario, bestScore);
     }
 
     const isSessionActive: boolean = this._sessionService.isSessionActive();
-    sessionBadge.style.visibility = bestScore === 0 || !isSessionActive ? "hidden" : "visible";
+    sessionBadge.style.visibility =
+      bestScore === 0 || !isSessionActive ? "hidden" : "visible";
   }
 
   private _updateDotCloud(scenario: BenchmarkScenario): void {
-    const component: DotCloudComponent | undefined = this._dotCloudRegistry.get(scenario.name);
+    const component: DotCloudComponent | undefined = this._dotCloudRegistry.get(
+      scenario.name,
+    );
     if (component) {
       this._refreshComponentData(component, scenario);
     }
   }
 
-  private _refreshComponentData(component: DotCloudComponent, scenario: BenchmarkScenario): void {
-    this._historyService.getLastScores(scenario.name, 100).then((entries: ScoreEntry[]): void => {
-      const sessionStart: number | null = this._sessionService.sessionStartTimestamp;
-      const isLatestInSession: boolean =
-        sessionStart !== null && entries.length > 0 && entries[0].timestamp >= sessionStart;
+  private _refreshComponentData(
+    component: DotCloudComponent,
+    scenario: BenchmarkScenario,
+  ): void {
+    this._historyService
+      .getLastScores(scenario.name, 100)
+      .then((entries: ScoreEntry[]): void => {
+        const sessionStart: number | null =
+          this._sessionService.sessionStartTimestamp;
+        const isLatestInSession: boolean =
+          sessionStart !== null &&
+          entries.length > 0 &&
+          entries[0].timestamp >= sessionStart;
 
-      component.updateData(
-        entries,
-        scenario.thresholds,
-        isLatestInSession,
-        this._calculateAverageRankInterval(scenario),
-      );
-    });
+        component.updateData(
+          entries,
+          scenario.thresholds,
+          isLatestInSession,
+          this._calculateAverageRankInterval(scenario),
+        );
+      });
   }
 
   private _createNameCell(scenarioName: string): HTMLElement {
@@ -156,37 +196,6 @@ export class BenchmarkRowRenderer {
     nameSpan.textContent = scenarioName;
 
     return nameSpan;
-  }
-
-  private _createRightContentWrapper(
-    scenario: BenchmarkScenario,
-    highscore: number,
-  ): HTMLElement {
-    const wrapper: HTMLDivElement = document.createElement("div");
-    wrapper.className = "row-right-content";
-
-    this._appendVisualizationLayers(wrapper, scenario, highscore);
-    wrapper.appendChild(this._createPlayButton(scenario.name));
-
-    return wrapper;
-  }
-
-  private _appendVisualizationLayers(
-    wrapper: HTMLElement,
-    scenario: BenchmarkScenario,
-    highscore: number,
-  ): void {
-    if (this._visualSettings.showDotCloud) {
-      wrapper.appendChild(this._createDotCloudCell(scenario));
-    }
-
-    if (this._visualSettings.showAllTimeBest) {
-      wrapper.appendChild(this._createRankBadge(scenario, highscore));
-    }
-
-    if (this._visualSettings.showSessionBest) {
-      wrapper.appendChild(this._createSessionRankBadge(scenario));
-    }
   }
 
   private _createDotCloudCell(scenario: BenchmarkScenario): HTMLElement {
@@ -226,13 +235,15 @@ export class BenchmarkRowRenderer {
     scenario: BenchmarkScenario,
     loadId: number,
   ): void {
-    this._historyService.getLastScores(scenario.name, 100).then((entries: ScoreEntry[]): void => {
-      const currentId: string | undefined = container.dataset.loadId;
+    this._historyService
+      .getLastScores(scenario.name, 100)
+      .then((entries: ScoreEntry[]): void => {
+        const currentId: string | undefined = container.dataset.loadId;
 
-      if (entries.length > 0 && currentId === loadId.toString()) {
-        this._injectDotCloudVisualization(container, scenario, entries);
-      }
-    });
+        if (entries.length > 0 && currentId === loadId.toString()) {
+          this._injectDotCloudVisualization(container, scenario, entries);
+        }
+      });
   }
 
   private _injectDotCloudVisualization(
@@ -240,9 +251,11 @@ export class BenchmarkRowRenderer {
     scenario: BenchmarkScenario,
     entries: ScoreEntry[],
   ): void {
-    const averageRankInterval: number = this._calculateAverageRankInterval(scenario);
+    const averageRankInterval: number =
+      this._calculateAverageRankInterval(scenario);
 
-    const sessionStart: number | null = this._sessionService.sessionStartTimestamp;
+    const sessionStart: number | null =
+      this._sessionService.sessionStartTimestamp;
     const isLatestInSession: boolean =
       sessionStart !== null && entries[0].timestamp >= sessionStart;
 
@@ -276,9 +289,14 @@ export class BenchmarkRowRenderer {
   }
 
   private _createSessionRankBadge(scenario: BenchmarkScenario): HTMLElement {
-    const sessionBest = this._sessionService.getScenarioSessionBest(scenario.name);
+    const sessionBest = this._sessionService.getScenarioSessionBest(
+      scenario.name,
+    );
     const bestScore: number = sessionBest ? sessionBest.bestScore : 0;
-    const badgeElement: HTMLElement = this._createRankBadge(scenario, bestScore);
+    const badgeElement: HTMLElement = this._createRankBadge(
+      scenario,
+      bestScore,
+    );
 
     const isSessionActive: boolean = this._sessionService.isSessionActive();
     if (bestScore === 0 || !isSessionActive) {
@@ -290,7 +308,10 @@ export class BenchmarkRowRenderer {
     return badgeElement;
   }
 
-  private _createRankBadge(scenario: BenchmarkScenario, score: number): HTMLElement {
+  private _createRankBadge(
+    scenario: BenchmarkScenario,
+    score: number,
+  ): HTMLElement {
     const badgeContainer: HTMLDivElement = document.createElement("div");
     badgeContainer.className = "rank-badge-container";
 
@@ -309,14 +330,22 @@ export class BenchmarkRowRenderer {
     score: number,
   ): void {
     if (score === 0) {
-      container.innerHTML = `<span class="unranked-text">Unranked</span>`;
+      container.innerHTML = `
+        <span class="rank-name unranked-text">Unranked</span>
+        <span class="rank-progress"></span>
+      `;
 
       return;
     }
 
     const calculatedRank = this._rankService.calculateRank(score, scenario);
+    const isUnranked: boolean = calculatedRank.currentRank === "Unranked";
+    const rankClass: string = isUnranked
+      ? "rank-name unranked-text"
+      : "rank-name";
+
     container.innerHTML = `
-      <span class="rank-name">${calculatedRank.currentRank}</span>
+      <span class="${rankClass}">${calculatedRank.currentRank}</span>
       <span class="rank-progress">+${calculatedRank.progressPercentage}%</span>
     `;
   }

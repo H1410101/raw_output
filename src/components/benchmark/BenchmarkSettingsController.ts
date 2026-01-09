@@ -54,10 +54,6 @@ export class BenchmarkSettingsController {
 
     overlay.appendChild(card);
     document.body.appendChild(overlay);
-
-    requestAnimationFrame((): void => {
-      this._normalizeLabelWidths(card);
-    });
   }
 
   private _syncCurrentSettings(): void {
@@ -66,7 +62,8 @@ export class BenchmarkSettingsController {
   }
 
   private _removeExistingOverlay(): void {
-    const existing: Element | null = document.querySelector(".settings-overlay");
+    const existing: Element | null =
+      document.querySelector(".settings-overlay");
     if (existing) {
       existing.remove();
     }
@@ -96,10 +93,19 @@ export class BenchmarkSettingsController {
   }
 
   private _appendSections(card: HTMLElement): void {
-    this._sectionRenderer.appendLayoutSection(card, this._currentVisualSettings);
+    this._sectionRenderer.appendLayoutSection(
+      card,
+      this._currentVisualSettings,
+    );
     this._sectionRenderer.appendAudioSection(card);
-    this._sectionRenderer.appendVisualizationSection(card, this._currentVisualSettings);
-    this._sectionRenderer.appendSessionSection(card, this._currentSessionSettings);
+    this._sectionRenderer.appendVisualizationSection(
+      card,
+      this._currentVisualSettings,
+    );
+    this._sectionRenderer.appendSessionSection(
+      card,
+      this._currentSessionSettings,
+    );
   }
 
   private _createTitle(): HTMLElement {
@@ -107,20 +113,5 @@ export class BenchmarkSettingsController {
     title.textContent = "Visual Settings";
 
     return title;
-  }
-
-  private _normalizeLabelWidths(card: HTMLElement): void {
-    const labels: NodeListOf<HTMLElement> = card.querySelectorAll(".setting-item label");
-    let maxLabelWidth: number = 0;
-
-    labels.forEach((label: HTMLElement): void => {
-      label.style.width = "auto";
-      maxLabelWidth = Math.max(maxLabelWidth, label.offsetWidth);
-    });
-
-    labels.forEach((label: HTMLElement): void => {
-      label.style.width = `${maxLabelWidth}px`;
-      label.style.flex = "0 0 auto";
-    });
   }
 }

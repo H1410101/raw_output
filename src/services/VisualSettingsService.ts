@@ -15,7 +15,6 @@ export interface VisualSettings {
   labelFontSize: ScalingLevel;
   dotCloudSize: ScalingLevel;
   dotCloudWidth: ScalingLevel;
-  horizontalSpacing: ScalingLevel;
   visRankFontSize: ScalingLevel;
   showSessionBest: boolean;
   showAllTimeBest: boolean;
@@ -103,7 +102,6 @@ export class VisualSettingsService {
     apply("--label-font-multiplier", settings.labelFontSize);
     apply("--dot-cloud-multiplier", settings.dotCloudSize);
     apply("--dot-cloud-width-multiplier", settings.dotCloudWidth);
-    apply("--dot-cloud-horizontal-multiplier", settings.horizontalSpacing);
     apply("--vis-rank-font-multiplier", settings.visRankFontSize);
   }
 
@@ -139,7 +137,6 @@ export class VisualSettingsService {
       labelFontSize: "Normal",
       dotCloudSize: "Normal",
       dotCloudWidth: "Normal",
-      horizontalSpacing: "Normal",
       visRankFontSize: "Normal",
       showSessionBest: true,
       showAllTimeBest: true,

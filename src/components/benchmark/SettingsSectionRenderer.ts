@@ -300,26 +300,10 @@ export class SettingsSectionRenderer {
       this._createLabelFontControl(settings),
       this._createDotCloudHeightControl(settings),
       this._createDotCloudWidthControl(settings),
-      this._createHorizontalSpacingControl(settings),
     ];
 
     subRows.forEach((row: HTMLElement): void => {
       container.appendChild(row);
-    });
-  }
-
-  private _createHorizontalSpacingControl(
-    settings: VisualSettings,
-  ): HTMLElement {
-    return SettingsUiFactory.createSegmentedControl({
-      label: "Horizontal Spacing",
-      options: SettingsSectionRenderer._scalingOptions,
-      currentValue: settings.horizontalSpacing,
-      onChange: (val: string): void =>
-        this._visualSettingsService.updateSetting(
-          "horizontalSpacing",
-          val as ScalingLevel,
-        ),
     });
   }
 

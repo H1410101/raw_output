@@ -52,7 +52,7 @@ export class ScalingService {
     const level: ScalingLevel = settings[key] as ScalingLevel;
 
     // Specific keys are independent of master scaling to prevent over-amplification
-    if (key === "visDotSize" || key === "horizontalSpacing") {
+    if (key === "visDotSize") {
       return baseValue * (SCALING_FACTORS[level] ?? SCALING_FACTORS.Normal);
     }
 

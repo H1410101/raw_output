@@ -78,6 +78,12 @@
                 --header-font-multiplier: 1;
                 --label-font-multiplier: 1;
                 --dot-cloud-multiplier: 1;
+
+                /* Visualization Semantic Tokens */
+                --vis-label-color: #3d527a;
+                --vis-dot-rgb: 61, 82, 122;
+                --vis-highlight-rgb: 84, 133, 171;
+                --vis-latest-rgb: 73, 108, 147;
             }
 
             body {
@@ -246,8 +252,9 @@
                 letter-spacing: -0.02em;
                 background: linear-gradient(
                     135deg,
-                    var(--text-highlight) 0%,
-                    var(--accent-color) 100%
+                    var(--upper-band-1) 0%,
+                    var(--upper-band-2) 50%,
+                    var(--upper-band-3) 100%
                 );
                 -webkit-background-clip: text;
                 background-clip: text;
@@ -570,7 +577,7 @@
             }
 
             .scenario-row.selected {
-                background: rgba(var(--highlight-font-2-rgb), 0.1);
+                background: rgba(var(--lower-band-1-rgb), 0.1);
             }
 
             @keyframes row-focus-pulse {
@@ -628,28 +635,42 @@
                 box-sizing: border-box;
                 border-bottom: none;
                 pointer-events: none;
-                justify-content: flex-end;
-                gap: 2rem;
+                justify-content: space-between;
             }
 
             .column-header {
-                width: 5rem;
-                text-align: right;
+                position: relative;
+                width: calc(7.5rem * var(--master-scale));
+                height: 1.5rem;
+                flex-shrink: 0;
                 font-size: calc(
                     0.65rem * var(--master-scale) *
                         var(--header-font-multiplier)
                 );
                 font-weight: 800;
-                color: var(--text-dim);
+                color: var(--lower-band-1);
                 text-transform: uppercase;
                 letter-spacing: 0.12em;
+                white-space: nowrap;
+            }
+
+            .column-header span {
+                position: absolute;
+                left: 70%;
+                top: 50%;
+                transform: translate(-50%, -50%);
             }
 
             .subcategory-header .column-header:last-of-type {
-                color: var(--accent-color);
+                color: var(--lower-band-1);
                 font-size: calc(
                     0.8rem * var(--master-scale) * var(--header-font-multiplier)
                 );
+            }
+
+            .header-name-spacer {
+                width: calc(15rem * var(--master-scale));
+                flex-shrink: 0;
             }
 
             .header-dot-spacer {
@@ -657,10 +678,15 @@
                     14rem * var(--master-scale) *
                         var(--dot-cloud-width-multiplier)
                 );
+                flex-shrink: 0;
             }
 
             .header-action-spacer {
-                width: 2rem;
+                width: calc(
+                    1.4rem * var(--master-scale) *
+                        var(--launch-button-multiplier)
+                );
+                flex-shrink: 0;
             }
 
             .subcategory-body {
@@ -731,6 +757,11 @@
             }
 
             .scenario-name {
+                width: calc(15rem * var(--master-scale));
+                flex-shrink: 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
                 font-size: calc(0.9rem * var(--scenario-font-multiplier));
                 font-weight: 600;
                 color: var(--lower-band-1);
@@ -738,29 +769,53 @@
             }
 
             .scenario-row.selected .scenario-name {
-                color: var(--highlight-font-2);
+                color: var(--upper-band-1);
+            }
+
+            .scenario-row.selected .rank-name {
+                color: var(--upper-band-3);
+            }
+
+            .scenario-row.selected .rank-progress {
+                color: var(--upper-band-1);
+            }
+
+            .scenario-row.selected .unranked-text {
+                color: var(--upper-band-1) !important;
+            }
+
+            .scenario-row.selected {
+                --vis-label-color: #93cacd;
+                --vis-dot-rgb: 147, 202, 205;
+                --vis-highlight-rgb: 193, 230, 227;
+                --vis-latest-rgb: 170, 216, 216;
             }
 
             .rank-badge-container {
                 display: flex;
                 flex-direction: column;
-                align-items: flex-end;
+                align-items: center;
                 justify-content: center;
-                width: 5rem;
+                width: calc(7.5rem * var(--master-scale));
+                flex-shrink: 0;
                 font-size: calc(0.8rem * var(--rank-font-multiplier));
                 font-weight: 800;
                 text-transform: uppercase;
-                text-align: right;
             }
 
             .badge-content {
                 display: flex;
                 align-items: center;
-                gap: 0.3rem;
+                justify-content: center;
+                width: 100%;
             }
 
             .rank-name {
                 color: var(--lower-band-3);
+                flex: 7;
+                text-align: right;
+                padding-right: 0.3rem;
+                transition: color 0.2s ease;
             }
 
             .scenario-row .rank-badge-container:last-of-type .rank-progress {
@@ -772,20 +827,16 @@
                 color: var(--lower-band-1);
                 font-size: 0.75rem;
                 font-weight: 600;
+                flex: 3;
+                text-align: left;
+                transition: color 0.2s ease;
             }
 
             .unranked-text {
-                color: var(--lower-band-1);
+                color: var(--lower-band-1) !important;
                 font-size: 0.75rem;
                 font-weight: 600;
-            }
-
-            .row-right-content {
-                display: flex;
-                align-items: center;
-                gap: 2rem;
-                margin-left: auto;
-                min-width: 0;
+                transition: color 0.2s ease;
             }
 
             .dot-cloud-container {
@@ -977,7 +1028,7 @@
             .settings-menu-card h2 {
                 margin: 0;
                 font-size: 1.25rem;
-                color: var(--highlight-font-2);
+                color: var(--upper-band-2);
                 font-weight: 700;
                 letter-spacing: -0.02em;
             }
@@ -1043,7 +1094,8 @@
                 font-size: 0.85rem;
                 color: var(--text-dim);
                 font-weight: 500;
-                flex: 1;
+                width: calc(10rem * var(--master-scale));
+                flex-shrink: 0;
             }
 
             /* Custom Circle Checkbox */
@@ -1148,8 +1200,10 @@
                         rgba(var(--highlight-font-2-rgb), 0.6);
             }
 
-            .dot-target.dull {
+            .dot-target.dull,
+            .slider-notch.dull {
                 background: var(--bg-color);
+                box-shadow: inset 0 0 0 1px rgba(var(--lower-band-1-rgb), 0.25);
             }
 
             /* Multi-select (fewer dots, no notch) */
