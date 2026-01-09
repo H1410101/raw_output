@@ -45,6 +45,7 @@ export class BenchmarkScrollController {
     this._setupScrollSynchronization();
     this._setupDragInteraction();
     this._setupHoverAutoScroll();
+    this._setupManualScrollDetection();
 
     requestAnimationFrame((): void => {
       this._synchronizeThumbPosition();
@@ -59,7 +60,9 @@ export class BenchmarkScrollController {
   }
 
   private _persistScrollPosition(): void {
-    this._appStateService.setBenchmarkScrollTop(this._scrollContainer.scrollTop);
+    this._appStateService.setBenchmarkScrollTop(
+      this._scrollContainer.scrollTop,
+    );
   }
 
   private _synchronizeThumbPosition(): void {
@@ -94,9 +97,12 @@ export class BenchmarkScrollController {
   }
 
   private _setupDragInteraction(): void {
-    this._scrollThumb.addEventListener("mousedown", (event: MouseEvent): void => {
-      this._handleDragStart(event);
-    });
+    this._scrollThumb.addEventListener(
+      "mousedown",
+      (event: MouseEvent): void => {
+        this._handleDragStart(event);
+      },
+    );
 
     window.addEventListener("mousemove", (event: MouseEvent): void => {
       this._handleGlobalMouseMove(event);
@@ -111,6 +117,7 @@ export class BenchmarkScrollController {
     this._isUserDragging = true;
     this._dragStartMouseY = event.clientY;
     this._dragStartScrollTop = this._scrollContainer.scrollTop;
+    this._appStateService.setFocusedScenarioName(null);
 
     this._stopAutoScrollLoop();
     event.preventDefault();
@@ -155,13 +162,26 @@ export class BenchmarkScrollController {
   }
 
   private _setupHoverAutoScroll(): void {
-    this._hoverContainer.addEventListener("mousemove", (event: MouseEvent): void => {
-      this._evaluateHoverScrolling(event);
-    });
+    this._hoverContainer.addEventListener(
+      "mousemove",
+      (event: MouseEvent): void => {
+        this._evaluateHoverScrolling(event);
+      },
+    );
 
     this._hoverContainer.addEventListener("mouseleave", (): void => {
       this._stopAutoScrollLoop();
     });
+  }
+
+  private _setupManualScrollDetection(): void {
+    this._scrollContainer.addEventListener(
+      "wheel",
+      (): void => {
+        this._appStateService.setFocusedScenarioName(null);
+      },
+      { passive: true },
+    );
   }
 
   private _evaluateHoverScrolling(event: MouseEvent): void {
@@ -173,9 +193,11 @@ export class BenchmarkScrollController {
 
     const thumbRectangle: DOMRect = this._scrollThumb.getBoundingClientRect();
     const isInsideHorizontally: boolean =
-      event.clientX >= thumbRectangle.left && event.clientX <= thumbRectangle.right;
+      event.clientX >= thumbRectangle.left &&
+      event.clientX <= thumbRectangle.right;
     const isInsideVertically: boolean =
-      event.clientY >= thumbRectangle.top && event.clientY <= thumbRectangle.bottom;
+      event.clientY >= thumbRectangle.top &&
+      event.clientY <= thumbRectangle.bottom;
 
     if (!isInsideHorizontally || !isInsideVertically) {
       this._stopAutoScrollLoop();
@@ -215,6 +237,7 @@ export class BenchmarkScrollController {
 
     this._stopAutoScrollLoop();
     this._activeScrollDirection = direction;
+    this._appStateService.setFocusedScenarioName(null);
     this._executeAutoScrollStep();
   }
 
@@ -225,7 +248,8 @@ export class BenchmarkScrollController {
       }
 
       const scrollSpeed: number = 8;
-      this._scrollContainer.scrollTop += this._activeScrollDirection * scrollSpeed;
+      this._scrollContainer.scrollTop +=
+        this._activeScrollDirection * scrollSpeed;
 
       this._autoScrollTimer = requestAnimationFrame(scrollAnimationStep);
     };

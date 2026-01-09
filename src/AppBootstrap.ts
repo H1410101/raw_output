@@ -63,7 +63,7 @@ export class AppBootstrap {
     this._appStateService = new AppStateService();
     this._sessionSettingsService = new SessionSettingsService();
 
-    this._focusService = new FocusManagementService();
+    this._focusService = new FocusManagementService(this._appStateService);
 
     this._sessionService = new SessionService(
       this._rankService,

@@ -12,6 +12,8 @@ export interface AppState {
   isSettingsMenuOpen: boolean;
   /** The last recorded scroll position of the benchmark table. */
   benchmarkScrollTop: number;
+  /** The name of the scenario that was last focused by an autoscroll. */
+  focusedScenarioName: string | null;
 }
 
 /**
@@ -109,6 +111,26 @@ export class AppStateService {
     this._saveToStorage();
   }
 
+  /**
+   * Retrieves the name of the last focused scenario.
+   *
+   * @returns The scenario name or null if none.
+   */
+  public getFocusedScenarioName(): string | null {
+    return this._state.focusedScenarioName;
+  }
+
+  /**
+   * Persists the name of the last focused scenario.
+   *
+   * @param scenarioName - The name of the scenario.
+   */
+  public setFocusedScenarioName(scenarioName: string | null): void {
+    this._state.focusedScenarioName = scenarioName;
+
+    this._saveToStorage();
+  }
+
   private _loadFromStorage(): AppState {
     try {
       const serializedState: string | null = localStorage.getItem(
@@ -164,6 +186,7 @@ export class AppStateService {
       benchmarkDifficulty: "medium",
       isSettingsMenuOpen: false,
       benchmarkScrollTop: 0,
+      focusedScenarioName: null,
     };
   }
 

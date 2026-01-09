@@ -142,11 +142,15 @@ export class BenchmarkTableComponent {
    * Focuses and scrolls to a specific scenario row.
    *
    * @param scenarioName - The name of the scenario to focus.
+   * @param behavior - The scroll behavior (smooth or instant).
    */
-  public focusScenario(scenarioName: string): void {
+  public focusScenario(
+    scenarioName: string,
+    behavior: ScrollBehavior = "smooth",
+  ): void {
     const row: HTMLElement | undefined = this._rowElements.get(scenarioName);
     if (row) {
-      row.scrollIntoView({ behavior: "smooth", block: "center" });
+      row.scrollIntoView({ behavior, block: "center" });
       this._applyFocusHighlight(row);
     }
   }

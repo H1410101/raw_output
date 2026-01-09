@@ -17,6 +17,18 @@ import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsContro
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 
 /**
+ * Core services required by the BenchmarkView.
+ */
+export interface BenchmarkViewServices {
+  benchmark: BenchmarkService;
+  history: HistoryService;
+  rank: RankService;
+  session: SessionService;
+  sessionSettings: SessionSettingsService;
+  focus: FocusManagementService;
+}
+
+/**
  * Orchestrates the benchmark table view, handling difficulty tabs and settings.
  */
 export class BenchmarkView {
@@ -54,25 +66,12 @@ export class BenchmarkView {
    * Initializes the view with required dependencies and sub-controllers.
    *
    * @param mountPoint - The DOM element where the view is rendered.
-   * @param services - Object containing core application services.
-   * @param services.benchmark
-   * @param services.history
-   * @param services.rank
-   * @param services.session
-   * @param services.sessionSettings
-   * @param services.focus - Service for managing focused scenarios.
+   * @param services - Core application services.
    * @param appStateService - Service for persisting UI state.
    */
   public constructor(
     mountPoint: HTMLElement,
-    services: {
-      benchmark: BenchmarkService;
-      history: HistoryService;
-      rank: RankService;
-      session: SessionService;
-      sessionSettings: SessionSettingsService;
-      focus: FocusManagementService;
-    },
+    services: BenchmarkViewServices,
     appStateService: AppStateService,
   ) {
     this._mountPoint = mountPoint;
@@ -85,15 +84,8 @@ export class BenchmarkView {
     this._visualSettingsService = new VisualSettingsService();
     this._sessionSettingsService = services.sessionSettings;
 
-    this._activeDifficulty =
-      this._appStateService.getBenchmarkDifficulty() as DifficultyTier;
-
-    this._settingsController = new BenchmarkSettingsController(
-      this._visualSettingsService,
-      this._sessionSettingsService,
-      this._focusService,
-      this._benchmarkService,
-    );
+    this._activeDifficulty = this._determineInitialDifficulty();
+    this._settingsController = this._initSettingsController();
 
     this._subscribeToServiceUpdates();
   }
@@ -193,6 +185,15 @@ export class BenchmarkView {
 
   private _subscribeToFocusUpdates(): void {
     this._focusService.subscribe((state: FocusState): void => {
+      const scenarioDifficulty: DifficultyTier | null =
+        this._benchmarkService.getDifficulty(state.scenarioName);
+
+      if (scenarioDifficulty && scenarioDifficulty !== this._activeDifficulty) {
+        this._handleDifficultyChange(scenarioDifficulty);
+
+        return;
+      }
+
       if (
         this._tableComponent &&
         !this._mountPoint.classList.contains("hidden-view")
@@ -206,10 +207,36 @@ export class BenchmarkView {
     const focusState: FocusState | null = this._focusService.getFocusState();
 
     if (focusState && this._tableComponent) {
-      this._tableComponent.focusScenario(focusState.scenarioName);
+      this._tableComponent.focusScenario(focusState.scenarioName, "auto");
 
       this._focusService.clearFocus();
     }
+  }
+
+  private _determineInitialDifficulty(): DifficultyTier {
+    const focusState: FocusState | null = this._focusService.getFocusState();
+    const focusDifficulty: DifficultyTier | null = focusState
+      ? this._benchmarkService.getDifficulty(focusState.scenarioName)
+      : null;
+
+    const result: DifficultyTier =
+      focusDifficulty ||
+      (this._appStateService.getBenchmarkDifficulty() as DifficultyTier);
+
+    if (focusDifficulty) {
+      this._appStateService.setBenchmarkDifficulty(focusDifficulty);
+    }
+
+    return result;
+  }
+
+  private _initSettingsController(): BenchmarkSettingsController {
+    return new BenchmarkSettingsController(
+      this._visualSettingsService,
+      this._sessionSettingsService,
+      this._focusService,
+      this._benchmarkService,
+    );
   }
 
   private async _updateSingleScenario(scenarioName: string): Promise<void> {

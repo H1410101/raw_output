@@ -1,3 +1,5 @@
+import { AppStateService } from "./AppStateService";
+
 /**
  * Represents the reason why a specific scenario was focused.
  */
@@ -26,6 +28,27 @@ export class FocusManagementService {
 
   private readonly _listeners: FocusListener[] = [];
 
+  private readonly _appStateService: AppStateService;
+
+  /**
+   * Initializes the service and restores focus state if available.
+   *
+   * @param appStateService - Service for persisting UI state.
+   */
+  public constructor(appStateService: AppStateService) {
+    this._appStateService = appStateService;
+
+    const savedScenario: string | null =
+      this._appStateService.getFocusedScenarioName();
+
+    if (savedScenario) {
+      this._currentState = {
+        scenarioName: savedScenario,
+        reason: "NEW_SCORE",
+      };
+    }
+  }
+
   /**
    * Retrieves the currently focused scenario state.
    *
@@ -49,6 +72,10 @@ export class FocusManagementService {
 
     this._currentState = newState;
 
+    if (reason === "NEW_SCORE") {
+      this._appStateService.setFocusedScenarioName(scenarioName);
+    }
+
     this._notifyListeners(newState);
   }
 
@@ -66,6 +93,8 @@ export class FocusManagementService {
    */
   public clearFocus(): void {
     this._currentState = null;
+
+    this._appStateService.setFocusedScenarioName(null);
   }
 
   private _notifyListeners(state: FocusState): void {
