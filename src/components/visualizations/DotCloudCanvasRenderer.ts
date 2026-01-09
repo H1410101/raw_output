@@ -18,6 +18,7 @@ export interface ScoreVisualContext {
  */
 export interface RenderContext {
   readonly scoresInRankUnits: number[];
+  readonly timestamps: number[];
   readonly sortedThresholds: [string, number][];
   readonly bounds: { minRU: number; maxRU: number };
   readonly isLatestFromSession: boolean;
@@ -141,17 +142,22 @@ export class DotCloudCanvasRenderer {
 
     this._setupStrokeStyles(styles, opacity, context.dimensions.dotRadius);
 
-    context.scoresInRankUnits.forEach((score: number, index: number): void => {
+    for (let i = context.scoresInRankUnits.length - 1; i >= 0; i--) {
       const visuals: ScoreVisualContext = {
         notchHeight,
         baseStyle,
         highlightStyle,
-        localDensity: densities[index] || 1,
+        localDensity: densities[i] || 1,
         peakDensity,
       };
 
-      this._renderIndividualScore(score, index, context, visuals);
-    });
+      this._renderIndividualScore(
+        context.scoresInRankUnits[i],
+        i,
+        context,
+        visuals,
+      );
+    }
   }
 
   private _renderThresholdMetadata(
@@ -377,7 +383,9 @@ export class DotCloudCanvasRenderer {
     const localMax: number =
       maxJitter * jitterMultiplier * densityRatio * popRatio;
 
-    return this._seededRandom(index) * localMax;
+    const seed: number = context.timestamps[index] ?? index;
+
+    return this._seededRandom(seed) * localMax;
   }
 
   private _getJitterMultiplier(level: ScalingLevel): number {

@@ -326,6 +326,9 @@ export class DotCloudComponent {
       scoresInRankUnits: this._recentEntries.map((entry: ScoreEntry): number =>
         this._mapper.calculateRankUnit(entry.score),
       ),
+      timestamps: this._recentEntries.map(
+        (entry: ScoreEntry): number => entry.timestamp,
+      ),
       sortedThresholds: Object.entries(this._rankThresholds).sort(
         (firstEntry: [string, number], secondEntry: [string, number]): number =>
           firstEntry[1] - secondEntry[1],

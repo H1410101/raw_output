@@ -1,12 +1,11 @@
-```raw_output\roadmap\current checkpoint.md#L1-12
-# Current Checkpoint: 2.16.6: Exceeded Rank Visual Scaling
+```raw_output\roadmap\current checkpoint.md#L1-10
+# Current Checkpoint: 2.16.7: Dot Cloud Depth and Jitter Consistency
 
 ## Status
 Completed
 
 ## Deliverables
-- [x] Implement `getHighestRankIndex` in `RankScaleMapper`.
-- [x] Refactor `DotCloudComponent._calculateDynamicBounds` to accept canvas width.
-- [x] Implement `_calculateExceededAlignedBounds` to prevent snapping to next integer when highest rank is exceeded.
-- [x] Ensure highest score dots are positioned exactly one dot radius from the right edge when in exceeded state.
-- [x] Verify visual consistency and clipping prevention for extreme performance scores.
+- [x] Implement reverse-order rendering in `DotCloudCanvasRenderer` to ensure latest dots are on top.
+- [x] Add `timestamps` to `RenderContext` in `DotCloudComponent`.
+- [x] Transition `_seededRandom` in `DotCloudCanvasRenderer` from index-based to timestamp-based seeding.
+- [x] Verify that vertical jitter remains stable for existing dots when new scores are added to the visualization.
