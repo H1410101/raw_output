@@ -3,6 +3,17 @@ import { RankScaleMapper } from "./RankScaleMapper";
 import { ScalingService, ScalingLevel } from "../../services/ScalingService";
 
 /**
+ * Context for visual styling of an individual score dot.
+ */
+export interface ScoreVisualContext {
+  readonly notchHeight: number;
+  readonly baseStyle: string;
+  readonly highlightStyle: string;
+  readonly localDensity: number;
+  readonly peakDensity: number;
+}
+
+/**
  * Immutable data snapshot required for a single render pass.
  */
 export interface RenderContext {
@@ -63,8 +74,11 @@ export class DotCloudCanvasRenderer {
     this.drawMetadata(context);
 
     // Calculate density context for jitter
-    const densities: number[] = this._calculateLocalDensities(context.scoresInRankUnits);
-    const peakDensity: number = densities.length > 0 ? Math.max(...densities) : 1;
+    const densities: number[] = this._calculateLocalDensities(
+      context.scoresInRankUnits,
+    );
+    const peakDensity: number =
+      densities.length > 0 ? Math.max(...densities) : 1;
 
     this.drawPerformanceDots(context, densities, peakDensity);
   }
@@ -105,7 +119,7 @@ export class DotCloudCanvasRenderer {
   public drawPerformanceDots(
     context: RenderContext,
     densities: number[],
-    peakDensity: number
+    peakDensity: number,
   ): void {
     const rootFontSize: number = context.dimensions.rootFontSize;
 
@@ -128,13 +142,15 @@ export class DotCloudCanvasRenderer {
     this._setupStrokeStyles(styles, opacity, context.dimensions.dotRadius);
 
     context.scoresInRankUnits.forEach((score: number, index: number): void => {
-      this._renderIndividualScore(score, index, context, {
+      const visuals: ScoreVisualContext = {
         notchHeight,
         baseStyle,
         highlightStyle,
         localDensity: densities[index] || 1,
         peakDensity,
-      });
+      };
+
+      this._renderIndividualScore(score, index, context, visuals);
     });
   }
 
@@ -166,13 +182,7 @@ export class DotCloudCanvasRenderer {
     score: number,
     index: number,
     context: RenderContext,
-    visuals: {
-      notchHeight: number;
-      baseStyle: string;
-      highlightStyle: string;
-      localDensity: number;
-      peakDensity: number;
-    },
+    visuals: ScoreVisualContext,
   ): void {
     const x: number = this._calculateHorizontalPosition(
       score,
@@ -180,15 +190,7 @@ export class DotCloudCanvasRenderer {
       context.dimensions.width,
     );
 
-    const finalY: number = this._calculateFinalY(
-      visuals.notchHeight,
-      context.settings,
-      index,
-      visuals.localDensity,
-      visuals.peakDensity,
-      context.scoresInRankUnits.length,
-      context.dimensions.dotRadius,
-    );
+    const finalY: number = this._calculateFinalY(context, index, visuals);
 
     const isRecent: boolean = this._isLatestSessionRun(
       index,
@@ -217,25 +219,17 @@ export class DotCloudCanvasRenderer {
   }
 
   private _calculateFinalY(
-    notchHeight: number,
-    settings: VisualSettings,
+    context: RenderContext,
     index: number,
-    localDensity: number,
-    peakDensity: number,
-    totalCount: number,
-    dotRadius: number,
+    visuals: ScoreVisualContext,
   ): number {
     const jitterY: number = this._calculateVerticalJitter(
-      notchHeight,
-      settings,
+      context,
       index,
-      localDensity,
-      peakDensity,
-      totalCount,
-      dotRadius,
+      visuals,
     );
 
-    return (notchHeight) / 2 + jitterY;
+    return visuals.notchHeight / 2 + jitterY;
   }
 
   private _isLatestSessionRun(
@@ -325,22 +319,24 @@ export class DotCloudCanvasRenderer {
     const windowSizeInRu: number = 0.5;
 
     return rankUnits.map((target: number): number => {
-      return rankUnits.filter(
-        (rankUnit: number): boolean => Math.abs(rankUnit - target) <= windowSizeInRu,
-      ).map(
-        (rankUnit: number): number => Math.pow(Math.abs(rankUnit - target) / windowSizeInRu, 1)
-      ).reduce(
-        (a: number, b: number): number => a + b, 0
-      );
+      return rankUnits
+        .filter(
+          (rankUnit: number): boolean =>
+            Math.abs(rankUnit - target) <= windowSizeInRu,
+        )
+        .map((rankUnit: number): number =>
+          Math.pow(Math.abs(rankUnit - target) / windowSizeInRu, 1),
+        )
+        .reduce((a: number, b: number): number => a + b, 0);
     });
   }
 
   /**
    * A seeded pseudorandom number generator function based on splitmix64.
-   * 
+   *
    * Found at https://gist.github.com/tommyettinger/46a874533244883189143505d203312c.
    * Credit to @tommyettinger for the algorithm, and deleted user @ghost for implementation in javascript.
-   * 
+   *
    * @param seed - The seed value to use for the random number generator.
    * @returns number between -1 and 1.
    */
@@ -351,49 +347,49 @@ export class DotCloudCanvasRenderer {
     z ^= z >>> 15;
     z = Math.imul(z, 0x735a2d97);
     z ^= z >>> 15;
-    return ((z >>> 0) / 0xFFFFFFFF) * 2 - 1;
+
+    return ((z >>> 0) / 0xffffffff) * 2 - 1;
   }
 
   private _calculateVerticalJitter(
-    notchHeight: number,
-    settings: VisualSettings,
+    context: RenderContext,
     index: number,
-    localDensity: number,
-    peakDensity: number,
-    totalCount: number,
-    dotRadius: number,
+    visuals: ScoreVisualContext,
   ): number {
+    const jitterMultiplier: number = this._getJitterMultiplier(
+      context.settings.dotJitterIntensity,
+    );
 
-    const JITTER_SCALE: Record<ScalingLevel, number> = {
-      Min: 0,
-      Small: 0.25,
-      Normal: 0.5,
-      Large: 0.75,
-      Max: 1,
-    };
-
-    const jitterMultiplier: number =
-      JITTER_SCALE[settings.dotJitterIntensity] ?? 0;
-
-    if (jitterMultiplier === 0 || localDensity <= 1) {
+    if (jitterMultiplier === 0 || visuals.localDensity <= 1) {
       return 0;
     }
 
-    // Interval [-local_max, local_max]
-    // local_max = global_max_dot_height * local_density/global_max_density * sqrt(global_num_dots/max_num_dots)
-    // global_max_dot_height is the maximum jitter that keeps the dot on screen
-    const globalMaxDotHeight: number = notchHeight / 2 - dotRadius;
+    const totalCount: number = context.scoresInRankUnits.length;
+    const maxJitter: number =
+      visuals.notchHeight / 2 - context.dimensions.dotRadius;
 
-    const maxNumDotsBaseline: number = 100;
-    const densityRatio: number = Math.pow(localDensity / peakDensity, 3);
-    const populationRatio: number = 0.25 + 0.75 * totalCount / maxNumDotsBaseline;
+    const densityRatio: number = Math.pow(
+      visuals.localDensity / visuals.peakDensity,
+      3,
+    );
+    const popRatio: number = 0.25 + (0.75 * totalCount) / 100;
 
     const localMax: number =
-      globalMaxDotHeight * jitterMultiplier * densityRatio * populationRatio;
+      maxJitter * jitterMultiplier * densityRatio * popRatio;
 
-    const stableRandom: number = this._seededRandom(index);
+    return this._seededRandom(index) * localMax;
+  }
 
-    return stableRandom * localMax;
+  private _getJitterMultiplier(level: ScalingLevel): number {
+    const JITTER_MAP: Record<string, number> = {
+      min: 0,
+      small: 0.25,
+      normal: 0.5,
+      large: 0.75,
+      max: 1,
+    };
+
+    return JITTER_MAP[level.toLowerCase()] ?? 0;
   }
 
   private _calculateNotchHeight(
@@ -416,7 +412,10 @@ export class DotCloudCanvasRenderer {
     return Math.max(0, Math.min(1, settings.dotOpacity / 100));
   }
 
-  private _setupLabelStyles(rootFontSize: number, settings: VisualSettings): void {
+  private _setupLabelStyles(
+    rootFontSize: number,
+    settings: VisualSettings,
+  ): void {
     const multiplier: number = ScalingService.calculateMultiplier(
       settings.masterScaling,
       settings.visRankFontSize,

@@ -69,6 +69,7 @@ export class BenchmarkLabelPositioner {
     const trackRectangle: DOMRect = labelTrack.getBoundingClientRect();
     if (this._isTrackSmallerThanLabel(trackRectangle, label)) {
       this._centerLabelInTrack(label);
+
       return;
     }
 

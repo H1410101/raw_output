@@ -290,6 +290,7 @@ export class BenchmarkTableComponent {
     }
 
     header.appendChild(this._createSpacer("header-action-spacer"));
+
     return header;
   }
 
@@ -317,6 +318,7 @@ export class BenchmarkTableComponent {
     span.textContent = text;
 
     container.appendChild(span);
+
     return container;
   }
 }

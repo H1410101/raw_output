@@ -94,6 +94,15 @@ export class RankScaleMapper {
   }
 
   /**
+   * Retrieves the index of the highest defined rank threshold.
+   *
+   * @returns The highest rank index, or -1 if no thresholds exist.
+   */
+  public getHighestRankIndex(): number {
+    return this._thresholds.length - 1;
+  }
+
+  /**
    * Calculates bounds aligned to whole rank units.
    *
    * @param minRUScore - Minimum score in RU.

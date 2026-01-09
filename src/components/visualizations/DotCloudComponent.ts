@@ -2,7 +2,10 @@ import { VisualSettings } from "../../services/VisualSettingsService";
 import { ScoreProcessor, ScoreEntry } from "./ScoreProcessor";
 import { RankScaleMapper } from "./RankScaleMapper";
 import { ScalingService } from "../../services/ScalingService";
-import { DotCloudCanvasRenderer, RenderContext } from "./DotCloudCanvasRenderer";
+import {
+  DotCloudCanvasRenderer,
+  RenderContext,
+} from "./DotCloudCanvasRenderer";
 
 /**
  * Configuration for initializing a DotCloudComponent.
@@ -20,15 +23,21 @@ export interface DotCloudConfiguration {
  * Coordinates data processing, coordinate mapping, and canvas rendering.
  */
 export class DotCloudComponent {
+  public static readonly baseWidthRem: number = 14;
+  public static readonly baseHeightRem: number = 2.2;
+  private static readonly _baseDotRadiusRatio: number = 0.11;
+
   private _recentEntries: ScoreEntry[];
   private _rankThresholds: Record<string, number>;
   private _settings: VisualSettings;
   private _mapper: RankScaleMapper;
   private _isLatestInSession: boolean;
-  private _canvasWidth: number = 160;
-  private _canvasHeight: number = 24;
-  private _microDotRadius: number = 1;
+
+  private _canvasWidth: number = 0;
+  private _canvasHeight: number = 0;
+  private _dotRadius: number = 0;
   private _totalScale: number = 1;
+
   private _canvas: HTMLCanvasElement | null = null;
   private _renderer: DotCloudCanvasRenderer | null = null;
   private _animationFrameId: number | null = null;
@@ -44,13 +53,19 @@ export class DotCloudComponent {
     this._rankThresholds = configuration.thresholds;
     this._settings = configuration.settings;
     this._isLatestInSession = configuration.isLatestInSession;
-    this._recentEntries = ScoreProcessor.processTemporalScores(configuration.entries);
 
-    const thresholdValues: number[] = Object.values(configuration.thresholds).sort(
-      (a: number, b: number) => a - b,
+    this._recentEntries = ScoreProcessor.processTemporalScores(
+      configuration.entries,
     );
 
-    this._mapper = new RankScaleMapper(thresholdValues, configuration.rankInterval ?? 100);
+    const thresholdValues: number[] = Object.values(
+      configuration.thresholds,
+    ).sort((a: number, b: number) => a - b);
+
+    this._mapper = new RankScaleMapper(
+      thresholdValues,
+      configuration.rankInterval ?? 100,
+    );
   }
 
   /**
@@ -60,12 +75,15 @@ export class DotCloudComponent {
    */
   public updateConfiguration(settings: VisualSettings): void {
     this._settings = settings;
-    this._initializeCanvasDimensions();
+
+    this._initializeDimensions();
 
     if (this._canvas) {
-      this._syncCanvasDimensions();
-      this._initializeRenderer(this._canvas, this._totalScale);
+      this._syncCanvasSize();
+      this._rebuildRenderer();
     }
+
+    this._syncContainerDimensions();
 
     this.requestUpdate();
   }
@@ -94,14 +112,7 @@ export class DotCloudComponent {
 
     this._mapper = new RankScaleMapper(thresholdValues, rankInterval ?? 100);
 
-    if (this._canvas) {
-      this._initializeRenderer(this._canvas, this._totalScale);
-    } else if (this._container && this._recentEntries.length > 0) {
-      this._canvas = this._createScaledCanvas();
-      this._container.appendChild(this._canvas);
-    }
-
-    this.requestUpdate();
+    this._handleDataUpdateSideEffects();
   }
 
   /**
@@ -110,38 +121,33 @@ export class DotCloudComponent {
    * @returns The constructed HTMLElement containing the visualization.
    */
   public render(): HTMLElement {
-    if (!this._container) {
-      this._container = document.createElement("div");
-      this._container.className = "dot-cloud-container";
+    this._ensureContainerExists();
+
+    this._clearContainerContent();
+
+    this._initializeDimensions();
+
+    this._syncContainerDimensions();
+
+    if (this._recentEntries.length > 0) {
+      this._setupVisualLayers();
+      this._performRenderCycle();
     }
 
-    this._sanitizeContainer();
-
-    if (this._recentEntries.length === 0) {
-      return this._container;
-    }
-
-    this._canvas = this._createScaledCanvas();
-    this._container.appendChild(this._canvas);
-    this._performRenderCycle();
-
-    return this._container;
+    return this._container!;
   }
 
   /**
    * Disposes of animation frames and references to prevent memory leaks or stale renders.
    */
   public destroy(): void {
-    if (this._animationFrameId !== null) {
-      cancelAnimationFrame(this._animationFrameId);
-      this._animationFrameId = null;
-    }
+    this._cancelPendingFrames();
 
     this._canvas = null;
     this._renderer = null;
 
     if (this._container) {
-      this._sanitizeContainer();
+      this._clearContainerContent();
       this._container = null;
     }
   }
@@ -155,6 +161,7 @@ export class DotCloudComponent {
     }
 
     this._isDirty = true;
+
     this._animationFrameId = requestAnimationFrame((): void => {
       this._isDirty = false;
       this._animationFrameId = null;
@@ -162,57 +169,110 @@ export class DotCloudComponent {
     });
   }
 
+  private _handleDataUpdateSideEffects(): void {
+    if (this._canvas) {
+      this._rebuildRenderer();
+    } else if (this._container && this._recentEntries.length > 0) {
+      this._setupVisualLayers();
+    }
+
+    this.requestUpdate();
+  }
+
+  private _setupVisualLayers(): void {
+    this._canvas = this._createScaledCanvas();
+
+    if (this._container) {
+      this._container.appendChild(this._canvas);
+    }
+  }
+
   private _createScaledCanvas(): HTMLCanvasElement {
     const canvas: HTMLCanvasElement = document.createElement("canvas");
-    this._canvas = canvas;
 
-    this._initializeCanvasDimensions();
+    this._initializeDimensions();
 
     const dpr: number = window.devicePixelRatio || 1;
-    const superSamplingFactor: number = 2;
-    this._totalScale = dpr * superSamplingFactor;
+    this._totalScale = dpr * 2;
 
-    this._syncCanvasDimensions();
-    this._initializeRenderer(canvas, this._totalScale);
+    this._canvas = canvas;
+
+    this._syncCanvasSize();
+
+    this._rebuildRenderer();
 
     return canvas;
   }
 
-  private _initializeCanvasDimensions(): void {
-    const rootFontSize: number = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  private _initializeDimensions(): void {
+    const rootFontSize: number = parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
 
-    const baseWidth: number = 400;
-    this._canvasWidth = Math.round(ScalingService.getScaledValue(baseWidth, this._settings, "dotCloudWidth"));
-    const baseHeight: number = 2 * rootFontSize;
-    this._canvasHeight = Math.round(ScalingService.getScaledValue(baseHeight, this._settings, "dotCloudSize"));
+    const baseWidth: number = DotCloudComponent.baseWidthRem * rootFontSize;
+    const baseHeight: number = DotCloudComponent.baseHeightRem * rootFontSize;
+    const baseDotRadius: number =
+      DotCloudComponent._baseDotRadiusRatio * rootFontSize;
 
-    const baseDotRadius: number = rootFontSize * 0.11;
-    this._microDotRadius = ScalingService.getScaledValue(baseDotRadius, this._settings, "visDotSize");
+    this._canvasWidth = Math.round(
+      ScalingService.getScaledValue(baseWidth, this._settings, "dotCloudWidth"),
+    );
+
+    this._canvasHeight = Math.round(
+      ScalingService.getScaledValue(baseHeight, this._settings, "dotCloudSize"),
+    );
+
+    this._dotRadius = ScalingService.getScaledValue(
+      baseDotRadius,
+      this._settings,
+      "visDotSize",
+    );
   }
 
-  private _initializeRenderer(canvas: HTMLCanvasElement, scale: number): void {
-    const context: CanvasRenderingContext2D | null = canvas.getContext("2d");
-
-    if (!context) {
+  private _rebuildRenderer(): void {
+    if (!this._canvas) {
       return;
     }
 
-    context.setTransform(scale, 0, 0, scale, 0, 0);
-    this._renderer = new DotCloudCanvasRenderer(context, this._mapper);
+    const context: CanvasRenderingContext2D | null =
+      this._canvas.getContext("2d");
+
+    if (context) {
+      this._renderer = new DotCloudCanvasRenderer(context, this._mapper);
+    }
   }
 
-  private _syncCanvasDimensions(): void {
+  private _syncCanvasSize(): void {
     if (!this._canvas) {
       return;
     }
 
     this._canvas.width = Math.round(this._canvasWidth * this._totalScale);
     this._canvas.height = Math.round(this._canvasHeight * this._totalScale);
+
     this._canvas.style.width = `${this._canvasWidth}px`;
     this._canvas.style.height = `${this._canvasHeight}px`;
+
+    this._syncContainerDimensions();
   }
 
-  private _sanitizeContainer(): void {
+  private _syncContainerDimensions(): void {
+    if (!this._container) {
+      return;
+    }
+
+    this._container.style.width = `${this._canvasWidth}px`;
+    this._container.style.height = `${this._canvasHeight}px`;
+  }
+
+  private _ensureContainerExists(): void {
+    if (!this._container) {
+      this._container = document.createElement("div");
+      this._container.className = "dot-cloud-container";
+    }
+  }
+
+  private _clearContainerContent(): void {
     if (!this._container) {
       return;
     }
@@ -222,54 +282,115 @@ export class DotCloudComponent {
     }
   }
 
+  private _cancelPendingFrames(): void {
+    if (this._animationFrameId !== null) {
+      cancelAnimationFrame(this._animationFrameId);
+      this._animationFrameId = null;
+    }
+  }
+
   private _performRenderCycle(): void {
-    if (!this._renderer) {
+    if (!this._renderer || !this._canvas) {
       return;
     }
 
-    const context: RenderContext = this._createRenderContext();
-    this._renderer.draw(context);
+    const context: CanvasRenderingContext2D = this._canvas.getContext("2d")!;
+    const padding: number = this._dotRadius * 3;
+    const drawableWidth: number = Math.max(0, this._canvasWidth - padding * 2);
+
+    this._prepareContextForDraw(context, padding);
+
+    const renderContext: RenderContext =
+      this._assembleRenderContext(drawableWidth);
+
+    this._renderer.draw(renderContext);
   }
 
-  private _createRenderContext(): RenderContext {
-    const sortedThresholds: [string, number][] = Object.entries(this._rankThresholds).sort(
-      (a: [string, number], b: [string, number]) => a[1] - b[1],
-    );
+  private _prepareContextForDraw(
+    context: CanvasRenderingContext2D,
+    padding: number,
+  ): void {
+    context.setTransform(this._totalScale, 0, 0, this._totalScale, 0, 0);
 
-    const bounds: { minRU: number; maxRU: number } = this._calculateViewBounds();
-    const scoresInRankUnits: number[] = this._recentEntries.map((entry: ScoreEntry): number =>
-      this._mapper.calculateRankUnit(entry.score)
-    );
+    context.clearRect(0, 0, this._canvasWidth, this._canvasHeight);
 
-    const rootFontSize: number = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    context.translate(padding, 0);
+  }
+
+  private _assembleRenderContext(width: number): RenderContext {
+    const rootFontSize: number = parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
 
     return {
-      scoresInRankUnits,
-      sortedThresholds,
-      bounds,
+      scoresInRankUnits: this._recentEntries.map((entry: ScoreEntry): number =>
+        this._mapper.calculateRankUnit(entry.score),
+      ),
+      sortedThresholds: Object.entries(this._rankThresholds).sort(
+        (firstEntry: [string, number], secondEntry: [string, number]): number =>
+          firstEntry[1] - secondEntry[1],
+      ),
+      bounds: this._calculateDynamicBounds(width),
       isLatestFromSession: this._isLatestInSession,
       settings: this._settings,
       dimensions: {
-        width: this._canvasWidth,
+        width,
         height: this._canvasHeight,
-        dotRadius: this._microDotRadius,
+        dotRadius: this._dotRadius,
         rootFontSize,
       },
     };
   }
 
-  private _calculateViewBounds(): { minRU: number; maxRU: number } {
-    const scores: number[] = this._recentEntries.map((entry: ScoreEntry): number => entry.score);
+  private _calculateDynamicBounds(width: number): {
+    minRU: number;
+    maxRU: number;
+  } {
+    const scores: number[] = this._recentEntries.map(
+      (entry: ScoreEntry): number => entry.score,
+    );
 
-    const minRUScore: number = this._mapper.calculateRankUnit(Math.min(...scores));
-    const maxRUScore: number = this._mapper.calculateRankUnit(Math.max(...scores));
+    const minRUScore: number = this._mapper.calculateRankUnit(
+      Math.min(...scores),
+    );
+    const maxRUScore: number = this._mapper.calculateRankUnit(
+      Math.max(...scores),
+    );
 
     if (this._settings.scalingMode === "Aligned") {
+      return this._calculateExceededAlignedBounds(
+        minRUScore,
+        maxRUScore,
+        width,
+      );
+    }
+
+    const indices: number[] = this._mapper.identifyRelevantThresholds(
+      minRUScore,
+      maxRUScore,
+    );
+
+    return this._mapper.calculateViewBounds(minRUScore, maxRUScore, indices);
+  }
+
+  private _calculateExceededAlignedBounds(
+    minRUScore: number,
+    maxRUScore: number,
+    width: number,
+  ): { minRU: number; maxRU: number } {
+    const highestRankIndex: number = this._mapper.getHighestRankIndex();
+
+    if (maxRUScore <= highestRankIndex || width <= this._dotRadius * 2) {
       return this._mapper.calculateAlignedBounds(minRUScore, maxRUScore);
     }
 
-    const indices: number[] = this._mapper.identifyRelevantThresholds(minRUScore, maxRUScore);
+    const minRU: number = Math.floor(minRUScore);
+    const edgeRatio: number = 1 - this._dotRadius / width;
+    const maxRU: number = minRU + (maxRUScore - minRU) / edgeRatio;
 
-    return this._mapper.calculateViewBounds(minRUScore, maxRUScore, indices);
+    return {
+      minRU,
+      maxRU: maxRU <= minRU ? minRU + 1 : maxRU,
+    };
   }
 }

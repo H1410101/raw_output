@@ -146,6 +146,10 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Functional implementation of remaining placeholder settings.
 - **Commit Goal**: Settings like Master Scaling and audio placeholders are wired to functional systems.
 
+### Checkpoint 2.16.5: Dot Cloud Layout Synchronization
+- **Deliverable**: Synchronized dimensions between CSS container and Canvas renderer.
+- **Commit Goal**: The dot-cloud-container matches the underlying dot-cloud image exactly, preventing cut-offs on the right side.
+
 ### Checkpoint 2.17: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application is no longer fully quiet; it sounds distinctive and has a sound bank that subjectively matches the theme.

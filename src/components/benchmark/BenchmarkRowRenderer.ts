@@ -197,6 +197,7 @@ export class BenchmarkRowRenderer {
     container.dataset.loadId = loadId.toString();
 
     this._setupLazyLoading(container, scenario, loadId);
+
     return container;
   }
 
@@ -285,6 +286,7 @@ export class BenchmarkRowRenderer {
     }
 
     badgeElement.classList.add("session-badge");
+
     return badgeElement;
   }
 
@@ -308,6 +310,7 @@ export class BenchmarkRowRenderer {
   ): void {
     if (score === 0) {
       container.innerHTML = `<span class="unranked-text">Unranked</span>`;
+
       return;
     }
 

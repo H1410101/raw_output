@@ -28,4 +28,9 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.14: Milestone - Technical Debt Payoff
 - [x] 2.15: Visual Tuning Refinement
 - [x] 2.16: Auto Focus Run
+- [x] 2.16.1: Settings Cleanup & Refinement
+- [x] 2.16.2: Lazy Re-rendering Fixes
+- [x] 2.16.3: Settings Functionality
+- [x] 2.16.5: Dot Cloud Layout Synchronization
+- [ ] 2.16.6: Exceeded Rank Visual Scaling
 - [ ] 2.17: SFX Identity

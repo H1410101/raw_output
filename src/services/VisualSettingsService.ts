@@ -4,8 +4,8 @@ export interface VisualSettings {
   showDotCloud: boolean;
   dotOpacity: number;
   scalingMode: "Aligned" | "Floating";
-  dotSize: ScalingLevel; // This is layout dot size
-  visDotSize: ScalingLevel; // This is visualization dot size (independent of master scaling)
+  dotSize: ScalingLevel;
+  visDotSize: ScalingLevel;
   masterScaling: ScalingLevel;
   verticalSpacing: ScalingLevel;
   scenarioFontSize: ScalingLevel;
@@ -109,7 +109,9 @@ export class VisualSettingsService {
 
   private _loadFromStorage(): VisualSettings {
     try {
-      const stored: string | null = localStorage.getItem(VisualSettingsService._storageKey);
+      const stored: string | null = localStorage.getItem(
+        VisualSettingsService._storageKey,
+      );
 
       if (stored) {
         return { ...this._getDefaults(), ...JSON.parse(stored) };
@@ -159,8 +161,10 @@ export class VisualSettingsService {
 
   private _notifyListeners(): void {
     const settings: VisualSettings = this.getSettings();
-    this._listeners.forEach((listener: (settings: VisualSettings) => void): void => {
-      listener(settings);
-    });
+    this._listeners.forEach(
+      (listener: (settings: VisualSettings) => void): void => {
+        listener(settings);
+      },
+    );
   }
 }

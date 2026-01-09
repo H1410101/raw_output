@@ -1,14 +1,12 @@
-```# Current Checkpoint: 2.16.2: Lazy Dot Cloud Synchronization
+```raw_output\roadmap\current checkpoint.md#L1-12
+# Current Checkpoint: 2.16.6: Exceeded Rank Visual Scaling
 
 ## Status
 Completed
 
 ## Deliverables
-- [x] Implement explicit disposal and container sanitization for `DotCloudComponent`.
-- [x] Add redraw batching logic to prevent redundant frames during setting updates.
-- [x] Refactor `DotCloudCanvasRenderer` to use a captured `RenderContext` for frame consistency.
-- [x] Ensure high-priority redraws on `HistoryService` data ingestion.
-- [x] Fix stale highlight artifacts when the "latest run" state transitions between sessions.
-
-## Next Up
-2.16.3: Functional Settings Integration
+- [x] Implement `getHighestRankIndex` in `RankScaleMapper`.
+- [x] Refactor `DotCloudComponent._calculateDynamicBounds` to accept canvas width.
+- [x] Implement `_calculateExceededAlignedBounds` to prevent snapping to next integer when highest rank is exceeded.
+- [x] Ensure highest score dots are positioned exactly one dot radius from the right edge when in exceeded state.
+- [x] Verify visual consistency and clipping prevention for extreme performance scores.

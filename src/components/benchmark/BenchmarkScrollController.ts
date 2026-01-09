@@ -69,6 +69,7 @@ export class BenchmarkScrollController {
 
     if (totalScrollRange <= 0) {
       this._scrollThumb.style.display = "none";
+
       return;
     }
 
@@ -166,6 +167,7 @@ export class BenchmarkScrollController {
   private _evaluateHoverScrolling(event: MouseEvent): void {
     if (this._isUserDragging || event.buttons !== 0) {
       this._stopAutoScrollLoop();
+
       return;
     }
 
@@ -177,6 +179,7 @@ export class BenchmarkScrollController {
 
     if (!isInsideHorizontally || !isInsideVertically) {
       this._stopAutoScrollLoop();
+
       return;
     }
 
@@ -192,11 +195,13 @@ export class BenchmarkScrollController {
 
     if (relativeYInThumb < activationThreshold) {
       this._startAutoScrollLoop(-1);
+
       return;
     }
 
     if (relativeYInThumb > thumbRectangle.height - activationThreshold) {
       this._startAutoScrollLoop(1);
+
       return;
     }
 
