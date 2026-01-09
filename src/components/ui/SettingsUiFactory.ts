@@ -170,19 +170,44 @@ export class SettingsUiFactory {
    * @param track - The track element containing dots.
    * @param newIndex - The index of the dot to be selected.
    */
+  /**
+   * Updates the visual state of the dots and notch in a track.
+   *
+   * @param track - The track element containing dots.
+   * @param newIndex - The index of the dot to be selected.
+   */
   public static updateTrackVisuals(track: HTMLElement, newIndex: number): void {
-    const items: NodeListOf<Element> = track.querySelectorAll(
-      ".dot-target, .slider-notch",
-    );
-    const oldIndex: number = parseInt(track.dataset.selectedIndex || "-1");
-    const trackType: string = track.dataset.trackType || "left-aligned";
+    const context = this._resolveVisualContext(track, newIndex);
+    const items = context.target.querySelectorAll(".dot-target, .slider-notch");
 
-    track.dataset.selectedIndex = newIndex.toString();
+    const oldIndex = parseInt(context.target.dataset.selectedIndex || "-1");
+    context.target.dataset.selectedIndex = context.index.toString();
+
+    const trackType = track.dataset.trackType || "left-aligned";
+
     items.forEach((item: Element, index: number): void => {
-      const element: HTMLElement = item as HTMLElement;
-      this._applyTransitionToItem(element, index, oldIndex);
-      this._applyItemState(element, index, newIndex, trackType);
+      const element = item as HTMLElement;
+      this._applyTransitionToItem(element, index, oldIndex, context.index);
+      this._applyItemState(element, index, context.index, trackType);
     });
+  }
+
+  /**
+   * Resolves the visual target and logical index based on the presence of an external notch.
+   */
+  private static _resolveVisualContext(
+    track: HTMLElement,
+    newIndex: number,
+  ): { target: HTMLElement; index: number } {
+    const parent = track.parentElement;
+    const isSlider = parent?.classList.contains("dot-slider-container");
+    const hasExternalNotch = isSlider && !track.querySelector(".slider-notch");
+
+    if (hasExternalNotch && parent) {
+      return { target: parent, index: newIndex + 1 };
+    }
+
+    return { target: track, index: newIndex };
   }
 
   private static _createLabel(
@@ -226,27 +251,39 @@ export class SettingsUiFactory {
     dotCount: number,
   ): HTMLElement {
     const sliderContainer: HTMLDivElement = document.createElement("div");
-    const showNotch: boolean = config.showNotch ?? false;
     sliderContainer.className = "dot-slider-container";
 
-    const track: HTMLElement = this._createTrackWithEvents(
+    const track = this._createTrackWithEvents(
       config,
       { min, max, dotCount },
       sliderContainer,
     );
-    if (showNotch) {
-      const notch: HTMLElement = this._createNotchWithEvents(
-        config,
-        min,
-        sliderContainer,
-        sliderContainer,
-      );
-      sliderContainer.appendChild(notch);
+
+    if (config.showNotch) {
+      this._setupSliderWithNotch(sliderContainer, track, config, min);
     }
 
     sliderContainer.appendChild(track);
-
     return sliderContainer;
+  }
+
+  private static _setupSliderWithNotch(
+    container: HTMLElement,
+    track: HTMLElement,
+    config: SliderConfiguration,
+    min: number,
+  ): void {
+    const notch = this._createNotchWithEvents(config, min, track, container);
+    container.appendChild(notch);
+
+    container.dataset.notchIndex = "0";
+
+    const dotIndex = parseInt(track.dataset.selectedIndex || "-1");
+    if (dotIndex !== -1) {
+      container.dataset.selectedIndex = (dotIndex + 1).toString();
+    } else if (config.value === min) {
+      container.dataset.selectedIndex = "0";
+    }
   }
 
   private static _createTrackWithEvents(
@@ -276,7 +313,7 @@ export class SettingsUiFactory {
       config.showNotch ?? false,
       config.value === min,
       (): void => {
-        this.updateTrackVisuals(track, 0);
+        this.updateTrackVisuals(track, -1);
         this._handleSliderUpdate(container, min, config);
       },
     );
@@ -317,7 +354,8 @@ export class SettingsUiFactory {
       notch.classList.add("dull");
     }
 
-    this._applyTransitionToItem(notch, 0, 0);
+    const index = isActive ? 0 : -1;
+    this._applyTransitionToItem(notch, 0, index, index);
 
     container.appendChild(notch);
 
@@ -334,18 +372,7 @@ export class SettingsUiFactory {
     event: MouseEvent,
     onClick: () => void,
   ): void {
-    const current: HTMLElement = event.currentTarget as HTMLElement;
-    const parent: HTMLElement | null = current.parentElement;
-
-    if (parent) {
-      parent
-        .querySelectorAll(".slider-notch")
-        .forEach((element: Element): void =>
-          element.classList.remove("active"),
-        );
-    }
-
-    current.classList.add("active");
+    event.stopPropagation();
     onClick();
   }
 
@@ -447,15 +474,6 @@ export class SettingsUiFactory {
     track: HTMLElement,
     index: number,
   ): void {
-    const parent: HTMLElement | null = track.parentElement;
-    const notch: HTMLElement | null = parent
-      ? parent.querySelector(".slider-notch")
-      : null;
-
-    if (notch) {
-      notch.classList.remove("active");
-    }
-
     this.updateTrackVisuals(track, index);
   }
 
@@ -485,13 +503,26 @@ export class SettingsUiFactory {
     item: HTMLElement,
     index: number,
     oldIndex: number,
+    newIndex: number,
   ): void {
-    const distance: number = Math.abs(index - oldIndex);
-    const delay: number = distance * 0.03;
+    const distance = this._calculateWaveDistance(index, oldIndex, newIndex);
+    const delay = distance * 0.03;
 
     item.style.transition =
       "background 0.2s ease, box-shadow 0.2s ease, height 0.2s ease, border-radius 0.2s ease, transform 0.2s ease";
     item.style.transitionDelay = `${delay}s`;
+  }
+
+  private static _calculateWaveDistance(
+    itemIndex: number,
+    oldIndex: number,
+    _newIndex: number,
+  ): number {
+    if (oldIndex === -1) {
+      return 0;
+    }
+
+    return Math.abs(itemIndex - oldIndex);
   }
 
   private static _applyItemState(
@@ -503,7 +534,12 @@ export class SettingsUiFactory {
     element.classList.remove("pill", "glow", "dull", "active");
 
     if (index === selectedIndex) {
-      this._applyActiveState(element);
+      const isNotch: boolean = element.classList.contains("slider-notch");
+      if (isNotch) {
+        element.classList.add("active");
+      } else {
+        this._applyActiveState(element);
+      }
 
       return;
     }
@@ -530,9 +566,10 @@ export class SettingsUiFactory {
     index: number,
     selectedIndex: number,
   ): void {
-    const parent: HTMLElement | null =
-      element.parentElement as HTMLElement | null;
-    const notchIndex: number = parseInt(parent?.dataset?.notchIndex || "2");
+    const container: HTMLElement | null = element.closest(
+      ".dot-track, .dot-slider-container",
+    );
+    const notchIndex: number = parseInt(container?.dataset?.notchIndex || "2");
     const isNotch: boolean = element.classList.contains("slider-notch");
 
     if (selectedIndex === notchIndex) {
@@ -568,7 +605,9 @@ export class SettingsUiFactory {
     index: number,
     selectedIndex: number,
   ): void {
-    if (index < selectedIndex) {
+    const isNotch: boolean = element.classList.contains("slider-notch");
+
+    if (index < selectedIndex && !isNotch) {
       element.classList.add("glow");
     } else {
       element.classList.add("dull");
