@@ -317,7 +317,7 @@ export class SettingsUiFactory {
       notch.classList.add("dull");
     }
 
-    this._applyTransitionToItem(notch, 0);
+    this._applyTransitionToItem(notch, 0, 0);
 
     container.appendChild(notch);
 

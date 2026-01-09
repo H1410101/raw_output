@@ -72,7 +72,7 @@ export class DotCloudCanvasRenderer {
    * @param context - The render context to use.
    */
   public draw(context: RenderContext): void {
-    if (!this._areStylesReady()) {
+    if (!this.areStylesReady()) {
       return;
     }
 
@@ -128,44 +128,48 @@ export class DotCloudCanvasRenderer {
     this._renderAllScores(context, visuals, densities, peakDensity);
   }
 
-  private _areStylesReady(): boolean {
+  /**
+   * Checks if all required CSS variables and fonts are loaded and resolved.
+   *
+   * @returns True if styles are ready for rendering.
+   */
+  public areStylesReady(): boolean {
     const rootStyles: CSSStyleDeclaration = getComputedStyle(
       document.documentElement,
     );
+    const canvasStyles: CSSStyleDeclaration = getComputedStyle(
+      this._context.canvas,
+    );
 
     return (
-      !!rootStyles.getPropertyValue("--background-1").trim() &&
-      !!rootStyles.getPropertyValue("--lower-band-1-rgb").trim() &&
-      !!rootStyles.getPropertyValue("--lower-band-2-rgb").trim() &&
-      !!rootStyles.getPropertyValue("--lower-band-3-rgb").trim()
+      !!rootStyles.getPropertyValue("--vis-label-color").trim() &&
+      !!rootStyles.getPropertyValue("--vis-dot-rgb").trim() &&
+      !!rootStyles.getPropertyValue("--vis-highlight-rgb").trim() &&
+      !!rootStyles.getPropertyValue("--vis-latest-rgb").trim() &&
+      !!canvasStyles.getPropertyValue("--vis-label-family").trim() &&
+      !!canvasStyles.getPropertyValue("--vis-label-weight").trim() &&
+      document.fonts.status === "loaded"
     );
   }
 
   private _getStyleValue(
     elementStyles: CSSStyleDeclaration,
     property: string,
-    fallbackProperty: string,
   ): string {
-    const primary: string = elementStyles.getPropertyValue(property).trim();
-    if (primary) return primary;
-
-    const secondary: string = elementStyles
-      .getPropertyValue(fallbackProperty)
-      .trim();
-    if (secondary) return secondary;
+    const value: string = elementStyles.getPropertyValue(property).trim();
+    if (value) {
+      return value;
+    }
 
     const rootStyles: CSSStyleDeclaration = getComputedStyle(
       document.documentElement,
     );
 
-    return (
-      rootStyles.getPropertyValue(property).trim() ||
-      rootStyles.getPropertyValue(fallbackProperty).trim()
-    );
+    return rootStyles.getPropertyValue(property).trim();
   }
 
   private _getLabelColor(styles: CSSStyleDeclaration): string {
-    return this._getStyleValue(styles, "--vis-label-color", "--lower-band-1");
+    return this._getStyleValue(styles, "--vis-label-color");
   }
 
   private _renderThresholds(
@@ -216,7 +220,6 @@ export class DotCloudCanvasRenderer {
     const highlightRgb: string = this._getStyleValue(
       styles,
       "--vis-highlight-rgb",
-      "--lower-band-3-rgb",
     );
 
     this._setupStrokeStyles(styles, opacity, context.dimensions.dotRadius);
@@ -515,7 +518,11 @@ export class DotCloudCanvasRenderer {
     );
     const fontSize: number = rootFontSize * 0.5 * multiplier;
 
-    this._context.font = `600 ${fontSize}px Outfit, sans-serif`;
+    const styles: CSSStyleDeclaration = getComputedStyle(this._context.canvas);
+    const weight: string = this._getStyleValue(styles, "--vis-label-weight");
+    const family: string = this._getStyleValue(styles, "--vis-label-family");
+
+    this._context.font = `${weight} ${fontSize}px ${family}`;
 
     this._context.textAlign = "center";
 
@@ -526,11 +533,7 @@ export class DotCloudCanvasRenderer {
     styles: CSSStyleDeclaration,
     opacity: number,
   ): string {
-    const rgb: string = this._getStyleValue(
-      styles,
-      "--vis-dot-rgb",
-      "--lower-band-1-rgb",
-    );
+    const rgb: string = this._getStyleValue(styles, "--vis-dot-rgb");
 
     return `rgba(${rgb}, ${opacity})`;
   }
@@ -539,11 +542,7 @@ export class DotCloudCanvasRenderer {
     styles: CSSStyleDeclaration,
     opacity: number,
   ): string {
-    const rgb: string = this._getStyleValue(
-      styles,
-      "--vis-highlight-rgb",
-      "--lower-band-3-rgb",
-    );
+    const rgb: string = this._getStyleValue(styles, "--vis-highlight-rgb");
 
     return `rgba(${rgb}, ${Math.min(1, opacity + 0.4)})`;
   }
@@ -552,11 +551,7 @@ export class DotCloudCanvasRenderer {
     styles: CSSStyleDeclaration,
     opacity: number,
   ): string {
-    const rgb: string = this._getStyleValue(
-      styles,
-      "--vis-latest-rgb",
-      "--lower-band-2-rgb",
-    );
+    const rgb: string = this._getStyleValue(styles, "--vis-latest-rgb");
 
     return `rgba(${rgb}, ${Math.min(1, opacity + 0.2)})`;
   }
@@ -566,11 +561,7 @@ export class DotCloudCanvasRenderer {
     opacity: number,
     dotRadius: number,
   ): void {
-    const rgb: string = this._getStyleValue(
-      styles,
-      "--vis-dot-rgb",
-      "--lower-band-1-rgb",
-    );
+    const rgb: string = this._getStyleValue(styles, "--vis-dot-rgb");
 
     this._context.strokeStyle = `rgba(${rgb}, ${Math.min(0.2, opacity)})`;
 

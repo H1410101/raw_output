@@ -154,6 +154,14 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Decoupled color palette and strict linting.
 - **Commit Goal**: All color literals are moved to `src/styles/palette.css`, and `npm run lint:colors` ensures no hardcoded colors exist in the rest of the codebase.
 
+### Checkpoint 2.16.10: Settings Refinement & Auto-Dismissal (Done)
+- **Deliverable**: Unified settings sections and reactive dismissal.
+- **Commit Goal**: Settings are reorganized into an "Elements" section, session intervals are configurable with discrete steps, and the settings menu auto-closes when a new run triggers an autoscroll.
+
+### Checkpoint 2.16.11: Font Weight Refinement (Done)
+- **Deliverable**: Refined typography hierarchy.
+- **Commit Goal**: Information density is improved through specific font weight assignments (700 for categories/ranks, 600 for subcategories/difficulty, 500 for scenarios, 400 for headers).
+
 ### Checkpoint 2.17: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application is no longer fully quiet; it sounds distinctive and has a sound bank that subjectively matches the theme.

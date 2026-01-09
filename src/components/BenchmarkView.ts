@@ -46,12 +46,8 @@ export class BenchmarkView {
 
   private _refreshTimeoutId: number | null = null;
 
-  private _lastRenderedWidth: number = 0;
-
   private readonly _handleWindowResize: () => void = (): void => {
-    if (window.innerWidth !== this._lastRenderedWidth) {
-      this._refreshIfVisible();
-    }
+    this._refreshIfVisible();
   };
 
   /**
@@ -108,6 +104,10 @@ export class BenchmarkView {
   public async render(): Promise<void> {
     this._cancelPendingRefresh();
 
+    if (document.fonts.status !== "loaded") {
+      await document.fonts.ready;
+    }
+
     const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
       this._activeDifficulty,
     );
@@ -124,8 +124,6 @@ export class BenchmarkView {
     this._mountPoint.appendChild(
       this._createViewContainer(scenarios, highscores),
     );
-
-    this._lastRenderedWidth = window.innerWidth;
 
     this._applyActiveFocus();
   }

@@ -1,11 +1,11 @@
-# Current Checkpoint: 2.16.9: Centralized Colour Palette
+# Current Checkpoint: 2.16.11: Font Weight Refinement
 
 ## Status
 Completed
 
 ## Deliverables
-- [x] Create `src/styles/palette.css` to house all hex and RGB color literals.
-- [x] Link `palette.css` in `index.html` and import it in `src/main.ts`.
-- [x] Refactor `index.html` to use functional CSS variables instead of hardcoded hex values.
-- [x] Update `scripts/verify_palette_usage.js` to enforce the new design by excluding `palette.css` from its checks while including all other `.css`, `.ts`, and `.js` files.
-- [x] Verify that `npm run lint:colors` passes with zero violations across the codebase.
+- [x] Update category and rank label font weights to 700.
+- [x] Update subcategory label font weights to 600.
+- [x] Update scenario name font weights to 500.
+- [x] Update header labels and rank progress ("+x%") font weights to 400.
+- [x] Set difficulty text font size to 1rem (base) and weight to 600.

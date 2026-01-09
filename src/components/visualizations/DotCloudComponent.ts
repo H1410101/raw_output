@@ -294,6 +294,12 @@ export class DotCloudComponent {
       return;
     }
 
+    if (!this._renderer.areStylesReady()) {
+      this._handleStylesNotReady();
+
+      return;
+    }
+
     const context: CanvasRenderingContext2D = this._canvas.getContext("2d")!;
     const padding: number = this._dotRadius * 3;
     const drawableWidth: number = Math.max(0, this._canvasWidth - padding * 2);
@@ -304,6 +310,14 @@ export class DotCloudComponent {
       this._assembleRenderContext(drawableWidth);
 
     this._renderer.draw(renderContext);
+  }
+
+  private _handleStylesNotReady(): void {
+    if (document.fonts.status !== "loaded") {
+      document.fonts.ready.then(() => this.requestUpdate());
+    } else {
+      requestAnimationFrame(() => this.requestUpdate());
+    }
   }
 
   private _prepareContextForDraw(

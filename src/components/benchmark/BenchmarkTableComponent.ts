@@ -8,6 +8,8 @@ import { FocusManagementService } from "../../services/FocusManagementService";
 import { BenchmarkRowRenderer } from "./BenchmarkRowRenderer";
 import { BenchmarkScrollController } from "./BenchmarkScrollController";
 import { BenchmarkLabelPositioner } from "./BenchmarkLabelPositioner";
+import { ScenarioNameWidthManager } from "./ScenarioNameWidthManager";
+import { SCALING_FACTORS } from "../../services/ScalingService";
 
 /**
  * Collection of services and settings required for BenchmarkTableComponent.
@@ -30,6 +32,7 @@ export class BenchmarkTableComponent {
   private readonly _appStateService: AppStateService;
   private readonly _rowElements: Map<string, HTMLElement> = new Map();
   private _labelPositioner: BenchmarkLabelPositioner | null = null;
+  private readonly _nameWidthManager: ScenarioNameWidthManager;
 
   /**
    * Initializes the table component with required services and settings.
@@ -45,6 +48,7 @@ export class BenchmarkTableComponent {
       dependencies.sessionService,
       dependencies.visualSettings,
     );
+    this._nameWidthManager = new ScenarioNameWidthManager();
   }
 
   /**
@@ -67,6 +71,7 @@ export class BenchmarkTableComponent {
     scrollThumb.className = "custom-scroll-thumb";
 
     this._clearExistingRows();
+    this._updateNameColumnWidth(scenarios);
     this._appendCategorizedContent(scrollArea, scenarios, highscores);
     this._initializeControllers(tableContainer, scrollArea, scrollThumb);
     this._restoreScrollPosition(scrollArea);
@@ -103,7 +108,9 @@ export class BenchmarkTableComponent {
     const structuralChange: boolean =
       this._visualSettings.showDotCloud !== settings.showDotCloud ||
       this._visualSettings.showSessionBest !== settings.showSessionBest ||
-      this._visualSettings.showAllTimeBest !== settings.showAllTimeBest;
+      this._visualSettings.showAllTimeBest !== settings.showAllTimeBest ||
+      this._visualSettings.scenarioFontSize !== settings.scenarioFontSize ||
+      this._visualSettings.masterScaling !== settings.masterScaling;
 
     if (structuralChange) {
       return true;
@@ -142,6 +149,16 @@ export class BenchmarkTableComponent {
       row.scrollIntoView({ behavior: "smooth", block: "center" });
       this._applyFocusHighlight(row);
     }
+  }
+
+  private _updateNameColumnWidth(scenarios: BenchmarkScenario[]): void {
+    const multiplier: number =
+      SCALING_FACTORS[this._visualSettings.scenarioFontSize] || 1.0;
+    const widthRem: number = this._nameWidthManager.calculateRequiredWidth(
+      scenarios,
+      multiplier,
+    );
+    this._nameWidthManager.applyWidth(widthRem);
   }
 
   private _applyFocusHighlight(row: HTMLElement): void {
