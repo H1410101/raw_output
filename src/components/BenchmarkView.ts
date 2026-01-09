@@ -95,6 +95,8 @@ export class BenchmarkView {
     this._settingsController = new BenchmarkSettingsController(
       this._visualSettingsService,
       this._sessionSettingsService,
+      this._focusService,
+      this._benchmarkService,
     );
 
     this._subscribeToServiceUpdates();

@@ -26,27 +26,37 @@ export class SettingsSectionRenderer {
    * @param visualSettingsService - Service for managing visual configuration.
    * @param sessionSettingsService - Service for managing session-specific settings.
    */
+  private readonly _sessionSettingsService: SessionSettingsService;
+
   public constructor(
     visualSettingsService: VisualSettingsService,
     sessionSettingsService: SessionSettingsService,
   ) {
     this._visualSettingsService = visualSettingsService;
-    void sessionSettingsService;
+    this._sessionSettingsService = sessionSettingsService;
   }
 
   /**
-   * Builds and appends the visualization settings section.
+   * Builds and appends the unified elements settings section.
    *
    * @param container - The element to append settings to.
    * @param settings - Current visual settings.
    */
-  public appendVisualizationSection(
+  public appendElementsSection(
     container: HTMLElement,
     settings: VisualSettings,
   ): void {
-    container.appendChild(SettingsUiFactory.createGroupTitle("Visualization"));
+    container.appendChild(SettingsUiFactory.createGroupTitle("Elements"));
 
-    // Nested Dot Cloud Settings
+    this._appendDotCloudToggle(container, settings);
+    this._appendSessionToggles(container, settings);
+    container.appendChild(this._createSessionIntervalSlider());
+  }
+
+  private _appendDotCloudToggle(
+    container: HTMLElement,
+    settings: VisualSettings,
+  ): void {
     const dotCloudToggle: HTMLElement = SettingsUiFactory.createToggle(
       "Show Dot Cloud",
       settings.showDotCloud,
@@ -63,6 +73,29 @@ export class SettingsSectionRenderer {
     this._appendDotCloudOptions(dotCloudSubRows, settings);
     container.appendChild(
       SettingsUiFactory.createSettingsGroup(dotCloudToggle, dotCloudSubRows),
+    );
+  }
+
+  private _appendSessionToggles(
+    container: HTMLElement,
+    settings: VisualSettings,
+  ): void {
+    container.appendChild(
+      SettingsUiFactory.createToggle(
+        "Show Session Best",
+        settings.showSessionBest,
+        (val: boolean): void =>
+          this._visualSettingsService.updateSetting("showSessionBest", val),
+      ),
+    );
+
+    container.appendChild(
+      SettingsUiFactory.createToggle(
+        "Show All-Time Best",
+        settings.showAllTimeBest,
+        (val: boolean): void =>
+          this._visualSettingsService.updateSetting("showAllTimeBest", val),
+      ),
     );
   }
 
@@ -172,40 +205,21 @@ export class SettingsSectionRenderer {
     );
   }
 
-  /**
-   * Builds and appends the session settings section.
-   *
-   * @param container - The element to append settings to.
-   * @param settings - Current session settings.
-   */
-  public appendSessionSection(
-    container: HTMLElement,
-    settings: Record<string, unknown>,
-  ): void {
-    const visualSettings: VisualSettings =
-      this._visualSettingsService.getSettings();
+  private _createSessionIntervalSlider(): HTMLElement {
+    const sessionSettings = this._sessionSettingsService.getSettings();
+    const options: number[] = [1, 5, 10, 15, 30, 45, 60, 90, 120];
 
-    container.appendChild(SettingsUiFactory.createGroupTitle("Information"));
-
-    container.appendChild(
-      SettingsUiFactory.createToggle(
-        "Show Session Best",
-        visualSettings.showSessionBest,
-        (val: boolean): void =>
-          this._visualSettingsService.updateSetting("showSessionBest", val),
-      ),
-    );
-
-    container.appendChild(
-      SettingsUiFactory.createToggle(
-        "Show All-Time Best",
-        visualSettings.showAllTimeBest,
-        (val: boolean): void =>
-          this._visualSettingsService.updateSetting("showAllTimeBest", val),
-      ),
-    );
-
-    void settings;
+    return SettingsUiFactory.createSlider({
+      label: "Session Interval",
+      value: sessionSettings.sessionTimeoutMinutes,
+      options,
+      unit: " min",
+      onChange: (val: number): void =>
+        this._sessionSettingsService.updateSetting(
+          "sessionTimeoutMinutes",
+          val,
+        ),
+    });
   }
 
   private _createVisRankFontControl(settings: VisualSettings): HTMLElement {

@@ -6,6 +6,11 @@ import {
   SessionSettingsService,
   SessionSettings,
 } from "../../services/SessionSettingsService";
+import {
+  FocusManagementService,
+  FocusState,
+} from "../../services/FocusManagementService";
+import { BenchmarkService } from "../../services/BenchmarkService";
 import { SettingsSectionRenderer } from "./SettingsSectionRenderer";
 
 /**
@@ -17,6 +22,8 @@ import { SettingsSectionRenderer } from "./SettingsSectionRenderer";
 export class BenchmarkSettingsController {
   private readonly _visualSettingsService: VisualSettingsService;
   private readonly _sessionSettingsService: SessionSettingsService;
+  private readonly _focusService: FocusManagementService;
+  private readonly _benchmarkService: BenchmarkService;
   private readonly _sectionRenderer: SettingsSectionRenderer;
   private _currentVisualSettings: VisualSettings;
   private _currentSessionSettings: SessionSettings;
@@ -26,13 +33,19 @@ export class BenchmarkSettingsController {
    *
    * @param visualSettingsService - Service for visualization and layout state.
    * @param sessionSettingsService - Service for session timing and behavior state.
+   * @param focusService - Service for monitoring scenario focus events.
+   * @param benchmarkService - Service for verifying scenario difficulty membership.
    */
   public constructor(
     visualSettingsService: VisualSettingsService,
     sessionSettingsService: SessionSettingsService,
+    focusService: FocusManagementService,
+    benchmarkService: BenchmarkService,
   ) {
     this._visualSettingsService = visualSettingsService;
     this._sessionSettingsService = sessionSettingsService;
+    this._focusService = focusService;
+    this._benchmarkService = benchmarkService;
     this._sectionRenderer = new SettingsSectionRenderer(
       visualSettingsService,
       sessionSettingsService,
@@ -40,6 +53,8 @@ export class BenchmarkSettingsController {
 
     this._currentVisualSettings = this._visualSettingsService.getSettings();
     this._currentSessionSettings = this._sessionSettingsService.getSettings();
+
+    this._subscribeToFocusEvents();
   }
 
   /**
@@ -82,6 +97,17 @@ export class BenchmarkSettingsController {
     return overlay;
   }
 
+  private _subscribeToFocusEvents(): void {
+    this._focusService.subscribe((state: FocusState): void => {
+      const isBenchmarkScenario: boolean =
+        this._benchmarkService.getDifficulty(state.scenarioName) !== null;
+
+      if (state.reason === "NEW_SCORE" && isBenchmarkScenario) {
+        this._removeExistingOverlay();
+      }
+    });
+  }
+
   private _createMenuCard(): HTMLElement {
     const card: HTMLDivElement = document.createElement("div");
     card.className = "settings-menu-card";
@@ -97,14 +123,12 @@ export class BenchmarkSettingsController {
       card,
       this._currentVisualSettings,
     );
+
     this._sectionRenderer.appendAudioSection(card);
-    this._sectionRenderer.appendVisualizationSection(
+
+    this._sectionRenderer.appendElementsSection(
       card,
       this._currentVisualSettings,
-    );
-    this._sectionRenderer.appendSessionSection(
-      card,
-      this._currentSessionSettings,
     );
   }
 
