@@ -1,3 +1,4 @@
+import "./styles/palette.css";
 import { AppBootstrap } from "./AppBootstrap";
 
 /**

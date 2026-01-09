@@ -5,6 +5,7 @@
         <link rel="icon" type="image/svg+xml" href="/vite.svg" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Raw Output</title>
+        <link rel="stylesheet" href="/src/styles/palette.css" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
@@ -19,71 +20,7 @@
             }
 
             :root {
-                /* Environmental Foundations */
-                --background-1: #020203;
-                --background-1-rgb: 2, 2, 3;
-                --background-2: #130f1a;
-                --background-2-rgb: 19, 15, 26;
-
-                /* Lower Typography Band (Darker) */
-                --lower-band-1: #3d527a;
-                --lower-band-1-rgb: 61, 82, 122;
-                --lower-band-2: #496c93;
-                --lower-band-2-rgb: 73, 108, 147;
-                --lower-band-3: #5485ab;
-                --lower-band-3-rgb: 84, 133, 171;
-
-                /* Upper Typography Band (Lighter) */
-                --upper-band-1: #93cacd;
-                --upper-band-1-rgb: 147, 202, 205;
-                --upper-band-2: #aad8d8;
-                --upper-band-2-rgb: 170, 216, 216;
-                --upper-band-3: #c1e6e3;
-                --upper-band-3-rgb: 193, 230, 227;
-
-                /* Highlights & Callouts */
-                --highlight-font-1: #e0d9bb;
-                --highlight-font-1-rgb: 224, 217, 187;
-                --highlight-font-2: #ffffff;
-                --highlight-font-2-rgb: 255, 255, 255;
-                --highlight-bg-1: #252b46;
-                --highlight-bg-1-rgb: 37, 43, 70;
-                --mask-white: #ffffff;
-
-                /* Status & Tagging */
-                --status-medium: #f7b989;
-                --status-medium-rgb: 247, 185, 137;
-                --status-hard: #bc5b4c;
-                --status-hard-rgb: 188, 91, 76;
-
-                /* Functional Mappings */
-                --bg-color: var(--background-1);
-                --panel-bg: var(--background-2);
-                --accent-color: var(--upper-band-3);
-                --text-main: var(--upper-band-1);
-                --text-default: var(--lower-band-3);
-                --text-dim: var(--lower-band-1);
-                --text-highlight: var(--highlight-font-1);
-                --glass-bg: rgba(var(--background-2-rgb), 0.4);
-                --glass-border: rgba(var(--upper-band-1-rgb), 0.15);
-                --glow-color: var(--upper-band-2);
-                --dull-color: var(--highlight-bg-1);
-
-                /* Sizing & Proportions */
-                --master-scale: 1;
-                --vertical-spacing-multiplier: 1;
-                --scenario-font-multiplier: 1;
-                --rank-font-multiplier: 1;
-                --launch-button-multiplier: 1;
-                --header-font-multiplier: 1;
-                --label-font-multiplier: 1;
-                --dot-cloud-multiplier: 1;
-
-                /* Visualization Semantic Tokens */
-                --vis-label-color: #3d527a;
-                --vis-dot-rgb: 61, 82, 122;
-                --vis-highlight-rgb: 84, 133, 171;
-                --vis-latest-rgb: 73, 108, 147;
+                /* Palette and Functional Tokens moved to palette.css */
             }
 
             body {
@@ -785,10 +722,10 @@
             }
 
             .scenario-row.selected {
-                --vis-label-color: #93cacd;
-                --vis-dot-rgb: 147, 202, 205;
-                --vis-highlight-rgb: 193, 230, 227;
-                --vis-latest-rgb: 170, 216, 216;
+                --vis-label-color: var(--upper-band-1);
+                --vis-dot-rgb: var(--upper-band-1-rgb);
+                --vis-highlight-rgb: var(--upper-band-3-rgb);
+                --vis-latest-rgb: var(--upper-band-2-rgb);
             }
 
             .rank-badge-container {

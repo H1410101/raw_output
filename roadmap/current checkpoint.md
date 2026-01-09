@@ -1,11 +1,11 @@
-# Current Checkpoint: 2.16.8: Dot Cloud Selection Highlights Fix
+# Current Checkpoint: 2.16.9: Centralized Colour Palette
 
 ## Status
 Completed
 
 ## Deliverables
-- [x] Correct default (unselected) Dot Cloud semantic tokens in CSS to use the "lower band" palette.
-- [x] Update `.scenario-row.selected` CSS to provide correct "upper band" values for visualization tokens.
-- [x] Optimize `DotCloudCanvasRenderer` to reduce `getComputedStyle` calls during rendering.
-- [x] Implement robust fallbacks in `DotCloudCanvasRenderer` that match the theme colors.
-- [x] Verify that dots, notches, and text transition correctly between unselected (dark) and selected (light) states.
+- [x] Create `src/styles/palette.css` to house all hex and RGB color literals.
+- [x] Link `palette.css` in `index.html` and import it in `src/main.ts`.
+- [x] Refactor `index.html` to use functional CSS variables instead of hardcoded hex values.
+- [x] Update `scripts/verify_palette_usage.js` to enforce the new design by excluding `palette.css` from its checks while including all other `.css`, `.ts`, and `.js` files.
+- [x] Verify that `npm run lint:colors` passes with zero violations across the codebase.

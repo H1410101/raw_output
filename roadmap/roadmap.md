@@ -150,6 +150,10 @@ This roadmap outlines the development phases for **Raw Output**. Each checkpoint
 - **Deliverable**: Synchronized dimensions between CSS container and Canvas renderer.
 - **Commit Goal**: The dot-cloud-container matches the underlying dot-cloud image exactly, preventing cut-offs on the right side.
 
+### Checkpoint 2.16.9: Centralized Colour Palette (Done)
+- **Deliverable**: Decoupled color palette and strict linting.
+- **Commit Goal**: All color literals are moved to `src/styles/palette.css`, and `npm run lint:colors` ensures no hardcoded colors exist in the rest of the codebase.
+
 ### Checkpoint 2.17: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application is no longer fully quiet; it sounds distinctive and has a sound bank that subjectively matches the theme.
