@@ -1,6 +1,7 @@
 import { ScalingLevel, SCALING_FACTORS } from "./ScalingService";
 
 export interface VisualSettings {
+  theme: "dark" | "light";
   showDotCloud: boolean;
   dotOpacity: number;
   scalingMode: "Aligned" | "Floating";
@@ -86,6 +87,8 @@ export class VisualSettingsService {
   private _applyCssVariables(settings: VisualSettings): void {
     const root: HTMLElement = document.documentElement;
 
+    root.setAttribute("data-theme", settings.theme);
+
     const apply = (varName: string, level: ScalingLevel): void => {
       root.style.setProperty(
         varName,
@@ -123,6 +126,7 @@ export class VisualSettingsService {
 
   private _getDefaults(): VisualSettings {
     return {
+      theme: "dark",
       showDotCloud: true,
       dotOpacity: 40,
       scalingMode: "Aligned",

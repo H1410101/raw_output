@@ -157,6 +157,8 @@ export class AppBootstrap {
 
     themeBtn.addEventListener("click", (): void => {
       this._animateButton(themeBtn);
+
+      this._benchmarkView.toggleTheme();
     });
 
     const folderBtn = this._getRequiredButton("header-folder-btn");

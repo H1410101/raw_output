@@ -125,6 +125,19 @@ export class BenchmarkView {
   }
 
   /**
+   * Toggles the application between dark and light themes.
+   */
+  public toggleTheme(): void {
+    const currentTheme: "dark" | "light" =
+      this._visualSettingsService.getSettings().theme;
+
+    const targetTheme: "dark" | "light" =
+      currentTheme === "dark" ? "light" : "dark";
+
+    this._visualSettingsService.updateSetting("theme", targetTheme);
+  }
+
+  /**
    * Toggles the visibility of the advanced folder settings view.
    */
   public toggleFolderView(): void {

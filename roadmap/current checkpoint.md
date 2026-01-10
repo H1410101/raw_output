@@ -1,16 +1,13 @@
-```raw_output\roadmap\current checkpoint.md#L1-14
-# Current Checkpoint: 2.17.1: Advanced Folder Settings View
+```raw_output\roadmap\current checkpoint.md#L1-16
+# Current Checkpoint: 2.17.2: Dual Theme Support
 
 ## Status
 Completed
 
 ## Deliverables
-- [x] Implement `FolderSettingsView` with a two-column layout.
-- [x] Left column: Vertical-centered folder status and actions.
-- [x] Refined action spacing (0.5rem base) and status spacing (0.7rem base) with scaling support.
-- [x] Right column: Vertically centered introduction text with updated instructions.
-- [x] Removed scroll functionality from folder settings view while maintaining it elsewhere.
-- [x] Integrate view into `BenchmarkView` with conditional rendering logic.
-- [x] Implement manual toggle via header folder icon.
-- [x] Ensure scroll position persistence when switching views.
-- [x] Auto-exit folder menu on successful folder actions.
+- [x] Define the light mode palette in `palette.css` following the provided color specification.
+- [x] Update theme management logic to support toggling between dark and light modes.
+- [x] Ensure background ripples and bands adapt to the active theme.
+- [x] Hook up the theme toggle button in the header to trigger the theme switch.
+- [x] Implement the "lower band" and "upper band" principles for the new light theme.
+- [x] Maintain consistent visual identity across both themes using the centralized palette.

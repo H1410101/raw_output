@@ -45,7 +45,7 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.16.13: Visual Rounding Consistency
 - [x] 2.17.0: Triple Action Header
 - [x] 2.17.1: Advanced Folder Settings View
-- [ ] 2.17.2: Dual Theme Support
+- [x] 2.17.2: Dual Theme Support
 - [ ] 2.17.3: Theme Fine-tuning
 - [ ] 2.17.4: Rank Legend
 - [ ] 2.17.5: Custom Difficulty Sorting
