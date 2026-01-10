@@ -1,4 +1,3 @@
-```raw_output\docs\checkpoints\phase 2\checkpoint 2.16.7 architecture.md#L1-35
 # Checkpoint 2.16.6 Architecture: Stable Dot Cloud
 
 ## Responsibility

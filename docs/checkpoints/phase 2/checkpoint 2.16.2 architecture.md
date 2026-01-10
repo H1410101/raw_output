@@ -1,4 +1,4 @@
-```# Checkpoint 2.16.2 Architecture: Lazy Dot Cloud Synchronization
+# Checkpoint 2.16.2 Architecture: Lazy Dot Cloud Synchronization
 
 ## 1. Objective
 Address and resolve synchronization issues and rendering artifacts within the Dot Cloud visualization. The focus is on ensuring that the Canvas-based dots react instantly and accurately to both data updates (new runs) and setting changes (opacity, jitter, highlights) without leaving orphaned elements or displaying stale data.

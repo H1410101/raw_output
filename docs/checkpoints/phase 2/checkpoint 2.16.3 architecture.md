@@ -1,4 +1,4 @@
-```# Checkpoint 2.16.3 Architecture: Functional Settings Integration
+# Checkpoint 2.16.3 Architecture: Functional Settings Integration
 
 ## 1. Objective
 Transition the remaining placeholder settings in the "Visual Settings" and "Audio" menus into fully functional systems. This involves implementing the logic for global UI scaling and initializing the infrastructure for application-wide sound effects and volume control.

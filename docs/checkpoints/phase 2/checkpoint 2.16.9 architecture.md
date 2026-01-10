@@ -1,4 +1,3 @@
-```raw_output\docs\checkpoints\phase 2\checkpoint 2.16.10 architecture.md#L1-43
 # Checkpoint 2.16.9 Architecture: Settings Refinement & Auto-Dismissal
 
 ## Goal

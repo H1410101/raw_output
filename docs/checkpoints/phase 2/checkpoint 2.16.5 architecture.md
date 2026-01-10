@@ -1,4 +1,3 @@
-```raw_output\docs\checkpoints\phase 2\checkpoint 2.16.6 architecture.md#L1-43
 # Checkpoint 2.16.5 Architecture: Horizontal Scaling
 
 ## Responsibility

@@ -1,4 +1,3 @@
-```raw_output\docs\checkpoints\phase 2\checkpoint 2.16.9 architecture.md#L1-28
 # Checkpoint 2.16.8 Architecture: Centralized Colour Palette
 
 ## Objective

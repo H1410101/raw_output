@@ -1,4 +1,4 @@
-# Checkpoint 2.16.10 Architecture: Persist Scroll with Auto-Jump
+# Checkpoint 2.16.10 Architecture: Persist Scroll with Auto-Jump & Font Refinement
 
 ## Goal
 Improve navigation continuity by persisting scroll positions across view changes and refining the "Auto-Focus" logic to ensure the user never loses their place in the benchmark table.
