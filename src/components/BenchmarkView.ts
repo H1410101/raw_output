@@ -14,6 +14,8 @@ import {
 } from "../services/FocusManagementService";
 import { BenchmarkTableComponent } from "./benchmark/BenchmarkTableComponent";
 import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsController";
+import { FolderSettingsView } from "./ui/FolderSettingsView";
+import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 
 /**
@@ -26,6 +28,12 @@ export interface BenchmarkViewServices {
   session: SessionService;
   sessionSettings: SessionSettingsService;
   focus: FocusManagementService;
+  directory: DirectoryAccessService;
+  folderActions: {
+    onLinkFolder: () => Promise<void>;
+    onForceScan: () => Promise<void>;
+    onUnlinkFolder: () => void;
+  };
 }
 
 /**
@@ -42,6 +50,8 @@ export class BenchmarkView {
 
   private readonly _sessionService: SessionService;
 
+  private readonly _directoryService: DirectoryAccessService;
+
   private readonly _appStateService: AppStateService;
 
   private readonly _visualSettingsService: VisualSettingsService;
@@ -52,7 +62,15 @@ export class BenchmarkView {
 
   private readonly _settingsController: BenchmarkSettingsController;
 
+  private readonly _folderActions: {
+    onLinkFolder: () => Promise<void>;
+    onForceScan: () => Promise<void>;
+    onUnlinkFolder: () => void;
+  };
+
   private _tableComponent: BenchmarkTableComponent | null = null;
+
+  private _folderSettingsView: FolderSettingsView | null = null;
 
   private _activeDifficulty: DifficultyTier;
 
@@ -79,6 +97,8 @@ export class BenchmarkView {
     this._historyService = services.history;
     this._rankService = services.rank;
     this._sessionService = services.session;
+    this._directoryService = services.directory;
+    this._folderActions = services.folderActions;
     this._focusService = services.focus;
     this._appStateService = appStateService;
     this._visualSettingsService = new VisualSettingsService();
@@ -98,6 +118,25 @@ export class BenchmarkView {
   }
 
   /**
+   * Schedules a refresh of the view to reflect external state changes.
+   */
+  public refresh(): void {
+    this._refreshIfVisible();
+  }
+
+  /**
+   * Toggles the visibility of the advanced folder settings view.
+   */
+  public toggleFolderView(): void {
+    const isCurrentlyOpen: boolean =
+      this._appStateService.getIsFolderViewOpen();
+
+    this._appStateService.setIsFolderViewOpen(!isCurrentlyOpen);
+
+    this.render();
+  }
+
+  /**
    * Renders the benchmark view content based on current state.
    */
   public async render(): Promise<void> {
@@ -107,24 +146,20 @@ export class BenchmarkView {
       await document.fonts.ready;
     }
 
-    const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
-      this._activeDifficulty,
-    );
-
-    const highscores: Record<string, number> =
-      await this._historyService.getBatchHighscores(
-        scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
-      );
-
     this._tableComponent?.destroy();
-
+    this._folderSettingsView?.destroy();
     this._mountPoint.innerHTML = "";
 
-    this._mountPoint.appendChild(
-      this._createViewContainer(scenarios, highscores),
-    );
+    const shouldShowFolder: boolean = await this._shouldShowFolderSettings();
+    this._updateHeaderButtonStates(shouldShowFolder);
 
-    this._applyActiveFocus();
+    if (shouldShowFolder) {
+      await this._renderFolderSettings();
+
+      return;
+    }
+
+    await this._renderBenchmarkTable();
   }
 
   /**
@@ -134,6 +169,8 @@ export class BenchmarkView {
     this._cancelPendingRefresh();
 
     this._tableComponent?.destroy();
+
+    this._folderSettingsView?.destroy();
 
     window.removeEventListener("resize", this._handleWindowResize);
   }
@@ -217,6 +254,98 @@ export class BenchmarkView {
       this._tableComponent.focusScenario(focusState.scenarioName, "auto");
 
       this._focusService.clearFocus();
+    }
+  }
+
+  private async _shouldShowFolderSettings(): Promise<boolean> {
+    const isFolderLinked: boolean = !!this._directoryService.currentFolderName;
+    const isManualOpen: boolean = this._appStateService.getIsFolderViewOpen();
+
+    if (!isFolderLinked || isManualOpen) {
+      return true;
+    }
+
+    const lastCheck: number =
+      await this._historyService.getLastCheckTimestamp();
+
+    return lastCheck === 0;
+  }
+
+  private async _renderFolderSettings(): Promise<void> {
+    const lastCheck: number =
+      await this._historyService.getLastCheckTimestamp();
+
+    const handlers = {
+      onLinkFolder: async (): Promise<void> => {
+        await this._folderActions.onLinkFolder();
+        this._dismissFolderView();
+      },
+      onForceScan: async (): Promise<void> => {
+        await this._folderActions.onForceScan();
+        this._dismissFolderView();
+      },
+      onUnlinkFolder: (): void => {
+        this._folderActions.onUnlinkFolder();
+        this._dismissFolderView();
+      },
+    };
+
+    this._folderSettingsView = new FolderSettingsView(
+      handlers,
+      this._directoryService.originalSelectionName,
+      lastCheck > 0,
+    );
+
+    this._mountPoint.appendChild(this._folderSettingsView.render());
+  }
+
+  private _updateHeaderButtonStates(isFolderActive: boolean): void {
+    const folderBtn: HTMLElement | null =
+      document.getElementById("header-folder-btn");
+    const settingsBtn: HTMLElement | null = document.getElementById(
+      "header-settings-btn",
+    );
+
+    if (folderBtn) {
+      folderBtn.classList.toggle("active", isFolderActive);
+    }
+
+    if (settingsBtn) {
+      settingsBtn.classList.toggle(
+        "active",
+        this._appStateService.getIsSettingsMenuOpen(),
+      );
+    }
+  }
+
+  private _dismissFolderView(): void {
+    this._appStateService.setIsFolderViewOpen(false);
+    this.render();
+  }
+
+  private async _renderBenchmarkTable(): Promise<void> {
+    const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
+      this._activeDifficulty,
+    );
+    const highscores: Record<string, number> =
+      await this._historyService.getBatchHighscores(
+        scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
+      );
+
+    this._mountPoint.appendChild(
+      this._createViewContainer(scenarios, highscores),
+    );
+
+    this._applyActiveFocus();
+    this._restoreScrollPosition();
+  }
+
+  private _restoreScrollPosition(): void {
+    const tableElement: HTMLElement | null =
+      this._mountPoint.querySelector(".benchmark-table");
+
+    if (tableElement) {
+      tableElement.scrollTop = this._appStateService.getBenchmarkScrollTop();
     }
   }
 

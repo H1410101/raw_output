@@ -10,6 +10,8 @@ export interface AppState {
   benchmarkDifficulty: DifficultyTier;
   /** Whether the visual settings menu is currently open. */
   isSettingsMenuOpen: boolean;
+  /** Whether the manual folder settings view is currently open. */
+  isFolderViewOpen: boolean;
   /** The last recorded scroll position of the benchmark table. */
   benchmarkScrollTop: number;
   /** The name of the scenario that was last focused by an autoscroll. */
@@ -87,6 +89,26 @@ export class AppStateService {
    */
   public setIsSettingsMenuOpen(isOpen: boolean): void {
     this._state.isSettingsMenuOpen = isOpen;
+
+    this._saveToStorage();
+  }
+
+  /**
+   * Retrieves whether the folder settings view should be open.
+   *
+   * @returns True if the folder view is open.
+   */
+  public getIsFolderViewOpen(): boolean {
+    return this._state.isFolderViewOpen;
+  }
+
+  /**
+   * Persists the open state of the folder settings view.
+   *
+   * @param isOpen - The new visibility state.
+   */
+  public setIsFolderViewOpen(isOpen: boolean): void {
+    this._state.isFolderViewOpen = isOpen;
 
     this._saveToStorage();
   }
@@ -185,14 +207,13 @@ export class AppStateService {
   private _getDefaults(): AppState {
     const availableDifficulties: string[] = getAvailableDifficulties();
 
-    const defaultDifficulty: string = availableDifficulties.includes("Medium")
-      ? "Medium"
-      : availableDifficulties[0] || "";
+    const defaultDifficulty: string = availableDifficulties[0] || "";
 
     return {
       activeTabId: "nav-benchmarks",
       benchmarkDifficulty: defaultDifficulty,
       isSettingsMenuOpen: false,
+      isFolderViewOpen: false,
       benchmarkScrollTop: 0,
       focusedScenarioName: null,
     };

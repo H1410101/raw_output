@@ -87,13 +87,13 @@ export class AppBootstrap {
   public async initialize(): Promise<void> {
     this._statusView.reportReady();
 
+    await this._attemptInitialReconnection();
+
     await this._benchmarkView.render();
 
     this._navigationController.initialize();
 
     this._setupActionListeners();
-
-    await this._attemptInitialReconnection();
   }
 
   private _createStatusView(): ApplicationStatusView {
@@ -114,6 +114,13 @@ export class AppBootstrap {
         session: this._sessionService,
         sessionSettings: this._sessionSettingsService,
         focus: this._focusService,
+        directory: this._directoryService,
+        folderActions: {
+          onLinkFolder: (): Promise<void> =>
+            this._handleManualFolderSelection(),
+          onForceScan: (): Promise<void> => this._handleManualImport(),
+          onUnlinkFolder: (): void => this._handleFolderRemoval(),
+        },
       },
       this._appStateService,
     );
@@ -159,6 +166,8 @@ export class AppBootstrap {
 
     folderBtn.addEventListener("click", (): void => {
       this._animateButton(folderBtn);
+
+      this._benchmarkView.toggleFolderView();
     });
   }
 
@@ -199,6 +208,8 @@ export class AppBootstrap {
 
       await this._synchronizeAndMonitor(handle);
 
+      this._benchmarkView.refresh();
+
       return;
     }
 
@@ -216,6 +227,8 @@ export class AppBootstrap {
       );
 
       await this._synchronizeAndMonitor(handle);
+
+      this._benchmarkView.refresh();
     }
   }
 
@@ -225,6 +238,8 @@ export class AppBootstrap {
     await this._ingestionService.synchronizeAvailableRuns();
 
     this._statusView.reportActive();
+
+    this._benchmarkView.refresh();
   }
 
   private _handleFolderRemoval(): void {
@@ -233,6 +248,8 @@ export class AppBootstrap {
     this._monitoringService.stopMonitoring();
 
     this._statusView.reportDisconnected();
+
+    this._benchmarkView.refresh();
   }
 
   private async _synchronizeAndMonitor(

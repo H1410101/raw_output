@@ -28,46 +28,62 @@ export class ScenarioNameWidthManager {
     scenarios: BenchmarkScenario[],
     multiplier: number,
   ): number {
-    if (scenarios.length === 0) {
+    if (scenarios.length === 0 || document.fonts.status !== "loaded") {
       return 15;
     }
 
-    const masterScale: number = this._getMasterScale();
-    const rootFontSize: number = this._getRootFontSize();
-    const unscaledRootFontSize: number = rootFontSize / masterScale;
+    const fontConfig = this._getFontConfig();
 
+    if (!fontConfig.weight || !fontConfig.family) {
+      return 15;
+    }
+
+    this._prepareContext(fontConfig, multiplier);
+
+    const maxPx: number = this._measureMaxScenarioWidth(scenarios);
+    const unscaledRootFontSize: number =
+      this._getRootFontSize() / this._getMasterScale();
+
+    const widthRem: number = maxPx / unscaledRootFontSize + 2.6;
+    this._maxNameWidth = Math.max(15, widthRem);
+
+    return this._maxNameWidth;
+  }
+
+  private _getFontConfig(): { weight: string; family: string } {
     const styles: CSSStyleDeclaration = window.getComputedStyle(
       document.documentElement,
     );
-    const weight: string = styles
-      .getPropertyValue("--scenario-name-weight")
-      .trim();
-    const family: string = styles
-      .getPropertyValue("--scenario-name-family")
-      .trim();
 
-    if (!weight || !family || document.fonts.status !== "loaded") {
-      return 15;
-    }
+    return {
+      weight: styles.getPropertyValue("--scenario-name-weight").trim(),
+      family: styles.getPropertyValue("--scenario-name-family").trim(),
+    };
+  }
+
+  private _prepareContext(
+    config: { weight: string; family: string },
+    multiplier: number,
+  ): void {
+    const masterScale: number = this._getMasterScale();
+    const unscaledRootFontSize: number = this._getRootFontSize() / masterScale;
 
     const baseRem: number = 0.9;
     const currentFontSizePx: number =
       baseRem * unscaledRootFontSize * multiplier * masterScale;
 
-    this._context.font = `${weight} ${currentFontSizePx}px ${family}`;
+    this._context.font = `${config.weight} ${currentFontSizePx}px ${config.family}`;
+  }
 
+  private _measureMaxScenarioWidth(scenarios: BenchmarkScenario[]): number {
     let maxPx: number = 0;
+
     scenarios.forEach((scenario: BenchmarkScenario): void => {
       const metrics: TextMetrics = this._context.measureText(scenario.name);
       maxPx = Math.max(maxPx, metrics.width);
     });
 
-    const paddingRem: number = 2.6;
-    const widthRem: number = maxPx / unscaledRootFontSize + paddingRem;
-
-    this._maxNameWidth = Math.max(15, widthRem);
-
-    return this._maxNameWidth;
+    return maxPx;
   }
 
   /**

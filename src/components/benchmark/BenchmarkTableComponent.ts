@@ -66,7 +66,7 @@ export class BenchmarkTableComponent {
     const scrollArea: HTMLDivElement = document.createElement("div");
     const scrollThumb: HTMLDivElement = document.createElement("div");
 
-    tableContainer.className = "benchmark-table-container";
+    tableContainer.className = "benchmark-table-container pane-container";
     scrollArea.className = "benchmark-table";
     scrollThumb.className = "custom-scroll-thumb";
 
