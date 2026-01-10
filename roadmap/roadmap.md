@@ -115,9 +115,9 @@
 - **Deliverable**: A lint script that enforces the use of relative units (rem, vw) over pixels.
 - **Commit Goal**: Pixel usage is strictly audited, and any new violations block the commit process.
 
-#### Checkpoint 2.17.4: Size Tuning
-- **Deliverable**: Refinement of element sizing and spacing.
-- **Commit Goal**: UI elements are scaled for optimal density and visual balance.
+#### Checkpoint 2.17.4: Dynamic Vertical Label Sizing
+- **Deliverable**: Refactor vertical label containers to automatically adjust their width based on text content and scaling.
+- **Commit Goal**: Category and subcategory labels respect their child dimensions, allowing for long names and fluid font scaling without clipping.
 
 #### Checkpoint 2.17.5: Theme Fine-tuning
 - **Deliverable**: Visual polish for both themes.

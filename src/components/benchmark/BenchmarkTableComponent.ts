@@ -110,7 +110,7 @@ export class BenchmarkTableComponent {
       this._visualSettings.showSessionBest !== settings.showSessionBest ||
       this._visualSettings.showAllTimeBest !== settings.showAllTimeBest ||
       this._visualSettings.scenarioFontSize !== settings.scenarioFontSize ||
-      this._visualSettings.masterScaling !== settings.masterScaling;
+      this._visualSettings.uiScaling !== settings.uiScaling;
 
     if (structuralChange) {
       return true;

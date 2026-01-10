@@ -671,26 +671,24 @@
             .vertical-label-container {
                 grid-row: 1 / span 2;
                 grid-column: 1;
-                display: block;
-                padding: 0.4rem 0.1rem;
+                display: flex;
+                align-items: flex-start;
+                justify-content: center;
+                padding: 0.4rem 0.2rem;
                 background: rgba(var(--highlight-bg-1-rgb), 0.3);
                 border-right: 1px solid var(--glass-border);
-                min-width: 1.25rem;
-                position: relative;
             }
 
             .category-label {
                 background: rgba(var(--highlight-bg-1-rgb), 0.5);
-                min-width: 1.5rem;
             }
 
             .vertical-text {
-                position: absolute;
+                position: relative;
+                top: 50%;
                 display: block;
                 writing-mode: vertical-rl;
-                transform: translate(-50%, -50%) rotate(180deg);
-                top: 50%;
-                left: 50%;
+                transform: translateY(-50%) rotate(180deg);
                 text-transform: none;
                 letter-spacing: 0.1em;
                 font-size: calc(0.9rem * var(--label-font-multiplier));
@@ -698,7 +696,7 @@
                 color: var(--text-dim);
                 white-space: nowrap;
                 pointer-events: none;
-                padding: 2rem 0;
+                padding: 1rem 0;
             }
 
             .category-label .vertical-text {

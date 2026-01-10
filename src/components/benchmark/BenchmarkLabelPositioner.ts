@@ -50,7 +50,8 @@ export class BenchmarkLabelPositioner {
   private _updateAllLabelPositions(): void {
     const labels: NodeListOf<HTMLElement> =
       this._scrollContainer.querySelectorAll(".vertical-text");
-    const containerRectangle: DOMRect = this._scrollContainer.getBoundingClientRect();
+    const containerRectangle: DOMRect =
+      this._scrollContainer.getBoundingClientRect();
 
     labels.forEach((label: HTMLElement): void => {
       this._updateSingleLabelPosition(label, containerRectangle);
@@ -101,11 +102,18 @@ export class BenchmarkLabelPositioner {
       containerRectangle.bottom,
     );
 
-    const visibleHeight: number = Math.max(0, visibleBottomEdge - visibleTopEdge);
+    const visibleHeight: number = Math.max(
+      0,
+      visibleBottomEdge - visibleTopEdge,
+    );
     const visibleCenterY: number = visibleTopEdge + visibleHeight / 2;
     const relativeCenterInTrack: number = visibleCenterY - trackRectangle.top;
 
-    this._applyClampedLabelPosition(label, relativeCenterInTrack, trackRectangle.height);
+    this._applyClampedLabelPosition(
+      label,
+      relativeCenterInTrack,
+      trackRectangle.height,
+    );
   }
 
   private _applyClampedLabelPosition(
