@@ -97,7 +97,37 @@
 - **Deliverable**: Subtle glow shadow behind the "Raw Output" title that reacts to background ripples.
 - **Commit Goal**: The application title exhibits a dynamic glow in sync with the background grid's ripple effects.
 
-### Checkpoint 2.17: SFX Identity
+### Checkpoint 2.17: UI Redesign & Navigation
+
+#### Checkpoint 2.17.0: Triple Action Header
+- **Deliverable**: Updated header with three action buttons.
+- **Commit Goal**: Top right header contains folder, theme, and settings buttons in that order.
+
+#### Checkpoint 2.17.1: Advanced Folder Settings View
+- **Deliverable**: Two-column layout for folder configuration.
+- **Commit Goal**: Folder settings are presented in a clear, two-column interface.
+
+#### Checkpoint 2.17.2: Dual Theme Support
+- **Deliverable**: Implementation of Light Mode alongside Dark Mode.
+- **Commit Goal**: The application supports switching between light and dark themes.
+
+#### Checkpoint 2.17.3: Theme Fine-tuning
+- **Deliverable**: Visual polish for both themes.
+- **Commit Goal**: Contrast, colors, and shadows are optimized for the new theme system.
+
+#### Checkpoint 2.17.4: Rank Legend
+- **Deliverable**: Interactive or static rank legend.
+- **Commit Goal**: A legend explaining rank colors and thresholds is added to the UI.
+
+#### Checkpoint 2.17.5: Custom Difficulty Sorting
+- **Deliverable**: Dynamic difficulty ordering.
+- **Commit Goal**: Difficulty tabs can be ordered non-lexicographically via configuration.
+
+#### Checkpoint 2.17.6: Intuitive Scroll Jump
+- **Deliverable**: Enhanced scrollbar track interaction.
+- **Commit Goal**: Clicking the scrollbar track jumps the view directly to that position.
+
+### Checkpoint 2.18: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application has a distinctive sound bank that matches the theme.
 

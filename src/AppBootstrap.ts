@@ -135,6 +135,11 @@ export class AppBootstrap {
   }
 
   private _setupActionListeners(): void {
+    this._getRequiredButton("header-settings-btn").addEventListener(
+      "click",
+      (): void => this._benchmarkView.openSettings(),
+    );
+
     this._getRequiredButton("link-folder-button").addEventListener(
       "click",
       (): Promise<void> => this._handleManualFolderSelection(),

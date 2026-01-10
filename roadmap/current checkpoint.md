@@ -1,10 +1,10 @@
 ```raw_output\roadmap\current checkpoint.md#L1-10
-# Current Checkpoint: 2.16.14: Reactive Title Glow
+# Current Checkpoint: 2.17.0: Triple Action Header
 
 ## Status
-Done
+In Progress
 
 ## Deliverables
-- [x] Implement a subtle glow shadow behind the "Raw Output" title.
-- [x] Integrate the glow with the dynamic ripple system so it only appears when ripples pass through.
-- [x] Ensure the glow logic matches the dynamic background/dot grid behavior.
+- [ ] Implement three buttons on the top right of the header.
+- [ ] Order buttons as: Folder, Theme, and Settings.
+- [ ] Ensure buttons are visually consistent with the existing UI style.

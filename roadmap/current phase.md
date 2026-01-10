@@ -43,4 +43,11 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.16.11: Navigation Consolidation & Slider Polish
 - [x] 2.16.12: Header Layout & Scroll Precision
 - [x] 2.16.13: Visual Rounding Consistency
-- [ ] 2.17: SFX Identity
+- [ ] 2.17.0: Triple Action Header
+- [ ] 2.17.1: Advanced Folder Settings View
+- [ ] 2.17.2: Dual Theme Support
+- [ ] 2.17.3: Theme Fine-tuning
+- [ ] 2.17.4: Rank Legend
+- [ ] 2.17.5: Custom Difficulty Sorting
+- [ ] 2.17.6: Intuitive Scroll Jump
+- [ ] 2.18: SFX Identity
