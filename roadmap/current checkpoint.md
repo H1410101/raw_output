@@ -1,12 +1,10 @@
-# Current Checkpoint: 2.17.7: Dynamic Glass Spacing & Rounding Refinement
+# Current Checkpoint: 2.17.4: All-Rank Performance Display
 
 ## Status
-Completed
+In Progress
 
 ## Deliverables
-- [x] Apply `calc(1.5rem * var(--vertical-spacing-multiplier))` to all glass pane margins, radii, and padding across the application.
-- [x] Synchronize the benchmark table's custom scroll track boundaries with the dynamic spacing.
-- [x] Update `BenchmarkScrollController` to calculate track padding dynamically based on the vertical spacing multiplier.
-- [x] Harmonize rounding consistency for settings overlays, navigation items, and result cards to scale with density.
-- [x] Refine the scroll track "cut-out" effect to maintain visual depth as margins shift.
-- [x] Create architecture document `docs/checkpoints/phase 2/checkpoint 2.17.7 architecture.md`.
+- [ ] Implement a visual legend or expanded view within benchmark rows.
+- [ ] Ensure all rank thresholds (historical and upcoming) are visible for the active benchmark.
+- [ ] Maintain consistent scaling and alignment within the existing table structure.
+- [ ] Create architecture document `docs/checkpoints/phase 2/checkpoint 2.17.4 architecture.md`.

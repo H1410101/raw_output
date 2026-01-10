@@ -99,49 +99,37 @@
 
 ### Checkpoint 2.17: UI Redesign & Navigation
 
-#### Checkpoint 2.17.0: Triple Action Header
+#### Checkpoint 2.17.0: Triple Action Header (Done)
 - **Deliverable**: Updated header with three action buttons.
 - **Commit Goal**: Top right header contains folder, theme, and settings buttons in that order.
 
-#### Checkpoint 2.17.1: Advanced Folder Settings View
+#### Checkpoint 2.17.1: Advanced Folder Settings View (Done)
 - **Deliverable**: Two-column layout for folder configuration.
 - **Commit Goal**: Folder settings are presented in a clear, two-column interface.
 
-#### Checkpoint 2.17.2: Dual Theme Support
+#### Checkpoint 2.17.2: Dual Theme Support (Done)
 - **Deliverable**: Implementation of Light Mode alongside Dark Mode.
 - **Commit Goal**: The application supports switching between light and dark themes.
 
-#### Checkpoint 2.17.3: Scaling Unit Linting
-- **Deliverable**: A lint script that enforces the use of relative units (rem, vw) over pixels.
-- **Commit Goal**: Pixel usage is strictly audited, and any new violations block the commit process.
+#### Checkpoint 2.17.3: UI & Navigation Consolidation (Done)
+- **Deliverable**: Combined implementation of unit linting, dynamic label sizing, theme fine-tuning, folder refinement, and glass aesthetic scaling.
+- **Commit Goal**: Codebase is linted for rem units, labels scale without clipping, interaction states are unified, and glass panels/scrollbars respond dynamically to vertical density.
 
-#### Checkpoint 2.17.4: Dynamic Vertical Label Sizing (Done)
-- **Deliverable**: Refactor vertical label containers to automatically adjust their width based on text content and scaling.
-- **Commit Goal**: Category and subcategory labels respect their child dimensions, allowing for long names and fluid font scaling without clipping.
+#### Checkpoint 2.17.4: All-Rank Performance Display
+- **Deliverable**: A visual legend or expanded view within benchmark rows showing all rank thresholds for the current scenario.
+- **Commit Goal**: Users can see all upcoming and historical rank thresholds simultaneously for the active benchmark.
 
-#### Checkpoint 2.17.5: Theme Fine-tuning (Done)
-- **Deliverable**: Visual polish for both themes.
-- **Commit Goal**: Contrast, colors, and shadows are optimized for the new theme system.
+#### Checkpoint 2.17.5: Dynamic Benchmark Ordering
+- **Deliverable**: The ability to sort or reorder benchmarks dynamically based on performance or manual configuration.
+- **Commit Goal**: Benchmark list order responds to dynamic criteria beyond lexicographical sorting.
 
-#### Checkpoint 2.17.6: Stats Folder View Refinement (Done)
-- **Deliverable**: Improved layout for folder view and synchronized navigation highlighting.
-- **Commit Goal**: Introduction text is vertically centered and Benchmark button un-highlights/links correctly during folder management.
+#### Checkpoint 2.17.6: Scroll Thumb Jump
+- **Deliverable**: Interactive scrollbar track that jumps the view directly to the clicked position.
+- **Commit Goal**: Clicking the scrollbar track moves the scroll thumb and view content to that exact proportional height.
 
-#### Checkpoint 2.17.7: Dynamic Glass Spacing & Rounding Refinement (Done)
-- **Deliverable**: All glass panel margins, radii, and scroll track offsets respond dynamically to the vertical spacing setting.
-- **Commit Goal**: The UI maintains a natural, cohesive look as density changes, with synchronized scroll thumb boundaries and harmonized rounding.
-
-#### Checkpoint 2.17.8: Rank Legend
-- **Deliverable**: Interactive or static rank legend.
-- **Commit Goal**: A legend explaining rank colors and thresholds is added to the UI.
-
-#### Checkpoint 2.17.9: Custom Difficulty Sorting
-- **Deliverable**: Dynamic difficulty ordering.
-- **Commit Goal**: Difficulty tabs can be ordered non-lexicographically via configuration.
-
-#### Checkpoint 2.17.10: Intuitive Scroll Jump
-- **Deliverable**: Enhanced scrollbar track interaction.
-- **Commit Goal**: Clicking the scrollbar track jumps the view directly to that position.
+#### Checkpoint 2.17.7: Strategic Introduction placement
+- **Deliverable**: Relocation of application introduction and setup instructions behind the primary title button.
+- **Commit Goal**: The main title acts as a gateway to the introduction text, cleaning up the primary dashboard real estate.
 
 ### Checkpoint 2.18: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.
