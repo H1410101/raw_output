@@ -135,11 +135,34 @@ export class AppBootstrap {
   }
 
   private _setupActionListeners(): void {
-    this._getRequiredButton("header-settings-btn").addEventListener(
-      "click",
-      (): void => this._benchmarkView.openSettings(),
-    );
+    this._setupHeaderActions();
 
+    this._setupStatusActions();
+  }
+
+  private _setupHeaderActions(): void {
+    const settingsBtn = this._getRequiredButton("header-settings-btn");
+
+    settingsBtn.addEventListener("click", (): void => {
+      this._animateButton(settingsBtn);
+
+      this._benchmarkView.openSettings();
+    });
+
+    const themeBtn = this._getRequiredButton("header-theme-btn");
+
+    themeBtn.addEventListener("click", (): void => {
+      this._animateButton(themeBtn);
+    });
+
+    const folderBtn = this._getRequiredButton("header-folder-btn");
+
+    folderBtn.addEventListener("click", (): void => {
+      this._animateButton(folderBtn);
+    });
+  }
+
+  private _setupStatusActions(): void {
     this._getRequiredButton("link-folder-button").addEventListener(
       "click",
       (): Promise<void> => this._handleManualFolderSelection(),
@@ -154,6 +177,14 @@ export class AppBootstrap {
       "click",
       (): void => this._handleFolderRemoval(),
     );
+  }
+
+  private _animateButton(button: HTMLButtonElement): void {
+    button.classList.add("clicked");
+
+    setTimeout((): void => {
+      button.classList.remove("clicked");
+    }, 50);
   }
 
   private async _attemptInitialReconnection(): Promise<void> {
