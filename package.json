@@ -9,9 +9,10 @@
     "preview": "vite preview",
     "release": "standard-version",
     "prepare": "husky",
-    "lint": "eslint .",
+    "lint": "eslint . && npm run lint:colors && npm run lint:scaling",
     "lint:fix": "eslint . --fix",
-    "lint:colors": "node scripts/verify_palette_usage.js"
+    "lint:colors": "node scripts/verify_palette_usage.js",
+    "lint:scaling": "node scripts/verify_scaling.js"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.0",

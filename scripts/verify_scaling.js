@@ -2,19 +2,20 @@ import fs from "fs";
 import path from "path";
 
 /**
- * Responsibility: Verify that no hardcoded colors are used in the product codebase.
- * Colors must reference functional tokens. Only src/styles/palette.css is allowed
- * to contain hex/rgb(a) color literals or raw RGB triplets for the sake of centralized definition.
+ * Responsibility: Verify that absolute pixel units are not used for layout or sizing.
+ * Exceptions are made for 1px/2px hairline borders or shadows, and large off-screen
+ * constants used for masking/hiding elements.
  */
 
 const TARGET_DIRECTORIES = ["src"];
 
 const TARGET_FILES = ["index.html"];
 
-const PALETTE_FILE = path.join("src", "styles", "palette.css");
+const PX_LITERAL_REGEX = /\b(\d+(?:\.\d+)?)px\b/gi;
 
-const COLOR_LITERAL_REGEX =
-  /#([a-f0-9]{6}|[a-f0-9]{3})\b|(?<!\.)\b((?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\b(?!\.)\s*,\s*(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\b(?!\.)\s*,\s*(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\b(?!\.))/gi;
+const ALLOWED_PIXEL_VALUES = new Set(["0", "1", "2"]);
+
+const MINIMUM_OFFSCREEN_THRESHOLD = 500;
 
 const VIOLATIONS = [];
 
@@ -24,14 +25,12 @@ function _walk_directory(directory) {
   for (const entry of entries) {
     const full_path = path.join(directory, entry.name);
 
-    if (full_path === PALETTE_FILE) continue;
-
     if (entry.isDirectory()) {
       _walk_directory(full_path);
     } else if (
       entry.isFile() &&
       (entry.name.endsWith(".ts") ||
-        entry.name.endsWith(".js") ||
+        entry.name.endsWith(".tsx") ||
         entry.name.endsWith(".css"))
     ) {
       _verify_file(full_path);
@@ -45,40 +44,56 @@ function _verify_file(file_path) {
   const lines = content.split("\n");
 
   lines.forEach((line, index) => {
-    if (/\b\d+\b(?:\s*,\s*\b\d+\b){4,}/.test(line)) return;
+    let match;
 
-    const matches = line.match(COLOR_LITERAL_REGEX);
+    while ((match = PX_LITERAL_REGEX.exec(line)) !== null) {
+      const pixel_value_string = match[1];
 
-    if (!matches) return;
+      const pixel_value = Math.abs(parseFloat(pixel_value_string));
 
-    matches.forEach((match) => {
-      VIOLATIONS.push({
-        file: file_path,
-        line: index + 1,
-        color: match,
-        context: line.trim(),
-      });
-    });
+      if (_is_violation(pixel_value, line)) {
+        VIOLATIONS.push({
+          file: file_path,
+          line: index + 1,
+          value: match[0],
+          context: line.trim(),
+        });
+      }
+    }
   });
+}
+
+function _is_violation(pixel_value, line) {
+  if (line.includes("rootMargin")) {
+    return false;
+  }
+
+  if (pixel_value >= MINIMUM_OFFSCREEN_THRESHOLD) {
+    return false;
+  }
+
+  if (ALLOWED_PIXEL_VALUES.has(pixel_value.toString())) {
+    return false;
+  }
+
+  return true;
 }
 
 function _report_and_exit() {
   if (VIOLATIONS.length === 0) {
-    console.log("Success: No hardcoded colors found outside of palette.css.");
+    console.log("Success: No unauthorized pixel units found.");
     process.exit(0);
   }
 
   VIOLATIONS.forEach((violation) => {
     console.error(
-      `Violation at ${violation.file}:${violation.line} -> Hardcoded color/triplet "${violation.color}" found.`,
+      `Violation at ${violation.file}:${violation.line} -> Unauthorized unit "${violation.value}" found.`,
     );
     console.error(`  Context: ${violation.context}\n`);
   });
 
   console.error(`Total violations: ${VIOLATIONS.length}`);
-  console.error(
-    "All colors must be defined in src/styles/palette.css and used via var(--token-name).",
-  );
+  console.error("Use relative units (rem, vw, vh) for scaling. 1rem = 16px.");
 
   process.exit(1);
 }

@@ -187,13 +187,17 @@ export class SettingsUiFactory {
 
     items.forEach((item: Element, index: number): void => {
       const element = item as HTMLElement;
-      this._applyTransitionToItem(element, index, oldIndex, context.index);
+      this._applyTransitionToItem(element, index, oldIndex);
       this._applyItemState(element, index, context.index, trackType);
     });
   }
 
   /**
    * Resolves the visual target and logical index based on the presence of an external notch.
+   *
+   * @param track - The track element to resolve context for.
+   * @param newIndex - The newly selected index.
+   * @returns An object containing the target element and adjusted index.
    */
   private static _resolveVisualContext(
     track: HTMLElement,
@@ -264,6 +268,7 @@ export class SettingsUiFactory {
     }
 
     sliderContainer.appendChild(track);
+
     return sliderContainer;
   }
 
@@ -503,9 +508,8 @@ export class SettingsUiFactory {
     item: HTMLElement,
     index: number,
     oldIndex: number,
-    newIndex: number,
   ): void {
-    const distance = this._calculateWaveDistance(index, oldIndex, newIndex);
+    const distance = this._calculateWaveDistance(index, oldIndex);
     const delay = distance * 0.03;
 
     item.style.transition =
@@ -516,7 +520,6 @@ export class SettingsUiFactory {
   private static _calculateWaveDistance(
     itemIndex: number,
     oldIndex: number,
-    _newIndex: number,
   ): number {
     if (oldIndex === -1) {
       return 0;

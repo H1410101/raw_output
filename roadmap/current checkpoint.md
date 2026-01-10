@@ -1,13 +1,13 @@
-```raw_output\roadmap\current checkpoint.md#L1-16
-# Current Checkpoint: 2.17.2: Dual Theme Support
+```raw_output\roadmap\current checkpoint.md#L1-12
+# Current Checkpoint: 2.17.3: Scaling Unit Linting
 
 ## Status
 Completed
 
 ## Deliverables
-- [x] Define the light mode palette in `palette.css` following the provided color specification.
-- [x] Update theme management logic to support toggling between dark and light modes.
-- [x] Ensure background ripples and bands adapt to the active theme.
-- [x] Hook up the theme toggle button in the header to trigger the theme switch.
-- [x] Implement the "lower band" and "upper band" principles for the new light theme.
-- [x] Maintain consistent visual identity across both themes using the centralized palette.
+- [x] Implement `scripts/verify_scaling.js` with regex-based detection of absolute pixel units.
+- [x] Define exceptions for 1px/2px hairline borders and large off-screen masking constants.
+- [x] Create architecture document `docs/checkpoints/phase 2/checkpoint 2.17.3 architecture.md`.
+- [x] Add `lint:scaling` script to `package.json`.
+- [x] Fix existing `px` violations in the codebase.
+- [x] Integrate into pre-commit husky hooks.

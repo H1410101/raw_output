@@ -111,19 +111,27 @@
 - **Deliverable**: Implementation of Light Mode alongside Dark Mode.
 - **Commit Goal**: The application supports switching between light and dark themes.
 
-#### Checkpoint 2.17.3: Theme Fine-tuning
+#### Checkpoint 2.17.3: Scaling Unit Linting
+- **Deliverable**: A lint script that enforces the use of relative units (rem, vw) over pixels.
+- **Commit Goal**: Pixel usage is strictly audited, and any new violations block the commit process.
+
+#### Checkpoint 2.17.4: Size Tuning
+- **Deliverable**: Refinement of element sizing and spacing.
+- **Commit Goal**: UI elements are scaled for optimal density and visual balance.
+
+#### Checkpoint 2.17.5: Theme Fine-tuning
 - **Deliverable**: Visual polish for both themes.
 - **Commit Goal**: Contrast, colors, and shadows are optimized for the new theme system.
 
-#### Checkpoint 2.17.4: Rank Legend
+#### Checkpoint 2.17.6: Rank Legend
 - **Deliverable**: Interactive or static rank legend.
 - **Commit Goal**: A legend explaining rank colors and thresholds is added to the UI.
 
-#### Checkpoint 2.17.5: Custom Difficulty Sorting
+#### Checkpoint 2.17.7: Custom Difficulty Sorting
 - **Deliverable**: Dynamic difficulty ordering.
 - **Commit Goal**: Difficulty tabs can be ordered non-lexicographically via configuration.
 
-#### Checkpoint 2.17.6: Intuitive Scroll Jump
+#### Checkpoint 2.17.8: Intuitive Scroll Jump
 - **Deliverable**: Enhanced scrollbar track interaction.
 - **Commit Goal**: Clicking the scrollbar track jumps the view directly to that position.
 

@@ -28,6 +28,12 @@ export class SettingsSectionRenderer {
    */
   private readonly _sessionSettingsService: SessionSettingsService;
 
+  /**
+   * Initializes the renderer with required services.
+   *
+   * @param visualSettingsService - Service for managing visual configuration.
+   * @param sessionSettingsService - Service for managing session-specific settings.
+   */
   public constructor(
     visualSettingsService: VisualSettingsService,
     sessionSettingsService: SessionSettingsService,
@@ -283,21 +289,19 @@ export class SettingsSectionRenderer {
 
     this._appendScalingSubRows(subRowsContainer, settings);
 
-    const masterScaling: HTMLElement = SettingsUiFactory.createSegmentedControl(
-      {
-        label: "Master Scale",
-        options: SettingsSectionRenderer._scalingOptions,
-        currentValue: settings.masterScaling,
-        onChange: (val: string): void =>
-          this._visualSettingsService.updateSetting(
-            "masterScaling",
-            val as ScalingLevel,
-          ),
-      },
-    );
+    const uiScaling: HTMLElement = SettingsUiFactory.createSegmentedControl({
+      label: "UI Scale",
+      options: SettingsSectionRenderer._scalingOptions,
+      currentValue: settings.uiScaling,
+      onChange: (val: string): void =>
+        this._visualSettingsService.updateSetting(
+          "uiScaling",
+          val as ScalingLevel,
+        ),
+    });
 
     container.appendChild(
-      SettingsUiFactory.createSettingsGroup(masterScaling, subRowsContainer),
+      SettingsUiFactory.createSettingsGroup(uiScaling, subRowsContainer),
     );
   }
 

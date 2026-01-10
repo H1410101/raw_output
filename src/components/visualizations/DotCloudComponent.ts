@@ -36,7 +36,7 @@ export class DotCloudComponent {
   private _canvasWidth: number = 0;
   private _canvasHeight: number = 0;
   private _dotRadius: number = 0;
-  private _totalScale: number = 1;
+  private _uiScaling: number = 1;
 
   private _canvas: HTMLCanvasElement | null = null;
   private _renderer: DotCloudCanvasRenderer | null = null;
@@ -193,7 +193,7 @@ export class DotCloudComponent {
     this._initializeDimensions();
 
     const dpr: number = window.devicePixelRatio || 1;
-    this._totalScale = dpr * 2;
+    this._uiScaling = dpr * 2;
 
     this._canvas = canvas;
 
@@ -247,8 +247,8 @@ export class DotCloudComponent {
       return;
     }
 
-    this._canvas.width = Math.round(this._canvasWidth * this._totalScale);
-    this._canvas.height = Math.round(this._canvasHeight * this._totalScale);
+    this._canvas.width = Math.round(this._canvasWidth * this._uiScaling);
+    this._canvas.height = Math.round(this._canvasHeight * this._uiScaling);
 
     this._canvas.style.width = `${this._canvasWidth}px`;
     this._canvas.style.height = `${this._canvasHeight}px`;
@@ -324,7 +324,7 @@ export class DotCloudComponent {
     context: CanvasRenderingContext2D,
     padding: number,
   ): void {
-    context.setTransform(this._totalScale, 0, 0, this._totalScale, 0, 0);
+    context.setTransform(this._uiScaling, 0, 0, this._uiScaling, 0, 0);
 
     context.clearRect(0, 0, this._canvasWidth, this._canvasHeight);
 

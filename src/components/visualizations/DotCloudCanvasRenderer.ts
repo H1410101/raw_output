@@ -1,6 +1,6 @@
 import { VisualSettings } from "../../services/VisualSettingsService";
 import { RankScaleMapper } from "./RankScaleMapper";
-import { ScalingService, ScalingLevel } from "../../services/ScalingService";
+import { ScalingLevel, SCALING_FACTORS } from "../../services/ScalingService";
 
 /**
  * Context for visual styling of an individual score dot.
@@ -493,11 +493,9 @@ export class DotCloudCanvasRenderer {
     canvasHeight: number,
     settings: VisualSettings,
   ): number {
-    const multiplier: number = ScalingService.calculateMultiplier(
-      settings.masterScaling,
-      settings.visRankFontSize,
-    );
-    const rankFontSize: number = rootFontSize * 0.5 * multiplier;
+    const factor: number =
+      SCALING_FACTORS[settings.visRankFontSize] ?? SCALING_FACTORS.Normal;
+    const rankFontSize: number = rootFontSize * 0.5 * factor;
     const gap: number = rankFontSize * 0.2;
     const labelBuffer: number = rankFontSize + gap;
 
@@ -512,11 +510,9 @@ export class DotCloudCanvasRenderer {
     rootFontSize: number,
     settings: VisualSettings,
   ): void {
-    const multiplier: number = ScalingService.calculateMultiplier(
-      settings.masterScaling,
-      settings.visRankFontSize,
-    );
-    const fontSize: number = rootFontSize * 0.5 * multiplier;
+    const factor: number =
+      SCALING_FACTORS[settings.visRankFontSize] ?? SCALING_FACTORS.Normal;
+    const fontSize: number = rootFontSize * 0.5 * factor;
 
     const styles: CSSStyleDeclaration = getComputedStyle(this._context.canvas);
     const weight: string = this._getStyleValue(styles, "--vis-label-weight");

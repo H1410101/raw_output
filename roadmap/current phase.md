@@ -46,8 +46,9 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.17.0: Triple Action Header
 - [x] 2.17.1: Advanced Folder Settings View
 - [x] 2.17.2: Dual Theme Support
-- [ ] 2.17.3: Theme Fine-tuning
-- [ ] 2.17.4: Rank Legend
-- [ ] 2.17.5: Custom Difficulty Sorting
-- [ ] 2.17.6: Intuitive Scroll Jump
+- [x] 2.17.3: Scaling Unit Linting
+- [ ] 2.17.4: Theme Fine-tuning
+- [ ] 2.17.5: Rank Legend
+- [ ] 2.17.6: Custom Difficulty Sorting
+- [ ] 2.17.7: Intuitive Scroll Jump
 - [ ] 2.18: SFX Identity

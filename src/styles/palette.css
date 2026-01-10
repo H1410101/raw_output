@@ -73,7 +73,7 @@
     --dull-color: var(--highlight-bg-1);
 
     /* Sizing & Proportions */
-    --master-scale: 1;
+    --ui-scale: 1;
     --vertical-spacing-multiplier: 1;
     --scenario-font-multiplier: 1;
     --rank-font-multiplier: 1;
