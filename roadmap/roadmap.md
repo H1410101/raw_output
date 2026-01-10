@@ -81,9 +81,13 @@
 - **Deliverable**: Scroll position persistence and intelligent focus transitions.
 - **Commit Goal**: The application remembers its scroll position across view changes and intelligently jumps to relevant scenarios.
 
-#### Checkpoint 2.16.11: Navigation Consolidation & Slider Polish (In Progress)
+#### Checkpoint 2.16.11: Navigation Consolidation & Slider Polish (Done)
 - **Deliverable**: Simplified navigation, dynamic benchmarks, and slider animation fixes.
 - **Commit Goal**: Recent/New views are removed, difficulty tabs are dynamic, and volume slider animations are corrected.
+
+#### Checkpoint 2.16.12: Header Layout & Scroll Precision (Done)
+- **Deliverable**: Centered navigation, "Not Soon" styling, and synchronized custom scrollbars.
+- **Commit Goal**: Navigation is centered, "Not Soon" has non-interactive hover states, and scroll thumbs are perfectly aligned across all views.
 
 ### Checkpoint 2.17: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.

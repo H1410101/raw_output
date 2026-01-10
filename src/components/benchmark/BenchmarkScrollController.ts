@@ -10,7 +10,7 @@ export class BenchmarkScrollController {
   private readonly _scrollContainer: HTMLElement;
   private readonly _scrollThumb: HTMLElement;
   private readonly _hoverContainer: HTMLElement;
-  private readonly _appStateService: AppStateService;
+  private readonly _appStateService: AppStateService | null;
 
   private _autoScrollTimer: number | null = null;
   private _activeScrollDirection: number = 0;
@@ -30,7 +30,7 @@ export class BenchmarkScrollController {
     scrollContainer: HTMLElement,
     scrollThumb: HTMLElement,
     hoverContainer: HTMLElement,
-    appStateService: AppStateService,
+    appStateService: AppStateService | null = null,
   ) {
     this._scrollContainer = scrollContainer;
     this._scrollThumb = scrollThumb;
@@ -60,9 +60,11 @@ export class BenchmarkScrollController {
   }
 
   private _persistScrollPosition(): void {
-    this._appStateService.setBenchmarkScrollTop(
-      this._scrollContainer.scrollTop,
-    );
+    if (this._appStateService) {
+      this._appStateService.setBenchmarkScrollTop(
+        this._scrollContainer.scrollTop,
+      );
+    }
   }
 
   private _synchronizeThumbPosition(): void {
@@ -81,11 +83,11 @@ export class BenchmarkScrollController {
   }
 
   private _applyThumbTranslation(totalScrollRange: number): void {
-    const trackPadding: number = 32;
+    const trackPadding: number = this._calculateTrackPadding();
     const trackHeightLimit: number =
-      this._scrollContainer.clientHeight - trackPadding;
+      this._hoverContainer.clientHeight - trackPadding;
     const thumbElementHeight: number =
-      this._scrollThumb.offsetHeight || trackPadding;
+      this._scrollThumb.getBoundingClientRect().height || trackPadding;
     const availableTrackSpan: number = trackHeightLimit - thumbElementHeight;
 
     const scrollPercentageRatio: number =
@@ -117,7 +119,10 @@ export class BenchmarkScrollController {
     this._isUserDragging = true;
     this._dragStartMouseY = event.clientY;
     this._dragStartScrollTop = this._scrollContainer.scrollTop;
-    this._appStateService.setFocusedScenarioName(null);
+
+    if (this._appStateService) {
+      this._appStateService.setFocusedScenarioName(null);
+    }
 
     this._stopAutoScrollLoop();
     event.preventDefault();
@@ -141,11 +146,11 @@ export class BenchmarkScrollController {
     mouseDeltaY: number,
     totalScrollRange: number,
   ): void {
-    const trackPadding: number = 32;
+    const trackPadding: number = this._calculateTrackPadding();
     const trackHeightLimit: number =
-      this._scrollContainer.clientHeight - trackPadding;
+      this._hoverContainer.clientHeight - trackPadding;
     const thumbElementHeight: number =
-      this._scrollThumb.offsetHeight || trackPadding;
+      this._scrollThumb.getBoundingClientRect().height || trackPadding;
     const availableTrackSpan: number = trackHeightLimit - thumbElementHeight;
 
     if (availableTrackSpan <= 0) {
@@ -178,7 +183,9 @@ export class BenchmarkScrollController {
     this._scrollContainer.addEventListener(
       "wheel",
       (): void => {
-        this._appStateService.setFocusedScenarioName(null);
+        if (this._appStateService) {
+          this._appStateService.setFocusedScenarioName(null);
+        }
       },
       { passive: true },
     );
@@ -237,8 +244,20 @@ export class BenchmarkScrollController {
 
     this._stopAutoScrollLoop();
     this._activeScrollDirection = direction;
-    this._appStateService.setFocusedScenarioName(null);
+
+    if (this._appStateService) {
+      this._appStateService.setFocusedScenarioName(null);
+    }
+
     this._executeAutoScrollStep();
+  }
+
+  private _calculateTrackPadding(): number {
+    const remValue: number = parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
+
+    return remValue * 2;
   }
 
   private _executeAutoScrollStep(): void {

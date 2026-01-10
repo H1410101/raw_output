@@ -15,7 +15,7 @@ The benchmark system has been decoupled from hardcoded difficulty levels.
 The "Recent" and "New" views have been removed to streamline the user experience.
 
 ### UI Changes
-- **Simplified Header**: The navigation menu now contains a primary "Benchmarks" button and a non-functional "Not Soon" placeholder.
+- **Simplified Header**: The navigation menu now contains a primary "Benchmarks" button and a non-functional "Not Soon" placeholder, centered in the header using a grid-based layout.
 - **Visual Identity**: Navigation buttons and difficulty tabs now share a unified design language with benchmark rows:
     - **Hover**: Subtle white highlight (rgba(255, 255, 255, 0.02)).
     - **Active/Selected**: Background tint using the lower-band palette (rgba(61, 82, 122, 0.1)).
@@ -30,9 +30,21 @@ The "Recent" and "New" views have been removed to streamline the user experience
 ## 3. Style Unification
 
 - **Palette Integration**: Navigation and tab states now use semantic tokens from palette.css to ensure consistency across themes.
-- **Interaction Logic**: The "Not Soon" item uses a default cursor and specific hover logic to indicate its upcoming/placeholder status while maintaining the "lower-band" typography style.
+- **Interaction Logic**: The "Not Soon" item uses a default cursor and specific hover logic. Hovering triggers a background color change without a font color change to signify it is non-clickable.
 
-## 4. Slider Notch Animation & State Fix
+## 4. Custom Scrollbar Consistency & Precision
+
+The custom scrollbar implementation has been refined and standardized across the application.
+
+### Layout & Alignment
+- **Scroll Thumb Precision**: Fixed an issue where the scroll thumb would extend past the lower edge of its track. The calculation now correctly uses the hover container's dimensions.
+- **Settings Menu Scrollbar**: The settings menu now features the same custom scrollbar behavior as the benchmark table, including the `::before` cutout, inset shadows, and hover-to-scroll functionality.
+
+### Implementation Details
+- **Scroll Controller Generalization**: The `BenchmarkScrollController` was updated to handle cases where `AppStateService` is absent, allowing for reuse in non-persisted contexts like the settings menu.
+- **Z-Index Correction**: The `z-index` of scrollbar cutout elements has been synchronized to ensure they remain behind the content while correctly masking the background.
+
+## 5. Slider Notch Animation & State Fix
 
 The settings volume slider, which features a "left notch" for the 0% value, has been refined to fix animation direction and state persistence.
 

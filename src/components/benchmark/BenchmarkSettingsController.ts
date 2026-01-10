@@ -12,6 +12,7 @@ import {
 } from "../../services/FocusManagementService";
 import { BenchmarkService } from "../../services/BenchmarkService";
 import { SettingsSectionRenderer } from "./SettingsSectionRenderer";
+import { BenchmarkScrollController } from "./BenchmarkScrollController";
 
 /**
  * Orchestrates the display and interaction of the settings menu.
@@ -65,10 +66,16 @@ export class BenchmarkSettingsController {
     this._removeExistingOverlay();
 
     const overlay: HTMLElement = this._createOverlay();
+    const container: HTMLElement = this._createMenuContainer();
     const card: HTMLElement = this._createMenuCard();
+    const thumb: HTMLElement = this._createScrollThumb();
 
-    overlay.appendChild(card);
+    container.appendChild(card);
+    container.appendChild(thumb);
+    overlay.appendChild(container);
     document.body.appendChild(overlay);
+
+    this._initializeScrollController(card, thumb, container);
   }
 
   private _syncCurrentSettings(): void {
@@ -95,6 +102,34 @@ export class BenchmarkSettingsController {
     });
 
     return overlay;
+  }
+
+  private _createMenuContainer(): HTMLElement {
+    const container: HTMLDivElement = document.createElement("div");
+    container.className = "settings-menu-container";
+
+    return container;
+  }
+
+  private _createScrollThumb(): HTMLElement {
+    const thumb: HTMLDivElement = document.createElement("div");
+    thumb.className = "custom-scroll-thumb";
+
+    return thumb;
+  }
+
+  private _initializeScrollController(
+    scrollArea: HTMLElement,
+    thumb: HTMLElement,
+    container: HTMLElement,
+  ): void {
+    const controller: BenchmarkScrollController = new BenchmarkScrollController(
+      scrollArea,
+      thumb,
+      container,
+    );
+
+    controller.initialize();
   }
 
   private _subscribeToFocusEvents(): void {
