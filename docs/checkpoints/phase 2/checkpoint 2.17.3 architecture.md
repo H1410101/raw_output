@@ -1,4 +1,3 @@
-```raw_output\docs\checkpoints\phase 2\checkpoint 2.17.3 architecture.md#L1-28
 # Checkpoint 2.17.3 Architecture: Scaling Unit Linting
 
 ## Responsibility

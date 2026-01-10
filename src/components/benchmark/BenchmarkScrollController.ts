@@ -253,11 +253,18 @@ export class BenchmarkScrollController {
   }
 
   private _calculateTrackPadding(): number {
-    const remValue: number = parseFloat(
-      getComputedStyle(document.documentElement).fontSize,
+    const rootStyles: CSSStyleDeclaration = getComputedStyle(
+      document.documentElement,
     );
 
-    return remValue * 2;
+    const remSizePixels: number = parseFloat(rootStyles.fontSize);
+    const verticalSpacingMultiplier: number = parseFloat(
+      rootStyles.getPropertyValue("--vertical-spacing-multiplier") || "1",
+    );
+
+    const totalPaddingRems: number = 3;
+
+    return remSizePixels * totalPaddingRems * verticalSpacingMultiplier;
   }
 
   private _executeAutoScrollStep(): void {

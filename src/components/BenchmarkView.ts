@@ -74,6 +74,8 @@ export class BenchmarkView {
 
   private _activeDifficulty: DifficultyTier;
 
+  private _isRendering: boolean = false;
+
   private _refreshTimeoutId: number | null = null;
 
   private readonly _handleWindowResize: () => void = (): void => {
@@ -150,29 +152,63 @@ export class BenchmarkView {
   }
 
   /**
+   * Attempts to return to the benchmark table view from the folder settings view.
+   * This succeeds only if a folder is already linked and statistics have been found.
+   *
+   * @returns A promise that resolves to true if the folder view was dismissed.
+   */
+  public async tryReturnToTable(): Promise<boolean> {
+    if (!this._appStateService.getIsFolderViewOpen()) {
+      return false;
+    }
+
+    const isFolderLinked: boolean = !!this._directoryService.currentFolderName;
+    const lastCheck: number =
+      await this._historyService.getLastCheckTimestamp();
+
+    if (isFolderLinked && lastCheck > 0) {
+      await this._dismissFolderView();
+
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Renders the benchmark view content based on current state.
    */
   public async render(): Promise<void> {
-    this._cancelPendingRefresh();
-
-    if (document.fonts.status !== "loaded") {
-      await document.fonts.ready;
-    }
-
-    this._tableComponent?.destroy();
-    this._folderSettingsView?.destroy();
-    this._mountPoint.innerHTML = "";
-
-    const shouldShowFolder: boolean = await this._shouldShowFolderSettings();
-    this._updateHeaderButtonStates(shouldShowFolder);
-
-    if (shouldShowFolder) {
-      await this._renderFolderSettings();
-
+    if (this._isRendering) {
       return;
     }
 
-    await this._renderBenchmarkTable();
+    this._isRendering = true;
+
+    try {
+      this._cancelPendingRefresh();
+
+      if (document.fonts.status !== "loaded") {
+        await document.fonts.ready;
+      }
+
+      this._tableComponent?.destroy();
+      this._folderSettingsView?.destroy();
+      this._mountPoint.innerHTML = "";
+
+      const shouldShowFolder: boolean = await this._shouldShowFolderSettings();
+      this._updateHeaderButtonStates(shouldShowFolder);
+
+      if (shouldShowFolder) {
+        await this._renderFolderSettings();
+
+        return;
+      }
+
+      await this._renderBenchmarkTable();
+    } finally {
+      this._isRendering = false;
+    }
   }
 
   /**
@@ -291,15 +327,15 @@ export class BenchmarkView {
     const handlers = {
       onLinkFolder: async (): Promise<void> => {
         await this._folderActions.onLinkFolder();
-        this._dismissFolderView();
+        await this._dismissFolderView();
       },
       onForceScan: async (): Promise<void> => {
         await this._folderActions.onForceScan();
-        this._dismissFolderView();
+        await this._dismissFolderView();
       },
-      onUnlinkFolder: (): void => {
+      onUnlinkFolder: async (): Promise<void> => {
         this._folderActions.onUnlinkFolder();
-        this._dismissFolderView();
+        await this._dismissFolderView();
       },
     };
 
@@ -318,6 +354,8 @@ export class BenchmarkView {
     const settingsBtn: HTMLElement | null = document.getElementById(
       "header-settings-btn",
     );
+    const benchmarkNavBtn: HTMLElement | null =
+      document.getElementById("nav-benchmarks");
 
     if (folderBtn) {
       folderBtn.classList.toggle("active", isFolderActive);
@@ -329,11 +367,15 @@ export class BenchmarkView {
         this._appStateService.getIsSettingsMenuOpen(),
       );
     }
+
+    if (benchmarkNavBtn) {
+      benchmarkNavBtn.classList.toggle("active", !isFolderActive);
+    }
   }
 
-  private _dismissFolderView(): void {
+  private async _dismissFolderView(): Promise<void> {
     this._appStateService.setIsFolderViewOpen(false);
-    this.render();
+    await this.render();
   }
 
   private async _renderBenchmarkTable(): Promise<void> {

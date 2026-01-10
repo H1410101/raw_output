@@ -1,11 +1,12 @@
-```raw_output\roadmap\current checkpoint.md#L1-12
-# Current Checkpoint: 2.17.4: Dynamic Vertical Label Sizing
+# Current Checkpoint: 2.17.7: Dynamic Glass Spacing & Rounding Refinement
 
 ## Status
-In Progress
+Completed
 
 ## Deliverables
-- [ ] Refactor `.vertical-label-container` and `.vertical-text` CSS to allow the container to respect child label dimensions.
-- [ ] Ensure vertical labels remain centered and correctly oriented within their dynamic containers.
-- [ ] Verify that long category or subcategory names correctly expand the width of the label column.
-- [ ] Create architecture document `docs/checkpoints/phase 2/checkpoint 2.17.4 architecture.md`.
+- [x] Apply `calc(1.5rem * var(--vertical-spacing-multiplier))` to all glass pane margins, radii, and padding across the application.
+- [x] Synchronize the benchmark table's custom scroll track boundaries with the dynamic spacing.
+- [x] Update `BenchmarkScrollController` to calculate track padding dynamically based on the vertical spacing multiplier.
+- [x] Harmonize rounding consistency for settings overlays, navigation items, and result cards to scale with density.
+- [x] Refine the scroll track "cut-out" effect to maintain visual depth as margins shift.
+- [x] Create architecture document `docs/checkpoints/phase 2/checkpoint 2.17.7 architecture.md`.

@@ -316,6 +316,7 @@ export class SettingsSectionRenderer {
       this._createLaunchButtonSizeControl(settings),
       this._createHeaderFontControl(settings),
       this._createLabelFontControl(settings),
+      this._createCategorySpacingControl(settings),
       this._createDotCloudHeightControl(settings),
       this._createDotCloudWidthControl(settings),
     ];
@@ -400,6 +401,19 @@ export class SettingsSectionRenderer {
       onChange: (val: string): void =>
         this._visualSettingsService.updateSetting(
           "labelFontSize",
+          val as ScalingLevel,
+        ),
+    });
+  }
+
+  private _createCategorySpacingControl(settings: VisualSettings): HTMLElement {
+    return SettingsUiFactory.createSegmentedControl({
+      label: "Category Spacing",
+      options: SettingsSectionRenderer._scalingOptions,
+      currentValue: settings.categorySpacing,
+      onChange: (val: string): void =>
+        this._visualSettingsService.updateSetting(
+          "categorySpacing",
           val as ScalingLevel,
         ),
     });

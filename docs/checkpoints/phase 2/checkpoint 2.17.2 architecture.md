@@ -1,4 +1,3 @@
-```raw_output\docs\checkpoints\phase 2\checkpoint 2.17.2 architecture.md#L1-45
 # Checkpoint 2.17.2: Dual Theme Support Architecture
 
 This checkpoint introduces a secondary "Light Mode" theme to the application, implementing a toggle mechanism and ensuring all visual components (including Canvas-based visualizations) respond to theme changes.

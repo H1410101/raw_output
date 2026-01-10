@@ -14,6 +14,7 @@ export interface VisualSettings {
   launchButtonSize: ScalingLevel;
   headerFontSize: ScalingLevel;
   labelFontSize: ScalingLevel;
+  categorySpacing: ScalingLevel;
   dotCloudSize: ScalingLevel;
   dotCloudWidth: ScalingLevel;
   visRankFontSize: ScalingLevel;
@@ -103,6 +104,7 @@ export class VisualSettingsService {
     apply("--launch-button-multiplier", settings.launchButtonSize);
     apply("--header-font-multiplier", settings.headerFontSize);
     apply("--label-font-multiplier", settings.labelFontSize);
+    apply("--category-spacing-multiplier", settings.categorySpacing);
     apply("--dot-cloud-multiplier", settings.dotCloudSize);
     apply("--dot-cloud-width-multiplier", settings.dotCloudWidth);
     apply("--vis-rank-font-multiplier", settings.visRankFontSize);
@@ -139,6 +141,7 @@ export class VisualSettingsService {
       launchButtonSize: "Normal",
       headerFontSize: "Normal",
       labelFontSize: "Normal",
+      categorySpacing: "Normal",
       dotCloudSize: "Normal",
       dotCloudWidth: "Normal",
       visRankFontSize: "Normal",

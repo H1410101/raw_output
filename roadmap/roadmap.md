@@ -115,23 +115,31 @@
 - **Deliverable**: A lint script that enforces the use of relative units (rem, vw) over pixels.
 - **Commit Goal**: Pixel usage is strictly audited, and any new violations block the commit process.
 
-#### Checkpoint 2.17.4: Dynamic Vertical Label Sizing
+#### Checkpoint 2.17.4: Dynamic Vertical Label Sizing (Done)
 - **Deliverable**: Refactor vertical label containers to automatically adjust their width based on text content and scaling.
 - **Commit Goal**: Category and subcategory labels respect their child dimensions, allowing for long names and fluid font scaling without clipping.
 
-#### Checkpoint 2.17.5: Theme Fine-tuning
+#### Checkpoint 2.17.5: Theme Fine-tuning (Done)
 - **Deliverable**: Visual polish for both themes.
 - **Commit Goal**: Contrast, colors, and shadows are optimized for the new theme system.
 
-#### Checkpoint 2.17.6: Rank Legend
+#### Checkpoint 2.17.6: Stats Folder View Refinement (Done)
+- **Deliverable**: Improved layout for folder view and synchronized navigation highlighting.
+- **Commit Goal**: Introduction text is vertically centered and Benchmark button un-highlights/links correctly during folder management.
+
+#### Checkpoint 2.17.7: Dynamic Glass Spacing & Rounding Refinement (Done)
+- **Deliverable**: All glass panel margins, radii, and scroll track offsets respond dynamically to the vertical spacing setting.
+- **Commit Goal**: The UI maintains a natural, cohesive look as density changes, with synchronized scroll thumb boundaries and harmonized rounding.
+
+#### Checkpoint 2.17.8: Rank Legend
 - **Deliverable**: Interactive or static rank legend.
 - **Commit Goal**: A legend explaining rank colors and thresholds is added to the UI.
 
-#### Checkpoint 2.17.7: Custom Difficulty Sorting
+#### Checkpoint 2.17.9: Custom Difficulty Sorting
 - **Deliverable**: Dynamic difficulty ordering.
 - **Commit Goal**: Difficulty tabs can be ordered non-lexicographically via configuration.
 
-#### Checkpoint 2.17.8: Intuitive Scroll Jump
+#### Checkpoint 2.17.10: Intuitive Scroll Jump
 - **Deliverable**: Enhanced scrollbar track interaction.
 - **Commit Goal**: Clicking the scrollbar track jumps the view directly to that position.
 

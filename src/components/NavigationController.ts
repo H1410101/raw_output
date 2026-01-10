@@ -78,23 +78,25 @@ export class NavigationController {
   }
 
   private _restoreInitialTab(): void {
-    this._switchToBenchmarks();
+    this._updateVisibleView(this._viewBenchmarks);
+
+    this._appStateService.setActiveTabId("nav-benchmarks");
   }
 
   private async _switchToBenchmarks(): Promise<void> {
-    this._updateActiveNav(this._navBenchmarks);
+    const isAlreadyActive: boolean =
+      this._appStateService.getActiveTabId() === "nav-benchmarks";
+
+    const wasFolderDismissed: boolean =
+      await this._benchmarkView.tryReturnToTable();
 
     this._updateVisibleView(this._viewBenchmarks);
 
     this._appStateService.setActiveTabId("nav-benchmarks");
 
-    await this._benchmarkView.render();
-  }
-
-  private _updateActiveNav(activeButton: HTMLButtonElement): void {
-    this._navBenchmarks.classList.remove("active");
-
-    activeButton.classList.add("active");
+    if (!isAlreadyActive && !wasFolderDismissed) {
+      await this._benchmarkView.render();
+    }
   }
 
   private _updateVisibleView(visibleView: HTMLElement): void {

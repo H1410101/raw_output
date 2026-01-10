@@ -47,9 +47,10 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.17.1: Advanced Folder Settings View
 - [x] 2.17.2: Dual Theme Support
 - [x] 2.17.3: Scaling Unit Linting
-- [ ] 2.17.4: Dynamic Vertical Label Sizing
-- [ ] 2.17.5: Theme Fine-tuning
-- [ ] 2.17.6: Rank Legend
-- [ ] 2.17.7: Custom Difficulty Sorting
-- [ ] 2.17.8: Intuitive Scroll Jump
+- [x] 2.17.4: Dynamic Vertical Label Sizing
+- [x] 2.17.5: Theme Fine-tuning
+- [x] 2.17.6: Stats Folder View Refinement
+- [ ] 2.17.7: Rank Legend
+- [ ] 2.17.8: Custom Difficulty Sorting
+- [ ] 2.17.9: Intuitive Scroll Jump
 - [ ] 2.18: SFX Identity

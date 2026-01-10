@@ -184,11 +184,18 @@ export class FolderSettingsView {
     const intro: HTMLDivElement = document.createElement("div");
     intro.className = "app-introduction";
 
+    const topGroup: HTMLDivElement = document.createElement("div");
+    topGroup.className = "intro-top-group";
+
     const title: HTMLHeadingElement = document.createElement("h2");
     title.textContent = "Welcome to Raw Output!";
+    topGroup.appendChild(title);
 
     const separator: HTMLDivElement = document.createElement("div");
     separator.className = "folder-settings-separator intro-separator";
+
+    const bottomGroup: HTMLDivElement = document.createElement("div");
+    bottomGroup.className = "intro-bottom-group";
 
     const setupInstruction: HTMLParagraphElement = document.createElement("p");
     setupInstruction.textContent =
@@ -198,10 +205,12 @@ export class FolderSettingsView {
     pathInstruction.innerHTML =
       "This is located in<br><code>&lt;steam library&gt;/steamapps/common/FPSAimTrainer/FPSAimTrainer/stats</code>.";
 
-    intro.appendChild(title);
+    bottomGroup.appendChild(setupInstruction);
+    bottomGroup.appendChild(pathInstruction);
+
+    intro.appendChild(topGroup);
     intro.appendChild(separator);
-    intro.appendChild(setupInstruction);
-    intro.appendChild(pathInstruction);
+    intro.appendChild(bottomGroup);
 
     return intro;
   }

@@ -121,15 +121,21 @@ export class BenchmarkLabelPositioner {
     targetYPosition: number,
     trackHeight: number,
   ): void {
+    const labelTrack: HTMLElement = label.parentElement!;
+    const style: CSSStyleDeclaration = window.getComputedStyle(labelTrack);
+    const paddingTop: number = parseFloat(style.paddingTop) || 0;
+    const paddingBottom: number = parseFloat(style.paddingBottom) || 0;
+
     const labelHalfHeight: number = label.offsetHeight / 2;
-    const minimumTopOffset: number = labelHalfHeight;
-    const maximumTopOffset: number = trackHeight - labelHalfHeight;
+    const minimumTopOffset: number = labelHalfHeight + paddingTop;
+    const maximumTopOffset: number =
+      trackHeight - labelHalfHeight - paddingBottom;
 
     const clampedTopValue: number = Math.max(
       minimumTopOffset,
       Math.min(maximumTopOffset, targetYPosition),
     );
 
-    label.style.top = `${clampedTopValue}px`;
+    label.style.top = `${clampedTopValue - paddingTop}px`;
   }
 }
