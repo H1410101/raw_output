@@ -394,86 +394,6 @@
                 }
             }
 
-            .status-dropdown {
-                position: absolute;
-                top: 100%;
-                right: 0;
-                margin-top: 0.625rem;
-                background: rgba(var(--background-2-rgb), 0.2);
-                backdrop-filter: blur(1.5rem);
-                border: 1px solid var(--glass-border);
-                border-radius: 0.75rem;
-                padding: 1rem;
-                min-width: 15.625rem;
-                box-shadow: 0 0.625rem 1.875rem
-                    rgba(var(--background-2-rgb), 0.5);
-                opacity: 0;
-                visibility: hidden;
-                transform: translateY(-10px);
-                transition: all 0.2s ease;
-                z-index: 100;
-            }
-
-            .status-dot-container:hover .status-dropdown {
-                opacity: 1;
-                visibility: visible;
-                transform: translateY(0);
-            }
-
-            .dropdown-section {
-                margin-bottom: 1rem;
-            }
-
-            .dropdown-section:last-child {
-                margin-bottom: 0;
-            }
-
-            .dropdown-label {
-                font-size: 0.75rem;
-                text-transform: uppercase;
-                letter-spacing: 0.1em;
-                color: var(--lower-band-1);
-                margin-bottom: 0.5rem;
-                display: block;
-                font-weight: 800;
-            }
-
-            .folder-status-text {
-                font-size: 0.85rem;
-                color: var(--lower-band-2);
-                word-break: break-all;
-            }
-
-            .connected-text {
-                color: var(--upper-band-1);
-                font-weight: 300;
-            }
-
-            .status-actions {
-                display: flex;
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-
-            .action-btn {
-                background: var(--glass-bg);
-                border: 1px solid var(--glass-border);
-                color: var(--lower-band-2);
-                padding: 0.6rem;
-                border-radius: 0.5rem;
-                cursor: pointer;
-                font-family: inherit;
-                font-size: 0.75rem;
-                font-weight: 300;
-                text-align: left;
-                transition: all 0.2s ease;
-            }
-
-            .action-btn:hover {
-                background: rgba(var(--highlight-font-2-rgb), 0.08);
-                border-color: rgba(var(--highlight-font-2-rgb), 0.15);
-            }
-
             #app {
                 flex: 1;
                 min-height: 0;
@@ -1522,42 +1442,6 @@
 
                         <div id="status-text-overlay" class="hidden-view">
                             Ready
-                        </div>
-
-                        <div class="status-dropdown">
-                            <div class="dropdown-section">
-                                <span class="dropdown-label">Stats Folder</span>
-                                <div
-                                    id="folder-status"
-                                    class="folder-status-text"
-                                >
-                                    No folder linked
-                                </div>
-                            </div>
-
-                            <div class="dropdown-section">
-                                <span class="dropdown-label">Actions</span>
-                                <div class="status-actions">
-                                    <button
-                                        class="action-btn"
-                                        id="link-folder-button"
-                                    >
-                                        Link Stats Folder
-                                    </button>
-                                    <button
-                                        class="action-btn"
-                                        id="import-csv-button"
-                                    >
-                                        Force Scan CSVs
-                                    </button>
-                                    <button
-                                        class="action-btn"
-                                        id="remove-folder-button"
-                                    >
-                                        Unlink Folder
-                                    </button>
-                                </div>
-                            </div>
                         </div>
                     </div>
 

@@ -6,25 +6,16 @@
 export class ApplicationStatusView {
   private readonly _statusMount: HTMLElement;
 
-  private readonly _folderMount: HTMLElement;
-
   private readonly _statusTextOverlay: HTMLElement;
 
   /**
    * Initializes the status view with its required DOM mount points.
    *
    * @param statusMount - The element where the status indicator is placed.
-   * @param folderMount - The element where the linked folder name is displayed.
    * @param statusTextOverlay - The element displaying the human-readable status text.
    */
-  public constructor(
-    statusMount: HTMLElement,
-    folderMount: HTMLElement,
-    statusTextOverlay: HTMLElement,
-  ) {
+  public constructor(statusMount: HTMLElement, statusTextOverlay: HTMLElement) {
     this._statusMount = statusMount;
-
-    this._folderMount = folderMount;
 
     this._statusTextOverlay = statusTextOverlay;
   }
@@ -65,42 +56,26 @@ export class ApplicationStatusView {
     this._clearStatusContent();
 
     this._updateStatusText("Disconnected");
-
-    this._folderMount.textContent = "No folder linked";
   }
 
   /**
    * Reports a successful manual folder selection.
-   *
-   * @param folderName - The display name of the selected folder.
-   * @param fullPath - The full logical path of the folder for tooltips.
    */
-  public reportFolderLinked(folderName: string, fullPath: string): void {
+  public reportFolderLinked(): void {
     this._clearStatusContent();
 
     this._mountStatusIndicator();
-
-    this._folderMount.innerHTML = `Connected to: <span class="connected-text">${folderName}</span>`;
-
-    this._folderMount.title = fullPath;
 
     this._updateStatusText("Active");
   }
 
   /**
    * Reports a successful automated reconnection to a stored folder handle.
-   *
-   * @param folderName - The display name of the reconnected folder.
-   * @param fullPath - The full logical path for tooltips.
    */
-  public reportFolderReconnected(folderName: string, fullPath: string): void {
+  public reportFolderReconnected(): void {
     this._clearStatusContent();
 
     this._mountStatusIndicator();
-
-    this._folderMount.innerHTML = `Re-connected to: <span class="connected-text">${folderName}</span>`;
-
-    this._folderMount.title = fullPath;
 
     this._updateStatusText("Active");
   }

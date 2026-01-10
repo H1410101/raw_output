@@ -99,7 +99,6 @@ export class AppBootstrap {
   private _createStatusView(): ApplicationStatusView {
     return new ApplicationStatusView(
       this._getRequiredElement("status-mount-point"),
-      this._getRequiredElement("folder-status"),
       this._getRequiredElement("status-text-overlay"),
     );
   }
@@ -143,8 +142,6 @@ export class AppBootstrap {
 
   private _setupActionListeners(): void {
     this._setupHeaderActions();
-
-    this._setupStatusActions();
   }
 
   private _setupHeaderActions(): void {
@@ -171,23 +168,6 @@ export class AppBootstrap {
     });
   }
 
-  private _setupStatusActions(): void {
-    this._getRequiredButton("link-folder-button").addEventListener(
-      "click",
-      (): Promise<void> => this._handleManualFolderSelection(),
-    );
-
-    this._getRequiredButton("import-csv-button").addEventListener(
-      "click",
-      (): Promise<void> => this._handleManualImport(),
-    );
-
-    this._getRequiredButton("remove-folder-button").addEventListener(
-      "click",
-      (): void => this._handleFolderRemoval(),
-    );
-  }
-
   private _animateButton(button: HTMLButtonElement): void {
     button.classList.add("clicked");
 
@@ -201,10 +181,7 @@ export class AppBootstrap {
       await this._directoryService.attemptReconnection();
 
     if (handle) {
-      this._statusView.reportFolderReconnected(
-        this._directoryService.originalSelectionName,
-        this._directoryService.fullLogicalPath,
-      );
+      this._statusView.reportFolderReconnected();
 
       await this._synchronizeAndMonitor(handle);
 
@@ -221,10 +198,7 @@ export class AppBootstrap {
       await this._directoryService.requestDirectorySelection();
 
     if (handle) {
-      this._statusView.reportFolderLinked(
-        this._directoryService.originalSelectionName,
-        this._directoryService.fullLogicalPath,
-      );
+      this._statusView.reportFolderLinked();
 
       await this._synchronizeAndMonitor(handle);
 

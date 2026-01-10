@@ -196,7 +196,7 @@ export class FolderSettingsView {
 
     const pathInstruction: HTMLParagraphElement = document.createElement("p");
     pathInstruction.innerHTML =
-      "This is located in <code>&lt;steam library&gt;/steamapps/common/FPSAimTrainer/FPSAimTrainer/stats</code>.";
+      "This is located in<br><code>&lt;steam library&gt;/steamapps/common/FPSAimTrainer/FPSAimTrainer/stats</code>.";
 
     intro.appendChild(title);
     intro.appendChild(separator);
