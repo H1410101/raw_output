@@ -218,7 +218,7 @@
 
             .nav-item {
                 background: transparent;
-                border: 1px solid transparent;
+                border: none;
                 color: var(--text-dim);
                 padding: 0.5rem 1rem;
                 border-radius: 0.5rem;
@@ -230,14 +230,21 @@
             }
 
             .nav-item:hover {
-                color: var(--highlight-font-2);
-                background: var(--glass-bg);
+                background: rgba(var(--highlight-font-2-rgb), 0.02);
             }
 
             .nav-item.active {
+                background: rgba(var(--lower-band-1-rgb), 0.1);
                 color: var(--accent-color);
-                background: rgba(var(--upper-band-1-rgb), 0.05);
-                border-color: rgba(var(--upper-band-1-rgb), 0.1);
+            }
+
+            .nav-item.not-soon {
+                cursor: default;
+            }
+
+            .nav-item.not-soon:hover {
+                background: none;
+                color: var(--lower-band-2);
             }
 
             .status-dot-container {
@@ -397,20 +404,11 @@
                 display: none !important;
             }
 
-            .recent-runs-view,
-            .new-runs-view,
             .benchmark-view {
                 flex: 1;
                 display: flex;
                 flex-direction: column;
                 min-height: 0;
-            }
-
-            .recent-runs-list {
-                flex: 1;
-                overflow-y: auto;
-                min-height: 0;
-                padding-right: 0.5rem;
             }
 
             .benchmark-table-container {
@@ -447,10 +445,6 @@
                 margin-right: 1rem;
             }
 
-            .recent-runs-list::-webkit-scrollbar {
-                width: 0.375rem;
-            }
-
             .benchmark-table::-webkit-scrollbar {
                 width: 0.5rem;
             }
@@ -458,11 +452,6 @@
             .benchmark-table::-webkit-scrollbar-track {
                 margin: 1rem 0;
                 background: transparent;
-            }
-
-            .recent-runs-list::-webkit-scrollbar-thumb {
-                background: var(--dull-color);
-                border-radius: 0.625rem;
             }
 
             .benchmark-table::-webkit-scrollbar-thumb {
@@ -739,9 +728,9 @@
 
             .scenario-row.selected {
                 --vis-label-color: var(--upper-band-1);
-                --vis-dot-rgb: var(--upper-band-1-rgb);
+                --vis-dot-rgb: var(--upper-band-2-rgb);
                 --vis-highlight-rgb: var(--upper-band-3-rgb);
-                --vis-latest-rgb: var(--upper-band-2-rgb);
+                --vis-latest-rgb: var(--upper-band-3-rgb);
             }
 
             .rank-badge-container {
@@ -877,8 +866,12 @@
                 transition: all 0.2s ease;
             }
 
+            .tab-button:hover {
+                background: rgba(var(--highlight-font-2-rgb), 0.02);
+            }
+
             .tab-button.active {
-                background: var(--glass-bg);
+                background: rgba(var(--lower-band-1-rgb), 0.1);
                 color: var(--accent-color);
             }
 
@@ -1235,11 +1228,10 @@
                 <div class="header-content">
                     <h1>Raw Output</h1>
                     <nav class="nav-menu">
-                        <button class="nav-item" id="nav-recent">Recent</button>
-                        <button class="nav-item" id="nav-new">New</button>
-                        <button class="nav-item" id="nav-benchmarks">
+                        <button class="nav-item active" id="nav-benchmarks">
                             Benchmarks
                         </button>
+                        <span class="nav-item not-soon">Not Soon</span>
                     </nav>
                 </div>
 
@@ -1287,19 +1279,8 @@
             <main id="app">
                 <div class="dashboard-panel">
                     <section
-                        id="view-recent"
-                        class="recent-runs-view hidden-view"
-                    >
-                        <ul id="recent-runs-list" class="recent-runs-list"></ul>
-                    </section>
-
-                    <section id="view-new" class="new-runs-view hidden-view">
-                        <ul id="new-runs-list" class="recent-runs-list"></ul>
-                    </section>
-
-                    <section
                         id="view-benchmarks"
-                        class="benchmark-view hidden-view"
+                        class="benchmark-view"
                     ></section>
                 </div>
             </main>

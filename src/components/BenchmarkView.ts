@@ -361,11 +361,11 @@ export class BenchmarkView {
 
     container.className = "difficulty-tabs";
 
-    (["easier", "medium", "harder"] as DifficultyTier[]).forEach(
-      (difficulty: DifficultyTier): void => {
+    this._benchmarkService
+      .getAvailableDifficulties()
+      .forEach((difficulty: DifficultyTier): void => {
         container.appendChild(this._createTab(difficulty));
-      },
-    );
+      });
 
     return container;
   }
@@ -377,7 +377,7 @@ export class BenchmarkView {
 
     tab.className = `tab-button ${isActive ? "active" : ""}`;
 
-    tab.textContent = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+    tab.textContent = difficulty;
 
     tab.addEventListener(
       "click",

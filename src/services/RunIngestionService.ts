@@ -4,6 +4,7 @@ import { DirectoryAccessService } from "./DirectoryAccessService";
 import { HistoryService } from "./HistoryService";
 import { KovaaksCsvParsingService } from "./KovaaksCsvParsingService";
 import { SessionService } from "./SessionService";
+import { BenchmarkScenario } from "../data/benchmarks";
 
 interface FileHandleWithDate {
   handle: FileSystemFileHandle;
@@ -12,6 +13,7 @@ interface FileHandleWithDate {
 
 /**
  * Responsibility: Orchestrate the ingestion of CSV files from the stats folder.
+ *
  * This service implements lazy session detection and efficient highscore scanning.
  */
 export class RunIngestionService {
@@ -57,10 +59,10 @@ export class RunIngestionService {
   }
 
   /**
-   * Performs a comprehensive sync:
+   * Performs a comprehensive sync of the linked directory.
+   *
    * 1. Scans all new files since the last check for highscores.
    * 2. Identifies and populates the latest contiguous session.
-   * 3. Returns the most recent runs for display.
    *
    * @returns A promise resolving to the list of synchronized runs.
    */
@@ -73,29 +75,12 @@ export class RunIngestionService {
     }
 
     await this._updateHighscoresForNewRuns(csvHandlesWithDates);
+
     await this._rebuildLatestSession(csvHandlesWithDates);
+
     await this._updateLastCheckTimestamp(csvHandlesWithDates);
 
-    return this._parseLatestRunsForDisplay(csvHandlesWithDates);
-  }
-
-  /**
-   * Returns runs that are either part of the current session or were completed after the app started.
-   *
-   * @returns A promise resolving to the list of new runs.
-   */
-  public async getNewRuns(): Promise<KovaaksChallengeRun[]> {
-    const csvHandlesWithDates: FileHandleWithDate[] =
-      await this._getOrFetchHandles();
-
-    if (csvHandlesWithDates.length === 0) {
-      return [];
-    }
-
-    const sessionItems: FileHandleWithDate[] =
-      this._identifyLatestSessionItems(csvHandlesWithDates);
-
-    return this._parseRunsFromHandles(sessionItems);
+    return this._parseLatestRuns(csvHandlesWithDates);
   }
 
   private async _getOrFetchHandles(): Promise<FileHandleWithDate[]> {
@@ -201,7 +186,7 @@ export class RunIngestionService {
     {
       scenarioName: string;
       score: number;
-      scenario: import("../data/benchmarks").BenchmarkScenario | null;
+      scenario: BenchmarkScenario | null;
       difficulty: string | null;
       timestamp: Date;
     }[]
@@ -226,18 +211,22 @@ export class RunIngestionService {
   private _createSessionRunRecord(run: KovaaksChallengeRun): {
     scenarioName: string;
     score: number;
-    scenario: import("../data/benchmarks").BenchmarkScenario | null;
+    scenario: BenchmarkScenario | null;
     difficulty: string | null;
     timestamp: Date;
   } {
-    const difficulty = this._benchmarkService.getDifficulty(run.scenarioName);
+    const difficulty: string | null = this._benchmarkService.getDifficulty(
+      run.scenarioName,
+    );
 
-    const scenario = this._benchmarkService
-      .getScenarios(difficulty || "easier")
-      .find(
-        (benchmarkScenario: import("../data/benchmarks").BenchmarkScenario) =>
-          benchmarkScenario.name === run.scenarioName,
-      );
+    const scenario: BenchmarkScenario | undefined = difficulty
+      ? this._benchmarkService
+          .getScenarios(difficulty)
+          .find(
+            (benchmarkScenario: BenchmarkScenario) =>
+              benchmarkScenario.name === run.scenarioName,
+          )
+      : undefined;
 
     return {
       scenarioName: run.scenarioName,
@@ -286,21 +275,18 @@ export class RunIngestionService {
     return sessionItems;
   }
 
-  private async _parseLatestRunsForDisplay(
+  private async _parseLatestRuns(
     sortedHandles: FileHandleWithDate[],
   ): Promise<KovaaksChallengeRun[]> {
-    const displayCount = 10;
+    const displayCount: number = 10;
 
-    const latestHandles = sortedHandles.slice(0, displayCount);
+    const latestHandles: FileHandleWithDate[] = sortedHandles.slice(
+      0,
+      displayCount,
+    );
 
-    return this._parseRunsFromHandles(latestHandles);
-  }
-
-  private async _parseRunsFromHandles(
-    handles: FileHandleWithDate[],
-  ): Promise<KovaaksChallengeRun[]> {
     const runs: (KovaaksChallengeRun | null)[] = await Promise.all(
-      handles.map(
+      latestHandles.map(
         (item: FileHandleWithDate): Promise<KovaaksChallengeRun | null> =>
           this._parseRunFromFile(item.handle),
       ),
@@ -343,7 +329,21 @@ export class RunIngestionService {
       const parsed: Partial<KovaaksChallengeRun> | null =
         this._csvService.parseKovaakCsv(content, handle.name);
 
-      return this._validateAndMapParsedRun(parsed);
+      if (
+        !parsed?.scenarioName ||
+        parsed.score === undefined ||
+        !parsed.completionDate
+      ) {
+        return null;
+      }
+
+      return {
+        runId: crypto.randomUUID(),
+        scenarioName: parsed.scenarioName,
+        score: parsed.score,
+        completionDate: parsed.completionDate,
+        difficulty: this._benchmarkService.getDifficulty(parsed.scenarioName),
+      };
     } catch (error: unknown) {
       console.error(`Failed to parse file: ${handle.name}`, error);
 
@@ -351,63 +351,11 @@ export class RunIngestionService {
     }
   }
 
-  private _validateAndMapParsedRun(
-    parsed: Partial<KovaaksChallengeRun> | null,
-  ): KovaaksChallengeRun | null {
-    if (!this._isValidRun(parsed)) {
-      return null;
-    }
-
-    return this._createRunFromParsed(parsed!);
-  }
-
-  private _isValidRun(
-    parsed: Partial<KovaaksChallengeRun> | null,
-  ): parsed is Required<
-    Pick<KovaaksChallengeRun, "scenarioName" | "score" | "completionDate">
-  > {
-    return !!(
-      parsed?.scenarioName &&
-      parsed.score !== undefined &&
-      parsed.completionDate
-    );
-  }
-
-  private _createRunFromParsed(
-    parsed: Partial<KovaaksChallengeRun>,
-  ): KovaaksChallengeRun {
-    return {
-      runId: crypto.randomUUID(),
-      scenarioName: parsed.scenarioName!,
-      score: parsed.score!,
-      completionDate: parsed.completionDate!,
-      difficulty: this._mapToLegacyDifficulty(
-        this._benchmarkService.getDifficulty(parsed.scenarioName!),
-      ),
-    };
-  }
-
-  private _mapToLegacyDifficulty(
-    difficulty: import("../data/benchmarks").DifficultyTier | null,
-  ): "Easier" | "Medium" | "Harder" | null {
-    if (!difficulty) {
-      return null;
-    }
-
-    const map: Record<string, "Easier" | "Medium" | "Harder"> = {
-      easier: "Easier",
-      medium: "Medium",
-      harder: "Harder",
-    };
-
-    return map[difficulty];
-  }
-
   private async _updateLastCheckTimestamp(
     sortedHandles: FileHandleWithDate[],
   ): Promise<void> {
     if (sortedHandles.length > 0) {
-      const latestTimestamp = sortedHandles[0].date.getTime();
+      const latestTimestamp: number = sortedHandles[0].date.getTime();
 
       await this._historyService.setLastCheckTimestamp(latestTimestamp);
     }

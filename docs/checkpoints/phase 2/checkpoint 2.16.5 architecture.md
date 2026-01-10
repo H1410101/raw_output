@@ -1,30 +1,32 @@
-```raw_output\docs\checkpoints\phase 2\checkpoint 2.16.5 architecture.md#L1-28
-# Checkpoint 2.16.5 Architecture: Dot Cloud Layout Synchronization
+```raw_output\docs\checkpoints\phase 2\checkpoint 2.16.6 architecture.md#L1-43
+# Checkpoint 2.16.5 Architecture: Horizontal Scaling
 
-## Overview
-This document describes the architectural alignment between the CSS-driven layout of the `dot-cloud-container` and the programmatic rendering logic of the `DotCloudComponent` canvas. The goal is to ensure that the visualization is never clipped and exactly fills its allocated space.
+## Responsibility
+Ensure that when a user's performance exceeds the highest defined rank threshold, the visualization no longer "snaps" to the next integer rank unit (which would create empty space). Instead, the horizontal scale should dynamically adjust so that the highest score is positioned near the right edge of the canvas, specifically at a distance of one dot radius from the boundary.
 
-## Dimensional Synchronization
+## Technical Components
 
-### 1. Base Constants Alignment
-To prevent drift, the base dimensions used in CSS and TypeScript must be derived from the same logical constants.
+### 1. `RankScaleMapper` Extension
+- **New Method**: `getHighestRankIndex()`
+- **Purpose**: Provides the integer index of the final rank threshold to the orchestration layer, allowing it to detect when a score has "broken" the scale.
 
-- **Base Width**: 14rem (expressed as 224px at 16px root font).
-- **Base Height**: 2.2rem (expressed as 35.2px at 16px root font).
+### 2. `DotCloudComponent` Refinement
+- **Logic**: Updated `_calculateDynamicBounds` to pass the `drawableWidth` into the bound calculation logic.
+- **New Helper**: `_calculateExceededAlignedBounds(minRUScore, maxRUScore, width)`
+  - Detects if `maxRUScore` > `highestRankIndex`.
+  - Calculates an `edgeRatio` based on `1 - (dotRadius / width)`.
+  - Determines a custom `maxRU` such that the `maxRUScore` maps to the `edgeRatio` position on the horizontal axis.
+  - This ensures the dot's center is exactly one `dotRadius` away from the right edge, preventing clipping while maximizing use of space.
 
-### 2. Scaling Logic Parity
-The `ScalingService.ts` and the `index.html` CSS must use identical mathematical models for scaling:
+## Data Flow
+1. `DotCloudComponent` calculates the Rank Unit (RU) values for all scores.
+2. It identifies the maximum RU score.
+3. If the maximum RU exceeds the highest threshold index (e.g., 7.5 RU when Rank 7 is the cap):
+   - It bypasses standard `Math.ceil` snapping.
+   - It calculates a floating-point `maxRU` boundary for the `RankScaleMapper`.
+4. `RankScaleMapper.getHorizontalPosition` uses this custom `maxRU` to map the score to the exact pixel coordinate required.
 
-- **CSS Implementation**: Uses `calc()` with `--master-scale` and `--dot-cloud-width-multiplier`.
-- **TypeScript Implementation**: Uses `ScalingService.getScaledValue()` which multiplies the master factor by the specific factor.
-
-### 3. Container-to-Canvas Mapping
-The `DotCloudComponent` will be updated to:
-- Use `rootFontSize` to convert `rem`-based CSS dimensions into pixel values for the canvas.
-- Dynamically calculate `_canvasWidth` and `_canvasHeight` based on the exact same multipliers applied to the root style.
-- Apply `overflow: visible` or ensure padding is sufficient if any jitter algorithms require breathing room, though primary alignment will focus on bounding box parity.
-
-## Implementation Plan
-- Update `DotCloudComponent._initializeCanvasDimensions` to use `224` as the base width to match the `14rem` in CSS.
-- Ensure the `ScalingService` logic for `dotCloudWidth` correctly reflects the `calc()` logic used in the stylesheet.
-- Remove any hardcoded pixel discrepancies that lead to the container being smaller than the rendered content.
+## Constraints
+- Only applies when `scalingMode` is "Aligned".
+- Only triggers when the highest rank threshold is surpassed.
+- Maintains the dot radius buffer to ensure visual quality.

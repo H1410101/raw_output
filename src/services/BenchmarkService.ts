@@ -2,6 +2,7 @@ import {
   getDifficulty,
   DifficultyTier,
   getScenariosByDifficulty,
+  getAvailableDifficulties,
   BenchmarkScenario,
 } from "../data/benchmarks";
 
@@ -9,6 +10,15 @@ import {
  * Service for accessing and filtering benchmark scenario data.
  */
 export class BenchmarkService {
+  /**
+   * Retrieves all available difficulty tiers defined by the benchmark files.
+   *
+   * @returns An array of difficulty tier names.
+   */
+  public getAvailableDifficulties(): DifficultyTier[] {
+    return getAvailableDifficulties();
+  }
+
   /**
    * Determines the difficulty level of a scenario based on Viscose Benchmark rules.
    *

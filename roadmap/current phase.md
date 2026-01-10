@@ -1,4 +1,3 @@
-```raw_output\roadmap\current phase.md#L1-27
 # Current Phase: Phase 2: Benchmark Table
 
 ## Status
@@ -16,6 +15,7 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.6: Live Session Best
 - [x] 2.7: New Runs View
 - [x] 2.8: Visualization & Fluid Typography
+- [x] 2.8.1: Dot Cloud Vertical Alignment Refinement
 - [x] 2.9: Visual Settings Placeholder
 - [x] 2.10: Visual Settings Wiring
 - [x] 2.11: Session Interval Settings
@@ -25,13 +25,20 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.13.1: Background Dynamics
 - [x] 2.13.2: Scroll Track Cut-out
 - [x] 2.13.3: Colour & Transparency Tuning
-- [x] 2.14: Milestone - Technical Debt Payoff
+- [x] 2.14.0: Technical Debt Payoff I
+- [x] 2.14.1: Technical Debt Payoff II
+- [x] 2.14.2: ESLint Setup
 - [x] 2.15: Visual Tuning Refinement
-- [x] 2.16: Auto Focus Run
+- [x] 2.16.0: Auto Focus Run
 - [x] 2.16.1: Settings Cleanup & Refinement
 - [x] 2.16.2: Lazy Re-rendering Fixes
 - [x] 2.16.3: Settings Functionality
-- [x] 2.16.5: Dot Cloud Layout Synchronization
-- [x] 2.16.6: Exceeded Rank Visual Scaling
-- [ ] 2.16.7: Dot Cloud Depth and Jitter Consistency
+- [x] 2.16.4: Dot Cloud Spread
+- [x] 2.16.5: Horizontal Scaling
+- [x] 2.16.6: Stable Dot Cloud
+- [x] 2.16.7: Dot Cloud Selection Highlights Fix
+- [x] 2.16.8: Centralized Colour Palette
+- [x] 2.16.9: Settings Refinement & Auto-Dismissal
+- [x] 2.16.10: Persist Scroll with Auto-Jump
+- [ ] 2.16.11: Navigation Consolidation & Slider Polish
 - [ ] 2.17: SFX Identity

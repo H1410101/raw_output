@@ -1,4 +1,4 @@
-import { DifficultyTier } from "../data/benchmarks";
+import { DifficultyTier, getAvailableDifficulties } from "../data/benchmarks";
 
 /**
  * Encapsulates the transient UI state that should persist between sessions.
@@ -173,17 +173,25 @@ export class AppStateService {
   private _isDifficultyValid(
     difficulty: unknown,
   ): difficulty is DifficultyTier {
-    return (
-      difficulty === "easier" ||
-      difficulty === "medium" ||
-      difficulty === "harder"
-    );
+    if (typeof difficulty !== "string") {
+      return false;
+    }
+
+    const availableDifficulties: string[] = getAvailableDifficulties();
+
+    return availableDifficulties.includes(difficulty);
   }
 
   private _getDefaults(): AppState {
+    const availableDifficulties: string[] = getAvailableDifficulties();
+
+    const defaultDifficulty: string = availableDifficulties.includes("Medium")
+      ? "Medium"
+      : availableDifficulties[0] || "";
+
     return {
       activeTabId: "nav-benchmarks",
-      benchmarkDifficulty: "medium",
+      benchmarkDifficulty: defaultDifficulty,
       isSettingsMenuOpen: false,
       benchmarkScrollTop: 0,
       focusedScenarioName: null,

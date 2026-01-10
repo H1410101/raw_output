@@ -1,5 +1,5 @@
 import { DirectoryAccessService } from "./services/DirectoryAccessService";
-import { RecentRunsDisplay } from "./components/RecentRunsDisplay";
+
 import { KovaaksCsvParsingService } from "./services/KovaaksCsvParsingService";
 import { DirectoryMonitoringService } from "./services/DirectoryMonitoringService";
 import { BenchmarkService } from "./services/BenchmarkService";
@@ -42,10 +42,6 @@ export class AppBootstrap {
 
   private readonly _statusView: ApplicationStatusView;
 
-  private readonly _recentRunsDisplay: RecentRunsDisplay;
-
-  private readonly _newRunsDisplay: RecentRunsDisplay;
-
   private readonly _benchmarkView: BenchmarkView;
 
   private readonly _navigationController: NavigationController;
@@ -80,10 +76,6 @@ export class AppBootstrap {
 
     this._statusView = this._createStatusView();
 
-    this._recentRunsDisplay = this._createDisplay("recent-runs-list");
-
-    this._newRunsDisplay = this._createDisplay("new-runs-list");
-
     this._benchmarkView = this._createBenchmarkView();
 
     this._navigationController = this._createNavigationController();
@@ -93,8 +85,6 @@ export class AppBootstrap {
    * Triggers initial rendering and system initialization.
    */
   public async initialize(): Promise<void> {
-    this._setupSessionInteractions();
-
     this._statusView.reportReady();
 
     await this._benchmarkView.render();
@@ -112,10 +102,6 @@ export class AppBootstrap {
       this._getRequiredElement("folder-status"),
       this._getRequiredElement("status-text-overlay"),
     );
-  }
-
-  private _createDisplay(elementId: string): RecentRunsDisplay {
-    return new RecentRunsDisplay(this._getRequiredElement(elementId));
   }
 
   private _createBenchmarkView(): BenchmarkView {
@@ -136,30 +122,16 @@ export class AppBootstrap {
   private _createNavigationController(): NavigationController {
     return new NavigationController(
       {
-        recentButton: this._getRequiredButton("nav-recent"),
-        newButton: this._getRequiredButton("nav-new"),
         benchmarksButton: this._getRequiredButton("nav-benchmarks"),
       },
       {
-        recentView: this._getRequiredElement("view-recent"),
-        newView: this._getRequiredElement("view-new"),
         benchmarksView: this._getRequiredElement("view-benchmarks"),
       },
       {
         benchmarkView: this._benchmarkView,
-        ingestionService: this._ingestionService,
-        newRunsDisplay: this._newRunsDisplay,
         appStateService: this._appStateService,
       },
     );
-  }
-
-  private _setupSessionInteractions(): void {
-    this._sessionService.onSessionUpdated(async (): Promise<void> => {
-      const newRuns = await this._ingestionService.getNewRuns();
-
-      this._newRunsDisplay.renderRuns(newRuns);
-    });
   }
 
   private _setupActionListeners(): void {
@@ -214,13 +186,7 @@ export class AppBootstrap {
   private async _handleManualImport(): Promise<void> {
     this._statusView.reportScanning();
 
-    const runs = await this._ingestionService.synchronizeAvailableRuns();
-
-    this._recentRunsDisplay.renderRuns(runs);
-
-    const newRuns = await this._ingestionService.getNewRuns();
-
-    this._newRunsDisplay.renderRuns(newRuns);
+    await this._ingestionService.synchronizeAvailableRuns();
 
     this._statusView.reportActive();
   }
@@ -236,13 +202,7 @@ export class AppBootstrap {
   private async _synchronizeAndMonitor(
     handle: FileSystemDirectoryHandle,
   ): Promise<void> {
-    const runs = await this._ingestionService.synchronizeAvailableRuns();
-
-    this._recentRunsDisplay.renderRuns(runs);
-
-    const newRuns = await this._ingestionService.getNewRuns();
-
-    this._newRunsDisplay.renderRuns(newRuns);
+    await this._ingestionService.synchronizeAvailableRuns();
 
     this._startMonitoring(handle);
   }
@@ -253,12 +213,6 @@ export class AppBootstrap {
 
       const updatedRuns =
         await this._ingestionService.synchronizeAvailableRuns();
-
-      this._recentRunsDisplay.renderRuns(updatedRuns);
-
-      const updatedNewRuns = await this._ingestionService.getNewRuns();
-
-      this._newRunsDisplay.renderRuns(updatedNewRuns);
 
       if (updatedRuns.length > 0) {
         this._focusService.focusScenario(

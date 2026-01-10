@@ -1,4 +1,4 @@
-# Checkpoint 2.16.8: Dot Cloud Selection Highlights Fix
+# Checkpoint 2.16.7 Architecture: Dot Cloud Selection Highlights Fix
 
 ## Status
 Completed
@@ -13,9 +13,9 @@ The CSS in `index.html` defines semantic tokens for the Dot Cloud that change ba
 
 ```css
 .scenario-row.selected {
-    --vis-label-color: var(--upper-band-3);
-    --vis-dot-rgb: var(--upper-band-3-rgb);
-    --vis-latest-rgb: var(--upper-band-1-rgb);
+    --vis-label-color: var(--upper-band-1);
+    --vis-dot-rgb: var(--upper-band-2-rgb);
+    --vis-latest-rgb: var(--upper-band-3-rgb);
 }
 ```
 

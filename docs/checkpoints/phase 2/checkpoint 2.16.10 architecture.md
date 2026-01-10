@@ -1,33 +1,25 @@
-```raw_output\docs\checkpoints\phase 2\checkpoint 2.16.10 architecture.md#L1-43
-# Checkpoint 2.16.10 Architecture: Settings Refinement & Auto-Dismissal
+# Checkpoint 2.16.10 Architecture: Persist Scroll with Auto-Jump
 
 ## Goal
-Restore the specific session interval increments, unify settings sections into "Elements", and implement automatic settings dismissal upon new score detection.
+Improve navigation continuity by persisting scroll positions across view changes and refining the "Auto-Focus" logic to ensure the user never loses their place in the benchmark table.
 
 ## Proposed Changes
 
-### 1. Settings Section Unification
-- Rename "Visualization" and "Information" sections to a single "Elements" section within `SettingsSectionRenderer`.
-- Reorganize the component order to ensure "Elements" contains both the dot cloud visualizations and the session/all-time best toggles.
+### 1. Scroll Persistence
+- **`AppStateService`**: Introduce `scrollPosition` to the global state, indexed by `DifficultyTier`.
+- **`BenchmarkScrollController`**: Updated to capture the scroll offset before a view unmounts and restore it when that difficulty tier is re-selected.
 
-### 2. Session Interval Implementation
-- Update `SessionSettingsService` to use `10` as the default interval.
-- Update `SettingsSectionRenderer` to include a new slider for "Session Interval".
-- Replicate the "Dot Opacity" slider behavior (no-notch, first item is a dot) for Session Interval.
-- Implement discrete steps for Session Interval: `[1, 5, 10, 15, 30, 45, 60, 90, 120]`.
+### 2. Intelligent Auto-Jump
+- **`FocusManagementService`**: Refined to handle "Intelligent Jumps". When a new score is detected, the system determines if the target scenario is already in view.
+- **Scroll Logic**: If the scenario is outside the viewport, a smooth scroll is triggered. If it is already visible, the scroll is suppressed to avoid jarring movement, but the "pulse" highlight is still applied.
 
-### 3. Automatic Settings Dismissal
-- Modify `BenchmarkSettingsController` to subscribe to the `FocusManagementService`.
-- When a `FocusState` change is detected with the reason `NEW_SCORE`, the controller checks if the scenario belongs to the benchmark using `BenchmarkService`.
-- If it is a benchmark scenario, the controller triggers the `_removeExistingOverlay()` method to auto-dismiss settings during the autoscroll.
-- Ensure proper cleanup of the subscription when the overlay is removed or the controller is destroyed.
-
-### 4. UI Factory Enhancements
-- Ensure `SettingsUiFactory.createSlider` correctly handles `options` for discrete values without requiring a dedicated notch if `showNotch` is false.
+### 3. Font Weight Refinement
+- **Typography**: Refine the typography of the Benchmark View to improve information hierarchy by adjusting font weights and sizes.
+- **Weights**: 700 for Categories/Ranks, 600 for Subcategories, 500 for Scenarios, 400 for Headers/Progress.
+- **Canvas**: `DotCloudCanvasRenderer` updated to use 400 weight for internal labels to reduce visual noise.
 
 ## Verification Plan
-- Open Settings and verify that "Visualization" and "Information" are now under "Elements".
-- Verify the "Session Interval" slider has 9 steps corresponding to the requested values.
-- Verify the first step (1) of the "Session Interval" is a dot, similar to "Dot Opacity".
-- Trigger a new score for a benchmark scenario while the settings menu is open and verify the menu closes automatically as the table scrolls to the new run.
-- Trigger a new score for a non-benchmark scenario and verify the settings menu stays open.
+- Scroll halfway down the "Easier" list, switch to "Medium", then switch back to "Easier". Verify the scroll position is exactly where you left it.
+- Trigger a new score for a scenario that is already visible on screen. Verify the table does not move, but the row highlights.
+- Trigger a new score for a scenario that is off-screen. Verify the table scrolls smoothly to bring that scenario into view.
+- Verify typography hierarchy matches the new weight specifications.
