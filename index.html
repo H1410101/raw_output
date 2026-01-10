@@ -150,6 +150,81 @@
                 );
             }
 
+            .title-glow-container {
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                z-index: -1;
+            }
+
+            .title-ripple {
+                position: absolute;
+                inset: 0;
+                margin: 0;
+                line-height: 1.2;
+                font-family: "Nunito", sans-serif;
+                font-size: 1.75rem;
+                font-weight: 800;
+                letter-spacing: -0.02em;
+                color: transparent;
+                text-shadow: 0.12rem 0.12rem 0.1rem var(--upper-band-2);
+                opacity: 0;
+                white-space: nowrap;
+                will-change:
+                    mask-image,
+                    -webkit-mask-image;
+
+                --ripple-x: -2000px;
+                --ripple-y: -2000px;
+                --ripple-radius: -2000px;
+                --ripple-thickness: 10rem;
+
+                -webkit-mask-image: radial-gradient(
+                    circle at var(--ripple-x) var(--ripple-y),
+                    transparent
+                        calc(
+                            var(--ripple-radius) - var(--ripple-thickness) * 0.5
+                        ),
+                    var(--mask-white)
+                        calc(
+                            var(--ripple-radius) - var(--ripple-thickness) * 0.2
+                        ),
+                    var(--mask-white)
+                        calc(
+                            var(--ripple-radius) + var(--ripple-thickness) * 0.2
+                        ),
+                    transparent
+                        calc(
+                            var(--ripple-radius) + var(--ripple-thickness) * 0.5
+                        )
+                );
+                mask-image: radial-gradient(
+                    circle at var(--ripple-x) var(--ripple-y),
+                    transparent
+                        calc(
+                            var(--ripple-radius) - var(--ripple-thickness) * 0.5
+                        ),
+                    var(--mask-white)
+                        calc(
+                            var(--ripple-radius) - var(--ripple-thickness) * 0.2
+                        ),
+                    var(--mask-white)
+                        calc(
+                            var(--ripple-radius) + var(--ripple-thickness) * 0.2
+                        ),
+                    transparent
+                        calc(
+                            var(--ripple-radius) + var(--ripple-thickness) * 0.5
+                        )
+                );
+            }
+
+            .title-ripple-1,
+            .title-ripple-2,
+            .title-ripple-3 {
+                opacity: 0.4;
+            }
+
             @keyframes ripple-oblique {
                 0% {
                     mask-position: -400% 400%;
@@ -190,6 +265,7 @@
             }
 
             .header-content {
+                position: relative;
                 display: flex;
                 align-items: center;
                 gap: 2rem;
@@ -199,6 +275,7 @@
                 font-size: 1.75rem;
                 font-weight: 800;
                 margin: 0;
+                line-height: 1.2;
                 letter-spacing: -0.02em;
                 background: linear-gradient(
                     135deg,
@@ -393,7 +470,7 @@
                 flex: 1;
                 background: transparent;
                 border: 1px solid var(--glass-border);
-                border-radius: 1.25rem;
+                border-radius: 1rem;
                 padding: 1.5rem;
                 display: flex;
                 flex-direction: column;
@@ -916,7 +993,7 @@
                 align-items: center;
                 justify-content: center;
                 z-index: 1000;
-                border-radius: 1.25rem;
+                border-radius: 1rem;
                 animation: fadeIn 0.2s ease;
             }
 
@@ -935,7 +1012,7 @@
                 display: flex;
                 flex-direction: column;
                 max-height: 85vh;
-                border-radius: 1.5rem;
+                border-radius: 1rem;
                 overflow: hidden;
                 isolation: isolate;
                 box-shadow: 0 1.5rem 4rem rgba(var(--background-1-rgb), 0.8);
@@ -1241,6 +1318,17 @@
         <div class="container">
             <header class="app-header">
                 <div class="header-content">
+                    <div class="title-glow-container">
+                        <div class="title-ripple title-ripple-1">
+                            Raw Output
+                        </div>
+                        <div class="title-ripple title-ripple-2">
+                            Raw Output
+                        </div>
+                        <div class="title-ripple title-ripple-3">
+                            Raw Output
+                        </div>
+                    </div>
                     <h1>Raw Output</h1>
                 </div>
 
@@ -1305,8 +1393,13 @@
         <script type="module" src="/src/main.ts"></script>
         <script>
             class RippleController {
-                constructor(element, durationRange) {
-                    this.element = element;
+                constructor(elements, durationRange) {
+                    this.elements = (
+                        Array.isArray(elements) ? elements : [elements]
+                    ).filter((el) => el !== null);
+
+                    if (this.elements.length === 0) return;
+
                     this.durationRange = durationRange;
                     const rootFontSize = parseFloat(
                         getComputedStyle(document.documentElement).fontSize,
@@ -1358,12 +1451,18 @@
 
                         const maxRadius = Math.max(...distances) + thickness;
 
-                        this.element.style.setProperty("--ripple-x", `${x}px`);
-                        this.element.style.setProperty("--ripple-y", `${y}px`);
-                        this.element.style.setProperty(
-                            "--ripple-thickness",
-                            `${thickness}px`,
-                        );
+                        const elementData = this.elements.map((el) => ({
+                            el,
+                            isTitle: el.classList.contains("title-ripple"),
+                            rect: el.getBoundingClientRect(),
+                        }));
+
+                        elementData.forEach((data) => {
+                            data.el.style.setProperty(
+                                "--ripple-thickness",
+                                `${thickness}px`,
+                            );
+                        });
 
                         const duration =
                             (this.durationRange.min +
@@ -1379,10 +1478,28 @@
                             const currentRadius =
                                 minRadius + (maxRadius - minRadius) * progress;
 
-                            this.element.style.setProperty(
-                                "--ripple-radius",
-                                `${currentRadius}px`,
-                            );
+                            elementData.forEach((data) => {
+                                let finalX = x;
+                                let finalY = y;
+
+                                if (data.isTitle) {
+                                    finalX = x - data.rect.left;
+                                    finalY = y - data.rect.top;
+                                }
+
+                                data.el.style.setProperty(
+                                    "--ripple-x",
+                                    `${finalX}px`,
+                                );
+                                data.el.style.setProperty(
+                                    "--ripple-y",
+                                    `${finalY}px`,
+                                );
+                                data.el.style.setProperty(
+                                    "--ripple-radius",
+                                    `${currentRadius}px`,
+                                );
+                            });
 
                             if (progress < 1) {
                                 requestAnimationFrame(animate);
@@ -1397,17 +1514,25 @@
             }
 
             document.addEventListener("DOMContentLoaded", () => {
-                new RippleController(document.querySelector(".ripple-1"), {
-                    min: 5,
-                    max: 10,
-                });
-                new RippleController(document.querySelector(".ripple-2"), {
-                    min: 10,
-                    max: 15,
-                });
-                new RippleController(document.querySelector(".ripple-3"), {
-                    min: 15,
-                    max: 20,
+                const rippleConfigs = [
+                    { id: 1, min: 5, max: 10 },
+                    { id: 2, min: 10, max: 15 },
+                    { id: 3, min: 15, max: 20 },
+                ];
+
+                rippleConfigs.forEach((config) => {
+                    new RippleController(
+                        [
+                            document.querySelector(`.ripple-${config.id}`),
+                            document.querySelector(
+                                `.title-ripple-${config.id}`,
+                            ),
+                        ],
+                        {
+                            min: config.min,
+                            max: config.max,
+                        },
+                    );
                 });
             });
         </script>

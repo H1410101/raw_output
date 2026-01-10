@@ -89,6 +89,14 @@
 - **Deliverable**: Centered navigation, "Not Soon" styling, and synchronized custom scrollbars.
 - **Commit Goal**: Navigation is centered, "Not Soon" has non-interactive hover states, and scroll thumbs are perfectly aligned across all views.
 
+#### Checkpoint 2.16.13: Visual Rounding Consistency (Done)
+- **Deliverable**: Harmonized border-radius between settings menu and benchmark table.
+- **Commit Goal**: Settings menu rounding is updated to 1rem to match the benchmark table source of truth.
+
+#### Checkpoint 2.16.14: Reactive Title Glow (Done)
+- **Deliverable**: Subtle glow shadow behind the "Raw Output" title that reacts to background ripples.
+- **Commit Goal**: The application title exhibits a dynamic glow in sync with the background grid's ripple effects.
+
 ### Checkpoint 2.17: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application has a distinctive sound bank that matches the theme.

@@ -40,5 +40,7 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.16.8: Centralized Colour Palette
 - [x] 2.16.9: Settings Refinement & Auto-Dismissal
 - [x] 2.16.10: Persist Scroll with Auto-Jump
-- [ ] 2.16.11: Navigation Consolidation & Slider Polish
+- [x] 2.16.11: Navigation Consolidation & Slider Polish
+- [x] 2.16.12: Header Layout & Scroll Precision
+- [x] 2.16.13: Visual Rounding Consistency
 - [ ] 2.17: SFX Identity
