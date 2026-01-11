@@ -355,12 +355,234 @@ export class BenchmarkRowRenderer {
     playButton.className = "play-scenario-button";
     playButton.title = `Launch ${scenarioName}`;
 
-    playButton.addEventListener("click", (event: MouseEvent): void => {
-      event.stopPropagation();
-      this._launchKovaksScenario(scenarioName);
-    });
+    playButton.appendChild(this._createLaunchSocket());
+    playButton.appendChild(this._createLaunchTriangle());
+    playButton.appendChild(this._createLaunchDot());
+
+    const { container: progressContainer, bar: progressBar } =
+      this._createLaunchProgressBar();
+    playButton.appendChild(progressContainer);
+
+    this._setupHoldInteractions(playButton, progressBar, scenarioName);
 
     return playButton;
+  }
+
+  private _createLaunchSocket(): HTMLElement {
+    const socket: HTMLDivElement = document.createElement("div");
+    socket.className = "launch-socket";
+
+    return socket;
+  }
+
+  private _createLaunchTriangle(): HTMLElement {
+    const triangle: HTMLDivElement = document.createElement("div");
+    triangle.className = "launch-triangle";
+
+    return triangle;
+  }
+
+  private _createLaunchDot(): HTMLElement {
+    const dot: HTMLDivElement = document.createElement("div");
+    dot.className = "launch-dot";
+
+    return dot;
+  }
+
+  private _createLaunchProgressBar(): {
+    container: HTMLElement;
+    bar: HTMLElement;
+  } {
+    const container: HTMLDivElement = document.createElement("div");
+    container.className = "launch-progress-container";
+
+    const bar: HTMLDivElement = document.createElement("div");
+    bar.className = "launch-progress-bar";
+
+    container.appendChild(bar);
+
+    return { container, bar };
+  }
+
+  private static readonly _holdDuration: number = 600;
+
+  private static readonly _tickRate: number = 20;
+
+  private static readonly _depleteStep: number =
+    100 / (BenchmarkRowRenderer._holdDuration / BenchmarkRowRenderer._tickRate);
+
+  private static readonly _regenStep: number =
+    BenchmarkRowRenderer._depleteStep * 2;
+
+  private _setupHoldInteractions(
+    button: HTMLElement,
+    progressBar: HTMLElement,
+    scenarioName: string,
+  ): void {
+    const state: LaunchHoldState = {
+      progress: 100,
+      holdInterval: null,
+      regenInterval: null,
+      fadeTimeout: null,
+      button,
+      progressBar,
+      scenarioName,
+    };
+
+    button.addEventListener("mousedown", (event: MouseEvent): void => {
+      this._startHold(event, state);
+    });
+
+    const onRelease = (event: MouseEvent): void => {
+      this._stopHold(event, state);
+    };
+
+    button.addEventListener("mouseup", onRelease);
+    button.addEventListener("mouseleave", onRelease);
+    button.addEventListener("click", (event: MouseEvent): void => {
+      event.stopPropagation();
+    });
+  }
+
+  private _startHold(event: MouseEvent, state: LaunchHoldState): void {
+    if (event.button !== 0) {
+      return;
+    }
+    event.stopPropagation();
+    this._clearHoldTimers(state);
+
+    state.button.classList.add("holding");
+    state.holdInterval = window.setInterval((): void => {
+      this._tickHold(state);
+    }, BenchmarkRowRenderer._tickRate);
+  }
+
+  private _tickHold(state: LaunchHoldState): void {
+    state.progress -= BenchmarkRowRenderer._depleteStep;
+
+    if (state.progress <= 0) {
+      state.progress = 0;
+      this._finishHold(state);
+    }
+
+    this._updateHoldVisuals(state);
+  }
+
+  private _stopHold(event: MouseEvent, state: LaunchHoldState): void {
+    if (state.holdInterval === null) {
+      return;
+    }
+
+    event.stopPropagation();
+    clearInterval(state.holdInterval);
+    state.holdInterval = null;
+
+    if (state.progress < 100) {
+      this._startRegen(state);
+    } else {
+      state.button.classList.remove("holding");
+      this._updateHoldVisuals(state, true);
+    }
+  }
+
+  private _startRegen(state: LaunchHoldState): void {
+    if (state.regenInterval !== null) {
+      return;
+    }
+
+    state.regenInterval = window.setInterval((): void => {
+      this._tickRegen(state);
+    }, BenchmarkRowRenderer._tickRate);
+  }
+
+  private _tickRegen(state: LaunchHoldState): void {
+    state.progress += BenchmarkRowRenderer._regenStep;
+
+    if (state.progress >= 100) {
+      this._completeRegen(state);
+    }
+
+    this._updateHoldVisuals(state);
+  }
+
+  private _completeRegen(state: LaunchHoldState): void {
+    state.progress = 100;
+
+    if (state.regenInterval !== null) {
+      clearInterval(state.regenInterval);
+      state.regenInterval = null;
+    }
+
+    state.button.classList.remove("holding");
+    this._scheduleFade(state);
+  }
+
+  private _finishHold(state: LaunchHoldState): void {
+    this._clearHoldTimers(state);
+
+    state.button.classList.remove("holding");
+    state.button.classList.add("highlighted");
+    this._launchKovaksScenario(state.scenarioName);
+
+    window.setTimeout((): void => {
+      this._resetAfterLaunch(state);
+    }, 1000);
+  }
+
+  private _resetAfterLaunch(state: LaunchHoldState): void {
+    state.button.classList.remove("highlighted");
+
+    if (!state.button.classList.contains("holding")) {
+      state.progress = 100;
+      this._updateHoldVisuals(state);
+      this._scheduleFade(state);
+    }
+  }
+
+  private _updateHoldVisuals(
+    state: LaunchHoldState,
+    forceImmediateFade: boolean = false,
+  ): void {
+    const scale: number = state.progress / 100;
+    state.progressBar.style.transform = `scaleX(${scale})`;
+
+    if (state.progress < 100) {
+      this._cancelFade(state);
+      state.button.classList.add("not-full");
+    } else if (forceImmediateFade) {
+      this._cancelFade(state);
+      state.button.classList.remove("not-full");
+    }
+  }
+
+  private _scheduleFade(state: LaunchHoldState): void {
+    this._cancelFade(state);
+
+    state.fadeTimeout = window.setTimeout((): void => {
+      state.button.classList.remove("not-full");
+      state.fadeTimeout = null;
+    }, 300);
+  }
+
+  private _cancelFade(state: LaunchHoldState): void {
+    if (state.fadeTimeout !== null) {
+      clearTimeout(state.fadeTimeout);
+      state.fadeTimeout = null;
+    }
+  }
+
+  private _clearHoldTimers(state: LaunchHoldState): void {
+    this._cancelFade(state);
+
+    if (state.holdInterval !== null) {
+      clearInterval(state.holdInterval);
+      state.holdInterval = null;
+    }
+
+    if (state.regenInterval !== null) {
+      clearInterval(state.regenInterval);
+      state.regenInterval = null;
+    }
   }
 
   private _launchKovaksScenario(scenarioName: string): void {
@@ -369,4 +591,14 @@ export class BenchmarkRowRenderer {
 
     window.location.href = steamLaunchUrl;
   }
+}
+
+interface LaunchHoldState {
+  progress: number;
+  holdInterval: number | null;
+  regenInterval: number | null;
+  fadeTimeout: number | null;
+  button: HTMLElement;
+  progressBar: HTMLElement;
+  scenarioName: string;
 }

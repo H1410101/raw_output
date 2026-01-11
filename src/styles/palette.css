@@ -24,6 +24,8 @@
     --highlight-bg-1: #252b46;
     --highlight-bg-1-rgb: 37, 43, 70;
     --mask-white: #ffffff;
+    --tactical-shadow-rgb: 0, 0, 0;
+    --tactical-highlight-rgb: 255, 255, 255;
 }
 
 [data-theme="light"] {
@@ -51,6 +53,8 @@
 
     --highlight-bg-1: #94b88f;
     --highlight-bg-1-rgb: 148, 184, 143;
+    --tactical-shadow-rgb: 0, 0, 0;
+    --tactical-highlight-rgb: 255, 255, 255;
 }
 
 :root {

@@ -636,7 +636,7 @@
         }
 
         .header-action-spacer {
-            width: calc(1.4rem * var(--launch-button-multiplier));
+            width: calc(1rem * var(--launch-button-multiplier));
             flex-shrink: 0;
         }
 
@@ -1262,6 +1262,7 @@
         .slider-notch.active,
         .slider-notch.glow {
             background: var(--glow-color);
+            box-shadow: none;
         }
 
         .slider-notch.hidden {
@@ -1292,26 +1293,15 @@
             border-radius: 50%;
             background: var(--bg-color);
             flex-shrink: 0;
-            box-shadow:
-                1px 1px 1px rgba(var(--highlight-font-2-rgb), 0.05),
-                -1px -1px 1px rgba(var(--background-1-rgb), 0.5),
-                inset 0 0 0 0 rgba(var(--background-1-rgb), 0),
-                inset 0 0 0 0 rgba(var(--highlight-font-2-rgb), 0);
-            transition:
-                background 0.2s ease,
-                box-shadow 0.2s ease,
-                height 0.2s ease,
-                border-radius 0.2s ease,
-                transform 0.2s ease;
+            transition: all 0.2s ease;
+            position: relative;
         }
 
         .dot-target.glow {
             background: var(--glow-color);
             box-shadow:
-                0.0625rem 0.0625rem 0.0625rem rgba(var(--highlight-font-2-rgb), 0),
-                -0.0625rem -0.0625rem 0.0625rem rgba(var(--background-1-rgb), 0),
-                inset -0.1875rem -0.1875rem 0.375rem rgba(var(--background-1-rgb), 0.6),
-                inset 0.0625rem 0.0625rem 0.1875rem rgba(var(--highlight-font-2-rgb), 0.6);
+                inset -0.15rem -0.15rem 0.3rem rgba(var(--tactical-shadow-rgb), 0.45),
+                inset 0.1rem 0.1rem 0.2rem rgba(var(--tactical-highlight-rgb), 0.5);
         }
 
         .dot-target.pill {
@@ -1320,24 +1310,20 @@
             border-radius: calc(1.5rem * var(--vertical-spacing-multiplier));
             background: var(--glow-color);
             box-shadow:
-                0.0625rem 0.0625rem 0.0625rem rgba(var(--highlight-font-2-rgb), 0),
-                -0.0625rem -0.0625rem 0.0625rem rgba(var(--background-1-rgb), 0),
-                inset -0.28125rem -0.28125rem 0.5625rem rgba(var(--background-1-rgb), 0.6),
-                inset 0.09375rem 0.09375rem 0.28125rem rgba(var(--highlight-font-2-rgb), 0.6);
+                inset -0.2rem -0.2rem 0.4rem rgba(var(--tactical-shadow-rgb), 0.5),
+                inset 0.1rem 0.1rem 0.3rem rgba(var(--tactical-highlight-rgb), 0.6);
         }
 
         .dot-target.dull {
             background: var(--bg-color);
             box-shadow:
-                1px 1px 1px rgba(var(--highlight-font-2-rgb), 0.05),
-                -1px -1px 1px rgba(var(--background-1-rgb), 0.5),
-                inset 0 0 0 1px rgba(var(--lower-band-1-rgb), 0.25),
-                inset 0 0 0 0 rgba(var(--highlight-font-2-rgb), 0);
+                inset 0.15rem 0.15rem 0.25rem rgba(var(--tactical-shadow-rgb), 0.6),
+                inset -0.1rem -0.1rem 0.15rem rgba(var(--upper-band-1-rgb), 0.3);
         }
 
         .slider-notch.dull {
             background: var(--bg-color);
-            box-shadow: inset 0 0 0 1px rgba(var(--lower-band-1-rgb), 0.25);
+            box-shadow: inset 0 0 0 1px rgba(var(--lower-band-1-rgb), 0.4);
         }
 
         /* Multi-select (fewer dots, no notch) */
@@ -1352,39 +1338,114 @@
         }
 
         .play-scenario-button {
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            color: var(--text-dim);
-            width: calc(1.4rem * var(--launch-button-multiplier));
-            height: calc(1.4rem * var(--launch-button-multiplier));
+            background: transparent;
+            border: none;
+            width: calc(1rem * var(--launch-button-multiplier));
+            height: calc(1rem * var(--launch-button-multiplier));
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 50%;
             cursor: pointer;
-            transition: all 0.2s ease;
             position: relative;
+            padding: 0;
+            outline: none;
         }
 
-        .play-scenario-button::after {
-            content: "";
+        .launch-socket {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: var(--bg-color);
+            border: 1px solid var(--glass-border);
+            box-shadow:
+                inset 0.1rem 0.1rem 0.2rem rgba(var(--tactical-shadow-rgb), 0.6),
+                inset -0.05rem -0.05rem 0.1rem rgba(var(--upper-band-1-rgb), 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .launch-triangle {
             width: 0;
             height: 0;
             border-style: solid;
-            border-width: 0.25rem 0 0.25rem 0.375rem;
-            border-color: transparent transparent transparent currentColor;
-            margin-left: 0.0625rem;
+            border-width: 0.3rem 0 0.3rem 0.5rem;
+            border-color: transparent transparent transparent var(--text-dim);
+            margin-left: 0.125rem;
             border-radius: 0.0625rem;
+            z-index: 1;
+            transition: all 0.2s ease;
         }
 
-        .play-scenario-button:hover {
+        .play-scenario-button:hover .launch-triangle {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+
+        .play-scenario-button:hover .launch-socket {
             background: rgba(var(--upper-band-1-rgb), 0.1);
-            color: var(--accent-color);
             border-color: var(--accent-color);
         }
 
+        .launch-dot {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: var(--glow-color);
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.2s cubic-bezier(0.3, 0.85, 0.15, 1);
+            z-index: 2;
+            box-shadow:
+                inset -0.15rem -0.15rem 0.3rem rgba(var(--tactical-shadow-rgb), 0.45),
+                inset 0.1rem 0.1rem 0.2rem rgba(var(--tactical-highlight-rgb), 0.5);
+        }
+
+        .play-scenario-button:hover .launch-dot {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .launch-progress-container {
+            position: absolute;
+            top: -0.6rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 1.2rem;
+            height: 0.25rem;
+            background: rgba(var(--background-1-rgb), 0.3);
+            border-radius: 0.125rem;
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .launch-progress-bar {
+            width: 100%;
+            height: 100%;
+            background: var(--glow-color);
+            transform-origin: left;
+            transition: transform 0.05s linear;
+        }
+
+        .play-scenario-button:hover.not-full .launch-progress-container {
+            opacity: 1;
+        }
+
+        .play-scenario-button.highlighted .launch-triangle {
+            border-color: transparent transparent transparent var(--accent-color);
+            opacity: 1;
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 2px var(--accent-color));
+        }
+
+        .play-scenario-button.highlighted .launch-dot {
+            opacity: 0;
+            pointer-events: none;
+        }
+
         .play-scenario-button:active {
-            transform: scale(0.98);
+            /* Squeeze transform removed */
         }
 
         /* Folder Settings View */

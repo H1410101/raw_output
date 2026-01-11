@@ -135,7 +135,11 @@
 - **Deliverable**: Relocation of application introduction and setup instructions behind the primary title button.
 - **Commit Goal**: The main title acts as a gateway to the introduction text, cleaning up the primary dashboard real estate.
 
-### Checkpoint 2.18: SFX Identity
+### Checkpoint 2.18: Tactical Launch Button & Visual ID (Done)
+- **Deliverable**: Hold-to-confirm launch button and standardized sphere/dent lighting model.
+- **Commit Goal**: Interactive launch button with 2x regeneration and directional inset shadows for all dot elements.
+
+### Checkpoint 2.19: SFX Identity
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application has a distinctive sound bank that matches the theme.
 
