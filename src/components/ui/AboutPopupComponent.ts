@@ -1,4 +1,5 @@
 import { BenchmarkScrollController } from "../benchmark/BenchmarkScrollController";
+import { AudioService } from "../../services/AudioService";
 
 /**
  * Component that renders an information popup about the application.
@@ -7,6 +8,27 @@ import { BenchmarkScrollController } from "../benchmark/BenchmarkScrollControlle
  * including background dimming and a custom scrollbar for the text content.
  */
 export class AboutPopupComponent {
+    private readonly _closeCallbacks: (() => void)[] = [];
+    private readonly _audioService: AudioService | null;
+
+    /**
+     * Initializes the about popup with an optional audio service for interactions.
+     *
+     * @param audioService - Service for playing interaction sounds.
+     */
+    public constructor(audioService: AudioService | null = null) {
+        this._audioService = audioService;
+    }
+
+    /**
+     * Subscribes a callback to be called when the popup is closed.
+     *
+     * @param callback - Function to call on closure.
+     */
+    public subscribeToClose(callback: () => void): void {
+        this._closeCallbacks.push(callback);
+    }
+
     /**
      * Renders the about popup into the document body.
      */
@@ -31,6 +53,7 @@ export class AboutPopupComponent {
         overlay.addEventListener("click", (event: MouseEvent): void => {
             if (event.target === overlay) {
                 overlay.remove();
+                this._closeCallbacks.forEach((callback): void => callback());
             }
         });
 
@@ -70,11 +93,13 @@ export class AboutPopupComponent {
         thumb: HTMLElement,
         container: HTMLElement,
     ): void {
-        const controller: BenchmarkScrollController = new BenchmarkScrollController(
-            scrollArea,
-            thumb,
-            container,
-        );
+        const controller: BenchmarkScrollController = new BenchmarkScrollController({
+            scrollContainer: scrollArea,
+            scrollThumb: thumb,
+            hoverContainer: container,
+            appStateService: null,
+            audioService: this._audioService,
+        });
 
         controller.initialize();
     }

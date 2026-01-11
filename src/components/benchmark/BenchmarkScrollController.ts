@@ -1,4 +1,16 @@
 import { AppStateService } from "../../services/AppStateService";
+import { AudioService } from "../../services/AudioService";
+
+/**
+ * Collection of elements and services required for BenchmarkScrollController.
+ */
+export interface BenchmarkScrollDependencies {
+  readonly scrollContainer: HTMLElement;
+  readonly scrollThumb: HTMLElement;
+  readonly hoverContainer: HTMLElement;
+  readonly appStateService?: AppStateService | null;
+  readonly audioService?: AudioService | null;
+}
 
 /**
  * Manages custom scrollbar behavior for the benchmark table.
@@ -11,27 +23,22 @@ export class BenchmarkScrollController {
   private readonly _scrollThumb: HTMLElement;
   private readonly _hoverContainer: HTMLElement;
   private readonly _appStateService: AppStateService | null;
+  private readonly _audioService: AudioService | null;
 
   private _isUserDragging: boolean = false;
+  private _lastLightSoundTime: number = 0;
 
   /**
-   * Initializes the controller with the necessary DOM elements.
+   * Initializes the controller with the necessary dependencies.
    *
-   * @param scrollContainer - The scrollable area.
-   * @param scrollThumb - The custom thumb element to be translated.
-   * @param hoverContainer - The container used for hover-detection (auto-scroll).
-   * @param appStateService - Service for persisting UI state.
+   * @param dependencies - Object containing DOM elements and services.
    */
-  public constructor(
-    scrollContainer: HTMLElement,
-    scrollThumb: HTMLElement,
-    hoverContainer: HTMLElement,
-    appStateService: AppStateService | null = null,
-  ) {
-    this._scrollContainer = scrollContainer;
-    this._scrollThumb = scrollThumb;
-    this._hoverContainer = hoverContainer;
-    this._appStateService = appStateService;
+  public constructor(dependencies: BenchmarkScrollDependencies) {
+    this._scrollContainer = dependencies.scrollContainer;
+    this._scrollThumb = dependencies.scrollThumb;
+    this._hoverContainer = dependencies.hoverContainer;
+    this._appStateService = dependencies.appStateService ?? null;
+    this._audioService = dependencies.audioService ?? null;
   }
 
   /**
@@ -263,10 +270,26 @@ export class BenchmarkScrollController {
     }
 
     const scrollUnitsPerPixel: number = totalScrollRange / availableTrackSpan;
+    const oldScrollTop = this._scrollContainer.scrollTop;
     this._scrollContainer.scrollTop += pixelDelta * scrollUnitsPerPixel;
+
+    if (
+      this._audioService &&
+      this._scrollContainer.scrollTop !== oldScrollTop
+    ) {
+      this._playThrottledLightSound();
+    }
 
     if (this._appStateService) {
       this._appStateService.setFocusedScenarioName(null);
+    }
+  }
+
+  private _playThrottledLightSound(): void {
+    const now = Date.now();
+    if (now - this._lastLightSoundTime >= 40) {
+      this._audioService?.playLight(0.4);
+      this._lastLightSoundTime = now;
     }
   }
 

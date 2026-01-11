@@ -18,6 +18,7 @@ import { FolderSettingsView } from "./ui/FolderSettingsView";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
+import { AudioService } from "../services/AudioService";
 
 /**
  * Core services required by the BenchmarkView.
@@ -30,6 +31,8 @@ export interface BenchmarkViewServices {
   sessionSettings: SessionSettingsService;
   focus: FocusManagementService;
   directory: DirectoryAccessService;
+  visualSettings: VisualSettingsService;
+  audio: AudioService;
   folderActions: {
     onLinkFolder: () => Promise<void>;
     onForceScan: () => Promise<void>;
@@ -60,6 +63,7 @@ export class BenchmarkView {
   private readonly _sessionSettingsService: SessionSettingsService;
 
   private readonly _focusService: FocusManagementService;
+  private readonly _audioService: AudioService;
 
   private readonly _settingsController: BenchmarkSettingsController;
 
@@ -108,7 +112,8 @@ export class BenchmarkView {
     this._folderActions = services.folderActions;
     this._focusService = services.focus;
     this._appStateService = appStateService;
-    this._visualSettingsService = new VisualSettingsService();
+    this._visualSettingsService = services.visualSettings;
+    this._audioService = services.audio;
     this._sessionSettingsService = services.sessionSettings;
 
     this._activeDifficulty = this._determineInitialDifficulty();
@@ -451,12 +456,13 @@ export class BenchmarkView {
   }
 
   private _initSettingsController(): BenchmarkSettingsController {
-    return new BenchmarkSettingsController(
-      this._visualSettingsService,
-      this._sessionSettingsService,
-      this._focusService,
-      this._benchmarkService,
-    );
+    return new BenchmarkSettingsController({
+      visualSettingsService: this._visualSettingsService,
+      sessionSettingsService: this._sessionSettingsService,
+      focusService: this._focusService,
+      benchmarkService: this._benchmarkService,
+      audioService: this._audioService,
+    });
   }
 
   private async _updateSingleScenario(scenarioName: string): Promise<void> {
@@ -628,6 +634,7 @@ export class BenchmarkView {
       sessionService: this._sessionService,
       appStateService: this._appStateService,
       visualSettings: this._visualSettingsService.getSettings(),
+      audioService: this._audioService,
       focusService: this._focusService,
     });
 

@@ -1,3 +1,5 @@
+import { AudioService } from "../../services/AudioService";
+
 /**
  * Internal configuration for dot track creation.
  */
@@ -55,6 +57,16 @@ export interface SegmentedControlConfiguration {
  * Factory for creating standardized, tactical UI components for settings menus.
  */
 export class SettingsUiFactory {
+  private static _audioService: AudioService | null = null;
+
+  /**
+   * Sets the audio service instance for UI interactions.
+   *
+   * @param service - The audio service to use.
+   */
+  public static setAudioService(service: AudioService): void {
+    this._audioService = service;
+  }
   /**
    * Creates a standardized toggle switch.
    *
@@ -189,9 +201,31 @@ export class SettingsUiFactory {
       const element = item as HTMLElement;
       this._applyTransitionToItem(element, index, oldIndex);
       this._applyItemState(element, index, context.index, trackType);
+      this._playWaveHitSound(index, oldIndex, context.index);
     });
   }
 
+  private static _playWaveHitSound(
+    index: number,
+    oldIndex: number,
+    newIndex: number,
+  ): void {
+    if (!this._audioService || oldIndex === -1 || oldIndex === newIndex) {
+      return;
+    }
+
+    const minIdx: number = Math.min(oldIndex, newIndex);
+    const maxIdx: number = Math.max(oldIndex, newIndex);
+
+    if (index >= minIdx && index <= maxIdx) {
+      const distance: number = Math.abs(index - oldIndex);
+      const delay: number = distance * 0.03;
+
+      setTimeout((): void => {
+        this._audioService?.playLight(0.35);
+      }, delay * 1000);
+    }
+  }
   /**
    * Resolves the visual target and logical index based on the presence of an external notch.
    *
@@ -242,6 +276,7 @@ export class SettingsUiFactory {
 
     checkbox.addEventListener("click", (): void => {
       const newState: boolean = checkbox.classList.toggle("checked");
+      this._audioService?.playLight(0.5);
       onChange(newState);
     });
 
@@ -378,6 +413,7 @@ export class SettingsUiFactory {
     onClick: () => void,
   ): void {
     event.stopPropagation();
+    this._audioService?.playLight(0.7);
     onClick();
   }
 
@@ -467,6 +503,7 @@ export class SettingsUiFactory {
         selectedIndex,
         (): void => {
           this._updateTrackOnSelection(track, index);
+          this._audioService?.playLight(0.5);
           onIndexSelect(index);
         },
         trackType,

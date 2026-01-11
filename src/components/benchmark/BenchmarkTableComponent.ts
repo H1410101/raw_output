@@ -9,6 +9,7 @@ import { BenchmarkRowRenderer } from "./BenchmarkRowRenderer";
 import { BenchmarkScrollController } from "./BenchmarkScrollController";
 import { BenchmarkLabelPositioner } from "./BenchmarkLabelPositioner";
 import { ScenarioNameWidthManager } from "./ScenarioNameWidthManager";
+import { AudioService } from "../../services/AudioService";
 import { SCALING_FACTORS } from "../../services/ScalingService";
 
 /**
@@ -20,6 +21,7 @@ export interface BenchmarkTableDependencies {
   readonly sessionService: SessionService;
   readonly appStateService: AppStateService;
   readonly visualSettings: VisualSettings;
+  readonly audioService: AudioService;
   readonly focusService: FocusManagementService;
 }
 
@@ -33,6 +35,7 @@ export class BenchmarkTableComponent {
   private readonly _rowElements: Map<string, HTMLElement> = new Map();
   private _labelPositioner: BenchmarkLabelPositioner | null = null;
   private readonly _nameWidthManager: ScenarioNameWidthManager;
+  private readonly _audioService: AudioService;
 
   /**
    * Initializes the table component with required services and settings.
@@ -42,12 +45,14 @@ export class BenchmarkTableComponent {
   public constructor(dependencies: BenchmarkTableDependencies) {
     this._visualSettings = dependencies.visualSettings;
     this._appStateService = dependencies.appStateService;
-    this._rowRenderer = new BenchmarkRowRenderer(
-      dependencies.historyService,
-      dependencies.rankService,
-      dependencies.sessionService,
-      dependencies.visualSettings,
-    );
+    this._audioService = dependencies.audioService;
+    this._rowRenderer = new BenchmarkRowRenderer({
+      historyService: dependencies.historyService,
+      rankService: dependencies.rankService,
+      sessionService: dependencies.sessionService,
+      audioService: dependencies.audioService,
+      visualSettings: dependencies.visualSettings,
+    });
     this._nameWidthManager = new ScenarioNameWidthManager();
   }
 
@@ -178,15 +183,16 @@ export class BenchmarkTableComponent {
     scrollArea: HTMLElement,
     thumb: HTMLElement,
   ): void {
-    const scrollController: BenchmarkScrollController =
-      new BenchmarkScrollController(
-        scrollArea,
-        thumb,
-        container,
-        this._appStateService,
-      );
+    const controller: BenchmarkScrollController =
+      new BenchmarkScrollController({
+        scrollContainer: scrollArea,
+        scrollThumb: thumb,
+        hoverContainer: container,
+        appStateService: this._appStateService,
+        audioService: this._audioService,
+      });
 
-    scrollController.initialize();
+    controller.initialize();
     this._labelPositioner = new BenchmarkLabelPositioner(scrollArea);
     this._labelPositioner.initialize();
   }

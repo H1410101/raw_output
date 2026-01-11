@@ -110,6 +110,7 @@ export class VisualSettingsService {
     apply("--dot-cloud-multiplier", settings.dotCloudSize);
     apply("--dot-cloud-width-multiplier", settings.dotCloudWidth);
     apply("--vis-rank-font-multiplier", settings.visRankFontSize);
+    root.style.setProperty("--master-volume", (settings.audioVolume / 100).toString());
   }
 
   private _loadFromStorage(): VisualSettings {

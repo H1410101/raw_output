@@ -10,8 +10,20 @@ import {
   FocusState,
 } from "../../services/FocusManagementService";
 import { BenchmarkService } from "../../services/BenchmarkService";
+import { AudioService } from "../../services/AudioService";
 import { SettingsSectionRenderer } from "./SettingsSectionRenderer";
 import { BenchmarkScrollController } from "./BenchmarkScrollController";
+
+/**
+ * Configuration dependencies for BenchmarkSettingsController.
+ */
+export interface BenchmarkSettingsDependencies {
+  readonly visualSettingsService: VisualSettingsService;
+  readonly sessionSettingsService: SessionSettingsService;
+  readonly focusService: FocusManagementService;
+  readonly benchmarkService: BenchmarkService;
+  readonly audioService: AudioService;
+}
 
 /**
  * Orchestrates the display and interaction of the settings menu.
@@ -23,29 +35,23 @@ export class BenchmarkSettingsController {
   private readonly _visualSettingsService: VisualSettingsService;
   private readonly _focusService: FocusManagementService;
   private readonly _benchmarkService: BenchmarkService;
+  private readonly _audioService: AudioService;
   private readonly _sectionRenderer: SettingsSectionRenderer;
   private _currentVisualSettings: VisualSettings;
 
   /**
    * Initializes the controller with the required configuration services.
    *
-   * @param visualSettingsService - Service for visualization and layout state.
-   * @param sessionSettingsService - Service for session timing and behavior state.
-   * @param focusService - Service for monitoring scenario focus events.
-   * @param benchmarkService - Service for verifying scenario difficulty membership.
+   * @param dependencies - Object holding required services and state.
    */
-  public constructor(
-    visualSettingsService: VisualSettingsService,
-    sessionSettingsService: SessionSettingsService,
-    focusService: FocusManagementService,
-    benchmarkService: BenchmarkService,
-  ) {
-    this._visualSettingsService = visualSettingsService;
-    this._focusService = focusService;
-    this._benchmarkService = benchmarkService;
+  public constructor(dependencies: BenchmarkSettingsDependencies) {
+    this._visualSettingsService = dependencies.visualSettingsService;
+    this._focusService = dependencies.focusService;
+    this._benchmarkService = dependencies.benchmarkService;
+    this._audioService = dependencies.audioService;
     this._sectionRenderer = new SettingsSectionRenderer(
-      visualSettingsService,
-      sessionSettingsService,
+      dependencies.visualSettingsService,
+      dependencies.sessionSettingsService,
     );
 
     this._currentVisualSettings = this._visualSettingsService.getSettings();
@@ -82,6 +88,7 @@ export class BenchmarkSettingsController {
       document.querySelector(".settings-overlay");
     if (existing) {
       existing.remove();
+      this._audioService.playHeavy(0.4);
     }
   }
 
@@ -92,6 +99,7 @@ export class BenchmarkSettingsController {
     overlay.addEventListener("click", (event: MouseEvent): void => {
       if (event.target === overlay) {
         overlay.remove();
+        this._audioService.playHeavy(0.4);
       }
     });
 
@@ -117,11 +125,13 @@ export class BenchmarkSettingsController {
     thumb: HTMLElement,
     container: HTMLElement,
   ): void {
-    const controller: BenchmarkScrollController = new BenchmarkScrollController(
-      scrollArea,
-      thumb,
-      container,
-    );
+    const controller: BenchmarkScrollController = new BenchmarkScrollController({
+      scrollContainer: scrollArea,
+      scrollThumb: thumb,
+      hoverContainer: container,
+      appStateService: null,
+      audioService: this._audioService,
+    });
 
     controller.initialize();
   }

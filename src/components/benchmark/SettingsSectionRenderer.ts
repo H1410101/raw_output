@@ -191,23 +191,17 @@ export class SettingsSectionRenderer {
     const settings: VisualSettings = this._visualSettingsService.getSettings();
     container.appendChild(SettingsUiFactory.createGroupTitle("Audio"));
 
-    const volumeSlider: HTMLElement = SettingsUiFactory.createSlider({
-      label: "Master Volume",
-      value: settings.audioVolume,
-      min: 0,
-      max: 100,
-      unit: "%",
-      showNotch: true,
-      onChange: (val: number): void =>
-        this._visualSettingsService.updateSetting("audioVolume", val),
-    });
-
-    const audioSubRows: HTMLDivElement = document.createElement("div");
-    audioSubRows.className = "settings-sub-rows";
-    this._fillAudioPlaceholders(audioSubRows);
-
     container.appendChild(
-      SettingsUiFactory.createSettingsGroup(volumeSlider, audioSubRows),
+      SettingsUiFactory.createSlider({
+        label: "Master Volume",
+        value: settings.audioVolume,
+        min: 0,
+        max: 100,
+        unit: "%",
+        showNotch: true,
+        onChange: (val: number): void =>
+          this._visualSettingsService.updateSetting("audioVolume", val),
+      }),
     );
   }
 
@@ -433,12 +427,4 @@ export class SettingsSectionRenderer {
     });
   }
 
-  private _fillAudioPlaceholders(container: HTMLElement): void {
-    for (let i: number = 1; i <= 3; i++) {
-      const item: HTMLDivElement = document.createElement("div");
-      item.className = "setting-item";
-      item.innerHTML = `<label>Audio Source ${i}</label>`;
-      container.appendChild(item);
-    }
-  }
 }

@@ -14,6 +14,9 @@ import { ApplicationStatusView } from "./components/ui/ApplicationStatusView";
 import { NavigationController } from "./components/NavigationController";
 import { FocusManagementService } from "./services/FocusManagementService";
 import { AboutPopupComponent } from "./components/ui/AboutPopupComponent";
+import { VisualSettingsService } from "./services/VisualSettingsService";
+import { AudioService } from "./services/AudioService";
+import { SettingsUiFactory } from "./components/ui/SettingsUiFactory";
 
 /**
  * Orchestrate service instantiation and dependency wiring.
@@ -47,6 +50,10 @@ export class AppBootstrap {
 
   private readonly _navigationController: NavigationController;
 
+  private readonly _visualSettingsService: VisualSettingsService;
+
+  private readonly _audioService: AudioService;
+
   /**
    * Initializes the application's core logic and UI components.
    */
@@ -59,6 +66,9 @@ export class AppBootstrap {
     this._rankService = new RankService();
     this._appStateService = new AppStateService();
     this._sessionSettingsService = new SessionSettingsService();
+
+    this._visualSettingsService = new VisualSettingsService();
+    this._audioService = new AudioService(this._visualSettingsService);
 
     this._focusService = new FocusManagementService(this._appStateService);
 
@@ -94,7 +104,10 @@ export class AppBootstrap {
 
     this._navigationController.initialize();
 
+    SettingsUiFactory.setAudioService(this._audioService);
+
     this._setupActionListeners();
+    this._setupGlobalButtonSounds();
   }
 
   private _createStatusView(): ApplicationStatusView {
@@ -115,6 +128,8 @@ export class AppBootstrap {
         sessionSettings: this._sessionSettingsService,
         focus: this._focusService,
         directory: this._directoryService,
+        visualSettings: this._visualSettingsService,
+        audio: this._audioService,
         folderActions: {
           onLinkFolder: (): Promise<void> =>
             this._handleManualFolderSelection(),
@@ -173,7 +188,10 @@ export class AppBootstrap {
     const aboutBtn = this._getRequiredElement("header-about-btn");
 
     aboutBtn.addEventListener("click", (): void => {
-      const aboutPopup: AboutPopupComponent = new AboutPopupComponent();
+      const aboutPopup: AboutPopupComponent = new AboutPopupComponent(this._audioService);
+      aboutPopup.subscribeToClose((): void => {
+        this._audioService.playHeavy(0.4);
+      });
       aboutPopup.render();
     });
   }
@@ -260,6 +278,26 @@ export class AppBootstrap {
 
       this._statusView.reportActive();
     });
+  }
+
+  private _setupGlobalButtonSounds(): void {
+    document.addEventListener("click", (event: MouseEvent): void => {
+      const target = event.target as HTMLElement;
+      const button = target.closest("button");
+      const link = target.closest("a");
+      const title = target.closest(".app-title-container");
+
+      if (button || link || title) {
+        this._audioService.playHeavy(0.4);
+      }
+    });
+
+    const titleElement = document.getElementById("header-about-btn");
+    if (titleElement) {
+      titleElement.addEventListener("mouseenter", (): void => {
+        this._audioService.playLight(0.5);
+      });
+    }
   }
 
   private _getRequiredElement(elementId: string): HTMLElement {

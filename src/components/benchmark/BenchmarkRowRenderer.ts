@@ -3,8 +3,20 @@ import { HistoryService } from "../../services/HistoryService";
 import { RankService } from "../../services/RankService";
 import { SessionService } from "../../services/SessionService";
 import { VisualSettings } from "../../services/VisualSettingsService";
+import { AudioService } from "../../services/AudioService";
 import { DotCloudComponent } from "../visualizations/DotCloudComponent";
 import { ScoreEntry } from "../visualizations/ScoreProcessor";
+
+/**
+ * Collection of services and settings required for BenchmarkRowRenderer.
+ */
+export interface BenchmarkRowDependencies {
+  readonly historyService: HistoryService;
+  readonly rankService: RankService;
+  readonly sessionService: SessionService;
+  readonly audioService: AudioService;
+  readonly visualSettings: VisualSettings;
+}
 
 /**
  * Responsible for rendering a single row within the benchmark table.
@@ -13,6 +25,7 @@ export class BenchmarkRowRenderer {
   private readonly _historyService: HistoryService;
   private readonly _rankService: RankService;
   private readonly _sessionService: SessionService;
+  private readonly _audioService: AudioService;
   private _visualSettings: VisualSettings;
   private readonly _dotCloudRegistry: Map<string, DotCloudComponent> =
     new Map();
@@ -21,21 +34,14 @@ export class BenchmarkRowRenderer {
   /**
    * Initializes the renderer with required services.
    *
-   * @param historyService - Service for fetching score history.
-   * @param rankService - Service for calculating ranks and progress.
-   * @param sessionService - Service for session-specific highscores.
-   * @param visualSettings - Current visual configuration.
+   * @param dependencies - Object containing required services and visual configuration.
    */
-  public constructor(
-    historyService: HistoryService,
-    rankService: RankService,
-    sessionService: SessionService,
-    visualSettings: VisualSettings,
-  ) {
-    this._historyService = historyService;
-    this._rankService = rankService;
-    this._sessionService = sessionService;
-    this._visualSettings = visualSettings;
+  public constructor(dependencies: BenchmarkRowDependencies) {
+    this._historyService = dependencies.historyService;
+    this._rankService = dependencies.rankService;
+    this._sessionService = dependencies.sessionService;
+    this._audioService = dependencies.audioService;
+    this._visualSettings = dependencies.visualSettings;
   }
 
   /**
@@ -71,6 +77,7 @@ export class BenchmarkRowRenderer {
 
     rowElement.addEventListener("click", (): void => {
       rowElement.classList.toggle("selected");
+      this._audioService.playLight(0.6);
       this._dotCloudRegistry.get(scenario.name)?.requestUpdate();
     });
 
@@ -421,6 +428,7 @@ export class BenchmarkRowRenderer {
   ): void {
     const state: LaunchHoldState = {
       progress: 100,
+      tickCount: 0,
       holdInterval: null,
       regenInterval: null,
       fadeTimeout: null,
@@ -465,7 +473,20 @@ export class BenchmarkRowRenderer {
       this._finishHold(state);
     }
 
+    this._playHoldSoundIfNecessary(state);
     this._updateHoldVisuals(state);
+  }
+
+  private _playHoldSoundIfNecessary(state: LaunchHoldState): void {
+    if (state.progress <= 0) {
+      return;
+    }
+
+    if (state.tickCount % 2 === 0) {
+      this._audioService.playLight(0.7);
+    }
+
+    state.tickCount++;
   }
 
   private _stopHold(event: MouseEvent, state: LaunchHoldState): void {
@@ -478,6 +499,7 @@ export class BenchmarkRowRenderer {
     state.holdInterval = null;
 
     if (state.progress < 100) {
+      state.tickCount = 0;
       this._startRegen(state);
     } else {
       state.button.classList.remove("holding");
@@ -522,6 +544,8 @@ export class BenchmarkRowRenderer {
 
     state.button.classList.remove("holding");
     state.button.classList.add("highlighted");
+
+    this._audioService.playHeavy(1.0);
     this._launchKovaksScenario(state.scenarioName);
 
     window.setTimeout((): void => {
@@ -601,4 +625,5 @@ interface LaunchHoldState {
   button: HTMLElement;
   progressBar: HTMLElement;
   scenarioName: string;
+  tickCount: number;
 }
