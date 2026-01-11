@@ -115,19 +115,48 @@ function _initializeBenchmarkData(): Record<
 > {
   const map: Record<DifficultyTier, BenchmarkScenario[]> = {};
 
-  for (const [filePath, content] of Object.entries(benchmarkFiles)) {
-    const tierName: string = _extractTierNameFromFilePath(filePath);
+  const sortedFiles: [string, string][] = Object.entries(benchmarkFiles).sort(
+    _compareBenchmarkFiles,
+  );
 
-    map[tierName] = _extractScenariosFromCsv(content);
+  for (const [filePath, content] of sortedFiles) {
+    const tierName: string | null = _extractTierNameFromFilePath(filePath);
+
+    if (tierName !== null) {
+      map[tierName] = _extractScenariosFromCsv(content);
+    }
   }
 
   return map;
 }
 
-function _extractTierNameFromFilePath(filePath: string): string {
-  const fileName: string = filePath.split("/").pop() || "";
+function _compareBenchmarkFiles(
+  a: [string, string],
+  b: [string, string],
+): number {
+  const nameA: string = _extractRawFileName(a[0]);
+  const nameB: string = _extractRawFileName(b[0]);
 
-  return fileName.replace(".csv", "");
+  return nameA.localeCompare(nameB, undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function _extractRawFileName(filePath: string): string {
+  return filePath.split("/").pop() || "";
+}
+
+function _extractTierNameFromFilePath(filePath: string): string | null {
+  const fileName: string = _extractRawFileName(filePath).replace(".csv", "");
+
+  const match: RegExpMatchArray | null = fileName.match(/^\d+\s+(.+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return match[1];
 }
 
 /**
@@ -136,7 +165,7 @@ function _extractTierNameFromFilePath(filePath: string): string {
  * @returns An array of strings representing the difficulty levels.
  */
 export const getAvailableDifficulties = (): DifficultyTier[] => {
-  return Object.keys(BENCHMARK_MAP).sort();
+  return Object.keys(BENCHMARK_MAP);
 };
 
 /**
