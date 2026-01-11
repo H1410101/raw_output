@@ -147,30 +147,59 @@
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application has a distinctive sound bank that matches the theme.
 
-## Phase 3: Ranked Runs
+## Phase 3: Cloudflare Analytics & Session Pulse
+- **Goal**: Collect anonymous session statistics to balance benchmark ranks and understand device distribution.
 
-### Checkpoint 3.1: Ranked Session Layout
-### Checkpoint 3.2: Scenario Selection Logic
-### Checkpoint 3.3: Target Bar Component
-### Checkpoint 3.4: HUD Integration
-### Checkpoint 3.5: Visual System Unification & Theme
-### Checkpoint 3.6: Scenario Transitions
-### Checkpoint 3.7: Live Feedback Loop
-### Checkpoint 3.8: Rank Estimator
-### Checkpoint 3.9: Audio Feedback
-### Checkpoint 3.10: Infinite Progression
+### Checkpoint 3.1: Edge infrastructure & Handshake
+- **Deliverable**: Wrangler initialization, D1 database creation, and a "Health Check" endpoint.
+- **Verifiable Feedback**: Click a "Test Connection" button in-app to receive a pong from the local Cloudflare emulator.
 
-## Phase 4: Focus-Based Dynamics
+### Checkpoint 3.2: Identity & Privacy Layer
+- **Deliverable**: `DeviceIdentifierService` for local UUIDs and the "Anonymous Analytics" toggle in Settings.
+- **Verifiable Feedback**: Toggling the setting generates/clears a persistent UUID in localStorage.
 
-### Checkpoint 4.1: Dynamic Rank Indicator
-### Checkpoint 4.2: Window Focus Awareness
-### Checkpoint 4.3: Focus-Delayed Animations
-### Checkpoint 4.4: Rank Up Ceremony
-### Checkpoint 4.5: Infinite Progression Polish
+### Checkpoint 3.3: Session Data Extraction
+- **Deliverable**: Integration with `SessionService` to summarize a session's highscores into a serializable "Pulse" payload.
+- **Verifiable Feedback**: A developer console log shows the exact JSON payload ready for submission when a session ends.
 
-## Phase 5: Ecosystem & Analytics
+### Checkpoint 3.4: Automated Session Reporting
+- **Deliverable**: Logic to automatically trigger a submission upon session expiry or manual reset (respecting opt-in).
+- **Verifiable Feedback**: The Network tab shows a pending request to `/api/collect` when a session is finalized.
 
-### Checkpoint 5.1: Ranked Seasons Core
-### Checkpoint 5.2: Season Timer
-### Checkpoint 5.3: Data Opt-in
-### Checkpoint 5.4: Warm-up Analysis
+### Checkpoint 3.5: Salted Hashing & D1 Persistence
+- **Deliverable**: Backend Cloudflare Function that salts the device ID and persists the payload into D1.
+- **Verifiable Feedback**: Running a local D1 query shows the row correctly inserted with a hashed identifier.
+
+### Checkpoint 3.6: Pre-flight Verification & Error Handling
+- **Deliverable**: Robust retry logic for failed submissions and verification of data integrity.
+- **Verifiable Feedback**: Simulate an offline state and verify that the application recovers or handles the failure gracefully.
+
+### Checkpoint 3.7: Production Deployment
+- **Deliverable**: Git connection to Cloudflare Pages and remote database migration.
+- **Verifiable Feedback**: Data from the live production environment appears in the Cloudflare Dashboard.
+
+## Phase 4: Ranked Runs
+
+### Checkpoint 4.1: Ranked Session Layout
+### Checkpoint 4.2: Scenario Selection Logic
+### Checkpoint 4.3: Target Bar Component
+### Checkpoint 4.4: HUD Integration
+### Checkpoint 4.5: Visual System Unification & Theme
+### Checkpoint 4.6: Scenario Transitions
+### Checkpoint 4.7: Live Feedback Loop
+### Checkpoint 4.8: Rank Estimator
+### Checkpoint 4.9: Audio Feedback
+### Checkpoint 4.10: Infinite Progression
+
+## Phase 5: Focus-Based Dynamics
+
+### Checkpoint 5.1: Dynamic Rank Indicator
+### Checkpoint 5.2: Window Focus Awareness
+### Checkpoint 5.3: Focus-Delayed Animations
+### Checkpoint 5.4: Rank Up Ceremony
+### Checkpoint 5.5: Infinite Progression Polish
+
+## Phase 6: Ecosystem & Analytics (Refined)
+
+### Checkpoint 6.1: Warm-up Analysis
+### Checkpoint 6.2: Rank Distribution Visuals
