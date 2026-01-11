@@ -131,7 +131,7 @@
 - **Deliverable**: Interactive scrollbar track that jumps the view directly to the clicked position.
 - **Commit Goal**: Clicking the scrollbar track moves the scroll thumb and view content to that exact proportional height, with centered dragging behavior.
 
-#### Checkpoint 2.17.8: Strategic Introduction placement
+#### Checkpoint 2.17.8: Strategic Introduction placement (Done)
 - **Deliverable**: Relocation of application introduction and setup instructions behind the primary title button.
 - **Commit Goal**: The main title acts as a gateway to the introduction text, cleaning up the primary dashboard real estate.
 

@@ -13,6 +13,7 @@ import { AppStateService } from "./services/AppStateService";
 import { ApplicationStatusView } from "./components/ui/ApplicationStatusView";
 import { NavigationController } from "./components/NavigationController";
 import { FocusManagementService } from "./services/FocusManagementService";
+import { AboutPopupComponent } from "./components/ui/AboutPopupComponent";
 
 /**
  * Orchestrate service instantiation and dependency wiring.
@@ -167,6 +168,13 @@ export class AppBootstrap {
       this._animateButton(folderBtn);
 
       this._benchmarkView.toggleFolderView();
+    });
+
+    const aboutBtn = this._getRequiredElement("header-about-btn");
+
+    aboutBtn.addEventListener("click", (): void => {
+      const aboutPopup: AboutPopupComponent = new AboutPopupComponent();
+      aboutPopup.render();
     });
   }
 

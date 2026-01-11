@@ -123,13 +123,16 @@
             position: absolute;
             inset: 0;
             margin: 0;
+            display: flex;
+            align-items: center;
+            padding: calc(0.4rem * var(--margin-spacing-multiplier)) calc(0.8rem * var(--margin-spacing-multiplier));
             line-height: 1.2;
             font-family: "Nunito", sans-serif;
-            font-size: 1.75rem;
+            font-size: calc(1.75rem * var(--label-font-multiplier));
             font-weight: 800;
             letter-spacing: -0.02em;
             color: transparent;
-            text-shadow: 0.17rem 0.17rem 0.14rem var(--upper-band-2);
+            text-shadow: calc(0.15rem * var(--label-font-multiplier)) calc(0.15rem * var(--label-font-multiplier)) calc(0.1rem * var(--label-font-multiplier)) var(--upper-band-2);
             opacity: 0;
             white-space: nowrap;
             will-change:
@@ -208,8 +211,26 @@
             gap: 2rem;
         }
 
+        .app-title-container {
+            cursor: pointer;
+            padding: calc(0.4rem * var(--margin-spacing-multiplier)) calc(0.8rem * var(--margin-spacing-multiplier));
+            margin-left: calc(-0.8rem * var(--margin-spacing-multiplier));
+            border-radius: calc(0.5rem * var(--vertical-spacing-multiplier));
+            transition: all 0.2s ease;
+            user-select: none;
+            width: fit-content;
+        }
+
+        .app-title-container:hover {
+            background: rgba(var(--lower-band-1-rgb), 0.15);
+        }
+
+        .app-title-container:active {
+            background: rgba(var(--lower-band-1-rgb), 0.1);
+        }
+
         h1 {
-            font-size: 1.75rem;
+            font-size: calc(1.75rem * var(--label-font-multiplier));
             font-weight: 800;
             margin: 0;
             line-height: 1.2;
@@ -1061,6 +1082,8 @@
             position: relative;
             display: flex;
             flex-direction: column;
+            width: 50rem;
+            max-width: 90vw;
             max-height: 85vh;
             border-radius: calc(1.5rem * var(--margin-spacing-multiplier));
             overflow: hidden;
@@ -1077,7 +1100,7 @@
             position: absolute;
             top: calc(1.5rem * var(--margin-spacing-multiplier));
             bottom: calc(1.5rem * var(--margin-spacing-multiplier));
-            right: calc(1.5rem * var(--margin-spacing-multiplier));
+            right: calc(0.75rem * var(--margin-spacing-multiplier));
             width: 0.5rem;
             background: transparent;
             box-shadow: 0 0 0 200vw rgba(var(--background-2-rgb), 0.2375);
@@ -1115,10 +1138,32 @@
 
         .settings-menu-card h2 {
             margin: 0;
-            font-size: 1.25rem;
+            font-size: calc(1.25rem * var(--label-font-multiplier));
             color: var(--upper-band-2);
             font-weight: 700;
             letter-spacing: -0.02em;
+        }
+
+        .about-section {
+            display: flex;
+            flex-direction: column;
+            gap: calc(0.5rem * var(--margin-spacing-multiplier));
+        }
+
+        .about-section p {
+            margin: 0;
+            font-size: calc(0.9rem * var(--scenario-font-multiplier));
+            line-height: 1.5;
+            color: var(--text-dim);
+        }
+
+        .about-section h3 {
+            margin: calc(0.5rem * var(--margin-spacing-multiplier)) 0 calc(0.25rem * var(--margin-spacing-multiplier)) 0;
+            font-size: calc(0.85rem * var(--label-font-multiplier));
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--upper-band-1);
+            font-weight: 700;
         }
 
         .settings-group-title {
@@ -1511,7 +1556,7 @@
         }
 
         .app-introduction h2 {
-            font-size: 2rem;
+            font-size: calc(2rem * var(--label-font-multiplier));
             margin: 0;
             color: var(--upper-band-3);
             letter-spacing: -0.04em;
@@ -1519,7 +1564,7 @@
         }
 
         .app-introduction p {
-            font-size: 0.9rem;
+            font-size: calc(0.9rem * var(--scenario-font-multiplier));
             margin: 0;
             color: var(--upper-band-1);
             opacity: 0.9;
@@ -1544,7 +1589,7 @@
     </div>
     <div class="container">
         <header class="app-header">
-            <div class="header-content">
+            <div class="header-content app-title-container" id="header-about-btn">
                 <div class="title-glow-container">
                     <div class="title-ripple title-ripple-1">
                         Raw Output
