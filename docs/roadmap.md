@@ -119,15 +119,19 @@
 - **Deliverable**: Implementation of the "All-Rank" performance display, interactive UX refinements for popup stability, and the standardization of benchmark data.
 - **Commit Goal**: Users can see all rank thresholds via a stable, interactive popup, and benchmark data is cleaned of individual highscore columns.
 
-#### Checkpoint 2.17.5: Dynamic Benchmark Ordering
+#### Checkpoint 2.17.5: Dynamic Benchmark Ordering (Done)
 - **Deliverable**: The ability to sort or reorder benchmarks dynamically based on performance or manual configuration.
 - **Commit Goal**: Benchmark list order responds to dynamic criteria beyond lexicographical sorting.
 
-#### Checkpoint 2.17.6: Scroll Thumb Jump
-- **Deliverable**: Interactive scrollbar track that jumps the view directly to the clicked position.
-- **Commit Goal**: Clicking the scrollbar track moves the scroll thumb and view content to that exact proportional height.
+#### Checkpoint 2.17.6: Margin Spacing & Dashboard Fitting (Done)
+- **Deliverable**: Implement "Margin Spacing" setting and make the dashboard panel fit the application container with dynamic padding.
+- **Commit Goal**: Dashboard panel fills available space, and a new "Margin Spacing" setting controls internal and external density.
 
-#### Checkpoint 2.17.7: Strategic Introduction placement
+#### Checkpoint 2.17.7: Scroll Thumb Jump (Done)
+- **Deliverable**: Interactive scrollbar track that jumps the view directly to the clicked position.
+- **Commit Goal**: Clicking the scrollbar track moves the scroll thumb and view content to that exact proportional height, with centered dragging behavior.
+
+#### Checkpoint 2.17.8: Strategic Introduction placement
 - **Deliverable**: Relocation of application introduction and setup instructions behind the primary title button.
 - **Commit Goal**: The main title acts as a gateway to the introduction text, cleaning up the primary dashboard real estate.
 

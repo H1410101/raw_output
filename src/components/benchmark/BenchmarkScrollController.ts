@@ -12,11 +12,7 @@ export class BenchmarkScrollController {
   private readonly _hoverContainer: HTMLElement;
   private readonly _appStateService: AppStateService | null;
 
-  private _autoScrollTimer: number | null = null;
-  private _activeScrollDirection: number = 0;
   private _isUserDragging: boolean = false;
-  private _dragStartMouseY: number = 0;
-  private _dragStartScrollTop: number = 0;
 
   /**
    * Initializes the controller with the necessary DOM elements.
@@ -83,12 +79,7 @@ export class BenchmarkScrollController {
   }
 
   private _applyThumbTranslation(totalScrollRange: number): void {
-    const trackPadding: number = this._calculateTrackPadding();
-    const trackHeightLimit: number =
-      this._hoverContainer.clientHeight - trackPadding;
-    const thumbElementHeight: number =
-      this._scrollThumb.getBoundingClientRect().height || trackPadding;
-    const availableTrackSpan: number = trackHeightLimit - thumbElementHeight;
+    const availableTrackSpan: number = this._getAvailableTrackSpan();
 
     const scrollPercentageRatio: number =
       this._scrollContainer.scrollTop / totalScrollRange;
@@ -99,10 +90,10 @@ export class BenchmarkScrollController {
   }
 
   private _setupDragInteraction(): void {
-    this._scrollThumb.addEventListener(
+    this._hoverContainer.addEventListener(
       "mousedown",
       (event: MouseEvent): void => {
-        this._handleDragStart(event);
+        this._handleTrackMousedown(event);
       },
     );
 
@@ -115,18 +106,19 @@ export class BenchmarkScrollController {
     });
   }
 
-  private _handleDragStart(event: MouseEvent): void {
+  private _handleTrackMousedown(event: MouseEvent): void {
+    if (!this._isClippingToTrack(event.clientX)) {
+      return;
+    }
+
     this._isUserDragging = true;
-    this._dragStartMouseY = event.clientY;
-    this._dragStartScrollTop = this._scrollContainer.scrollTop;
+    this._updateScrollFromMousePosition(event.clientY);
 
     if (this._appStateService) {
       this._appStateService.setFocusedScenarioName(null);
     }
 
-    this._stopAutoScrollLoop();
     event.preventDefault();
-    event.stopPropagation();
   }
 
   private _handleGlobalMouseMove(event: MouseEvent): void {
@@ -134,36 +126,26 @@ export class BenchmarkScrollController {
       return;
     }
 
-    const mouseDeltaY: number = event.clientY - this._dragStartMouseY;
-    const scrollHeight: number = this._scrollContainer.scrollHeight;
-    const clientHeight: number = this._scrollContainer.clientHeight;
-    const totalScrollRange: number = scrollHeight - clientHeight;
-
-    this._updateScrollTopFromDrag(mouseDeltaY, totalScrollRange);
+    this._updateScrollFromMousePosition(event.clientY);
   }
 
-  private _updateScrollTopFromDrag(
-    mouseDeltaY: number,
-    totalScrollRange: number,
-  ): void {
-    const trackPadding: number = this._calculateTrackPadding();
-    const trackHeightLimit: number =
-      this._hoverContainer.clientHeight - trackPadding;
-    const thumbElementHeight: number =
-      this._scrollThumb.getBoundingClientRect().height || trackPadding;
-    const availableTrackSpan: number = trackHeightLimit - thumbElementHeight;
+  private _handleDragEnd(): void {
+    this._isUserDragging = false;
+  }
+
+  private _updateScrollFromMousePosition(mouseY: number): void {
+    const totalScrollRange: number = this._getTotalScrollRange();
+    const availableTrackSpan: number = this._getAvailableTrackSpan();
 
     if (availableTrackSpan <= 0) {
       return;
     }
 
-    const scrollUnitsPerPixel: number = totalScrollRange / availableTrackSpan;
-    this._scrollContainer.scrollTop =
-      this._dragStartScrollTop + mouseDeltaY * scrollUnitsPerPixel;
-  }
+    const verticalTranslation: number =
+      this._calculateDesiredTranslation(mouseY);
+    const scrollPercentage: number = verticalTranslation / availableTrackSpan;
 
-  private _handleDragEnd(): void {
-    this._isUserDragging = false;
+    this._scrollContainer.scrollTop = scrollPercentage * totalScrollRange;
   }
 
   private _setupHoverAutoScroll(): void {
@@ -175,7 +157,7 @@ export class BenchmarkScrollController {
     );
 
     this._hoverContainer.addEventListener("mouseleave", (): void => {
-      this._stopAutoScrollLoop();
+      this._hoverContainer.style.cursor = "";
     });
   }
 
@@ -193,22 +175,23 @@ export class BenchmarkScrollController {
 
   private _evaluateHoverScrolling(event: MouseEvent): void {
     if (this._isUserDragging || event.buttons !== 0) {
-      this._stopAutoScrollLoop();
-
       return;
     }
 
     const thumbRectangle: DOMRect = this._scrollThumb.getBoundingClientRect();
+    const hitboxExtension: number = thumbRectangle.height * 0.1;
+
     const isInsideHorizontally: boolean =
       event.clientX >= thumbRectangle.left &&
       event.clientX <= thumbRectangle.right;
+
+    this._hoverContainer.style.cursor = isInsideHorizontally ? "pointer" : "";
+
     const isInsideVertically: boolean =
-      event.clientY >= thumbRectangle.top &&
-      event.clientY <= thumbRectangle.bottom;
+      event.clientY >= thumbRectangle.top - hitboxExtension &&
+      event.clientY <= thumbRectangle.bottom + hitboxExtension;
 
     if (!isInsideHorizontally || !isInsideVertically) {
-      this._stopAutoScrollLoop();
-
       return;
     }
 
@@ -219,38 +202,18 @@ export class BenchmarkScrollController {
     event: MouseEvent,
     thumbRectangle: DOMRect,
   ): void {
-    const relativeYInThumb: number = event.clientY - thumbRectangle.top;
-    const activationThreshold: number = thumbRectangle.height * 0.1;
+    const pixelDelta: number = this._calculateHoverDelta(
+      event.clientY,
+      thumbRectangle,
+    );
 
-    if (relativeYInThumb < activationThreshold) {
-      this._startAutoScrollLoop(-1);
-
+    if (pixelDelta === 0) {
       return;
     }
 
-    if (relativeYInThumb > thumbRectangle.height - activationThreshold) {
-      this._startAutoScrollLoop(1);
-
-      return;
-    }
-
-    this._stopAutoScrollLoop();
+    this._applyHoverScroll(pixelDelta);
   }
 
-  private _startAutoScrollLoop(direction: number): void {
-    if (this._activeScrollDirection === direction) {
-      return;
-    }
-
-    this._stopAutoScrollLoop();
-    this._activeScrollDirection = direction;
-
-    if (this._appStateService) {
-      this._appStateService.setFocusedScenarioName(null);
-    }
-
-    this._executeAutoScrollStep();
-  }
 
   private _calculateTrackPadding(): number {
     const rootStyles: CSSStyleDeclaration = getComputedStyle(
@@ -258,37 +221,80 @@ export class BenchmarkScrollController {
     );
 
     const remSizePixels: number = parseFloat(rootStyles.fontSize);
-    const verticalSpacingMultiplier: number = parseFloat(
-      rootStyles.getPropertyValue("--vertical-spacing-multiplier") || "1",
+    const marginSpacingMultiplier: number = parseFloat(
+      rootStyles.getPropertyValue("--margin-spacing-multiplier") || "1",
     );
 
     const totalPaddingRems: number = 3;
 
-    return remSizePixels * totalPaddingRems * verticalSpacingMultiplier;
+    return remSizePixels * totalPaddingRems * marginSpacingMultiplier;
   }
 
-  private _executeAutoScrollStep(): void {
-    const scrollAnimationStep = (): void => {
-      if (this._activeScrollDirection === 0) {
-        return;
-      }
+  private _calculateDesiredTranslation(mouseY: number): number {
+    const hoverRect: DOMRect = this._hoverContainer.getBoundingClientRect();
+    const trackPadding: number = this._calculateTrackPadding();
+    const trackTop: number = hoverRect.top + trackPadding / 2;
+    const thumbHeight: number = this._getThumbHeight();
 
-      const scrollSpeed: number = 8;
-      this._scrollContainer.scrollTop +=
-        this._activeScrollDirection * scrollSpeed;
+    const desiredCenter: number = mouseY - trackTop;
+    const translation: number = desiredCenter - thumbHeight / 2;
 
-      this._autoScrollTimer = requestAnimationFrame(scrollAnimationStep);
-    };
-
-    this._autoScrollTimer = requestAnimationFrame(scrollAnimationStep);
+    return Math.max(0, Math.min(translation, this._getAvailableTrackSpan()));
   }
 
-  private _stopAutoScrollLoop(): void {
-    if (this._autoScrollTimer !== null) {
-      cancelAnimationFrame(this._autoScrollTimer);
-      this._autoScrollTimer = null;
+  private _calculateHoverDelta(mouseY: number, thumbRect: DOMRect): number {
+    if (mouseY < thumbRect.top) {
+      return mouseY - thumbRect.top;
     }
 
-    this._activeScrollDirection = 0;
+    if (mouseY > thumbRect.bottom) {
+      return mouseY - thumbRect.bottom;
+    }
+
+    return 0;
+  }
+
+  private _applyHoverScroll(pixelDelta: number): void {
+    const totalScrollRange: number = this._getTotalScrollRange();
+    const availableTrackSpan: number = this._getAvailableTrackSpan();
+
+    if (availableTrackSpan <= 0) {
+      return;
+    }
+
+    const scrollUnitsPerPixel: number = totalScrollRange / availableTrackSpan;
+    this._scrollContainer.scrollTop += pixelDelta * scrollUnitsPerPixel;
+
+    if (this._appStateService) {
+      this._appStateService.setFocusedScenarioName(null);
+    }
+  }
+
+  private _isClippingToTrack(clientX: number): boolean {
+    const thumbRectangle: DOMRect = this._scrollThumb.getBoundingClientRect();
+
+    return clientX >= thumbRectangle.left && clientX <= thumbRectangle.right;
+  }
+
+  private _getAvailableTrackSpan(): number {
+    const trackPadding: number = this._calculateTrackPadding();
+    const trackHeightLimit: number =
+      this._hoverContainer.clientHeight - trackPadding;
+    const thumbHeight: number = this._getThumbHeight();
+
+    return trackHeightLimit - thumbHeight;
+  }
+
+  private _getThumbHeight(): number {
+    return (
+      this._scrollThumb.getBoundingClientRect().height ||
+      this._calculateTrackPadding()
+    );
+  }
+
+  private _getTotalScrollRange(): number {
+    return (
+      this._scrollContainer.scrollHeight - this._scrollContainer.clientHeight
+    );
   }
 }

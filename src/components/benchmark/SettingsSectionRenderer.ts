@@ -310,6 +310,7 @@ export class SettingsSectionRenderer {
     settings: VisualSettings,
   ): void {
     const subRows: HTMLElement[] = [
+      this._createMarginSpacingControl(settings),
       this._createVerticalSpacingControl(settings),
       this._createScenarioFontControl(settings),
       this._createRankFontControl(settings),
@@ -323,6 +324,19 @@ export class SettingsSectionRenderer {
 
     subRows.forEach((row: HTMLElement): void => {
       container.appendChild(row);
+    });
+  }
+
+  private _createMarginSpacingControl(settings: VisualSettings): HTMLElement {
+    return SettingsUiFactory.createSegmentedControl({
+      label: "Margin Spacing",
+      options: SettingsSectionRenderer._scalingOptions,
+      currentValue: settings.marginSpacing,
+      onChange: (val: string): void =>
+        this._visualSettingsService.updateSetting(
+          "marginSpacing",
+          val as ScalingLevel,
+        ),
     });
   }
 

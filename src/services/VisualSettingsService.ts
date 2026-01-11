@@ -8,6 +8,7 @@ export interface VisualSettings {
   dotSize: ScalingLevel;
   visDotSize: ScalingLevel;
   uiScaling: ScalingLevel;
+  marginSpacing: ScalingLevel;
   verticalSpacing: ScalingLevel;
   scenarioFontSize: ScalingLevel;
   rankFontSize: ScalingLevel;
@@ -98,6 +99,7 @@ export class VisualSettingsService {
     };
 
     apply("--ui-scale", settings.uiScaling);
+    apply("--margin-spacing-multiplier", settings.marginSpacing);
     apply("--vertical-spacing-multiplier", settings.verticalSpacing);
     apply("--scenario-font-multiplier", settings.scenarioFontSize);
     apply("--rank-font-multiplier", settings.rankFontSize);
@@ -135,6 +137,7 @@ export class VisualSettingsService {
       dotSize: "Normal",
       visDotSize: "Normal",
       uiScaling: "Normal",
+      marginSpacing: "Normal",
       verticalSpacing: "Normal",
       scenarioFontSize: "Normal",
       rankFontSize: "Normal",

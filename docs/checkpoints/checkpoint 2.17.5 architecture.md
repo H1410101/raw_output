@@ -1,4 +1,3 @@
-```raw_output\docs\checkpoints\phase 2\checkpoint 2.17.5 architecture.md#L1-45
 # Checkpoint 2.17.5 Architecture: Dynamic Benchmark Ordering
 
 Currently, benchmark difficulties are loaded from CSV files and sorted lexicographically. This results in an unintuitive order (e.g., "Easier", "Harder", "Medium"). This checkpoint introduces a numbering system for file-based benchmarks to enforce a logical progression while maintaining dynamic discovery.

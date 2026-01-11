@@ -360,7 +360,7 @@ export class SettingsUiFactory {
     }
 
     const index = isActive ? 0 : -1;
-    this._applyTransitionToItem(notch, 0, index, index);
+    this._applyTransitionToItem(notch, 0, index);
 
     container.appendChild(notch);
 
@@ -412,11 +412,11 @@ export class SettingsUiFactory {
     const selectedIndex: number = config.options
       ? config.options.indexOf(config.currentValue)
       : this._calculateSelectedIndex(
-          config.currentValue,
-          config.bounds.min,
-          stepSize,
-          config.hasNotch,
-        );
+        config.currentValue,
+        config.bounds.min,
+        stepSize,
+        config.hasNotch,
+      );
 
     track.className = "dot-track";
     track.dataset.selectedIndex = selectedIndex.toString();

@@ -4,7 +4,6 @@ import {
 } from "../../services/VisualSettingsService";
 import {
   SessionSettingsService,
-  SessionSettings,
 } from "../../services/SessionSettingsService";
 import {
   FocusManagementService,
@@ -22,12 +21,10 @@ import { BenchmarkScrollController } from "./BenchmarkScrollController";
  */
 export class BenchmarkSettingsController {
   private readonly _visualSettingsService: VisualSettingsService;
-  private readonly _sessionSettingsService: SessionSettingsService;
   private readonly _focusService: FocusManagementService;
   private readonly _benchmarkService: BenchmarkService;
   private readonly _sectionRenderer: SettingsSectionRenderer;
   private _currentVisualSettings: VisualSettings;
-  private _currentSessionSettings: SessionSettings;
 
   /**
    * Initializes the controller with the required configuration services.
@@ -44,7 +41,6 @@ export class BenchmarkSettingsController {
     benchmarkService: BenchmarkService,
   ) {
     this._visualSettingsService = visualSettingsService;
-    this._sessionSettingsService = sessionSettingsService;
     this._focusService = focusService;
     this._benchmarkService = benchmarkService;
     this._sectionRenderer = new SettingsSectionRenderer(
@@ -53,7 +49,6 @@ export class BenchmarkSettingsController {
     );
 
     this._currentVisualSettings = this._visualSettingsService.getSettings();
-    this._currentSessionSettings = this._sessionSettingsService.getSettings();
 
     this._subscribeToFocusEvents();
   }
@@ -80,7 +75,6 @@ export class BenchmarkSettingsController {
 
   private _syncCurrentSettings(): void {
     this._currentVisualSettings = this._visualSettingsService.getSettings();
-    this._currentSessionSettings = this._sessionSettingsService.getSettings();
   }
 
   private _removeExistingOverlay(): void {

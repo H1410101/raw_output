@@ -45,7 +45,7 @@ export class ScenarioNameWidthManager {
       this._getRootFontSize() / this._getMasterScale();
 
     const padding: number = 1.5;
-    const spacing: number = padding * this._getVerticalSpacingMultiplier();
+    const spacing: number = padding * this._getMarginSpacingMultiplier();
 
     const widthRem: number = maxPx / unscaledRootFontSize + spacing;
     this._maxNameWidth = widthRem;
@@ -118,10 +118,10 @@ export class ScenarioNameWidthManager {
     return parseFloat(scale) || 1.0;
   }
 
-  private _getVerticalSpacingMultiplier(): number {
+  private _getMarginSpacingMultiplier(): number {
     const multiplier: string = window
       .getComputedStyle(document.documentElement)
-      .getPropertyValue("--vertical-spacing-multiplier")
+      .getPropertyValue("--margin-spacing-multiplier")
       .trim();
 
     return parseFloat(multiplier) || 1.0;

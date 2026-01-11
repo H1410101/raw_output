@@ -20,10 +20,6 @@ export class FolderSettingsView {
 
   private readonly _hasStats: boolean;
 
-  private readonly _canvas: HTMLCanvasElement;
-
-  private readonly _context: CanvasRenderingContext2D;
-
   /**
    * Initializes the view with state management and action handlers.
    *
@@ -39,8 +35,6 @@ export class FolderSettingsView {
     this._handlers = handlers;
     this._currentFolderName = currentFolderName;
     this._hasStats = hasStats;
-    this._canvas = document.createElement("canvas");
-    this._context = this._canvas.getContext("2d")!;
   }
 
   /**
@@ -52,8 +46,6 @@ export class FolderSettingsView {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "folder-settings-container pane-container";
 
-    this._applyActionWidth();
-
     container.appendChild(this._createActionsColumn());
     container.appendChild(this._createIntroColumn());
 
@@ -63,9 +55,7 @@ export class FolderSettingsView {
   /**
    * Cleans up resources.
    */
-  public destroy(): void {
-    document.documentElement.style.removeProperty("--folder-action-width");
-  }
+  public destroy(): void {}
 
   private _createActionsColumn(): HTMLElement {
     const column: HTMLDivElement = document.createElement("div");
@@ -76,13 +66,24 @@ export class FolderSettingsView {
 
     content.appendChild(this._createStatusItem());
     content.appendChild(this._createSeparator());
-    content.appendChild(
+    content.appendChild(this._createActionButtons());
+
+    column.appendChild(content);
+
+    return column;
+  }
+
+  private _createActionButtons(): HTMLElement {
+    const container: HTMLDivElement = document.createElement("div");
+    container.className = "folder-setting-row";
+
+    container.appendChild(
       this._createActionItem("Link Stats Folder", this._handlers.onLinkFolder),
     );
-    content.appendChild(
+    container.appendChild(
       this._createActionItem("Force Scan CSVs", this._handlers.onForceScan),
     );
-    content.appendChild(
+    container.appendChild(
       this._createActionItem(
         "Unlink Folder",
         this._handlers.onUnlinkFolder,
@@ -90,9 +91,7 @@ export class FolderSettingsView {
       ),
     );
 
-    column.appendChild(content);
-
-    return column;
+    return container;
   }
 
   private _createStatusItem(): HTMLElement {
@@ -147,17 +146,12 @@ export class FolderSettingsView {
     handler: () => void | Promise<void>,
     isDanger: boolean = false,
   ): HTMLElement {
-    const container: HTMLDivElement = document.createElement("div");
-    container.className = "folder-setting-row";
-
     const button: HTMLButtonElement = document.createElement("button");
     button.className = `folder-action-item ${isDanger ? "danger" : ""}`;
     button.textContent = text;
     button.addEventListener("click", () => handler());
 
-    container.appendChild(button);
-
-    return container;
+    return button;
   }
 
   private _createSeparator(): HTMLElement {
@@ -184,6 +178,14 @@ export class FolderSettingsView {
     const intro: HTMLDivElement = document.createElement("div");
     intro.className = "app-introduction";
 
+    intro.appendChild(this._createIntroTopGroup());
+    intro.appendChild(this._createIntroSeparator());
+    intro.appendChild(this._createIntroBottomGroup());
+
+    return intro;
+  }
+
+  private _createIntroTopGroup(): HTMLElement {
     const topGroup: HTMLDivElement = document.createElement("div");
     topGroup.className = "intro-top-group";
 
@@ -191,79 +193,39 @@ export class FolderSettingsView {
     title.textContent = "Welcome to Raw Output!";
     topGroup.appendChild(title);
 
+    return topGroup;
+  }
+
+  private _createIntroSeparator(): HTMLElement {
     const separator: HTMLDivElement = document.createElement("div");
     separator.className = "folder-settings-separator intro-separator";
 
+    return separator;
+  }
+
+  private _createIntroBottomGroup(): HTMLElement {
     const bottomGroup: HTMLDivElement = document.createElement("div");
     bottomGroup.className = "intro-bottom-group";
 
+    bottomGroup.appendChild(this._createSetupInstruction());
+    bottomGroup.appendChild(this._createPathInstruction());
+
+    return bottomGroup;
+  }
+
+  private _createSetupInstruction(): HTMLElement {
     const setupInstruction: HTMLParagraphElement = document.createElement("p");
     setupInstruction.textContent =
       "To get started, link your Kovaak's Stats folder.";
 
+    return setupInstruction;
+  }
+
+  private _createPathInstruction(): HTMLElement {
     const pathInstruction: HTMLParagraphElement = document.createElement("p");
     pathInstruction.innerHTML =
-      "This is located in<br><code>&lt;steam library&gt;/steamapps/common/FPSAimTrainer/FPSAimTrainer/stats</code>.";
+      "This is located in<br><code>&lt;steam library&gt;/steamapps/common/</code><br><code>FPSAimTrainer/FPSAimTrainer/stats</code>.";
 
-    bottomGroup.appendChild(setupInstruction);
-    bottomGroup.appendChild(pathInstruction);
-
-    intro.appendChild(topGroup);
-    intro.appendChild(separator);
-    intro.appendChild(bottomGroup);
-
-    return intro;
-  }
-
-  private _applyActionWidth(): void {
-    const actions: string[] = [
-      "Link Stats Folder",
-      "Force Scan CSVs",
-      "Unlink Folder",
-      "Stats Not Found",
-      "Connected To:",
-      this._currentFolderName || "",
-    ];
-
-    this._prepareFontContext();
-
-    const maxPx: number = this._measureMaxActionWidth(actions);
-    const rootFontSize: number = this._getRootFontSize();
-    const widthRem: number = maxPx / rootFontSize + 4;
-
-    document.documentElement.style.setProperty(
-      "--folder-action-width",
-      `${Math.max(18, widthRem)}rem`,
-    );
-  }
-
-  private _prepareFontContext(): void {
-    const styles: CSSStyleDeclaration = window.getComputedStyle(
-      document.documentElement,
-    );
-    const family: string = styles
-      .getPropertyValue("--scenario-name-family")
-      .trim();
-    const rootFontSize: number = this._getRootFontSize();
-
-    this._context.font = `600 ${rootFontSize}px ${family}`;
-  }
-
-  private _measureMaxActionWidth(actions: string[]): number {
-    let maxPx: number = 0;
-
-    actions.forEach((text: string): void => {
-      const metrics: TextMetrics = this._context.measureText(text);
-      maxPx = Math.max(maxPx, metrics.width);
-    });
-
-    return maxPx;
-  }
-
-  private _getRootFontSize(): number {
-    return (
-      parseFloat(window.getComputedStyle(document.documentElement).fontSize) ||
-      16
-    );
+    return pathInstruction;
   }
 }
