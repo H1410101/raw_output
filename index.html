@@ -1166,6 +1166,98 @@
             font-weight: 700;
         }
 
+        .about-quote {
+            position: relative;
+            margin: calc(0.5rem * var(--margin-spacing-multiplier)) 0;
+            padding: calc(0.75rem * var(--margin-spacing-multiplier)) calc(1.25rem * var(--margin-spacing-multiplier));
+            background: rgba(var(--upper-band-1-rgb), 0.03);
+            border-left: calc(0.2rem * var(--margin-spacing-multiplier)) solid var(--upper-band-1);
+            border-radius: 0 0.5rem 0.5rem 0;
+            font-style: italic;
+        }
+
+        .about-quote p {
+            color: var(--text-dim) !important;
+            font-size: calc(0.85rem * var(--scenario-font-multiplier)) !important;
+            line-height: 1.6 !important;
+        }
+
+        .about-link-button {
+            display: inline-block;
+            text-align: center;
+            vertical-align: middle;
+            padding: 0 calc(0.75rem * var(--margin-spacing-multiplier));
+            background: rgba(var(--lower-band-1-rgb), 0.05);
+            border: none;
+            border-radius: calc(0.5rem * var(--margin-spacing-multiplier));
+            color: var(--lower-band-1);
+            font-size: calc(0.9rem * var(--scenario-font-multiplier));
+            font-weight: 700;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: background 0.15s ease, color 0.15s ease;
+            width: fit-content;
+            cursor: pointer;
+            height: 1.8rem;
+            line-height: 1.8rem;
+            box-sizing: border-box;
+            white-space: nowrap;
+            -webkit-font-smoothing: antialiased;
+            backface-visibility: hidden;
+        }
+
+        .about-link-button:hover {
+            background: rgba(var(--lower-band-1-rgb), 0.1);
+            color: var(--lower-band-3);
+        }
+
+        .about-link-button:active {
+            background: rgba(var(--lower-band-1-rgb), 0.15);
+        }
+
+        .about-link-button svg {
+            width: 1rem;
+            height: 1rem;
+            fill: currentColor;
+        }
+
+        .about-icon-group {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: calc(0.5rem * var(--margin-spacing-multiplier));
+        }
+
+        .about-icon-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+            background: rgba(var(--lower-band-1-rgb), 0.05);
+            border: none;
+            border-radius: 50%;
+            color: var(--lower-band-1);
+            transition: background 0.15s ease, color 0.15s ease;
+            cursor: pointer;
+            text-decoration: none;
+            height: 1.8rem;
+            width: 1.8rem;
+            box-sizing: border-box;
+            backface-visibility: hidden;
+        }
+
+        .about-icon-button:hover {
+            background: rgba(var(--lower-band-1-rgb), 0.15);
+            color: var(--lower-band-3);
+        }
+
+        .about-icon-button svg {
+            width: 1.1rem;
+            height: 1.1rem;
+            fill: currentColor;
+        }
+
         .settings-group-title {
             font-size: 0.7rem;
             text-transform: uppercase;
