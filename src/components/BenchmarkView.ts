@@ -15,6 +15,7 @@ import {
 import { BenchmarkTableComponent } from "./benchmark/BenchmarkTableComponent";
 import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsController";
 import { FolderSettingsView } from "./ui/FolderSettingsView";
+import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 
@@ -72,11 +73,15 @@ export class BenchmarkView {
 
   private _folderSettingsView: FolderSettingsView | null = null;
 
+  private _rankPopup: RankPopupComponent | null = null;
+
   private _activeDifficulty: DifficultyTier;
 
   private _isRendering: boolean = false;
 
   private _refreshTimeoutId: number | null = null;
+
+  private _isInitialRender: boolean = true;
 
   private readonly _handleWindowResize: () => void = (): void => {
     this._refreshIfVisible();
@@ -187,28 +192,45 @@ export class BenchmarkView {
 
     try {
       this._cancelPendingRefresh();
-
       if (document.fonts.status !== "loaded") {
         await document.fonts.ready;
       }
-
-      this._tableComponent?.destroy();
-      this._folderSettingsView?.destroy();
-      this._mountPoint.innerHTML = "";
-
       const shouldShowFolder: boolean = await this._shouldShowFolderSettings();
-      this._updateHeaderButtonStates(shouldShowFolder);
 
       if (shouldShowFolder) {
-        await this._renderFolderSettings();
-
-        return;
+        await this._renderFolderView();
+      } else {
+        await this._renderScenariosView();
       }
-
-      await this._renderBenchmarkTable();
     } finally {
       this._isRendering = false;
     }
+  }
+
+  private async _renderFolderView(): Promise<void> {
+    const lastCheck: number =
+      await this._historyService.getLastCheckTimestamp();
+
+    this._clearAndPrepareMount();
+    this._updateHeaderButtonStates(true);
+    this._renderFolderSettings(lastCheck);
+    this._showView();
+  }
+
+  private async _renderScenariosView(): Promise<void> {
+    const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
+      this._activeDifficulty,
+    );
+
+    const highscores: Record<string, number> =
+      await this._historyService.getBatchHighscores(
+        scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
+      );
+
+    this._clearAndPrepareMount();
+    this._updateHeaderButtonStates(false);
+    this._renderBenchmarkTable(scenarios, highscores);
+    this._showView();
   }
 
   /**
@@ -221,7 +243,22 @@ export class BenchmarkView {
 
     this._folderSettingsView?.destroy();
 
+    this._rankPopup?.destroy();
+
     window.removeEventListener("resize", this._handleWindowResize);
+  }
+
+  private _showView(): void {
+    if (this._isInitialRender && this._mountPoint.parentElement) {
+      this._mountPoint.parentElement.style.opacity = "1";
+      this._isInitialRender = false;
+    }
+  }
+
+  private _clearAndPrepareMount(): void {
+    this._tableComponent?.destroy();
+    this._folderSettingsView?.destroy();
+    this._mountPoint.innerHTML = "";
   }
 
   private _subscribeToServiceUpdates(): void {
@@ -320,10 +357,7 @@ export class BenchmarkView {
     return lastCheck === 0;
   }
 
-  private async _renderFolderSettings(): Promise<void> {
-    const lastCheck: number =
-      await this._historyService.getLastCheckTimestamp();
-
+  private _renderFolderSettings(lastCheck: number): void {
     const handlers = {
       onLinkFolder: async (): Promise<void> => {
         await this._folderActions.onLinkFolder();
@@ -378,15 +412,10 @@ export class BenchmarkView {
     await this.render();
   }
 
-  private async _renderBenchmarkTable(): Promise<void> {
-    const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
-      this._activeDifficulty,
-    );
-    const highscores: Record<string, number> =
-      await this._historyService.getBatchHighscores(
-        scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
-      );
-
+  private _renderBenchmarkTable(
+    scenarios: BenchmarkScenario[],
+    highscores: Record<string, number>,
+  ): void {
     this._mountPoint.appendChild(
       this._createViewContainer(scenarios, highscores),
     );
@@ -519,14 +548,64 @@ export class BenchmarkView {
 
     tab.className = `tab-button ${isActive ? "active" : ""}`;
 
-    tab.textContent = difficulty;
+    const label: HTMLSpanElement = document.createElement("span");
+    label.textContent = difficulty;
+    tab.appendChild(label);
 
-    tab.addEventListener(
-      "click",
-      (): Promise<void> => this._handleDifficultyChange(difficulty),
-    );
+    if (isActive) {
+      const caret: HTMLElement = this._createCaretElement();
+
+      caret.addEventListener("mouseenter", (event: MouseEvent): void => {
+        const fromElement: Node | null = event.relatedTarget as Node;
+        if (fromElement && tab.contains(fromElement)) {
+          this._showRankPopup(tab);
+        }
+      });
+
+      tab.appendChild(caret);
+    }
+
+    tab.addEventListener("click", (): void => {
+      if (isActive) {
+        this._showRankPopup(tab);
+      } else {
+        this._handleDifficultyChange(difficulty);
+      }
+    });
 
     return tab;
+  }
+
+  private _createCaretElement(): HTMLElement {
+    const caret: HTMLDivElement = document.createElement("div");
+    caret.className = "difficulty-caret";
+
+    caret.innerHTML = `
+      <svg viewBox="0 0 24 24">
+        <path d="M7 10l5 5 5-5" />
+      </svg>
+    `;
+
+    return caret;
+  }
+
+  private _showRankPopup(anchor: HTMLElement): void {
+    if (this._rankPopup) {
+      this._rankPopup.destroy();
+    }
+
+    this._rankPopup = new RankPopupComponent({
+      difficulty: this._activeDifficulty,
+      scenarios: this._benchmarkService.getScenarios(this._activeDifficulty),
+      rankNames: this._benchmarkService.getRankNames(this._activeDifficulty),
+      anchorElement: anchor,
+      onDismiss: (): void => {
+        this._rankPopup?.destroy();
+        this._rankPopup = null;
+      },
+    });
+
+    this._rankPopup.render();
   }
 
   private async _handleDifficultyChange(

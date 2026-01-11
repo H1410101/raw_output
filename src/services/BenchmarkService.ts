@@ -3,6 +3,7 @@ import {
   DifficultyTier,
   getScenariosByDifficulty,
   getAvailableDifficulties,
+  getRankNamesForDifficulty,
   BenchmarkScenario,
 } from "../data/benchmarks";
 
@@ -37,5 +38,15 @@ export class BenchmarkService {
    */
   public getScenarios(difficulty: DifficultyTier): BenchmarkScenario[] {
     return getScenariosByDifficulty(difficulty);
+  }
+
+  /**
+   * Retrieves the rank names available for a specific difficulty tier.
+   *
+   * @param difficulty - The difficulty tier to inspect.
+   * @returns An array of rank names in ascending order of difficulty.
+   */
+  public getRankNames(difficulty: DifficultyTier): string[] {
+    return getRankNamesForDifficulty(difficulty);
   }
 }

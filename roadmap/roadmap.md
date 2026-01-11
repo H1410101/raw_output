@@ -115,9 +115,9 @@
 - **Deliverable**: Combined implementation of unit linting, dynamic label sizing, theme fine-tuning, folder refinement, and glass aesthetic scaling.
 - **Commit Goal**: Codebase is linted for rem units, labels scale without clipping, interaction states are unified, and glass panels/scrollbars respond dynamically to vertical density.
 
-#### Checkpoint 2.17.4: All-Rank Performance Display
-- **Deliverable**: A visual legend or expanded view within benchmark rows showing all rank thresholds for the current scenario.
-- **Commit Goal**: Users can see all upcoming and historical rank thresholds simultaneously for the active benchmark.
+#### Checkpoint 2.17.4: Advanced Rank Visualization & Data Refinement (Done)
+- **Deliverable**: Implementation of the "All-Rank" performance display, interactive UX refinements for popup stability, and the standardization of benchmark data.
+- **Commit Goal**: Users can see all rank thresholds via a stable, interactive popup, and benchmark data is cleaned of individual highscore columns.
 
 #### Checkpoint 2.17.5: Dynamic Benchmark Ordering
 - **Deliverable**: The ability to sort or reorder benchmarks dynamically based on performance or manual configuration.

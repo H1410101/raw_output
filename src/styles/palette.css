@@ -28,29 +28,29 @@
 
 [data-theme="light"] {
     /* Environmental Foundations */
-    --background-1: #f0f5f5;
-    --background-1-rgb: 240, 245, 245;
-    --background-2: #dfeceb;
-    --background-2-rgb: 223, 236, 235;
+    --background-1: #f4f7ee;
+    --background-1-rgb: 244, 247, 238;
+    --background-2: #dfecd8;
+    --background-2-rgb: 223, 236, 216;
 
     /* Lower Typography Band (Lighter) */
-    --lower-band-1: #738c8b;
-    --lower-band-1-rgb: 115, 140, 139;
-    --lower-band-2: #5b7b7b;
-    --lower-band-2-rgb: 91, 123, 123;
-    --lower-band-3: #407677;
-    --lower-band-3-rgb: 64, 118, 119;
+    --lower-band-1: #7aab7a;
+    --lower-band-1-rgb: 122, 171, 122;
+    --lower-band-2: #4f8e62;
+    --lower-band-2-rgb: 79, 142, 98;
+    --lower-band-3: #36725a;
+    --lower-band-3-rgb: 54, 114, 90;
 
     /* Upper Typography Band (Darker) */
-    --upper-band-1: #0f293d;
-    --upper-band-1-rgb: 15, 41, 61;
-    --upper-band-2: #0d2540;
-    --upper-band-2-rgb: 13, 37, 64;
-    --upper-band-3: #0a1e43;
-    --upper-band-3-rgb: 10, 30, 67;
+    --upper-band-1: #103a43;
+    --upper-band-1-rgb: 16, 58, 67;
+    --upper-band-2: #0a273a;
+    --upper-band-2-rgb: 10, 39, 58;
+    --upper-band-3: #061b39;
+    --upper-band-3-rgb: 6, 27, 57;
 
-    --highlight-bg-1: #7d8a9c;
-    --highlight-bg-1-rgb: 125, 138, 156;
+    --highlight-bg-1: #94b88f;
+    --highlight-bg-1-rgb: 148, 184, 143;
 }
 
 :root {

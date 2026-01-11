@@ -1,10 +1,10 @@
-# Current Checkpoint: 2.17.4: All-Rank Performance Display
+```raw_output\roadmap\current checkpoint.md#L1-10
+# Current Checkpoint: 2.17.5: Dynamic Benchmark Ordering
 
 ## Status
 In Progress
 
 ## Deliverables
-- [ ] Implement a visual legend or expanded view within benchmark rows.
-- [ ] Ensure all rank thresholds (historical and upcoming) are visible for the active benchmark.
-- [ ] Maintain consistent scaling and alignment within the existing table structure.
-- [ ] Create architecture document `docs/checkpoints/phase 2/checkpoint 2.17.4 architecture.md`.
+- [ ] Implement logic to sort benchmark scenarios based on performance metrics.
+- [ ] Provide manual reordering capabilities or persistent configuration for benchmark lists.
+- [ ] Ensure the UI updates reactively when the sort order changes.

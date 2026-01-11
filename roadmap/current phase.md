@@ -47,7 +47,7 @@ Creating a centralized, interactive hub for viewing benchmark scenarios and anal
 - [x] 2.17.1: Advanced Folder Settings View
 - [x] 2.17.2: Dual Theme Support
 - [x] 2.17.3: UI & Navigation Consolidation
-- [ ] 2.17.4: All-Rank Performance Display
+- [x] 2.17.4: Advanced Rank Visualization & Data Refinement
 - [ ] 2.17.5: Dynamic Benchmark Ordering
 - [ ] 2.17.6: Scroll Thumb Jump
 - [ ] 2.17.7: Strategic Introduction placement

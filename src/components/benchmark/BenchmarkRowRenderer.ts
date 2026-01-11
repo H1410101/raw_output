@@ -78,7 +78,7 @@ export class BenchmarkRowRenderer {
   }
 
   /**
-   * Cleans up all active dot cloud components managed by this renderer.
+   * Cleans up all active dot cloud components and popups managed by this renderer.
    */
   public destroyAll(): void {
     this._dotCloudRegistry.forEach((component: DotCloudComponent): void => {

@@ -140,6 +140,24 @@ export const getAvailableDifficulties = (): DifficultyTier[] => {
 };
 
 /**
+ * Retrieves the rank names available for a specific difficulty tier.
+ *
+ * @param difficulty - The difficulty tier to inspect.
+ * @returns An array of rank names in ascending order of difficulty.
+ */
+export const getRankNamesForDifficulty = (
+  difficulty: DifficultyTier,
+): string[] => {
+  const scenarios: BenchmarkScenario[] = BENCHMARK_MAP[difficulty] || [];
+
+  if (scenarios.length === 0) {
+    return [];
+  }
+
+  return Object.keys(scenarios[0].thresholds);
+};
+
+/**
  * Retrieves the list of scenarios for a specific difficulty level.
  *
  * @param difficulty - The benchmark difficulty level.

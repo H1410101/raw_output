@@ -29,13 +29,13 @@ export class ScenarioNameWidthManager {
     multiplier: number,
   ): number {
     if (scenarios.length === 0 || document.fonts.status !== "loaded") {
-      return 15;
+      return 0;
     }
 
     const fontConfig = this._getFontConfig();
 
     if (!fontConfig.weight || !fontConfig.family) {
-      return 15;
+      return 0;
     }
 
     this._prepareContext(fontConfig, multiplier);
@@ -44,8 +44,11 @@ export class ScenarioNameWidthManager {
     const unscaledRootFontSize: number =
       this._getRootFontSize() / this._getMasterScale();
 
-    const widthRem: number = maxPx / unscaledRootFontSize + 2.6;
-    this._maxNameWidth = Math.max(15, widthRem);
+    const padding: number = 1.5;
+    const spacing: number = padding * this._getVerticalSpacingMultiplier();
+
+    const widthRem: number = maxPx / unscaledRootFontSize + spacing;
+    this._maxNameWidth = widthRem;
 
     return this._maxNameWidth;
   }
@@ -113,5 +116,14 @@ export class ScenarioNameWidthManager {
       .trim();
 
     return parseFloat(scale) || 1.0;
+  }
+
+  private _getVerticalSpacingMultiplier(): number {
+    const multiplier: string = window
+      .getComputedStyle(document.documentElement)
+      .getPropertyValue("--vertical-spacing-multiplier")
+      .trim();
+
+    return parseFloat(multiplier) || 1.0;
   }
 }
