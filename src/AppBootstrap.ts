@@ -17,6 +17,7 @@ import { AboutPopupComponent } from "./components/ui/AboutPopupComponent";
 import { VisualSettingsService } from "./services/VisualSettingsService";
 import { AudioService } from "./services/AudioService";
 import { CloudflareService } from "./services/CloudflareService";
+import { IdentityService } from "./services/IdentityService";
 import { SettingsUiFactory } from "./components/ui/SettingsUiFactory";
 
 /**
@@ -55,6 +56,7 @@ export class AppBootstrap {
 
   private readonly _audioService: AudioService;
   private readonly _cloudflareService: CloudflareService;
+  private readonly _identityService: IdentityService;
 
   /**
    * Initializes the application's core logic and UI components.
@@ -72,6 +74,7 @@ export class AppBootstrap {
     this._visualSettingsService = new VisualSettingsService();
     this._audioService = new AudioService(this._visualSettingsService);
     this._cloudflareService = new CloudflareService();
+    this._identityService = new IdentityService();
 
     this._focusService = new FocusManagementService(this._appStateService);
 
@@ -134,6 +137,7 @@ export class AppBootstrap {
         visualSettings: this._visualSettingsService,
         audio: this._audioService,
         cloudflare: this._cloudflareService,
+        identity: this._identityService,
         folderActions: {
           onLinkFolder: (): Promise<void> =>
             this._handleManualFolderSelection(),

@@ -164,29 +164,82 @@ export class SettingsUiFactory {
 
     container.appendChild(this._createLabel(label));
 
-    const wrapper: HTMLDivElement = document.createElement("div");
-    wrapper.className = "action-wrapper";
-    wrapper.style.display = "flex";
-    wrapper.style.alignItems = "center";
-    wrapper.style.gap = "1rem";
+    const status: HTMLSpanElement = document.createElement("span");
+    status.className = "action-status-text";
+    this._applyStatusStyles(status);
 
     const button: HTMLButtonElement = document.createElement("button");
     button.className = "settings-action-btn";
     button.textContent = buttonText;
-
-    const status: HTMLSpanElement = document.createElement("span");
-    status.className = "action-status-text";
-    status.style.fontSize = "0.75rem";
-    status.style.opacity = "0.7";
 
     button.addEventListener("click", (): void => {
       this._audioService?.playHeavy(0.4);
       onClick(status);
     });
 
-    wrapper.appendChild(button);
+    container.appendChild(this._createActionWrapper(status, button));
+
+    return container;
+  }
+
+  private static _applyStatusStyles(status: HTMLElement): void {
+    status.style.fontSize = "0.75rem";
+    status.style.opacity = "0.7";
+    status.style.fontFamily = "monospace";
+  }
+
+  private static _createActionWrapper(
+    status: HTMLElement,
+    button: HTMLElement,
+  ): HTMLElement {
+    const wrapper: HTMLDivElement = document.createElement("div");
+    wrapper.className = "action-wrapper";
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.justifyContent = "flex-end";
+    wrapper.style.gap = "0.75rem";
+    wrapper.style.flex = "1";
+
     wrapper.appendChild(status);
-    container.appendChild(wrapper);
+    wrapper.appendChild(button);
+
+    return wrapper;
+  }
+
+  /**
+   * Creates a read-only field for displaying non-editable information.
+   *
+   * @param label - The setting label text.
+   * @param value - The text to display.
+   * @param isMonospace - Whether to use a monospace font for the value.
+   * @returns A constructed HTMLElement.
+   */
+  public static createReadOnlyField(
+    label: string,
+    value: string,
+    isMonospace: boolean = false,
+  ): HTMLElement {
+    const container: HTMLDivElement = document.createElement("div");
+    container.className = "setting-item readonly-item";
+
+    container.appendChild(this._createLabel(label));
+
+    const valueElement: HTMLSpanElement = document.createElement("span");
+    valueElement.className = "readonly-value";
+    valueElement.textContent = value;
+    valueElement.style.fontSize = "0.75rem";
+    valueElement.style.opacity = "0.6";
+    valueElement.style.textAlign = "right";
+    valueElement.style.flex = "1";
+    valueElement.style.overflow = "hidden";
+    valueElement.style.textOverflow = "ellipsis";
+    valueElement.style.whiteSpace = "nowrap";
+
+    if (isMonospace) {
+      valueElement.style.fontFamily = "monospace";
+    }
+
+    container.appendChild(valueElement);
 
     return container;
   }

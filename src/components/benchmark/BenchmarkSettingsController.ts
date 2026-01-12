@@ -12,6 +12,7 @@ import {
 import { BenchmarkService } from "../../services/BenchmarkService";
 import { AudioService } from "../../services/AudioService";
 import { CloudflareService } from "../../services/CloudflareService";
+import { IdentityService } from "../../services/IdentityService";
 import { SettingsSectionRenderer } from "./SettingsSectionRenderer";
 import { BenchmarkScrollController } from "./BenchmarkScrollController";
 
@@ -25,6 +26,7 @@ export interface BenchmarkSettingsDependencies {
   readonly benchmarkService: BenchmarkService;
   readonly audioService: AudioService;
   readonly cloudflareService: CloudflareService;
+  readonly identityService: IdentityService;
 }
 
 /**
@@ -55,6 +57,7 @@ export class BenchmarkSettingsController {
       dependencies.visualSettingsService,
       dependencies.sessionSettingsService,
       dependencies.cloudflareService,
+      dependencies.identityService,
     );
 
     this._currentVisualSettings = this._visualSettingsService.getSettings();

@@ -6,13 +6,16 @@ import {
 import { ScalingLevel } from "../../services/ScalingService";
 import { SessionSettingsService } from "../../services/SessionSettingsService";
 import { CloudflareService, HealthCheckResponse } from "../../services/CloudflareService";
+import { IdentityService } from "../../services/IdentityService";
 
 /**
  * Responsible for rendering specific sections of the settings menu.
  */
 export class SettingsSectionRenderer {
   private readonly _visualSettingsService: VisualSettingsService;
+  private readonly _sessionSettingsService: SessionSettingsService;
   private readonly _cloudflareService: CloudflareService;
+  private readonly _identityService: IdentityService;
 
   private static readonly _scalingOptions: ScalingLevel[] = [
     "Min",
@@ -27,24 +30,19 @@ export class SettingsSectionRenderer {
    *
    * @param visualSettingsService - Service for managing visual configuration.
    * @param sessionSettingsService - Service for managing session-specific settings.
-   */
-  private readonly _sessionSettingsService: SessionSettingsService;
-
-  /**
-   * Initializes the renderer with required services.
-   *
-   * @param visualSettingsService - Service for managing visual configuration.
-   * @param sessionSettingsService - Service for managing session-specific settings.
    * @param cloudflareService - Service for Cloudflare Edge interactions.
+   * @param identityService - Service for managing user identity and privacy.
    */
   public constructor(
     visualSettingsService: VisualSettingsService,
     sessionSettingsService: SessionSettingsService,
     cloudflareService: CloudflareService,
+    identityService: IdentityService,
   ) {
     this._visualSettingsService = visualSettingsService;
     this._sessionSettingsService = sessionSettingsService;
     this._cloudflareService = cloudflareService;
+    this._identityService = identityService;
   }
 
   /**
@@ -440,25 +438,55 @@ export class SettingsSectionRenderer {
   public appendCloudflareSection(container: HTMLElement): void {
     container.appendChild(SettingsUiFactory.createGroupTitle("Cloudflare Edge"));
 
+    this._appendPrivacyToggles(container);
+    this._appendDeviceIdentity(container);
+    this._appendConnectivityTest(container);
+  }
+
+  private _appendPrivacyToggles(container: HTMLElement): void {
+    container.appendChild(
+      SettingsUiFactory.createToggle(
+        "Anonymous Analytics",
+        this._identityService.isAnalyticsEnabled(),
+        (val: boolean): void => this._identityService.setAnalyticsConsent(val),
+      ),
+    );
+  }
+
+  private _appendDeviceIdentity(container: HTMLElement): void {
+    container.appendChild(
+      SettingsUiFactory.createReadOnlyField(
+        "Device ID",
+        this._identityService.getDeviceId(),
+        true,
+      ),
+    );
+  }
+
+  private _appendConnectivityTest(container: HTMLElement): void {
     container.appendChild(
       SettingsUiFactory.createActionButton(
         "Connectivity Test",
         "Run Handshake",
         async (statusElement: HTMLElement): Promise<void> => {
-          statusElement.textContent = "Connecting...";
-          statusElement.style.color = "var(--lower-band-3)";
-
-          try {
-            const response: HealthCheckResponse =
-              await this._cloudflareService.checkHealth();
-            statusElement.textContent = `Online (${response.environment})`;
-            statusElement.style.color = "var(--status-success)";
-          } catch {
-            statusElement.textContent = "Offline";
-            statusElement.style.color = "var(--status-error)";
-          }
+          this._executeHandshake(statusElement);
         },
       ),
     );
+  }
+
+  private async _executeHandshake(statusElement: HTMLElement): Promise<void> {
+    statusElement.textContent = "Connecting...";
+    statusElement.style.color = "var(--lower-band-3)";
+
+    try {
+      const response: HealthCheckResponse =
+        await this._cloudflareService.checkHealth();
+      statusElement.textContent = `Online (${response.environment})`;
+      statusElement.style.color = "var(--status-success)";
+    } catch {
+      statusElement.textContent = "Offline";
+      statusElement.style.color = "var(--status-error)";
+    }
   }
 }

@@ -1,15 +1,16 @@
 # Current Checkpoint
 
-## Phase 3: Cloudflare Analytics & Session Pulse (Checkpoint 3.1)
+## Phase 3: Cloudflare Analytics & Session Pulse (Checkpoint 3.2)
 
 ### Objective
-Initialize the Cloudflare Edge infrastructure and establish a basic health-check connectivity between the frontend and the edge.
+Implement the Identity & Privacy Layer, including client-side device ID generation and an anonymous analytics opt-in toggle.
 
 ### Progress
-- [x] Initialize phase 3 roadmap items.
-- [x] Setup Wrangler and Cloudflare Pages environment.
-- [x] Create initial D1 database schema (`scripts/db/schema.sql`).
-- [x] Implement backend health-check function (`functions/api/health.ts`).
-- [x] Implement frontend connectivity test logic (`CloudflareService.ts`).
+- [x] Implement `IdentityService` for persistent anonymous Device ID.
+- [x] Add "Anonymous Analytics" toggle to Settings UI.
+- [x] Connect `IdentityService` to the application lifecycle.
+- [x] Ensure privacy-first data handling (opt-in check).
 
-**Checkpoint 3.1 Complete: Handshake Verified.**
+**Checkpoint 3.2 Complete: Identity & Privacy Layer implemented.**
+
+**Next Step:** Checkpoint 3.3: Session Pulse & D1 Integration.
