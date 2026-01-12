@@ -9,6 +9,7 @@ export class AudioService {
     private _masterVolume: number = 0.8;
 
     private readonly _audioCache: Map<string, HTMLAudioElement> = new Map();
+    private readonly _lastPlayTimeMap: Map<string, number> = new Map();
 
     private static readonly _soundLight = "sounds/rxSound11.ogg";
     private static readonly _soundHeavy = "sounds/kick-deep.ogg";
@@ -39,6 +40,15 @@ export class AudioService {
      * @param volume - The relative volume of this specific sound (0.0 to 1.0).
      */
     public playSound(path: string, volume: number = 1.0): void {
+        const now: number = Date.now();
+        const lastPlayTime: number = this._lastPlayTimeMap.get(path) ?? 0;
+
+        if (now - lastPlayTime < 40) {
+            return;
+        }
+
+        this._lastPlayTimeMap.set(path, now);
+
         const audio: HTMLAudioElement = this._getOrCacheAudio(path);
 
         const playInstance: HTMLAudioElement = audio.cloneNode(

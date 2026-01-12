@@ -154,6 +154,24 @@ export class DirectoryAccessService {
       }
     }
 
+    try {
+      // Fallback: Check if the current handle *contains* 'steamapps' as a child
+      // This supports cases where the user selects their root 'SteamLibrary' folder.
+      const steamAppsHandle = await handle.getDirectoryHandle("steamapps", {
+        create: false,
+      });
+      // 'steamapps' corresponds to index 0 in our path parts array.
+      const result = await this._tryTraverseFromIndex(steamAppsHandle, 0);
+
+      if (result) {
+        // We do not prepend the root handle name to the path here, typically users
+        // care about the path starting from 'steamapps' anyway.
+        return result;
+      }
+    } catch {
+      // 'steamapps' not found or other error; ignore and fallback to root.
+    }
+
     return { statsHandle: handle, path: handle.name };
   }
 

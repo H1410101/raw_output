@@ -26,7 +26,6 @@ export class BenchmarkScrollController {
   private readonly _audioService: AudioService | null;
 
   private _isUserDragging: boolean = false;
-  private _lastLightSoundTime: number = 0;
 
   /**
    * Initializes the controller with the necessary dependencies.
@@ -286,11 +285,7 @@ export class BenchmarkScrollController {
   }
 
   private _playThrottledLightSound(): void {
-    const now = Date.now();
-    if (now - this._lastLightSoundTime >= 40) {
-      this._audioService?.playLight(0.4);
-      this._lastLightSoundTime = now;
-    }
+    this._audioService?.playLight(0.4);
   }
 
   private _isClippingToTrack(clientX: number): boolean {

@@ -16,14 +16,14 @@ This document aggregates all developer-requested behaviors for the Raw Output we
 - **header.title.int.mount**: The title is rendered inside a container with the class `app-title-container`.
 - **header.title.int.audio**: Clicking the title button triggers an `AudioService.playHeavy()` call.
 
-### 1.2 Layout (identity: `header.layout`)
-#### 1.2.1 User Perspective / Externals (identity: `header.layout.ext`)
-- **header.layout.ext.symmetry**: The left edge of the "Benchmarks" button and the right edge of the "Ranked" button are exactly equidistant from the horizontal center of the screen.
-- **header.layout.ext.scaling**: Increasing UI scale grows text and spacing proportionally without slot overlap.
+### 1.2 Navigation (identity: `header.nav`)
+#### 1.2.1 User Perspective / Externals (identity: `header.nav.ext`)
+- **header.nav.ext.symmetry**: The left edge of the "Benchmarks" button and the right edge of the "Ranked" button are exactly equidistant from the horizontal center of the screen.
+- **header.nav.ext.scaling**: Increasing UI scale grows text and spacing proportionally without slot overlap.
 
-#### 1.2.2 Internals (identity: `header.layout.int`)
-- **header.layout.int.grid**: The `.app-header` implements a `display: grid` with `grid-template-columns: 1fr auto 1fr`.
-- **header.layout.int.centering**: Slot 2 of the header grid contains the `nav-menu`, ensuring it is mathematically centered.
+#### 1.2.2 Internals (identity: `header.nav.int`)
+- **header.nav.int.grid**: The `.app-header` implements a `display: grid` with `grid-template-columns: 1fr auto 1fr`.
+- **header.nav.int.centering**: Slot 2 of the header grid contains the `nav-menu`, ensuring it is mathematically centered.
 
 ### 1.3 Controls (identity: `header.ctrl`)
 #### 1.3.1 User Perspective / Externals (identity: `header.ctrl.ext`)
@@ -98,7 +98,13 @@ This document aggregates all developer-requested behaviors for the Raw Output we
 #### 5.2.2 Internals (identity: `ui.audio.int`)
 - **ui.audio.int.throttle**: `AudioService` enforces a 40ms silence between ticks.
 
----
+### 5.3 UI Scaling (identity: `ui.scale`)
+#### 5.3.1 User Perspective / Externals (identity: `ui.scale.ext`)
+- **ui.scale.ext.responsive**: Changing `--ui-scale` or `--margin-spacing-multiplier` in `:root` immediately updates container padding and font sizes.
+
+#### 5.3.2 Internals (identity: `ui.scale.int`)
+- **ui.scale.int.variable_prop**: The `.container` padding is mathematically derived from `1.5rem * var(--margin-spacing-multiplier)`.
+- **ui.scale.int.font_prop**: Root `font-size` is derived from `calc(...) * var(--ui-scale)`.
 
 ## 6. Engineering Constraints (identity: `eng`)
 

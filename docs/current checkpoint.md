@@ -1,6 +1,6 @@
 # Current Checkpoint
 
-## Phase 4: Visual Polish & Performance Monitoring (Checkpoint 4.1)
+## Phase 4: Ranked Runs
 
 ### Objective
 Implement the initial layout and structure for "Ranked Runs" view.
