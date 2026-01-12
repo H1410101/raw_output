@@ -59,6 +59,10 @@
 
 :root {
     /* Status & Tagging */
+    --status-success: #4ade80;
+    --status-success-rgb: 74, 222, 128;
+    --status-error: #f87171;
+    --status-error-rgb: 248, 113, 113;
     --status-medium: #f7b989;
     --status-medium-rgb: 247, 185, 137;
     --status-hard: #bc5b4c;

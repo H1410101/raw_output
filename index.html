@@ -306,6 +306,34 @@
             justify-self: end;
         }
 
+        .settings-action-btn {
+            background: rgba(var(--lower-band-1-rgb), 0.1);
+            border: 1px solid var(--glass-border);
+            color: var(--lower-band-3);
+            padding: 0.4rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+
+        .settings-action-btn:hover {
+            background: rgba(var(--lower-band-1-rgb), 0.2);
+            color: var(--upper-band-1);
+            border-color: var(--lower-band-1);
+        }
+
+        .settings-action-btn:active {
+            transform: scale(0.95);
+            background: rgba(var(--lower-band-1-rgb), 0.3);
+        }
+
+        .action-status-text {
+            font-family: "Nunito", sans-serif;
+            font-weight: 600;
+        }
 
         .header-action-btn {
             background: transparent;
@@ -1279,6 +1307,17 @@
             flex-shrink: 0;
         }
 
+        .setting-item.action-item {
+            justify-content: space-between;
+        }
+
+        .action-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 1rem;
+            flex: 1;
+        }
 
         .settings-group {
             display: flex;

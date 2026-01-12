@@ -11,6 +11,7 @@ import {
 } from "../../services/FocusManagementService";
 import { BenchmarkService } from "../../services/BenchmarkService";
 import { AudioService } from "../../services/AudioService";
+import { CloudflareService } from "../../services/CloudflareService";
 import { SettingsSectionRenderer } from "./SettingsSectionRenderer";
 import { BenchmarkScrollController } from "./BenchmarkScrollController";
 
@@ -23,6 +24,7 @@ export interface BenchmarkSettingsDependencies {
   readonly focusService: FocusManagementService;
   readonly benchmarkService: BenchmarkService;
   readonly audioService: AudioService;
+  readonly cloudflareService: CloudflareService;
 }
 
 /**
@@ -52,6 +54,7 @@ export class BenchmarkSettingsController {
     this._sectionRenderer = new SettingsSectionRenderer(
       dependencies.visualSettingsService,
       dependencies.sessionSettingsService,
+      dependencies.cloudflareService,
     );
 
     this._currentVisualSettings = this._visualSettingsService.getSettings();
@@ -169,6 +172,8 @@ export class BenchmarkSettingsController {
       card,
       this._currentVisualSettings,
     );
+
+    this._sectionRenderer.appendCloudflareSection(card);
   }
 
   private _createTitle(): HTMLElement {

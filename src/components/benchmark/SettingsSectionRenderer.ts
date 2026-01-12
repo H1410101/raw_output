@@ -5,12 +5,14 @@ import {
 } from "../../services/VisualSettingsService";
 import { ScalingLevel } from "../../services/ScalingService";
 import { SessionSettingsService } from "../../services/SessionSettingsService";
+import { CloudflareService, HealthCheckResponse } from "../../services/CloudflareService";
 
 /**
  * Responsible for rendering specific sections of the settings menu.
  */
 export class SettingsSectionRenderer {
   private readonly _visualSettingsService: VisualSettingsService;
+  private readonly _cloudflareService: CloudflareService;
 
   private static readonly _scalingOptions: ScalingLevel[] = [
     "Min",
@@ -33,13 +35,16 @@ export class SettingsSectionRenderer {
    *
    * @param visualSettingsService - Service for managing visual configuration.
    * @param sessionSettingsService - Service for managing session-specific settings.
+   * @param cloudflareService - Service for Cloudflare Edge interactions.
    */
   public constructor(
     visualSettingsService: VisualSettingsService,
     sessionSettingsService: SessionSettingsService,
+    cloudflareService: CloudflareService,
   ) {
     this._visualSettingsService = visualSettingsService;
     this._sessionSettingsService = sessionSettingsService;
+    this._cloudflareService = cloudflareService;
   }
 
   /**
@@ -427,4 +432,33 @@ export class SettingsSectionRenderer {
     });
   }
 
+  /**
+   * Builds and appends the Cloudflare connectivity settings section.
+   *
+   * @param container - The element to append settings to.
+   */
+  public appendCloudflareSection(container: HTMLElement): void {
+    container.appendChild(SettingsUiFactory.createGroupTitle("Cloudflare Edge"));
+
+    container.appendChild(
+      SettingsUiFactory.createActionButton(
+        "Connectivity Test",
+        "Run Handshake",
+        async (statusElement: HTMLElement): Promise<void> => {
+          statusElement.textContent = "Connecting...";
+          statusElement.style.color = "var(--lower-band-3)";
+
+          try {
+            const response: HealthCheckResponse =
+              await this._cloudflareService.checkHealth();
+            statusElement.textContent = `Online (${response.environment})`;
+            statusElement.style.color = "var(--status-success)";
+          } catch {
+            statusElement.textContent = "Offline";
+            statusElement.style.color = "var(--status-error)";
+          }
+        },
+      ),
+    );
+  }
 }

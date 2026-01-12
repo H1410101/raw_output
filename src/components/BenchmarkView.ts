@@ -19,6 +19,7 @@ import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 import { AudioService } from "../services/AudioService";
+import { CloudflareService } from "../services/CloudflareService";
 
 /**
  * Core services required by the BenchmarkView.
@@ -33,6 +34,7 @@ export interface BenchmarkViewServices {
   directory: DirectoryAccessService;
   visualSettings: VisualSettingsService;
   audio: AudioService;
+  cloudflare: CloudflareService;
   folderActions: {
     onLinkFolder: () => Promise<void>;
     onForceScan: () => Promise<void>;
@@ -64,6 +66,7 @@ export class BenchmarkView {
 
   private readonly _focusService: FocusManagementService;
   private readonly _audioService: AudioService;
+  private readonly _cloudflareService: CloudflareService;
 
   private readonly _settingsController: BenchmarkSettingsController;
 
@@ -115,6 +118,7 @@ export class BenchmarkView {
     this._visualSettingsService = services.visualSettings;
     this._audioService = services.audio;
     this._sessionSettingsService = services.sessionSettings;
+    this._cloudflareService = services.cloudflare;
 
     this._activeDifficulty = this._determineInitialDifficulty();
     this._settingsController = this._initSettingsController();
@@ -462,6 +466,7 @@ export class BenchmarkView {
       focusService: this._focusService,
       benchmarkService: this._benchmarkService,
       audioService: this._audioService,
+      cloudflareService: this._cloudflareService,
     });
   }
 

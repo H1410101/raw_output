@@ -17,3 +17,6 @@ dist-ssr
 
 # Examples
 .examples/
+
+# Cloudflare
+.wrangler/

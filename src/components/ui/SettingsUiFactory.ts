@@ -147,6 +147,51 @@ export class SettingsUiFactory {
   }
 
   /**
+   * Creates a standardized action button with status text for settings.
+   *
+   * @param label - The setting label text.
+   * @param buttonText - The text inside the button.
+   * @param onClick - Callback receiving the status element for updates.
+   * @returns A constructed HTMLElement.
+   */
+  public static createActionButton(
+    label: string,
+    buttonText: string,
+    onClick: (statusElement: HTMLElement) => void,
+  ): HTMLElement {
+    const container: HTMLDivElement = document.createElement("div");
+    container.className = "setting-item action-item";
+
+    container.appendChild(this._createLabel(label));
+
+    const wrapper: HTMLDivElement = document.createElement("div");
+    wrapper.className = "action-wrapper";
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
+    wrapper.style.gap = "1rem";
+
+    const button: HTMLButtonElement = document.createElement("button");
+    button.className = "settings-action-btn";
+    button.textContent = buttonText;
+
+    const status: HTMLSpanElement = document.createElement("span");
+    status.className = "action-status-text";
+    status.style.fontSize = "0.75rem";
+    status.style.opacity = "0.7";
+
+    button.addEventListener("click", (): void => {
+      this._audioService?.playHeavy(0.4);
+      onClick(status);
+    });
+
+    wrapper.appendChild(button);
+    wrapper.appendChild(status);
+    container.appendChild(wrapper);
+
+    return container;
+  }
+
+  /**
    * Groups a primary setting row with its dependent sub-rows.
    * Automatically handles visibility toggling if the main row contains a checkbox.
    *
