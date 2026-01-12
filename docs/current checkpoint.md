@@ -1,16 +1,16 @@
 # Current Checkpoint
 
-## Phase 3: Cloudflare Analytics & Session Pulse (Checkpoint 3.2)
+## Phase 3: Cloudflare Analytics & Session Pulse (Checkpoint 3.3 COMPLETE)
 
 ### Objective
-Implement the Identity & Privacy Layer, including client-side device ID generation and an anonymous analytics opt-in toggle.
+Sync anonymous session performance (granular scenario bests) to Cloudflare D1.
 
 ### Progress
-- [x] Implement `IdentityService` for persistent anonymous Device ID.
-- [x] Add "Anonymous Analytics" toggle to Settings UI.
-- [x] Connect `IdentityService` to the application lifecycle.
-- [x] Ensure privacy-first data handling (opt-in check).
+- [x] Update database schema with `session_pulses` table.
+- [x] Implement `/api/pulse` ingestion endpoint on Cloudflare Edge.
+- [x] Create `SessionPulseService` for persistent telemetry syncing.
+- [x] Integrate with `IdentityService` for privacy-first analytics.
 
-**Checkpoint 3.2 Complete: Identity & Privacy Layer implemented.**
+**Phase 3 Complete: Session Pulse & D1 Integration finalized.**
 
-**Next Step:** Checkpoint 3.3: Session Pulse & D1 Integration.
+**Next Phase:** Visual Polish & Performance Monitoring (Phase 4).

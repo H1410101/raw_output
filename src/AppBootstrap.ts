@@ -18,6 +18,7 @@ import { VisualSettingsService } from "./services/VisualSettingsService";
 import { AudioService } from "./services/AudioService";
 import { CloudflareService } from "./services/CloudflareService";
 import { IdentityService } from "./services/IdentityService";
+import { SessionPulseService } from "./services/SessionPulseService";
 import { SettingsUiFactory } from "./components/ui/SettingsUiFactory";
 
 /**
@@ -57,11 +58,19 @@ export class AppBootstrap {
   private readonly _audioService: AudioService;
   private readonly _cloudflareService: CloudflareService;
   private readonly _identityService: IdentityService;
+  private readonly _sessionPulseService: SessionPulseService;
 
   /**
    * Initializes the application's core logic and UI components.
    */
   public constructor() {
+    this._initCoreServices();
+    this._initTelemetryServices();
+    this._initCoordinationServices();
+    this._initUIComponents();
+  }
+
+  private _initCoreServices(): void {
     this._directoryService = new DirectoryAccessService();
     this._csvService = new KovaaksCsvParsingService();
     this._monitoringService = new DirectoryMonitoringService();
@@ -70,17 +79,26 @@ export class AppBootstrap {
     this._rankService = new RankService();
     this._appStateService = new AppStateService();
     this._sessionSettingsService = new SessionSettingsService();
-
     this._visualSettingsService = new VisualSettingsService();
+  }
+
+  private _initTelemetryServices(): void {
     this._audioService = new AudioService(this._visualSettingsService);
     this._cloudflareService = new CloudflareService();
     this._identityService = new IdentityService();
-
     this._focusService = new FocusManagementService(this._appStateService);
+  }
 
+  private _initCoordinationServices(): void {
     this._sessionService = new SessionService(
       this._rankService,
       this._sessionSettingsService,
+    );
+
+    this._sessionPulseService = new SessionPulseService(
+      this._sessionService,
+      this._identityService,
+      this._cloudflareService,
     );
 
     this._ingestionService = new RunIngestionService({
@@ -90,11 +108,11 @@ export class AppBootstrap {
       sessionService: this._sessionService,
       benchmarkService: this._benchmarkService,
     });
+  }
 
+  private _initUIComponents(): void {
     this._statusView = this._createStatusView();
-
     this._benchmarkView = this._createBenchmarkView();
-
     this._navigationController = this._createNavigationController();
   }
 

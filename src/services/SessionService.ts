@@ -39,6 +39,8 @@ export class SessionService {
 
   private _sessionStartTimestamp: number | null = null;
 
+  private _sessionId: string | null = null;
+
   private readonly _sessionBestRanks: Map<string, SessionRankRecord> =
     new Map();
 
@@ -173,6 +175,24 @@ export class SessionService {
   }
 
   /**
+   * Returns the unique identifier for the current session.
+   *
+   * @returns The session ID or null if no session is active.
+   */
+  public get sessionId(): string | null {
+    return this._sessionId;
+  }
+
+  /**
+   * Returns all best scenario records recorded in the current session.
+   *
+   * @returns An array of session rank records.
+   */
+  public getAllScenarioSessionBests(): SessionRankRecord[] {
+    return Array.from(this._sessionBestRanks.values());
+  }
+
+  /**
    * Determines if a session is currently considered active based on the timeout.
    *
    * @param currentTimestamp - Optional timestamp to check against.
@@ -201,6 +221,8 @@ export class SessionService {
     this._lastRunTimestamp = null;
 
     this._sessionStartTimestamp = null;
+
+    this._sessionId = null;
 
     this._clearExpirationTimer();
 
@@ -235,6 +257,7 @@ export class SessionService {
 
     if (this._sessionStartTimestamp === null) {
       this._sessionStartTimestamp = currentTimestamp;
+      this._sessionId = `session_${currentTimestamp}`;
     }
   }
 
@@ -286,7 +309,7 @@ export class SessionService {
     }
 
     this._expirationTimerId = window.setTimeout((): void => {
-      this._notifySessionUpdate();
+      this.resetSession();
     }, delay);
   }
 

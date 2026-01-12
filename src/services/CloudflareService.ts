@@ -9,6 +9,19 @@ export interface HealthCheckResponse {
 }
 
 /**
+ * Payload structure for session telemetry submission.
+ */
+export interface SessionPulsePayload {
+    readonly deviceId: string;
+    readonly sessionId: string;
+    readonly pulses: {
+        readonly scenarioName: string;
+        readonly bestRank: string;
+        readonly bestScore: number;
+    }[];
+}
+
+/**
  * Service responsible for managing connectivity with Cloudflare Edge Functions.
  * Provides diagnostics and health checks to ensure the cloud-hybrid logic is functional.
  */
@@ -42,6 +55,31 @@ export class CloudflareService {
         } catch (error) {
             const message = error instanceof Error ? error.message : "Handshake failed";
             throw new Error(`Cloudflare Connectivity Error: ${message}`);
+        }
+    }
+
+    /**
+     * Sends a session telemetry pulse to the Cloudflare Edge API.
+     * 
+     * @param payload - The telemetry data for a closed session.
+     * @returns A promise that resolves when the pulse is successfully sent.
+     */
+    public async sendPulse(payload: SessionPulsePayload): Promise<void> {
+        try {
+            const response = await fetch(`${this._baseUrl}/api/pulse`, {
+                method: "POST",
+                headers: {
+                    ["Content-Type"]: "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Pulse submission failed with status: ${response.status}`);
+            }
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Submission failed";
+            throw new Error(`Cloudflare Telemetry Error: ${message}`);
         }
     }
 }
