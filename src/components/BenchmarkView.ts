@@ -145,6 +145,20 @@ export class BenchmarkView {
   }
 
   /**
+   * Updates the active difficulty of the view.
+   *
+   * @param difficulty - The new difficulty tier.
+   */
+  public updateDifficulty(difficulty: DifficultyTier): void {
+    if (this._activeDifficulty === difficulty) {
+      return;
+    }
+
+    this._activeDifficulty = difficulty;
+    this.refresh();
+  }
+
+  /**
    * Toggles the application between dark and light themes.
    */
   public toggleTheme(): void {

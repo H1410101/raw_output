@@ -168,16 +168,20 @@
 
 ## Phase 4: Ranked Runs
 
-### Checkpoint 4.1: Ranked Session Layout
-### Checkpoint 4.2: Scenario Selection Logic
-### Checkpoint 4.3: Target Bar Component
-### Checkpoint 4.4: HUD Integration
-### Checkpoint 4.5: Visual System Unification & Theme
-### Checkpoint 4.6: Scenario Transitions
-### Checkpoint 4.7: Live Feedback Loop
-### Checkpoint 4.8: Rank Estimator
-### Checkpoint 4.9: Audio Feedback
-### Checkpoint 4.10: Infinite Progression
+### Checkpoint 4.1: Ranked Session State & Structure (Done)
+- **Deliverable**: Core `RankedSessionService`, One-time Gauntlet, Cyclic Scenarios, and UI State.
+- **Commit Goal**: v4.1 tag establishes the backend and basic UI for ranked runs.
+
+### Checkpoint 4.2: HUD & Progress Visualization
+- **Deliverable**: HUD Timer, Progress Bar, and Daily Rank Decay Logic.
+### Checkpoint 4.3: Rank Estimator & Prediction Math
+### Checkpoint 4.4: HUD Integration & Live Feedback
+### Checkpoint 4.5: Scenario Transitions & Flow
+### Checkpoint 4.6: Target Bar & HUD Visuals
+### Checkpoint 4.7: Audio Feedback
+### Checkpoint 4.8: Visual System Unification & Theme
+### Checkpoint 4.9: Infinite Progression
+### Checkpoint 4.10: Final Polish & Verification
 
 ## Phase 5: Focus-Based Dynamics
 

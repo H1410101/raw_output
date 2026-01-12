@@ -90,9 +90,13 @@ export class NavigationController {
   }
 
   private _restoreInitialTab(): void {
-    this._updateVisibleView(this._viewBenchmarks);
+    const activeTabId = this._appStateService.getActiveTabId();
 
-    this._appStateService.setActiveTabId("nav-benchmarks");
+    if (activeTabId === "nav-ranked") {
+      this._updateVisibleView(this._viewRanked);
+    } else {
+      this._updateVisibleView(this._viewBenchmarks);
+    }
   }
 
   private async _switchToBenchmarks(): Promise<void> {
@@ -102,9 +106,9 @@ export class NavigationController {
     const wasFolderDismissed: boolean =
       await this._benchmarkView.tryReturnToTable();
 
-    this._updateVisibleView(this._viewBenchmarks);
-
     this._appStateService.setActiveTabId("nav-benchmarks");
+
+    this._updateVisibleView(this._viewBenchmarks);
 
     if (!isAlreadyActive && !wasFolderDismissed) {
       await this._benchmarkView.render();
@@ -121,8 +125,8 @@ export class NavigationController {
 
     await this._benchmarkView.tryReturnToTable();
 
-    this._updateVisibleView(this._viewRanked);
     this._appStateService.setActiveTabId("nav-ranked");
+    this._updateVisibleView(this._viewRanked);
   }
 
   private _updateVisibleView(visibleView: HTMLElement): void {

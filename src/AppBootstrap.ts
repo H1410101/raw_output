@@ -20,6 +20,8 @@ import { AudioService } from "./services/AudioService";
 import { CloudflareService } from "./services/CloudflareService";
 import { IdentityService } from "./services/IdentityService";
 import { SessionPulseService } from "./services/SessionPulseService";
+import { RankedSessionService } from "./services/RankedSessionService";
+import { RankEstimator } from "./services/RankEstimator";
 import { SettingsUiFactory } from "./components/ui/SettingsUiFactory";
 
 /**
@@ -61,6 +63,8 @@ export class AppBootstrap {
   private readonly _cloudflareService: CloudflareService;
   private readonly _identityService: IdentityService;
   private readonly _sessionPulseService: SessionPulseService;
+  private readonly _rankedSessionService: RankedSessionService;
+  private readonly _rankEstimator: RankEstimator;
 
   /**
    * Initializes the application's core logic and UI components.
@@ -97,8 +101,14 @@ export class AppBootstrap {
       this._sessionSettingsService,
     );
 
+    this._rankedSessionService = new RankedSessionService(
+      this._benchmarkService,
+      this._sessionService,
+    );
+
     this._sessionPulseService = new SessionPulseService(
       this._sessionService,
+      this._rankedSessionService,
       this._identityService,
       this._cloudflareService,
     );
@@ -110,6 +120,11 @@ export class AppBootstrap {
       sessionService: this._sessionService,
       benchmarkService: this._benchmarkService,
     });
+
+    this._rankEstimator = new RankEstimator(
+      this._rankService,
+      this._benchmarkService,
+    );
   }
 
   private _initUIComponents(): void {
@@ -189,7 +204,13 @@ export class AppBootstrap {
   }
 
   private _createRankedView(): RankedView {
-    return new RankedView(this._getRequiredElement("view-ranked"));
+    return new RankedView(this._getRequiredElement("view-ranked"), {
+      rankedSession: this._rankedSessionService,
+      session: this._sessionService,
+      benchmark: this._benchmarkService,
+      estimator: this._rankEstimator,
+      appState: this._appStateService,
+    });
   }
 
   private _setupActionListeners(): void {
@@ -229,6 +250,11 @@ export class AppBootstrap {
         this._audioService.playHeavy(0.4);
       });
       aboutPopup.render();
+    });
+
+    this._appStateService.onDifficultyChanged((): void => {
+      this._benchmarkView.updateDifficulty(this._appStateService.getBenchmarkDifficulty());
+      this._rankedView.refresh();
     });
   }
 

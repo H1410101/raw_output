@@ -16,6 +16,7 @@ export interface SessionPulsePayload {
     readonly sessionId: string;
     readonly sessionDate: string;
     readonly isRanked: boolean;
+    readonly rankedSessionId?: string | null;
     readonly pulses: {
         readonly scenarioName: string;
         readonly bestRank: string;

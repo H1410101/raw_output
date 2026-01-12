@@ -53,6 +53,8 @@ export class AppStateService {
     this._saveToStorage();
   }
 
+  private readonly _difficultyListeners: (() => void)[] = [];
+
   /**
    * Retrieves the last selected benchmark difficulty.
    *
@@ -63,7 +65,7 @@ export class AppStateService {
   }
 
   /**
-   * Persists the selected benchmark difficulty.
+   * Persists the selected benchmark difficulty and notifies listeners.
    *
    * @param difficulty - The difficulty tier to save.
    */
@@ -71,6 +73,20 @@ export class AppStateService {
     this._state.benchmarkDifficulty = difficulty;
 
     this._saveToStorage();
+    this._notifyDifficultyListeners();
+  }
+
+  /**
+   * Subscribes to changes in the benchmark difficulty.
+   *
+   * @param callback - The function to call when difficulty changes.
+   */
+  public onDifficultyChanged(callback: () => void): void {
+    this._difficultyListeners.push(callback);
+  }
+
+  private _notifyDifficultyListeners(): void {
+    this._difficultyListeners.forEach((callback: () => void): void => callback());
   }
 
   /**
