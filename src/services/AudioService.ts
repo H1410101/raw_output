@@ -23,6 +23,13 @@ export class AudioService {
         this._visualSettingsService.subscribe((settings): void => {
             this._masterVolume = settings.audioVolume / 100;
         });
+
+        this._prewarmCache();
+    }
+
+    private _prewarmCache(): void {
+        this._getOrCacheAudio(AudioService._soundLight);
+        this._getOrCacheAudio(AudioService._soundHeavy);
     }
 
     /**

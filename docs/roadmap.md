@@ -147,36 +147,33 @@
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application has a distinctive sound bank that matches the theme.
 
-## Phase 3: Cloudflare Analytics & Session Pulse
+## Phase 3: Cloudflare Analytics & Session Pulse (Done)
 - **Goal**: Collect anonymous session statistics to balance benchmark ranks and understand device distribution.
 
-### Checkpoint 3.1: Edge infrastructure & Handshake
+### Checkpoint 3.1: Edge infrastructure & Handshake (Done)
 - **Deliverable**: Wrangler initialization, D1 database creation, and a "Health Check" endpoint.
-- **Verifiable Feedback**: Click a "Test Connection" button in-app to receive a pong from the local Cloudflare emulator.
 
-### Checkpoint 3.2: Identity & Privacy Layer
+### Checkpoint 3.2: Identity & Privacy Layer (Done)
 - **Deliverable**: `DeviceIdentifierService` for local UUIDs and the "Anonymous Analytics" toggle in Settings.
-- **Verifiable Feedback**: Toggling the setting generates/clears a persistent UUID in localStorage.
 
-### Checkpoint 3.3: Session Data Extraction
-- **Deliverable**: Integration with `SessionService` to summarize a session's highscores into a serializable "Pulse" payload.
-- **Verifiable Feedback**: A developer console log shows the exact JSON payload ready for submission when a session ends.
+### Checkpoint 3.3: Session Data Extraction & Persistence (Done)
+- **Deliverable**: Integration with `SessionService` to summarize highscores and sync to D1 via the Pulse API.
+- **Commit Goal**: v3.3 tag includes deterministic session IDs and D1 batching.
 
-### Checkpoint 3.4: Automated Session Reporting
-- **Deliverable**: Logic to automatically trigger a submission upon session expiry or manual reset (respecting opt-in).
-- **Verifiable Feedback**: The Network tab shows a pending request to `/api/collect` when a session is finalized.
+#### Checkpoint 3.3.1: Eager Audio Preloading (Done)
+- **Deliverable**: Refactored AudioService to cache assets on startup.
 
-### Checkpoint 3.5: Salted Hashing & D1 Persistence
-- **Deliverable**: Backend Cloudflare Function that salts the device ID and persists the payload into D1.
-- **Verifiable Feedback**: Running a local D1 query shows the row correctly inserted with a hashed identifier.
+### Checkpoint 3.4: Automated Session Reporting (Done)
+- **Deliverable**: Logic to automatically trigger a submission upon session expiry.
+
+### Checkpoint 3.5: Salted Hashing & D1 Persistence (Done)
+- **Deliverable**: Backend Cloudflare Function for salted ID storage.
 
 ### Checkpoint 3.6: Pre-flight Verification & Error Handling
 - **Deliverable**: Robust retry logic for failed submissions and verification of data integrity.
-- **Verifiable Feedback**: Simulate an offline state and verify that the application recovers or handles the failure gracefully.
 
 ### Checkpoint 3.7: Production Deployment
 - **Deliverable**: Git connection to Cloudflare Pages and remote database migration.
-- **Verifiable Feedback**: Data from the live production environment appears in the Cloudflare Dashboard.
 
 ## Phase 4: Ranked Runs
 

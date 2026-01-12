@@ -1,16 +1,12 @@
 # Current Checkpoint
-
-## Phase 3: Cloudflare Analytics & Session Pulse (Checkpoint 3.3 COMPLETE)
+ 
+## Phase 4: Visual Polish & Performance Monitoring (Checkpoint 4.1)
 
 ### Objective
-Sync anonymous session performance (granular scenario bests) to Cloudflare D1.
+Implement the initial layout and structure for "Ranked Runs" view.
 
 ### Progress
-- [x] Update database schema with `session_pulses` table.
-- [x] Implement `/api/pulse` ingestion endpoint on Cloudflare Edge.
-- [x] Create `SessionPulseService` for persistent telemetry syncing.
-- [x] Integrate with `IdentityService` for privacy-first analytics.
+- [ ] Draft initial layout for Ranked Session component.
+- [ ] Define scenario selection logic for ranked play.
 
-**Phase 3 Complete: Session Pulse & D1 Integration finalized.**
-
-**Next Phase:** Visual Polish & Performance Monitoring (Phase 4).
+**Next Step:** Propose implementation plan for Phase 4.
