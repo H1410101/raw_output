@@ -14,6 +14,8 @@ export interface HealthCheckResponse {
 export interface SessionPulsePayload {
     readonly deviceId: string;
     readonly sessionId: string;
+    readonly sessionDate: string;
+    readonly isRanked: boolean;
     readonly pulses: {
         readonly scenarioName: string;
         readonly bestRank: string;

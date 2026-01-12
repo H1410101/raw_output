@@ -22,6 +22,15 @@ export interface SessionRankRecord {
   readonly rankResult: RankResult;
 }
 
+interface PersistedSessionState {
+  sessionId: string | null;
+  sessionStartTimestamp: number | null;
+  lastRunTimestamp: number | null;
+  isRanked: boolean;
+  bestRanks: [string, SessionRankRecord][] | null;
+  bestPerDifficulty: [string, RankResult][] | null;
+}
+
 /**
  * Tracks session boundaries and best ranks achieved within a single session.
  *
@@ -30,6 +39,9 @@ export interface SessionRankRecord {
  */
 export class SessionService {
   private _sessionTimeoutMilliseconds: number = 10 * 60 * 1000;
+
+  /** Key for local storage persistence. */
+  private readonly _storageKey: string = "session_service_state";
 
   private readonly _rankService: RankService;
 
@@ -40,6 +52,8 @@ export class SessionService {
   private _sessionStartTimestamp: number | null = null;
 
   private _sessionId: string | null = null;
+
+  private _isRanked: boolean = false;
 
   private readonly _sessionBestRanks: Map<string, SessionRankRecord> =
     new Map();
@@ -66,6 +80,7 @@ export class SessionService {
     this._sessionSettingsService = sessionSettingsService;
 
     this._subscribeToSettingsUpdates();
+    this._loadFromLocalStorage();
   }
 
   /**
@@ -140,6 +155,7 @@ export class SessionService {
 
     const uniqueUpdatedNames: string[] = [...new Set(updatedScenarioNames)];
 
+    this._saveToLocalStorage();
     this._notifySessionUpdate(uniqueUpdatedNames);
   }
 
@@ -184,6 +200,25 @@ export class SessionService {
   }
 
   /**
+   * Returns whether the current session is a ranked session.
+   *
+   * @returns True if the session is ranked.
+   */
+  public get isRanked(): boolean {
+    return this._isRanked;
+  }
+
+  /**
+   * Sets the ranked status for the current session.
+   *
+   * @param value - The ranked status.
+   */
+  public setIsRanked(value: boolean): void {
+    this._isRanked = value;
+    this._saveToLocalStorage();
+  }
+
+  /**
    * Returns all best scenario records recorded in the current session.
    *
    * @returns An array of session rank records.
@@ -224,7 +259,11 @@ export class SessionService {
 
     this._sessionId = null;
 
+    this._isRanked = false;
+
     this._clearExpirationTimer();
+
+    this._saveToLocalStorage();
 
     if (!silent) {
       this._notifySessionUpdate();
@@ -378,6 +417,52 @@ export class SessionService {
 
     if (isNewBest) {
       this._sessionBestPerDifficulty.set(difficulty, rankResult);
+    }
+  }
+
+  private _saveToLocalStorage(): void {
+    const state: PersistedSessionState = {
+      sessionId: this._sessionId,
+      sessionStartTimestamp: this._sessionStartTimestamp,
+      lastRunTimestamp: this._lastRunTimestamp,
+      isRanked: this._isRanked,
+      bestRanks: Array.from(this._sessionBestRanks.entries()),
+      bestPerDifficulty: Array.from(this._sessionBestPerDifficulty.entries()),
+    };
+
+    localStorage.setItem(this._storageKey, JSON.stringify(state));
+  }
+
+  private _loadFromLocalStorage(): void {
+    const raw: string | null = localStorage.getItem(this._storageKey);
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const state = JSON.parse(raw) as PersistedSessionState;
+      this._sessionId = state.sessionId;
+      this._sessionStartTimestamp = state.sessionStartTimestamp;
+      this._lastRunTimestamp = state.lastRunTimestamp;
+      this._isRanked = state.isRanked || false;
+
+      if (state.bestRanks) {
+        state.bestRanks.forEach(([key, value]: [string, SessionRankRecord]) => {
+          this._sessionBestRanks.set(key, value);
+        });
+      }
+
+      if (state.bestPerDifficulty) {
+        state.bestPerDifficulty.forEach(
+          ([key, value]: [string, RankResult]) => {
+            this._sessionBestPerDifficulty.set(key, value);
+          },
+        );
+      }
+
+      this._scheduleExpirationCheck();
+    } catch {
+      localStorage.removeItem(this._storageKey);
     }
   }
 }

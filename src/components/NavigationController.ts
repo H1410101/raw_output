@@ -7,6 +7,8 @@ import { BenchmarkView } from "./BenchmarkView";
 export interface NavButtons {
   /** Button for Benchmarks view. */
   readonly benchmarksButton: HTMLButtonElement;
+  /** Button for Ranked view. */
+  readonly rankedButton: HTMLButtonElement;
 }
 
 /**
@@ -15,6 +17,8 @@ export interface NavButtons {
 export interface ViewContainers {
   /** Container for the Benchmarks view. */
   readonly benchmarksView: HTMLElement;
+  /** Container for the Ranked view. */
+  readonly rankedView: HTMLElement;
 }
 
 /**
@@ -34,8 +38,10 @@ export interface NavDependencies {
  */
 export class NavigationController {
   private readonly _navBenchmarks: HTMLButtonElement;
+  private readonly _navRanked: HTMLButtonElement;
 
   private readonly _viewBenchmarks: HTMLElement;
+  private readonly _viewRanked: HTMLElement;
 
   private readonly _benchmarkView: BenchmarkView;
 
@@ -54,8 +60,10 @@ export class NavigationController {
     dependencies: NavDependencies,
   ) {
     this._navBenchmarks = buttons.benchmarksButton;
+    this._navRanked = buttons.rankedButton;
 
     this._viewBenchmarks = views.benchmarksView;
+    this._viewRanked = views.rankedView;
 
     this._benchmarkView = dependencies.benchmarkView;
 
@@ -74,6 +82,10 @@ export class NavigationController {
   private _setupListeners(): void {
     this._navBenchmarks.addEventListener("click", (): Promise<void> => {
       return this._switchToBenchmarks();
+    });
+
+    this._navRanked.addEventListener("click", (): Promise<void> => {
+      return this._switchToRanked();
     });
   }
 
@@ -99,9 +111,36 @@ export class NavigationController {
     }
   }
 
+  private async _switchToRanked(): Promise<void> {
+    const isAlreadyActive: boolean =
+      this._appStateService.getActiveTabId() === "nav-ranked";
+
+    if (isAlreadyActive) {
+      return;
+    }
+
+    await this._benchmarkView.tryReturnToTable();
+
+    this._updateVisibleView(this._viewRanked);
+    this._appStateService.setActiveTabId("nav-ranked");
+  }
+
   private _updateVisibleView(visibleView: HTMLElement): void {
     this._viewBenchmarks.classList.add("hidden-view");
+    this._viewRanked.classList.add("hidden-view");
 
     visibleView.classList.remove("hidden-view");
+
+    this._updateButtonStates();
+  }
+
+  private _updateButtonStates(): void {
+    const activeTabId = this._appStateService.getActiveTabId();
+
+    this._navBenchmarks.classList.toggle(
+      "active",
+      activeTabId === "nav-benchmarks",
+    );
+    this._navRanked.classList.toggle("active", activeTabId === "nav-ranked");
   }
 }

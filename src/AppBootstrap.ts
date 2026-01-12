@@ -14,6 +14,7 @@ import { ApplicationStatusView } from "./components/ui/ApplicationStatusView";
 import { NavigationController } from "./components/NavigationController";
 import { FocusManagementService } from "./services/FocusManagementService";
 import { AboutPopupComponent } from "./components/ui/AboutPopupComponent";
+import { RankedView } from "./components/RankedView";
 import { VisualSettingsService } from "./services/VisualSettingsService";
 import { AudioService } from "./services/AudioService";
 import { CloudflareService } from "./services/CloudflareService";
@@ -50,6 +51,7 @@ export class AppBootstrap {
   private readonly _statusView: ApplicationStatusView;
 
   private readonly _benchmarkView: BenchmarkView;
+  private readonly _rankedView: RankedView;
 
   private readonly _navigationController: NavigationController;
 
@@ -113,6 +115,7 @@ export class AppBootstrap {
   private _initUIComponents(): void {
     this._statusView = this._createStatusView();
     this._benchmarkView = this._createBenchmarkView();
+    this._rankedView = this._createRankedView();
     this._navigationController = this._createNavigationController();
   }
 
@@ -125,6 +128,7 @@ export class AppBootstrap {
     await this._attemptInitialReconnection();
 
     await this._benchmarkView.render();
+    await this._rankedView.render();
 
     this._navigationController.initialize();
 
@@ -171,15 +175,21 @@ export class AppBootstrap {
     return new NavigationController(
       {
         benchmarksButton: this._getRequiredButton("nav-benchmarks"),
+        rankedButton: this._getRequiredButton("nav-ranked"),
       },
       {
         benchmarksView: this._getRequiredElement("view-benchmarks"),
+        rankedView: this._getRequiredElement("view-ranked"),
       },
       {
         benchmarkView: this._benchmarkView,
         appStateService: this._appStateService,
       },
     );
+  }
+
+  private _createRankedView(): RankedView {
+    return new RankedView(this._getRequiredElement("view-ranked"));
   }
 
   private _setupActionListeners(): void {

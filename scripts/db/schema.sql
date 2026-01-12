@@ -19,6 +19,8 @@ CREATE TABLE IF NOT EXISTS session_pulses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id TEXT NOT NULL,
     device_id TEXT NOT NULL,
+    session_date TEXT NOT NULL,
+    is_ranked INTEGER NOT NULL DEFAULT 0,
     scenario_name TEXT NOT NULL,
     best_rank TEXT NOT NULL,
     best_score REAL NOT NULL,

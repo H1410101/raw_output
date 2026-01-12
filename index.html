@@ -1797,6 +1797,45 @@
             border-radius: 0.3rem;
             font-family: var(--font-mono, monospace);
         }
+
+        /* Ranked View Styles */
+        .ranked-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .ranked-placeholder h2 {
+            font-size: 2.5rem;
+            color: var(--upper-band-3);
+            margin-bottom: 1rem;
+            letter-spacing: -0.04em;
+            font-weight: 800;
+        }
+
+        .ranked-placeholder p {
+            color: var(--upper-band-1);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+        }
+
+        .ranked-coming-soon {
+            display: inline-block;
+            padding: 0.5rem 1.5rem;
+            background: rgba(var(--lower-band-1-rgb), 0.1);
+            border: 1px solid var(--glass-border);
+            border-radius: 2rem;
+            color: var(--lower-band-3);
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.1em;
+        }
     </style>
 </head>
 
@@ -1829,7 +1868,9 @@
                 <button class="nav-item active" id="nav-benchmarks">
                     Benchmarks
                 </button>
-                <span class="nav-item not-soon">Not Soon</span>
+                <button class="nav-item" id="nav-ranked">
+                    Ranked
+                </button>
             </nav>
 
             <div class="header-actions">
@@ -1870,6 +1911,7 @@
         <main id="app">
             <div class="dashboard-panel">
                 <section id="view-benchmarks" class="benchmark-view"></section>
+                <section id="view-ranked" class="ranked-view hidden-view"></section>
             </div>
         </main>
     </div>

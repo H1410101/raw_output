@@ -13,6 +13,8 @@ interface PulseData {
 interface PulsePayload {
     deviceId: string;
     sessionId: string;
+    sessionDate: string;
+    isRanked: boolean;
     pulses: PulseData[];
 }
 
@@ -24,25 +26,28 @@ export const onRequestPost: PagesFunction<{ DB: D1Database }> = async (context) 
     try {
         const payload = await context.request.json() as PulsePayload;
 
-        if (!payload.deviceId || !payload.sessionId || !Array.isArray(payload.pulses)) {
+        if (!payload.deviceId || !payload.sessionId || !payload.sessionDate ||
+            typeof payload.isRanked !== "boolean" || !Array.isArray(payload.pulses)) {
             return new Response(JSON.stringify({ error: "Invalid payload structure" }), {
                 status: 400,
                 headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
             });
         }
 
-        const { deviceId, sessionId, pulses } = payload;
+        const { deviceId, sessionId, sessionDate, isRanked, pulses } = payload;
         const db = context.env.DB;
 
         if (!db) {
             throw new Error("Database binding not found");
         }
 
+        const isRankedValue = isRanked ? 1 : 0;
+
         // Use a batch insert for efficiency
         const statements = pulses.map(pulse =>
             db.prepare(
-                "INSERT INTO session_pulses (session_id, device_id, scenario_name, best_rank, best_score) VALUES (?, ?, ?, ?, ?)"
-            ).bind(sessionId, deviceId, pulse.scenarioName, pulse.bestRank, pulse.bestScore)
+                "INSERT INTO session_pulses (session_id, device_id, session_date, is_ranked, scenario_name, best_rank, best_score) VALUES (?, ?, ?, ?, ?, ?, ?)"
+            ).bind(sessionId, deviceId, sessionDate, isRankedValue, pulse.scenarioName, pulse.bestRank, pulse.bestScore)
         );
 
         await db.batch(statements);
@@ -56,6 +61,7 @@ export const onRequestPost: PagesFunction<{ DB: D1Database }> = async (context) 
         });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Internal Server Error";
+        console.error("Telemetry API Error:", error);
         return new Response(JSON.stringify({ error: message }), {
             status: 500,
             headers: {

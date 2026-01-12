@@ -147,7 +147,7 @@
 - **Deliverable**: Sound effects for relevant interactions.
 - **Commit Goal**: The application has a distinctive sound bank that matches the theme.
 
-## Phase 3: Cloudflare Analytics & Session Pulse (Done)
+## Phase 3: Cloudflare Analytics & Session Pulse
 - **Goal**: Collect anonymous session statistics to balance benchmark ranks and understand device distribution.
 
 ### Checkpoint 3.1: Edge infrastructure & Handshake (Done)
@@ -156,23 +156,14 @@
 ### Checkpoint 3.2: Identity & Privacy Layer (Done)
 - **Deliverable**: `DeviceIdentifierService` for local UUIDs and the "Anonymous Analytics" toggle in Settings.
 
-### Checkpoint 3.3: Session Data Extraction & Persistence (Done)
-- **Deliverable**: Integration with `SessionService` to summarize highscores and sync to D1 via the Pulse API.
-- **Commit Goal**: v3.3 tag includes deterministic session IDs and D1 batching.
+### Checkpoint 3.3: Session Pulse & D1 Integration (Done)
+- **Deliverable**: Integration with `SessionService` to sync highscores to D1 via the Pulse API.
 
-#### Checkpoint 3.3.1: Eager Audio Preloading (Done)
-- **Deliverable**: Refactored AudioService to cache assets on startup.
+### Checkpoint 3.4: Telemetry Reliability & Robustness
+- **Deliverable**: Session persistence, Telemetry Outbox for retries, and anonymous date tracking.
+- **Commit Goal**: v3.4 tag ensures no data loss on refresh/failure.
 
-### Checkpoint 3.4: Automated Session Reporting (Done)
-- **Deliverable**: Logic to automatically trigger a submission upon session expiry.
-
-### Checkpoint 3.5: Salted Hashing & D1 Persistence (Done)
-- **Deliverable**: Backend Cloudflare Function for salted ID storage.
-
-### Checkpoint 3.6: Pre-flight Verification & Error Handling
-- **Deliverable**: Robust retry logic for failed submissions and verification of data integrity.
-
-### Checkpoint 3.7: Production Deployment
+### Checkpoint 3.5: Production Deployment
 - **Deliverable**: Git connection to Cloudflare Pages and remote database migration.
 
 ## Phase 4: Ranked Runs
