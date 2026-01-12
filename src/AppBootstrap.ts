@@ -139,6 +139,7 @@ export class AppBootstrap {
    */
   public async initialize(): Promise<void> {
     this._statusView.reportReady();
+    this._rankEstimator.applyDailyDecay();
 
     await this._attemptInitialReconnection();
 
@@ -175,6 +176,7 @@ export class AppBootstrap {
         audio: this._audioService,
         cloudflare: this._cloudflareService,
         identity: this._identityService,
+        rankEstimator: this._rankEstimator,
         folderActions: {
           onLinkFolder: (): Promise<void> =>
             this._handleManualFolderSelection(),
@@ -199,6 +201,7 @@ export class AppBootstrap {
       {
         benchmarkView: this._benchmarkView,
         appStateService: this._appStateService,
+        rankedSession: this._rankedSessionService,
       },
     );
   }

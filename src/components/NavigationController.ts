@@ -1,5 +1,6 @@
 import { AppStateService } from "../services/AppStateService";
 import { BenchmarkView } from "./BenchmarkView";
+import { RankedSessionService } from "../services/RankedSessionService";
 
 /**
  * Interface for navigation trigger elements.
@@ -29,6 +30,8 @@ export interface NavDependencies {
   readonly benchmarkView: BenchmarkView;
   /** Service for managing application state. */
   readonly appStateService: AppStateService;
+  /** Service for ranked session lifecycle. */
+  readonly rankedSession: RankedSessionService;
 }
 
 /**
@@ -46,6 +49,7 @@ export class NavigationController {
   private readonly _benchmarkView: BenchmarkView;
 
   private readonly _appStateService: AppStateService;
+  private readonly _rankedSession: RankedSessionService;
 
   /**
    * Initializes the controller with grouped navigation elements and dependencies.
@@ -68,6 +72,11 @@ export class NavigationController {
     this._benchmarkView = dependencies.benchmarkView;
 
     this._appStateService = dependencies.appStateService;
+    this._rankedSession = dependencies.rankedSession;
+
+    this._rankedSession.onStateChanged((): void => {
+      this._updateButtonStates();
+    });
   }
 
   /**
@@ -135,6 +144,11 @@ export class NavigationController {
 
     visibleView.classList.remove("hidden-view");
 
+    document.body.classList.toggle(
+      "on-ranked-view",
+      visibleView === this._viewRanked,
+    );
+
     this._updateButtonStates();
   }
 
@@ -146,5 +160,8 @@ export class NavigationController {
       activeTabId === "nav-benchmarks",
     );
     this._navRanked.classList.toggle("active", activeTabId === "nav-ranked");
+
+    const isSessionActive: boolean = this._rankedSession.state.status !== "IDLE";
+    this._navRanked.classList.toggle("ranked-active", isSessionActive);
   }
 }

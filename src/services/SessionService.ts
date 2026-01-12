@@ -348,7 +348,7 @@ export class SessionService {
     }
 
     this._expirationTimerId = window.setTimeout((): void => {
-      this.resetSession();
+      this._notifySessionUpdate();
     }, delay);
   }
 

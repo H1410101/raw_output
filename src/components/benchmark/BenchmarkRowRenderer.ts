@@ -4,6 +4,7 @@ import { RankService } from "../../services/RankService";
 import { SessionService } from "../../services/SessionService";
 import { VisualSettings } from "../../services/VisualSettingsService";
 import { AudioService } from "../../services/AudioService";
+import { RankEstimator } from "../../services/RankEstimator";
 import { DotCloudComponent } from "../visualizations/DotCloudComponent";
 import { ScoreEntry } from "../visualizations/ScoreProcessor";
 
@@ -16,6 +17,7 @@ export interface BenchmarkRowDependencies {
   readonly sessionService: SessionService;
   readonly audioService: AudioService;
   readonly visualSettings: VisualSettings;
+  readonly rankEstimator: RankEstimator;
 }
 
 /**
@@ -26,7 +28,9 @@ export class BenchmarkRowRenderer {
   private readonly _rankService: RankService;
   private readonly _sessionService: SessionService;
   private readonly _audioService: AudioService;
+  private readonly _rankEstimator: RankEstimator;
   private _visualSettings: VisualSettings;
+  private _currentDifficulty: string = "Advanced";
   private readonly _dotCloudRegistry: Map<string, DotCloudComponent> =
     new Map();
   private _loadCounter: number = 0;
@@ -42,6 +46,7 @@ export class BenchmarkRowRenderer {
     this._sessionService = dependencies.sessionService;
     this._audioService = dependencies.audioService;
     this._visualSettings = dependencies.visualSettings;
+    this._rankEstimator = dependencies.rankEstimator;
   }
 
   /**
@@ -54,7 +59,9 @@ export class BenchmarkRowRenderer {
   public renderRow(
     scenario: BenchmarkScenario,
     highscore: number,
+    difficulty: string = "Advanced",
   ): HTMLElement {
+    this._currentDifficulty = difficulty;
     const rowElement: HTMLElement = document.createElement("div");
     rowElement.className = "scenario-row";
     rowElement.setAttribute("data-scenario-name", scenario.name);
@@ -72,6 +79,8 @@ export class BenchmarkRowRenderer {
     if (this._visualSettings.showSessionBest) {
       rowElement.appendChild(this._createSessionRankBadge(scenario));
     }
+
+    rowElement.appendChild(this._createIdentityRankBadge(scenario));
 
     rowElement.appendChild(this._createPlayButton(scenario.name));
 
@@ -118,9 +127,12 @@ export class BenchmarkRowRenderer {
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
     highscore: number,
+    difficulty: string = "Advanced",
   ): void {
+    this._currentDifficulty = difficulty;
     this._updateRankBadges(rowElement, scenario, highscore);
     this._updateDotCloud(scenario);
+    this._updateIdentityBadge(rowElement, scenario);
   }
 
   private _updateRankBadges(
@@ -163,6 +175,27 @@ export class BenchmarkRowRenderer {
     const isSessionActive: boolean = this._sessionService.isSessionActive();
     sessionBadge.style.visibility =
       bestScore === 0 || !isSessionActive ? "hidden" : "visible";
+  }
+
+  private _updateIdentityBadge(
+    rowElement: HTMLElement,
+    scenario: BenchmarkScenario,
+  ): void {
+    const identityBadge: HTMLElement | null =
+      rowElement.querySelector(".identity-badge .badge-content");
+    if (identityBadge) {
+      const identity = this._rankEstimator.getScenarioIdentity(scenario.name);
+      const difficultyEstimate = this._rankEstimator.getEstimateForValue(
+        identity.continuousValue,
+        this._currentDifficulty,
+      );
+
+      this._fillIdentityBadgeContent(
+        identityBadge,
+        difficultyEstimate.rankName,
+        difficultyEstimate.progressToNext,
+      );
+    }
   }
 
   private _updateDotCloud(scenario: BenchmarkScenario): void {
@@ -313,6 +346,38 @@ export class BenchmarkRowRenderer {
     badgeElement.classList.add("session-badge");
 
     return badgeElement;
+  }
+
+  private _createIdentityRankBadge(scenario: BenchmarkScenario): HTMLElement {
+    const badgeContainer: HTMLDivElement = document.createElement("div");
+    badgeContainer.className = "rank-badge-container identity-badge";
+
+    const badgeContent: HTMLDivElement = document.createElement("div");
+    badgeContent.className = "badge-content";
+
+    const identity = this._rankEstimator.getScenarioIdentity(scenario.name);
+    const identityRank = this._rankEstimator.getEstimateForValue(identity.continuousValue, this._currentDifficulty);
+
+    this._fillIdentityBadgeContent(badgeContent, identityRank.rankName, identityRank.progressToNext);
+    badgeContainer.appendChild(badgeContent);
+
+    return badgeContainer;
+  }
+
+  private _fillIdentityBadgeContent(
+    container: HTMLElement,
+    rankName: string,
+    progress: number,
+  ): void {
+    const isUnranked: boolean = rankName === "Unranked";
+    const rankClass: string = isUnranked
+      ? "rank-name unranked-text"
+      : "rank-name";
+
+    container.innerHTML = `
+      <span class="${rankClass}">${rankName}</span>
+      <span class="rank-progress">${isUnranked ? "" : `+${progress}%`}</span>
+    `;
   }
 
   private _createRankBadge(

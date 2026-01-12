@@ -11,6 +11,7 @@ import { BenchmarkLabelPositioner } from "./BenchmarkLabelPositioner";
 import { ScenarioNameWidthManager } from "./ScenarioNameWidthManager";
 import { AudioService } from "../../services/AudioService";
 import { SCALING_FACTORS } from "../../services/ScalingService";
+import { RankEstimator } from "../../services/RankEstimator";
 
 /**
  * Collection of services and settings required for BenchmarkTableComponent.
@@ -23,6 +24,7 @@ export interface BenchmarkTableDependencies {
   readonly visualSettings: VisualSettings;
   readonly audioService: AudioService;
   readonly focusService: FocusManagementService;
+  readonly rankEstimator: RankEstimator;
 }
 
 /**
@@ -36,6 +38,7 @@ export class BenchmarkTableComponent {
   private _labelPositioner: BenchmarkLabelPositioner | null = null;
   private readonly _nameWidthManager: ScenarioNameWidthManager;
   private readonly _audioService: AudioService;
+  private _difficulty: string = "Advanced";
 
   /**
    * Initializes the table component with required services and settings.
@@ -52,6 +55,7 @@ export class BenchmarkTableComponent {
       sessionService: dependencies.sessionService,
       audioService: dependencies.audioService,
       visualSettings: dependencies.visualSettings,
+      rankEstimator: dependencies.rankEstimator,
     });
     this._nameWidthManager = new ScenarioNameWidthManager();
   }
@@ -66,7 +70,9 @@ export class BenchmarkTableComponent {
   public render(
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
+    difficulty: string = "Advanced",
   ): HTMLElement {
+    this._difficulty = difficulty;
     const tableContainer: HTMLDivElement = document.createElement("div");
     const scrollArea: HTMLDivElement = document.createElement("div");
     const scrollThumb: HTMLDivElement = document.createElement("div");
@@ -140,7 +146,7 @@ export class BenchmarkTableComponent {
   ): void {
     const row: HTMLElement | undefined = this._rowElements.get(scenario.name);
     if (row) {
-      this._rowRenderer.updateRow(row, scenario, highscore);
+      this._rowRenderer.updateRow(row, scenario, highscore, this._difficulty);
     }
   }
 
@@ -318,7 +324,7 @@ export class BenchmarkTableComponent {
   ): void {
     scenarios.forEach((scenario: BenchmarkScenario): void => {
       const score: number = highscores[scenario.name] || 0;
-      const row: HTMLElement = this._rowRenderer.renderRow(scenario, score);
+      const row: HTMLElement = this._rowRenderer.renderRow(scenario, score, this._difficulty);
 
       this._rowElements.set(scenario.name, row);
       container.appendChild(row);
@@ -342,6 +348,8 @@ export class BenchmarkTableComponent {
     if (this._visualSettings.showSessionBest) {
       header.appendChild(this._createColumnHeader("Session"));
     }
+
+    header.appendChild(this._createColumnHeader("Rank"));
 
     header.appendChild(this._createSpacer("header-action-spacer"));
 

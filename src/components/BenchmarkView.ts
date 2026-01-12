@@ -3,6 +3,7 @@ import { HistoryService } from "../services/HistoryService";
 import { RankService } from "../services/RankService";
 import { SessionService } from "../services/SessionService";
 import { AppStateService } from "../services/AppStateService";
+import { RankEstimator } from "../services/RankEstimator";
 import {
   VisualSettingsService,
   VisualSettings,
@@ -42,6 +43,7 @@ export interface BenchmarkViewServices {
     onForceScan: () => Promise<void>;
     onUnlinkFolder: () => void;
   };
+  rankEstimator: RankEstimator;
 }
 
 /**
@@ -70,6 +72,7 @@ export class BenchmarkView {
   private readonly _audioService: AudioService;
   private readonly _cloudflareService: CloudflareService;
   private readonly _identityService: IdentityService;
+  private readonly _rankEstimator: RankEstimator;
 
   private readonly _settingsController: BenchmarkSettingsController;
 
@@ -123,6 +126,7 @@ export class BenchmarkView {
     this._sessionSettingsService = services.sessionSettings;
     this._cloudflareService = services.cloudflare;
     this._identityService = services.identity;
+    this._rankEstimator = services.rankEstimator;
 
     this._activeDifficulty = this._determineInitialDifficulty();
     this._settingsController = this._initSettingsController();
@@ -552,9 +556,53 @@ export class BenchmarkView {
 
     header.style.justifyContent = "center";
 
-    header.appendChild(this._createDifficultyTabs());
+    const aligner: HTMLDivElement = document.createElement("div");
+    aligner.className = "header-aligner";
+
+    aligner.appendChild(this._createDifficultyTabs());
+    aligner.appendChild(this._createHolisticRankUI());
+
+    header.appendChild(aligner);
 
     return header;
+  }
+
+  private _createHolisticRankUI(): HTMLElement {
+    const container: HTMLDivElement = document.createElement("div");
+    container.className = "holistic-rank-container";
+
+    const difficulty = this._activeDifficulty;
+    // For holistic rank, we need session scores or identities.
+    // The user said "your current rank and a +x%", similar to benchmark table.
+    // This usually implies the average of identities for the current difficulty.
+    const identities = this._rankEstimator.getIdentityMap();
+    const scenarios = this._benchmarkService.getScenarios(difficulty);
+
+    let totalValue = 0;
+    let count = 0;
+
+    scenarios.forEach(s => {
+      const identity = identities[s.name];
+      if (identity && identity.continuousValue !== -1) {
+        totalValue += identity.continuousValue;
+        count++;
+      }
+    });
+
+    const averageValue = count > 0 ? totalValue / count : -1;
+    const estimate = this._rankEstimator.getEstimateForValue(averageValue, difficulty);
+
+    const isUnranked = estimate.rankName === "Unranked";
+    const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
+
+    container.innerHTML = `
+        <div class="badge-content">
+            <span class="${rankClass}">${estimate.rankName}</span>
+            <span class="rank-progress">${isUnranked ? "" : `+${estimate.progressToNext}%`}</span>
+        </div>
+    `;
+
+    return container;
   }
 
   private _createDifficultyTabs(): HTMLElement {
@@ -660,8 +708,9 @@ export class BenchmarkView {
       visualSettings: this._visualSettingsService.getSettings(),
       audioService: this._audioService,
       focusService: this._focusService,
+      rankEstimator: this._rankEstimator,
     });
 
-    return this._tableComponent.render(scenarios, highscores);
+    return this._tableComponent.render(scenarios, highscores, this._activeDifficulty);
   }
 }

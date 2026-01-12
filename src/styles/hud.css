@@ -1,0 +1,79 @@
+.ranked-stats-bar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: calc(1rem * var(--margin-spacing-multiplier));
+    background: rgba(var(--background-2-rgb), 0.2);
+    border-radius: calc(1rem * var(--margin-spacing-multiplier));
+    margin-bottom: calc(1.5rem * var(--margin-spacing-multiplier));
+    border: 1px solid var(--glass-border);
+}
+
+.hud-timer, .hud-progress-container, .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.hud-label, .stat-item .label {
+    font-size: calc(0.65rem * var(--header-font-multiplier));
+    font-weight: 700;
+    color: var(--lower-band-1);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.hud-value, .stat-item .value {
+    font-size: calc(1.2rem * var(--label-font-multiplier));
+    font-weight: 800;
+    font-family: "M PLUS Rounded 1c", sans-serif;
+    color: var(--upper-band-2);
+    text-shadow: 0 0 10px rgba(var(--upper-band-2-rgb), 0.3);
+}
+
+.stat-item.highlight .value {
+    color: var(--accent-color);
+    text-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.5);
+}
+
+.hud-progress-track {
+    width: 12rem;
+    height: 0.5rem;
+    background: rgba(var(--lower-band-1-rgb), 0.1);
+    border-radius: 1rem;
+    position: relative;
+    overflow: visible;
+    margin-top: 0.5rem;
+}
+
+.hud-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--lower-band-1), var(--upper-band-1));
+    border-radius: 1rem;
+    transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 0 10px rgba(var(--upper-band-1-rgb), 0.5);
+}
+
+/* Header Active Glow */
+.nav-item.ranked-active {
+    position: relative;
+}
+
+.nav-item.ranked-active::after {
+    content: "";
+    position: absolute;
+    bottom: -0.2rem;
+    left: 15%;
+    right: 15%;
+    height: 0.15rem;
+    background: var(--accent-color);
+    border-radius: 1rem;
+    box-shadow: 0 0 10px var(--accent-color);
+    animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { opacity: 0.5; transform: scaleX(0.8); }
+    50% { opacity: 1; transform: scaleX(1); }
+}

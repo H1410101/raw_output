@@ -102,6 +102,22 @@ export class RankedSessionService {
     }
 
     /**
+     * Returns the elapsed time in seconds since the session started.
+     *
+     * @returns Seconds elapsed, or 0 if inactive.
+     */
+    public get elapsedSeconds(): number {
+        if (!this._startTime || this._status === "IDLE") {
+            return 0;
+        }
+
+        const start: number = new Date(this._startTime).getTime();
+        const now: number = Date.now();
+
+        return Math.floor((now - start) / 1000);
+    }
+
+    /**
      * Starts a new ranked session for the given difficulty.
      *
      * @param difficulty - The difficulty tier to play.
@@ -128,6 +144,21 @@ export class RankedSessionService {
         }
 
         this._sessionService.setIsRanked(true);
+        this._saveToLocalStorage();
+        this._notifyListeners();
+    }
+
+    /**
+     * Manually retreats the sequence to the previous scenario.
+     */
+    public retreat(): void {
+        if (this._status === "IDLE" || this._currentIndex <= 0) {
+            return;
+        }
+
+        this._currentIndex--;
+        this._status = "ACTIVE"; // If we were in COMPLETED, going back makes us ACTIVE
+
         this._saveToLocalStorage();
         this._notifyListeners();
     }
