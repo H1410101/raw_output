@@ -8,7 +8,7 @@ If there is progress in the document and you are working on something new, assum
 When checkpoints are done, including when told to commit, take all the accumulated progress in the current checkpoint `.docs/current checkpoint.md`, and put it into a checkpoint architecture document in a subfolder of `docs`.
 For instance, Phase 1 checkpoint 2 sub-checkpoint 3 is in `docs/checkpoints/checkpoint 1.1 architecture.md`.
 To know the identity of the current checkpoint, check the existing architecture documents under `docs/checkpoints`, as well as `docs/roadmap.md`. Leave `current checkpoint.md` empty after.
-Then, push a commit and tag it appropriately. Note that the checkout command has lint and husky is configured.
+Then, push a commit. Note that the checkout command has lint and husky is configured.
 
 ONLY THE USER IS ALLOWED TO DETERMINE WHEN THE CHECKPOINT IS DONE. However, you may check with the user if you detect discrepencies.
 
