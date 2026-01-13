@@ -1,4 +1,4 @@
-import { expect, test, beforeEach } from "vitest";
+import { expect, test } from "vitest";
 
 /**
  * Technical Regression Test: Play Button Centering Symmetry.

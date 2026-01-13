@@ -119,8 +119,10 @@ export class BenchmarkTableComponent {
   public updateVisualSettings(settings: VisualSettings): boolean {
     const structuralChange: boolean =
       this._visualSettings.showDotCloud !== settings.showDotCloud ||
+      this._visualSettings.showRanks !== settings.showRanks ||
       this._visualSettings.showSessionBest !== settings.showSessionBest ||
       this._visualSettings.showAllTimeBest !== settings.showAllTimeBest ||
+      this._visualSettings.showRankEstimate !== settings.showRankEstimate ||
       this._visualSettings.scenarioFontSize !== settings.scenarioFontSize ||
       this._visualSettings.uiScaling !== settings.uiScaling ||
       this._visualSettings.categorySpacing !== settings.categorySpacing;
@@ -342,15 +344,19 @@ export class BenchmarkTableComponent {
       header.appendChild(this._createSpacer("header-dot-spacer"));
     }
 
-    if (this._visualSettings.showAllTimeBest) {
-      header.appendChild(this._createColumnHeader("All-time"));
-    }
+    if (this._visualSettings.showRanks) {
+      if (this._visualSettings.showAllTimeBest) {
+        header.appendChild(this._createColumnHeader("All-time"));
+      }
 
-    if (this._visualSettings.showSessionBest) {
-      header.appendChild(this._createColumnHeader("Session"));
-    }
+      if (this._visualSettings.showSessionBest) {
+        header.appendChild(this._createColumnHeader("Session"));
+      }
 
-    header.appendChild(this._createColumnHeader("Rank"));
+      if (this._visualSettings.showRankEstimate) {
+        header.appendChild(this._createColumnHeader("Rank"));
+      }
+    }
 
     header.appendChild(this._createSpacer("header-action-spacer"));
 

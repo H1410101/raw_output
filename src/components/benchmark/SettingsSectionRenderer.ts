@@ -58,7 +58,7 @@ export class SettingsSectionRenderer {
     container.appendChild(SettingsUiFactory.createGroupTitle("Elements"));
 
     this._appendDotCloudToggle(container, settings);
-    this._appendSessionToggles(container, settings);
+    this._appendRankToggles(container, settings);
     container.appendChild(this._createSessionIntervalSlider());
   }
 
@@ -85,7 +85,33 @@ export class SettingsSectionRenderer {
     );
   }
 
-  private _appendSessionToggles(
+
+  private _appendRankToggles(
+    container: HTMLElement,
+    settings: VisualSettings,
+  ): void {
+    const showRanksToggle: HTMLElement = SettingsUiFactory.createToggle(
+      "Show Ranks",
+      settings.showRanks,
+      (val: boolean): void =>
+        this._visualSettingsService.updateSetting("showRanks", val),
+    );
+
+    const subRowsContainer: HTMLDivElement = document.createElement("div");
+    subRowsContainer.className = "settings-sub-rows";
+
+    if (!settings.showRanks) {
+      subRowsContainer.classList.add("hidden");
+    }
+
+    this._appendIndividualRankToggles(subRowsContainer, settings);
+
+    container.appendChild(
+      SettingsUiFactory.createSettingsGroup(showRanksToggle, subRowsContainer),
+    );
+  }
+
+  private _appendIndividualRankToggles(
     container: HTMLElement,
     settings: VisualSettings,
   ): void {
@@ -104,6 +130,15 @@ export class SettingsSectionRenderer {
         settings.showAllTimeBest,
         (val: boolean): void =>
           this._visualSettingsService.updateSetting("showAllTimeBest", val),
+      ),
+    );
+
+    container.appendChild(
+      SettingsUiFactory.createToggle(
+        "Show Rank Estimate",
+        settings.showRankEstimate,
+        (val: boolean): void =>
+          this._visualSettingsService.updateSetting("showRankEstimate", val),
       ),
     );
   }

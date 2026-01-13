@@ -1,6 +1,7 @@
 import { BenchmarkService } from "./BenchmarkService";
 import { SessionService, SessionRankRecord } from "./SessionService";
 import { BenchmarkScenario } from "../data/benchmarks";
+import { RankEstimator } from "./RankEstimator";
 
 export type RankedSessionStatus = "IDLE" | "ACTIVE" | "COMPLETED";
 
@@ -157,7 +158,8 @@ export class RankedSessionService {
         }
 
         this._currentIndex--;
-        this._status = "ACTIVE"; // If we were in COMPLETED, going back makes us ACTIVE
+        // If we were in COMPLETED, going back makes us ACTIVE
+        this._status = "ACTIVE";
 
         this._saveToLocalStorage();
         this._notifyListeners();
@@ -261,23 +263,23 @@ export class RankedSessionService {
     }
 
     /**
-     * Generates a batch of 3 scenarios using Strong-Weak-Weak logic without randomness.
-     * @param difficulty
-     * @param excludeScenarios
+     * @param difficulty - The difficulty tier.
+     * @param excludeScenarios - Scenarios to skip.
+     * @returns An array of 3 scenario names.
      */
     private _generateNextBatch(difficulty: string, excludeScenarios: string[]): string[] {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
         // Deterministic Filter
-        const pool = scenarios.filter(s => !excludeScenarios.includes(s.name));
+        const pool = scenarios.filter(scenario => !excludeScenarios.includes(scenario.name));
 
         if (pool.length < 3) {
             // Fallback: Deterministic sort by name
-            return pool.sort((a, b) => a.name.localeCompare(b.name)).map(s => s.name);
+            return pool.sort((scenarioA, scenarioB) => scenarioA.name.localeCompare(scenarioB.name)).map(scenario => scenario.name);
         }
 
         // 1. Calculate Metrics
         const metrics = pool.map(scenario => {
-            const identity = this._rankEstimator.getScenarioIdentity(scenario.name);
+            const identity = this._rankEstimator.getScenarioRankEstimate(scenario.name);
             const current = identity.continuousValue === -1 ? 0 : identity.continuousValue;
             const peak = identity.highestAchieved === -1 ? 0 : identity.highestAchieved;
 
@@ -293,41 +295,41 @@ export class RankedSessionService {
         });
 
         // 2. Select Slot 1: Strong (Max Gap)
-        const sortedByGap = [...metrics].sort((a, b) => {
-            // Primary: Gap (Descending)
-            const gapDiff = b.gap - a.gap;
+        const sortedByGap = [...metrics].sort((metricA, metricB) => {
+            // Primary: Gap (Descending - find most untapped potential)
+            const gapDiff = metricB.peak - metricB.current - (metricA.peak - metricA.current);
             if (Math.abs(gapDiff) > 0.0001) return gapDiff;
 
             // Secondary: Peak High Score (Descending - target big fall-offs)
-            const peakDiff = b.peak - a.peak;
+            const peakDiff = metricB.peak - metricA.peak;
             if (Math.abs(peakDiff) > 0.0001) return peakDiff;
 
             // Tertiary: Alphabetical (Deterministic)
-            return a.scenario.name.localeCompare(b.scenario.name);
+            return metricA.scenario.name.localeCompare(metricB.scenario.name);
         });
         const slot1 = sortedByGap[0];
 
         // 3. Select Slot 2: Weak (Min Strength)
-        const remainingAfterSlot1 = metrics.filter(m => m.scenario.name !== slot1.scenario.name);
+        const remainingAfterSlot1 = metrics.filter(metric => metric.scenario.name !== slot1.scenario.name);
 
-        const sortedByStrength = [...remainingAfterSlot1].sort((a, b) => {
+        const sortedByStrength = [...remainingAfterSlot1].sort((metricA, metricB) => {
             // Primary: Current Strength (Ascending - find weakest)
-            const strengthDiff = a.current - b.current;
+            const strengthDiff = metricA.current - metricB.current;
             if (Math.abs(strengthDiff) > 0.0001) return strengthDiff;
 
             // Secondary: Peak High Score (Ascending - find true inability, not just decay)
             // If currents are equal (e.g. 0.0), the one with the LOWER peak is "weaker".
-            const peakDiff = a.peak - b.peak;
+            const peakDiff = metricA.peak - metricB.peak;
             if (Math.abs(peakDiff) > 0.0001) return peakDiff;
 
             // Tertiary: Alphabetical
-            return a.scenario.name.localeCompare(b.scenario.name);
+            return metricA.scenario.name.localeCompare(metricB.scenario.name);
         });
 
         const slot2 = sortedByStrength[0];
 
         // 4. Select Slot 3: Weak #2 (Next Min Strength)
-        const slot3Candidates = sortedByStrength.filter(m => m.scenario.name !== slot2.scenario.name);
+        const slot3Candidates = sortedByStrength.filter(metric => metric.scenario.name !== slot2.scenario.name);
         let slot3 = slot3Candidates[0];
 
         // 5. Diversity Check (Deterministic)

@@ -28,43 +28,42 @@ import { SettingsUiFactory } from "./components/ui/SettingsUiFactory";
  * Orchestrate service instantiation and dependency wiring.
  */
 export class AppBootstrap {
-  private readonly _directoryService: DirectoryAccessService;
+  private _directoryService!: DirectoryAccessService;
 
-  private readonly _csvService: KovaaksCsvParsingService;
+  private _csvService!: KovaaksCsvParsingService;
 
-  private readonly _monitoringService: DirectoryMonitoringService;
+  private _monitoringService!: DirectoryMonitoringService;
 
-  private readonly _benchmarkService: BenchmarkService;
+  private _benchmarkService!: BenchmarkService;
 
-  private readonly _historyService: HistoryService;
+  private _historyService!: HistoryService;
 
-  private readonly _rankService: RankService;
+  private _rankService!: RankService;
 
-  private readonly _appStateService: AppStateService;
+  private _appStateService!: AppStateService;
 
-  private readonly _sessionSettingsService: SessionSettingsService;
+  private _sessionSettingsService!: SessionSettingsService;
 
-  private readonly _sessionService: SessionService;
+  private _sessionService!: SessionService;
 
-  private readonly _ingestionService: RunIngestionService;
+  private _ingestionService!: RunIngestionService;
 
-  private readonly _focusService: FocusManagementService;
+  private _focusService!: FocusManagementService;
 
-  private readonly _statusView: ApplicationStatusView;
+  private _statusView!: ApplicationStatusView;
 
-  private readonly _benchmarkView: BenchmarkView;
-  private readonly _rankedView: RankedView;
+  private _benchmarkView!: BenchmarkView;
+  private _rankedView!: RankedView;
 
-  private readonly _navigationController: NavigationController;
+  private _navigationController!: NavigationController;
 
-  private readonly _visualSettingsService: VisualSettingsService;
+  private _visualSettingsService!: VisualSettingsService;
 
-  private readonly _audioService: AudioService;
-  private readonly _cloudflareService: CloudflareService;
-  private readonly _identityService: IdentityService;
-  private readonly _sessionPulseService: SessionPulseService;
-  private readonly _rankedSessionService: RankedSessionService;
-  private readonly _rankEstimator: RankEstimator;
+  private _audioService!: AudioService;
+  private _cloudflareService!: CloudflareService;
+  private _identityService!: IdentityService;
+  private _rankedSessionService!: RankedSessionService;
+  private _rankEstimator!: RankEstimator;
 
   /**
    * Initializes the application's core logic and UI components.
@@ -102,7 +101,6 @@ export class AppBootstrap {
     );
 
     this._rankEstimator = new RankEstimator(
-      this._rankService,
       this._benchmarkService,
     );
 
@@ -112,7 +110,7 @@ export class AppBootstrap {
       this._rankEstimator,
     );
 
-    this._sessionPulseService = new SessionPulseService(
+    new SessionPulseService(
       this._sessionService,
       this._rankedSessionService,
       this._identityService,

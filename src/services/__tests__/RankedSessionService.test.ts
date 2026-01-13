@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, Mock } from "vitest";
 import { RankedSessionService } from "../RankedSessionService";
 import { BenchmarkService } from "../BenchmarkService";
 import { SessionService } from "../SessionService";
-import { RankEstimator, ScenarioIdentity } from "../RankEstimator";
+import { RankEstimator, ScenarioRankEstimate } from "../RankEstimator";
 import { BenchmarkScenario } from "../../data/benchmarks";
 
 // Mocks
@@ -17,7 +17,7 @@ const mockSessionService = {
 } as unknown as SessionService;
 
 const mockRankEstimator = {
-    getScenarioIdentity: vi.fn(),
+    getScenarioRankEstimate: vi.fn(),
 } as unknown as RankEstimator;
 
 describe("RankedSessionService", () => {
@@ -49,8 +49,8 @@ describe("RankedSessionService", () => {
 
             (mockBenchmarkService.getScenarios as Mock).mockReturnValue(scenarios);
 
-            // Setup Identities
-            const identities: Record<string, Partial<ScenarioIdentity>> = {
+            // Setup Rank Estimates
+            const identities: Record<string, Partial<ScenarioRankEstimate>> = {
                 "scenTracking1": { continuousValue: 2.0, highestAchieved: 2.0 },
                 "scenClicking1": { continuousValue: 1.0, highestAchieved: 3.0 },
                 "scenFlick1": { continuousValue: 0.0, highestAchieved: 0.0 },
@@ -58,7 +58,7 @@ describe("RankedSessionService", () => {
                 "scenTracking2": { continuousValue: 2.5, highestAchieved: 2.5 },
             };
 
-            (mockRankEstimator.getScenarioIdentity as Mock).mockImplementation((name: string) => {
+            (mockRankEstimator.getScenarioRankEstimate as Mock).mockImplementation((name: string) => {
                 return identities[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "" };
             });
 
@@ -87,14 +87,14 @@ describe("RankedSessionService", () => {
 
             (mockBenchmarkService.getScenarios as Mock).mockReturnValue(scenarios);
 
-            const identities: Record<string, Partial<ScenarioIdentity>> = {
+            const identities: Record<string, Partial<ScenarioRankEstimate>> = {
                 "targetStrong": { continuousValue: 1.0, highestAchieved: 3.0 },
                 "weakTrack1": { continuousValue: 0.1, highestAchieved: 0.1 },
                 "weakTrack2": { continuousValue: 0.2, highestAchieved: 0.2 },
                 "weakFlick1": { continuousValue: 0.25, highestAchieved: 0.25 },
             };
 
-            (mockRankEstimator.getScenarioIdentity as Mock).mockImplementation((name: string) => {
+            (mockRankEstimator.getScenarioRankEstimate as Mock).mockImplementation((name: string) => {
                 return identities[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "" };
             });
 

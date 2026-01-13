@@ -24,6 +24,8 @@ export interface VisualSettings {
   dotJitterIntensity: ScalingLevel;
   showRankNotches: boolean;
   highlightLatestRun: boolean;
+  showRankEstimate: boolean;
+  showRanks: boolean;
   audioVolume: number;
 }
 
@@ -154,6 +156,8 @@ export class VisualSettingsService {
       dotJitterIntensity: "Normal",
       showRankNotches: true,
       highlightLatestRun: true,
+      showRankEstimate: true,
+      showRanks: true,
       audioVolume: 80,
     };
   }

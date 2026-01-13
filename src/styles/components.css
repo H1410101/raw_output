@@ -38,12 +38,12 @@
     transition: filter 0.5s ease, opacity 0.5s ease;
 }
 
-/* Identity Badge Column */
-.identity-badge {
+/* Rank Estimate Badge Column */
+.rank-estimate-badge {
     opacity: 0.8;
 }
 
-.identity-badge .rank-name {
+.rank-estimate-badge .rank-name {
     color: var(--upper-band-2);
 }
 

@@ -96,20 +96,20 @@ export class RankedView {
     );
 
     if (record) {
-      this._evolveIdentity(record.scenarioName, record.bestScore);
+      this._evolveRankEstimate(record.scenarioName, record.bestScore);
     }
 
     this.refresh();
   }
 
-  private _evolveIdentity(scenarioName: string, score: number): void {
+  private _evolveRankEstimate(scenarioName: string, score: number): void {
     const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
     const scenarios = this._deps.benchmark.getScenarios(difficulty);
     const scenario = scenarios.find((scenarioRef) => scenarioRef.name === scenarioName);
 
     if (scenario) {
       const sessionValue: number = this._deps.estimator.getScenarioContinuousValue(score, scenario);
-      this._deps.estimator.evolveScenarioIdentity(scenarioName, sessionValue);
+      this._deps.estimator.evolveScenarioRankEstimate(scenarioName, sessionValue);
     }
   }
 
@@ -133,7 +133,7 @@ export class RankedView {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "holistic-rank-container";
 
-    const estimate = this._calculateHolisticIdentityRank();
+    const estimate = this._calculateHolisticRankEstimate();
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
 
@@ -182,7 +182,7 @@ export class RankedView {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "ranked-container idle";
 
-    container.innerHTML = this._getIdleHtml(difficulty);
+    container.innerHTML = this._getIdleHtml();
     parent.appendChild(container);
 
     const startBtn: HTMLButtonElement | null = container.querySelector("#start-ranked-btn");
@@ -192,7 +192,7 @@ export class RankedView {
   }
 
   private _getIdleHtml(): string {
-    const estimate = this._calculateHolisticIdentityRank();
+    const estimate = this._calculateHolisticRankEstimate();
 
     return `
       <div class="ranked-info-top">
@@ -221,7 +221,7 @@ export class RankedView {
   }
 
   private _renderActiveState(state: RankedSessionState, parent: HTMLElement): void {
-    const targetEstimate = this._calculateHolisticIdentityRank();
+    const targetEstimate = this._calculateHolisticRankEstimate();
     const sessionEstimate = this._getSessionEstimate();
     const isImproved = this._checkIfCurrentImproved();
 
@@ -252,9 +252,9 @@ export class RankedView {
     const current = this._deps.rankedSession.currentScenarioName;
     if (!current) return false;
 
-    const identity = this._deps.estimator.getScenarioIdentity(current);
+    const rankEstimate = this._deps.estimator.getScenarioRankEstimate(current);
 
-    return this._isImproved(identity.continuousValue, current);
+    return this._isImproved(rankEstimate.continuousValue, current);
   }
 
   private _isImproved(identityValue: number, currentScenario: string): boolean {
@@ -287,12 +287,12 @@ export class RankedView {
   }
 
   private _renderCompletedContent(): string {
-    const estimate = this._calculateHolisticIdentityRank();
+    const estimate = this._calculateHolisticRankEstimate();
 
     return `
       <div class="ranked-result">
           <h2 class="congrats">RUN COMPLETE</h2>
-          <p class="summary-rank">IDENTITY RANK: <span class="accent">${estimate.rankName}</span></p>
+          <p class="summary-rank">RANK ESTIMATE: <span class="accent">${estimate.rankName}</span></p>
           <p>Initial evaluation finished.</p>
       </div>
     `;
@@ -370,9 +370,6 @@ export class RankedView {
     return scoreMap;
   }
 
-  private _isImprovementDetected(identityValue: number, currentScenario: string): boolean {
-    return this._isImproved(identityValue, currentScenario);
-  }
 
   private _launchScenario(scenarioName: string): void {
     const encodedName: string = encodeURIComponent(scenarioName);
@@ -380,18 +377,18 @@ export class RankedView {
     window.location.href = steamUrl;
   }
 
-  private _calculateHolisticIdentityRank(): { rankName: string; color: string; progressToNext: number } {
+  private _calculateHolisticRankEstimate(): { rankName: string; color: string; progressToNext: number } {
     const difficulty = this._deps.appState.getBenchmarkDifficulty();
-    const identities = this._deps.estimator.getIdentityMap();
+    const rankEstimateMap = this._deps.estimator.getRankEstimateMap();
     const scenarios = this._deps.benchmark.getScenarios(difficulty);
 
     let totalValue = 0;
     let count = 0;
 
     scenarios.forEach(scen => {
-      const identity = identities[scen.name];
-      if (identity && identity.continuousValue !== -1) {
-        totalValue += identity.continuousValue;
+      const rankEstimate = rankEstimateMap[scen.name];
+      if (rankEstimate && rankEstimate.continuousValue !== -1) {
+        totalValue += rankEstimate.continuousValue;
         count++;
       }
     });

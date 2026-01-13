@@ -572,19 +572,18 @@ export class BenchmarkView {
     container.className = "holistic-rank-container";
 
     const difficulty = this._activeDifficulty;
-    // For holistic rank, we need session scores or identities.
-    // The user said "your current rank and a +x%", similar to benchmark table.
-    // This usually implies the average of identities for the current difficulty.
-    const identities = this._rankEstimator.getIdentityMap();
+    // For holistic rank, we need session scores or rank estimates.
+    // This usually implies the average of rank estimates for the current difficulty.
+    const rankEstimateMap = this._rankEstimator.getRankEstimateMap();
     const scenarios = this._benchmarkService.getScenarios(difficulty);
 
     let totalValue = 0;
     let count = 0;
 
-    scenarios.forEach(s => {
-      const identity = identities[s.name];
-      if (identity && identity.continuousValue !== -1) {
-        totalValue += identity.continuousValue;
+    scenarios.forEach(scenario => {
+      const rankEstimate = rankEstimateMap[scenario.name];
+      if (rankEstimate && rankEstimate.continuousValue !== -1) {
+        totalValue += rankEstimate.continuousValue;
         count++;
       }
     });

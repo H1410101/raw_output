@@ -178,12 +178,16 @@
 ### Checkpoint 4.4: Ranked UI Zen & Symmetry (Done)
 - **Deliverable**: Pixel-perfect centering, icon-based controls, and layout stability.
 ### Checkpoint 4.5: HUD Integration & Live Feedback
-### Checkpoint 4.6: Scenario Transitions & Flow
-### Checkpoint 4.6: Target Bar & HUD Visuals
-### Checkpoint 4.7: Audio Feedback
-### Checkpoint 4.8: Visual System Unification & Theme
-### Checkpoint 4.9: Infinite Progression
-### Checkpoint 4.10: Final Polish & Verification
+### Checkpoint 4.6: Rank Settings & Terminology Unification (Done)
+- **Deliverable**: Grouped rank settings, "Rank Estimate" rename, and core logic refactoring.
+- **Commit Goal**: v4.6 tag ensures visual consistency and unified terminology across all views.
+
+### Checkpoint 4.7: Scenario Transitions & Flow
+### Checkpoint 4.8: Target Bar & HUD Visuals
+### Checkpoint 4.9: Audio Feedback
+### Checkpoint 4.10: Visual System Unification & Theme
+### Checkpoint 4.11: Infinite Progression
+### Checkpoint 4.12: Final Polish & Verification
 
 ## Phase 5: Focus-Based Dynamics
 
