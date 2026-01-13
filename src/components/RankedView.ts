@@ -309,8 +309,11 @@ export class RankedView {
     return `
       <div class="ranked-result">
           <h2 class="congrats">RUN COMPLETE</h2>
-          <p class="summary-rank">ESTIMATE RANK: <span class="accent">${estimate.rankName}</span></p>
-          <p>Initial evaluation finished.</p>
+          <div class="summary-card">
+              <p class="summary-rank">ESTIMATE RANK: <span class="accent">${estimate.rankName}</span></p>
+              <p class="summary-subtitle">Initial evaluation finished.</p>
+          </div>
+          <button class="next-btn luminous" id="extend-ranked-btn">CONTINUE TO INFINITE RUN</button>
       </div>
     `;
   }

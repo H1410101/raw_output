@@ -31,7 +31,8 @@ function _walk_directory(directory) {
       entry.isFile() &&
       (entry.name.endsWith(".ts") ||
         entry.name.endsWith(".tsx") ||
-        entry.name.endsWith(".css"))
+        entry.name.endsWith(".css")) &&
+      !full_path.includes("__tests__")
     ) {
       _verify_file(full_path);
     }

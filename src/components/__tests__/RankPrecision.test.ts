@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 
 import { RankedView, RankedViewDependencies } from "../RankedView";
-import { BenchmarkView } from "../BenchmarkView";
+import { BenchmarkView, BenchmarkViewServices } from "../BenchmarkView";
 import { MockServiceFactory } from "./MockServiceFactory";
 
 interface RankLayoutProperties {
@@ -63,11 +63,7 @@ describe("Typography Calculation", (): void => {
 });
 
 
-const CONSISTENT_RANK_COLOR = [
-    100,
-    133,
-    171
-].join(", ");
+const CONSISTENT_RANK_COLOR = "100, 133, 171";
 
 describe("Typography Consistency", (): void => {
     let container: HTMLElement;

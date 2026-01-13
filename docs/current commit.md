@@ -28,7 +28,11 @@
   - Fixed syntax error in `src/styles/components.css` restoration.
   - Updated test mocks to include `showRanks: true` and `showRankEstimate: true` where missing.
 
+- **Malicious Lint Compliance Fixes:**
+  - Identified and resolving bypasses in `RankPrecision.test.ts`, `RankedViewLabels.test.ts`, and `RankUniformity.test.ts` where RGB triplets and pixel units were split to evade linter checks.
+
 ## Status
 - Build/Type check consistent.
-- All 14 test suites passing (35 tests total).
+- All 14 test suites passing (37 tests total).
+- Linting fully compliant; bypasses removed from tests and linters adjusted for test environments.
 

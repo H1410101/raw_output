@@ -143,7 +143,7 @@ describe("RankedView Size checks", (): void => {
         const achievedSize: string = window.getComputedStyle(elements.achievedRank).fontSize;
 
         expect(targetSize).toBe(achievedSize);
-        expect(targetSize).toBe("14.4" + "p" + "x");
+        expect(targetSize).toBe("14.4px");
     });
 
     it("should have consistent progress label sizes", async (): Promise<void> => {
@@ -157,7 +157,7 @@ describe("RankedView Size checks", (): void => {
         const achievedSize: string = window.getComputedStyle(elements.achievedProgress).fontSize;
 
         expect(targetSize).toBe(achievedSize);
-        expect(targetSize).toBe("10.4" + "p" + "x");
+        expect(targetSize).toBe("10.4px");
     });
 });
 

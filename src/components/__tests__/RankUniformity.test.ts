@@ -2,16 +2,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { BenchmarkView, BenchmarkViewServices } from "../BenchmarkView";
 import { RankedView, RankedViewDependencies } from "../RankedView";
 import { MockServiceFactory } from "./MockServiceFactory";
+import { EstimatedRank } from "../../services/RankEstimator";
 
 
 const MOCK_CSS: string = `
   :root {
-    --lower-band-3: rgb(100,
-      100,
-      100);
-    --lower-band-1: rgb(50,
-      50,
-      50);
+    --lower-band-3: rgb(100, 100, 100);
+    --lower-band-1: rgb(50, 50, 50);
   }
   .rank-name {
     color: var(--lower-band-3);
@@ -95,10 +92,7 @@ describe("RankUniformity: Unranked Bench", (): void => {
         const elements: HTMLElement[] = await _getUnrankedTableElements(container);
         elements.forEach((element: HTMLElement) => {
             const styles: ComputedStyles = _getStyles(element);
-            expect(styles.color).toBe(`rgb(${50
-                }, ${50
-                }, ${50
-                })`);
+            expect(styles.color).toBe("rgb(50, 50, 50)");
             expect(styles.fontWeight).toBe("600");
         });
     });
@@ -129,10 +123,7 @@ describe("RankUniformity: Unranked HUD", (): void => {
         const element: HTMLElement = await _waitForSelector(container, ".stat-item:not(.highlight) .rank-name");
         const styles: ComputedStyles = _getStyles(element);
 
-        expect(styles.color).toBe(`rgb(${50
-            }, ${50
-            }, ${50
-            })`);
+        expect(styles.color).toBe("rgb(50, 50, 50)");
         expect(styles.fontWeight).toBe("600");
     });
 });
@@ -150,10 +141,7 @@ async function _testBenchmarkRanks(container: HTMLElement, dependencies: Benchma
 
     elements.forEach((element: HTMLElement) => {
         const styles: ComputedStyles = _getStyles(element);
-        expect(styles.color).toBe(`rgb(${100
-            }, ${100
-            }, ${100
-            })`);
+        expect(styles.color).toBe("rgb(100, 100, 100)");
         expect(styles.fontWeight).toBe("700");
     });
 }
@@ -190,10 +178,7 @@ async function _testHudRanks(container: HTMLElement, dependencies: BenchmarkView
 
     elements.forEach((element: HTMLElement) => {
         const styles: ComputedStyles = _getStyles(element);
-        expect(styles.color).toBe(`rgb(${100
-            }, ${100
-            }, ${100
-            })`);
+        expect(styles.color).toBe("rgb(100, 100, 100)");
         expect(styles.fontWeight).toBe("700");
     });
 }
