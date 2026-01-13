@@ -220,7 +220,8 @@ export class DotCloudCanvasRenderer {
 
     this._context.strokeStyle = labelColor;
     this._context.globalAlpha = 0.4;
-    this._context.lineWidth = 1; // Match regular notches
+    // Match regular notches
+    this._context.lineWidth = 1;
 
     // Short height for Target Marker
     const shortHeight = notchHeight * 0.4;

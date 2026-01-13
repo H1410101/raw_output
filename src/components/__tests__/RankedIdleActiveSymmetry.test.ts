@@ -5,34 +5,36 @@ import { expect, test } from "vitest";
  * Verifies that the primary play button remains in the exact same pixel location.
  */
 test("Ranked play button should be in the exact same location in Idle and Active states", async (): Promise<void> => {
-    _setupStyle();
+    _setupBaseStyles();
+    _setupLayoutStyles();
 
     // --- Phase 1: Idle State ---
     _setupIdleDOM();
     const idleBtn: Element = document.querySelector("#start-ranked-btn")!;
-    const idleRect = idleBtn.getBoundingClientRect();
-    const idlePos = { x: idleRect.left, y: idleRect.top };
+    const idleRect: DOMRect = idleBtn.getBoundingClientRect();
+    const idleX: number = idleRect.left;
+    const idleY: number = idleRect.top;
 
     // --- Phase 2: Active State ---
     _setupActiveDOM();
     const activeBtn: Element = document.querySelector("#ranked-play-now")!;
-    const activeRect = activeBtn.getBoundingClientRect();
-    const activePos = { x: activeRect.left, y: activeRect.top };
+    const activeRect: DOMRect = activeBtn.getBoundingClientRect();
+    const activeX: number = activeRect.left;
+    const activeY: number = activeRect.top;
 
     // --- Verification ---
-    // Using toBeCloseTo or small delta for sub-pixel consistency
-    expect(idlePos.x).toBeCloseTo(activePos.x, 1);
-    expect(idlePos.y).toBeCloseTo(activePos.y, 1);
+    expect(idleX).toBeCloseTo(activeX, 1);
+    expect(idleY).toBeCloseTo(activeY, 1);
 });
 
-function _setupStyle(): void {
+function _setupBaseStyles(): void {
     const style: HTMLStyleElement = document.createElement("style");
     style.innerHTML = `
         :root {
             --label-font-multiplier: 1;
             --vertical-spacing-multiplier: 1;
             --margin-spacing-multiplier: 1;
-            --glass-border: rgba(255,255,255,0.1);
+            --glass-border: rgba(var(--upper-band-1-rgb), 0.1);
         }
         *, *::before, *::after { box-sizing: border-box; }
         .ranked-container {
@@ -48,8 +50,15 @@ function _setupStyle(): void {
             padding: 1.25rem 1.75rem;
             margin-bottom: 2rem;
             flex-shrink: 0;
-            height: 80px;
+            height: 5rem;
         }
+    `;
+    document.head.appendChild(style);
+}
+
+function _setupLayoutStyles(): void {
+    const style: HTMLStyleElement = document.createElement("style");
+    style.innerHTML = `
         .ranked-main {
             flex: 1 0 auto;
             display: flex;
@@ -72,8 +81,8 @@ function _setupStyle(): void {
             gap: 1rem;
             width: 100%;
         }
-        .media-btn { width: 40px; height: 40px; }
-        .media-btn.primary { width: 60px; height: 60px; }
+        .media-btn { width: 2.5rem; height: 2.5rem; }
+        .media-btn.primary { width: 3.75rem; height: 3.75rem; }
     `;
     document.head.appendChild(style);
 }

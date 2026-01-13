@@ -1,15 +1,15 @@
 import { BenchmarkScenario } from "../data/benchmarks";
-import { RankService, RankResult } from "./RankService";
 import { BenchmarkService } from "./BenchmarkService";
 
 export interface EstimatedRank {
     readonly rankName: string;
+    readonly color: string;
     readonly progressToNext: number;
     readonly continuousValue: number;
 }
 
 /**
- * Represents the persistent estimate for a specific scenario.
+ * Represents the persistent rank estimate for a specific scenario.
  */
 export interface ScenarioEstimate {
     readonly continuousValue: number;
@@ -18,7 +18,7 @@ export interface ScenarioEstimate {
 }
 
 /**
- * Represents the holistic estimate across all scenarios.
+ * Represents the holistic rank estimate across all scenarios.
  */
 export type RankEstimateMap = Record<string, ScenarioEstimate>;
 
@@ -29,11 +29,13 @@ export type RankEstimateMap = Record<string, ScenarioEstimate>;
  */
 export class RankEstimator {
     private static readonly _estimateKey: string = "rank_identity_state_v2";
-    private static readonly _decayLambda: number = 0.05; // 5% per day linear baseline
-    private static readonly _learningRate: number = 0.15; // increased from 0.1
-    private static readonly _phi: number = 1.0; // Uncertainty factor
 
-    private readonly _rankService: RankService;
+    private static readonly _decayLambda: number = 0.05;
+
+    private static readonly _learningRate: number = 0.15;
+
+    private static readonly _phi: number = 1.0;
+
     private readonly _benchmarkService: BenchmarkService;
 
     /**
@@ -43,19 +45,18 @@ export class RankEstimator {
      * @param benchmarkService - Service for accessing benchmark definitions.
      */
     public constructor(
-        rankService: RankService,
         benchmarkService: BenchmarkService,
     ) {
-        this._rankService = rankService;
         this._benchmarkService = benchmarkService;
     }
 
     /**
-     * Retrieves the current persistent estimate map.
+    /**
+     * Retrieves the current persistent rank estimate map.
      *
-     * @returns The full estimate map from storage.
+     * @returns The full rank estimate map from storage.
      */
-    public getEstimateMap(): RankEstimateMap {
+    public getRankEstimateMap(): RankEstimateMap {
         const raw: string | null = localStorage.getItem(RankEstimator._estimateKey);
 
         if (raw) {
@@ -70,13 +71,14 @@ export class RankEstimator {
     }
 
     /**
-     * Retrieves the estimate for a specific scenario.
+    /**
+     * Retrieves the rank estimate for a specific scenario.
      *
      * @param scenarioName - The name of the scenario.
-     * @returns The scenario estimate or a default unranked estimate.
+     * @returns The scenario rank estimate or a default unranked estimate.
      */
     public getScenarioEstimate(scenarioName: string): ScenarioEstimate {
-        const map: RankEstimateMap = this.getEstimateMap();
+        const map: RankEstimateMap = this.getRankEstimateMap();
 
         return map[scenarioName] || {
             continuousValue: -1,
@@ -112,19 +114,20 @@ export class RankEstimator {
 
         // Sort thresholds by value
         const entries = Object.entries(scenario.thresholds).sort((a, b) => a[1] - b[1]);
-        const sortedThresholds = entries.map(e => e[1]);
+        const sortedThresholds = entries.map(entry => entry[1]);
 
         return RankEstimator._calculateRankUnit(score, sortedThresholds);
     }
 
     /**
-     * Evolves the estimate for a specific scenario.
+    /**
+     * Evolves the rank estimate for a specific scenario.
      *
      * @param scenarioName - The scenario to update.
      * @param sessionRank - The continuous rank achieved in the current session.
      */
     public evolveScenarioEstimate(scenarioName: string, sessionRank: number): void {
-        const map: RankEstimateMap = this.getEstimateMap();
+        const map: RankEstimateMap = this.getRankEstimateMap();
         const current: ScenarioEstimate = this.getScenarioEstimate(scenarioName);
 
         let newValue: number = current.continuousValue;
@@ -156,7 +159,7 @@ export class RankEstimator {
     public calculateHolisticEstimateRank(difficulty: string): EstimatedRank {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
         const rankNames: string[] = this._benchmarkService.getRankNames(difficulty);
-        const estimateMap = this.getEstimateMap();
+        const estimateMap = this.getRankEstimateMap();
 
         if (scenarios.length === 0) {
             return this._createEmptyEstimate();
@@ -221,40 +224,16 @@ export class RankEstimator {
      * Uses Max(Exponential, Linear) logic (Specification 1.2).
      */
     public applyDailyDecay(): void {
-        const map: RankEstimateMap = this.getEstimateMap();
+        const map: RankEstimateMap = this.getRankEstimateMap();
         const now: Date = new Date();
         const updatedMap: RankEstimateMap = {};
         let hasChanges = false;
 
         for (const [scenario, estimate] of Object.entries(map)) {
-            const last: Date = new Date(estimate.lastUpdated);
-
-            // Calculate days passed (float for precision, or floor?)
-            // Spec says "delta t" in days.
-            const msPassed = now.getTime() - last.getTime();
-            const daysPassed = msPassed / (1000 * 60 * 60 * 24);
-
-            if (daysPassed <= 1.0) { // Only decay if > 24 hours
-                updatedMap[scenario] = estimate;
-                continue;
-            }
-
-            // Perform Decay Math
-            const newContinuous = RankEstimator._calculateDecay(
-                estimate.continuousValue,
-                estimate.highestAchieved,
-                daysPassed
-            );
-
-            if (Math.abs(newContinuous - estimate.continuousValue) > 0.001) {
+            const decayResult = this._processScenarioDecay(estimate, now);
+            updatedMap[scenario] = decayResult.newEstimate;
+            if (decayResult.changed) {
                 hasChanges = true;
-                updatedMap[scenario] = {
-                    ...estimate,
-                    continuousValue: newContinuous,
-                    lastUpdated: now.toISOString()
-                };
-            } else {
-                updatedMap[scenario] = estimate;
             }
         }
 
@@ -263,12 +242,45 @@ export class RankEstimator {
         }
     }
 
+    private _processScenarioDecay(
+        estimate: ScenarioEstimate,
+        now: Date
+    ): { newEstimate: ScenarioEstimate; changed: boolean } {
+        const last: Date = new Date(estimate.lastUpdated);
+        const msPassed = now.getTime() - last.getTime();
+        const daysPassed = msPassed / (1000 * 60 * 60 * 24);
+
+        if (daysPassed <= 1.0) {
+            return { newEstimate: estimate, changed: false };
+        }
+
+        const newContinuous = RankEstimator._calculateDecay(
+            estimate.continuousValue,
+            estimate.highestAchieved,
+            daysPassed
+        );
+
+        if (Math.abs(newContinuous - estimate.continuousValue) > 0.001) {
+            return {
+                newEstimate: {
+                    ...estimate,
+                    continuousValue: newContinuous,
+                    lastUpdated: now.toISOString(),
+                },
+                changed: true,
+            };
+        }
+
+        return { newEstimate: estimate, changed: false };
+    }
+
     // --- Private Static Pure Calculation Logic ---
 
     /**
      * Calculates the single "Rank Unit" value for a score.
-     * @param score
-     * @param sortedThresholds
+     * @param score - The score achieved.
+     * @param sortedThresholds - The thresholds for the ranking system.
+     * @returns The continuous rank value.
      */
     private static _calculateRankUnit(score: number, sortedThresholds: number[]): number {
         // 1. Identify Rank Index
@@ -283,9 +295,9 @@ export class RankEstimator {
 
         // 2. Unranked Case (Score < T_0)
         if (rankIndex === -1) {
-            const t0 = sortedThresholds[0];
+            const thresholdZero = sortedThresholds[0];
 
-            return t0 > 0 ? (score / t0) * 0.99 : 0;
+            return thresholdZero > 0 ? (score / thresholdZero) * 0.99 : 0;
         }
 
         // 3. Beyond Max Case
@@ -310,10 +322,12 @@ export class RankEstimator {
     }
 
     /**
-     * Calculates the decayed rank value.
-     * @param current
-     * @param peak
-     * @param daysPassed
+     * Calculates the decayed rank value based on time elapsed and peak performance.
+     * 
+     * @param current - The current rank estimate value.
+     * @param peak - The highest achieved rank estimate value.
+     * @param daysPassed - The number of days since the last update.
+     * @returns The newly calculated decayed rank value.
      */
     private static _calculateDecay(current: number, peak: number, daysPassed: number): number {
         const floor = peak - 2 * RankEstimator._phi;
@@ -332,28 +346,51 @@ export class RankEstimator {
 
     /**
      * Aggregates rank values hierarchically.
-     * @param scenarios
-     * @param scores
+     * @param scenarios - List of benchmark scenarios.
+     * @param scores - Map of scenario scores.
+     * @returns The hierarchical average rank value.
      */
     private static _calculateHierarchicalAverage(
         scenarios: BenchmarkScenario[],
         scores: Map<string, number>
     ): number {
+        const hierarchy = this._buildHierarchy(scenarios, scores);
+        const catAverages: number[] = this._calculateCategoryAverages(hierarchy);
+
+        if (catAverages.length === 0) {
+            return 0;
+        }
+
+        return catAverages.reduce((acc, val) => acc + val, 0) / catAverages.length;
+    }
+
+    private static _buildHierarchy(
+        scenarios: BenchmarkScenario[],
+        scores: Map<string, number>
+    ): Record<string, Record<string, number[]>> {
         const hierarchy: Record<string, Record<string, number[]>> = {};
 
         for (const scenario of scenarios) {
             if (!scores.has(scenario.name)) continue;
 
-            const cat = scenario.category;
-            const sub = scenario.subcategory;
-            const val = scores.get(scenario.name)!;
+            const category = scenario.category;
+            const subcategory = scenario.subcategory;
+            const value = scores.get(scenario.name)!;
 
-            if (!hierarchy[cat]) hierarchy[cat] = {};
-            if (!hierarchy[cat][sub]) hierarchy[cat][sub] = [];
+            if (!hierarchy[category]) hierarchy[category] = {};
+            if (!hierarchy[category][subcategory]) {
+                hierarchy[category][subcategory] = [];
+            }
 
-            hierarchy[cat][sub].push(val);
+            hierarchy[category][subcategory].push(value);
         }
 
+        return hierarchy;
+    }
+
+    private static _calculateCategoryAverages(
+        hierarchy: Record<string, Record<string, number[]>>
+    ): number[] {
         const catAverages: number[] = [];
 
         for (const catKey in hierarchy) {
@@ -362,19 +399,19 @@ export class RankEstimator {
 
             for (const subKey in subMap) {
                 const values = subMap[subKey];
-                const subAvg = values.reduce((a, b) => a + b, 0) / values.length;
+                const subAvg =
+                    values.reduce((acc, val) => acc + val, 0) / values.length;
                 subAverages.push(subAvg);
             }
 
             if (subAverages.length > 0) {
-                const catAvg = subAverages.reduce((a, b) => a + b, 0) / subAverages.length;
+                const catAvg =
+                    subAverages.reduce((acc, val) => acc + val, 0) / subAverages.length;
                 catAverages.push(catAvg);
             }
         }
 
-        if (catAverages.length === 0) return 0;
-
-        return catAverages.reduce((a, b) => a + b, 0) / catAverages.length;
+        return catAverages;
     }
 
     private _buildEstimate(value: number, rankNames: string[]): EstimatedRank {
@@ -390,6 +427,7 @@ export class RankEstimator {
 
         return {
             rankName,
+            color: "var(--rank-color-default)",
             progressToNext: progress,
             continuousValue: value,
         };
@@ -398,6 +436,7 @@ export class RankEstimator {
     private _createEmptyEstimate(): EstimatedRank {
         return {
             rankName: "Unranked",
+            color: "var(--rank-color-unranked)",
             progressToNext: 0,
             continuousValue: 0,
         };

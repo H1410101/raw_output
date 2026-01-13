@@ -32,24 +32,25 @@
 
 /* Ranked Session Active Blur */
 .on-ranked-view.ranked-mode-active .benchmark-header-controls {
-    filter: blur(15px);
+    filter: blur(0.9375rem);
     pointer-events: none;
     opacity: 0.5;
     transition: filter 0.5s ease, opacity 0.5s ease;
 }
 
-/* Estimate Badge Column */
-.estimate-badge {
+/* Rank Estimate Badge Column */
+.rank-estimate-badge {
     opacity: 0.8;
 }
 
-.estimate-badge .rank-name {
+.rank-estimate-badge .rank-name {
     color: var(--lower-band-3);
 }
 
 .holistic-rank-container .rank-name:not(.unranked-text) {
     color: var(--lower-band-3);
 }
+
 
 /* Media Player Controls */
 .media-controls {
@@ -101,7 +102,7 @@
     height: calc(2.5rem * var(--label-font-multiplier));
     background: var(--accent-color);
     color: var(--bg-color);
-    box-shadow: 0 0 calc(10px * var(--ui-scale)) rgba(var(--accent-color-rgb), 0.2);
+    box-shadow: 0 0 calc(0.625rem * var(--ui-scale)) rgba(var(--accent-color-rgb), 0.2);
 }
 
 .media-btn.primary svg {
@@ -124,7 +125,7 @@
 
 .media-btn.primary:hover {
     color: var(--bg-color);
-    box-shadow: 0 0 30px rgba(var(--accent-color-rgb), 0.5);
+    box-shadow: 0 0 1.875rem rgba(var(--accent-color-rgb), 0.5);
 }
 
 .media-btn:active:not(:disabled) {
@@ -134,7 +135,7 @@
 .media-btn.destructive:hover:not(:disabled) {
     color: var(--status-hard);
     border-color: var(--status-hard);
-    box-shadow: 0 0 15px rgba(var(--status-hard-rgb), 0.2);
+    box-shadow: 0 0 0.9375rem rgba(var(--status-hard-rgb), 0.2);
 }
 
 .media-btn.dull {
@@ -152,7 +153,7 @@
 .media-btn.luminous {
     color: var(--accent-color);
     border-color: var(--accent-color);
-    box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.2);
+    box-shadow: 0 0 0.9375rem rgba(var(--accent-color-rgb), 0.2);
     animation: media-pulse 2s infinite ease-in-out;
 }
 
@@ -160,11 +161,11 @@
 
     0%,
     100% {
-        box-shadow: 0 0 15px rgba(var(--accent-color-rgb), 0.2);
+        box-shadow: 0 0 0.9375rem rgba(var(--accent-color-rgb), 0.2);
     }
 
     50% {
-        box-shadow: 0 0 25px rgba(var(--accent-color-rgb), 0.4);
+        box-shadow: 0 0 1.5625rem rgba(var(--accent-color-rgb), 0.4);
     }
 }
 

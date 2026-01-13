@@ -5,105 +5,121 @@ import { SessionService } from "../SessionService";
 import { RankEstimator, ScenarioEstimate } from "../RankEstimator";
 import { BenchmarkScenario } from "../../data/benchmarks";
 
-// Mocks
-const mockBenchmarkService = {
-    getScenarios: vi.fn(),
-} as unknown as BenchmarkService;
+interface MockSet {
+    benchmark: BenchmarkService;
+    session: SessionService;
+    estimator: RankEstimator;
+}
 
-const mockSessionService = {
-    setIsRanked: vi.fn(),
-    onSessionUpdated: vi.fn(),
-    getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
-} as unknown as SessionService;
-
-const mockRankEstimator = {
-    getScenarioEstimate: vi.fn(),
-} as unknown as RankEstimator;
-
-describe("RankedSessionService", () => {
+describe("RankedSessionService: Lifecycle", (): void => {
     let service: RankedSessionService;
+    let mocks: MockSet;
 
-    beforeEach(() => {
-        vi.clearAllMocks();
-
-        // Clear local storage
-        localStorage.clear();
-
+    beforeEach((): void => {
+        mocks = _createMocks();
         service = new RankedSessionService(
-            mockBenchmarkService,
-            mockSessionService,
-            mockRankEstimator
+            mocks.benchmark,
+            mocks.session,
+            mocks.estimator
         );
     });
 
-    describe("startSession", () => {
-        it("should generate a sequence of 3 scenarios using Strong-Weak-Weak logic", () => {
-            // Setup scenarios
-            const scenarios: BenchmarkScenario[] = [
-                { name: "scenTracking1", category: "Reactive Tracking", subcategory: "s1", thresholds: {} },
-                { name: "scenClicking1", category: "Dynamic Clicking", subcategory: "s2", thresholds: {} },
-                { name: "scenFlick1", category: "Flick Tech", subcategory: "s3", thresholds: {} },
-                { name: "scenControl1", category: "Control Tracking", subcategory: "s4", thresholds: {} },
-                { name: "scenTracking2", category: "Reactive Tracking", subcategory: "s5", thresholds: {} },
-            ];
+    it("should generate a sequence of 3 scenarios using Strong-Weak-Weak logic", (): void => {
+        const scenarios: BenchmarkScenario[] = _createDiversePool();
+        const estimates: Record<string, Partial<ScenarioEstimate>> = _createDiverseEstimates();
 
-            (mockBenchmarkService.getScenarios as Mock).mockReturnValue(scenarios);
+        (mocks.benchmark.getScenarios as Mock).mockReturnValue(scenarios);
+        _mockEstimates(mocks.estimator, estimates);
 
-            // Setup Estimates
-            const estimates: Record<string, Partial<ScenarioEstimate>> = {
-                "scenTracking1": { continuousValue: 2.0, highestAchieved: 2.0 },
-                "scenClicking1": { continuousValue: 1.0, highestAchieved: 3.0 },
-                "scenFlick1": { continuousValue: 0.0, highestAchieved: 0.0 },
-                "scenControl1": { continuousValue: 0.5, highestAchieved: 0.5 },
-                "scenTracking2": { continuousValue: 2.5, highestAchieved: 2.5 },
-            };
+        service.startSession("Gold");
 
-            (mockRankEstimator.getScenarioEstimate as Mock).mockImplementation((name: string) => {
-                return estimates[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "" };
-            });
+        _assertDiverseSequence(service.state.sequence);
+    });
 
-            service.startSession("Gold");
+    it("should handle diversity check (swap slot 3 if category collision)", (): void => {
+        const scenarios: BenchmarkScenario[] = _createCollidingPool();
+        const estimates: Record<string, Partial<ScenarioEstimate>> = _createCollidingEstimates();
 
-            const state = service.state;
-            expect(state.status).toBe("ACTIVE");
-            expect(state.sequence).toHaveLength(3);
+        (mocks.benchmark.getScenarios as Mock).mockReturnValue(scenarios);
+        _mockEstimates(mocks.estimator, estimates);
 
-            // Slot 1: Strong (Max Gap). Gap: Clicking (2.0), others 0.
-            expect(state.sequence[0]).toBe("scenClicking1");
+        service.startSession("Gold");
 
-            const weaks = state.sequence.slice(1);
-            expect(weaks).toContain("scenFlick1");
-            expect(weaks).toContain("scenControl1");
-        });
-
-        it("should handle diversity check (swap slot 3 if category collision)", () => {
-            // Setup scenarios with collision potential
-            const scenarios: BenchmarkScenario[] = [
-                { name: "targetStrong", category: "Dynamic Clicking", subcategory: "s1", thresholds: {} },
-                { name: "weakTrack1", category: "Reactive Tracking", subcategory: "s2", thresholds: {} },
-                { name: "weakTrack2", category: "Reactive Tracking", subcategory: "s3", thresholds: {} },
-                { name: "weakFlick1", category: "Flick Tech", subcategory: "s4", thresholds: {} },
-            ];
-
-            (mockBenchmarkService.getScenarios as Mock).mockReturnValue(scenarios);
-
-            const estimates: Record<string, Partial<ScenarioEstimate>> = {
-                "targetStrong": { continuousValue: 1.0, highestAchieved: 3.0 },
-                "weakTrack1": { continuousValue: 0.1, highestAchieved: 0.1 },
-                "weakTrack2": { continuousValue: 0.2, highestAchieved: 0.2 },
-                "weakFlick1": { continuousValue: 0.25, highestAchieved: 0.25 },
-            };
-
-            (mockRankEstimator.getScenarioEstimate as Mock).mockImplementation((name: string) => {
-                return estimates[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "" };
-            });
-
-            service.startSession("Gold");
-            const seq = service.state.sequence;
-
-            expect(seq[0]).toBe("targetStrong");
-            expect(seq[1]).toBe("weakTrack1");
-            expect(seq[2]).toBe("weakFlick1");
-        });
+        _assertCollidingSequence(service.state.sequence);
     });
 });
+
+function _createMocks(): MockSet {
+    vi.clearAllMocks();
+    localStorage.clear();
+
+    return {
+        benchmark: { getScenarios: vi.fn() } as unknown as BenchmarkService,
+        session: {
+            setIsRanked: vi.fn(),
+            onSessionUpdated: vi.fn(),
+            getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
+        } as unknown as SessionService,
+        estimator: { getScenarioEstimate: vi.fn() } as unknown as RankEstimator
+    };
+}
+
+function _mockEstimates(estimator: RankEstimator, estimates: Record<string, Partial<ScenarioEstimate>>): void {
+    (estimator.getScenarioEstimate as Mock).mockImplementation((name: string) => {
+        return estimates[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "" };
+    });
+}
+
+function _createDiversePool(): BenchmarkScenario[] {
+    return [
+        { name: "scenTracking1", category: "Reactive Tracking", subcategory: "s1", thresholds: {} },
+        { name: "scenClicking1", category: "Dynamic Clicking", subcategory: "s2", thresholds: {} },
+        { name: "scenFlick1", category: "Flick Tech", subcategory: "s3", thresholds: {} },
+        { name: "scenControl1", category: "Control Tracking", subcategory: "s4", thresholds: {} },
+        { name: "scenTracking2", category: "Reactive Tracking", subcategory: "s5", thresholds: {} },
+    ];
+}
+
+function _createDiverseEstimates(): Record<string, Partial<ScenarioEstimate>> {
+    return {
+        "scenTracking1": { continuousValue: 2.0, highestAchieved: 2.0 },
+        "scenClicking1": { continuousValue: 1.0, highestAchieved: 3.0 },
+        "scenFlick1": { continuousValue: 0.0, highestAchieved: 0.0 },
+        "scenControl1": { continuousValue: 0.5, highestAchieved: 0.5 },
+        "scenTracking2": { continuousValue: 2.5, highestAchieved: 2.5 },
+    };
+}
+
+function _assertDiverseSequence(sequence: string[]): void {
+    expect(sequence).toHaveLength(3);
+    // Slot 1: Strong (Max Gap). Gap: Clicking (2.0), others 0.
+    expect(sequence[0]).toBe("scenClicking1");
+
+    const weaks: string[] = sequence.slice(1);
+    expect(weaks).toContain("scenFlick1");
+    expect(weaks).toContain("scenControl1");
+}
+
+function _createCollidingPool(): BenchmarkScenario[] {
+    return [
+        { name: "targetStrong", category: "Dynamic Clicking", subcategory: "s1", thresholds: {} },
+        { name: "weakTrack1", category: "Reactive Tracking", subcategory: "s2", thresholds: {} },
+        { name: "weakTrack2", category: "Reactive Tracking", subcategory: "s3", thresholds: {} },
+        { name: "weakFlick1", category: "Flick Tech", subcategory: "s4", thresholds: {} },
+    ];
+}
+
+function _createCollidingEstimates(): Record<string, Partial<ScenarioEstimate>> {
+    return {
+        "targetStrong": { continuousValue: 1.0, highestAchieved: 3.0 },
+        "weakTrack1": { continuousValue: 0.1, highestAchieved: 0.1 },
+        "weakTrack2": { continuousValue: 0.2, highestAchieved: 0.2 },
+        "weakFlick1": { continuousValue: 0.25, highestAchieved: 0.25 },
+    };
+}
+
+function _assertCollidingSequence(sequence: string[]): void {
+    expect(sequence[0]).toBe("targetStrong");
+    expect(sequence[1]).toBe("weakTrack1");
+    expect(sequence[2]).toBe("weakFlick1");
+}

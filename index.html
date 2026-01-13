@@ -142,7 +142,6 @@
             color: transparent;
             text-shadow: calc(0.15rem * var(--label-font-multiplier)) calc(0.15rem * var(--label-font-multiplier)) calc(0.1rem * var(--label-font-multiplier)) var(--upper-band-2);
             opacity: 0;
-            white-space: nowrap;
             will-change:
                 mask-image,
                 -webkit-mask-image;
@@ -1833,12 +1832,12 @@
         }
 
         .ranked-container::-webkit-scrollbar {
-            width: 4px;
+            width: 0.25rem;
         }
 
         .ranked-container::-webkit-scrollbar-thumb {
             background: var(--lower-band-1);
-            border-radius: 4px;
+            border-radius: 0.25rem;
         }
 
         .ranked-header {

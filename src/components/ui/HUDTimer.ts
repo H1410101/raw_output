@@ -20,6 +20,8 @@ export class HUDTimer {
 
     /**
      * Returns the timer element.
+     * 
+     * @returns The root timer HTMLElement.
      */
     public get element(): HTMLElement {
         return this._element;

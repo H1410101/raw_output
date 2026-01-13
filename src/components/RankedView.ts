@@ -1,7 +1,9 @@
 import { RankedSessionService, RankedSessionState } from "../services/RankedSessionService";
 import { SessionService, SessionRankRecord } from "../services/SessionService";
 import { BenchmarkService } from "../services/BenchmarkService";
-import { RankEstimator, EstimatedRank } from "../services/RankEstimator";
+import { RankEstimator, EstimatedRank, ScenarioEstimate } from "../services/RankEstimator";
+import { BenchmarkScenario } from "../data/benchmarks";
+
 import { AppStateService } from "../services/AppStateService";
 import { HistoryService } from "../services/HistoryService";
 import { VisualSettingsService } from "../services/VisualSettingsService";
@@ -160,7 +162,9 @@ export class RankedView {
     }
 
     const cleanName = estimate.rankName.replace(/\s+Rank$/i, "");
+
     return `<span class="rank-name">${cleanName}</span><span class="rank-progress">+${estimate.progressToNext}%</span>`;
+
   }
 
   private _createDifficultyTabs(): HTMLElement {
@@ -198,7 +202,7 @@ export class RankedView {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "ranked-container idle";
 
-    container.innerHTML = this._getIdleHtml(difficulty);
+    container.innerHTML = this._getIdleHtml();
     parent.appendChild(container);
 
     const startBtn: HTMLButtonElement | null = container.querySelector("#start-ranked-btn");
@@ -208,6 +212,7 @@ export class RankedView {
   }
 
   private _getIdleHtml(): string {
+
     return `
       <div class="ranked-info-top">
           <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
@@ -311,46 +316,71 @@ export class RankedView {
   }
 
   private _renderDotCloud(scenarioName: string): string {
-    const containerId = `dot-cloud-${scenarioName.replace(/\s+/g, "-")}`;
+    const containerId: string = `dot-cloud-${scenarioName.replace(/\s+/g, "-")}`;
+    const sessionStart: number | null = this._deps.session.sessionStartTimestamp;
 
-    // Check if session is active
-    const sessionStart = this._deps.session.sessionStartTimestamp;
-
-    this._deps.history.getLastScores(scenarioName, 100).then(scores => {
-      const sessionScores = scores.filter(s => sessionStart !== null && s.timestamp >= sessionStart);
-      const container = document.getElementById(containerId);
-
-      if (container) {
-        const diff = this._deps.appState.getBenchmarkDifficulty();
-        const scenario = this._deps.benchmark.getScenarios(diff).find(s => s.name === scenarioName);
-        if (!scenario) return;
-
-        const estimate = this._deps.estimator.getScenarioEstimate(scenarioName);
-
-        const sessionBest = sessionScores.length > 0
-          ? Math.max(...sessionScores.map(s => s.score))
-          : 0;
-
-        const achievedRU = sessionBest > 0
-          ? this._deps.estimator.getScenarioContinuousValue(sessionBest, scenario)
-          : undefined;
-
-        const dotCloud = new DotCloudComponent({
-          entries: sessionScores,
-          thresholds: scenario.thresholds,
-          settings: this._deps.visualSettings.getSettings(),
-          isLatestInSession: sessionScores.length > 0,
-          targetRU: estimate.continuousValue !== -1 ? estimate.continuousValue : undefined,
-          achievedRU
-        });
-
-        container.innerHTML = "";
-        container.appendChild(dotCloud.render());
+    this._deps.history.getLastScores(scenarioName, 100).then(
+      (scores: { score: number; timestamp: number }[]): void => {
+        this._updateDotCloud(containerId, scenarioName, scores, sessionStart);
       }
-    });
+    );
 
     return `<div id="${containerId}" class="dot-cloud-container ranked-dot-cloud"></div>`;
   }
+
+  private _updateDotCloud(
+    containerId: string,
+    scenarioName: string,
+    scores: { score: number; timestamp: number }[],
+    sessionStart: number | null
+  ): void {
+    const container: HTMLElement | null = document.getElementById(containerId);
+    if (!container) return;
+
+    const sessionScores: { score: number; timestamp: number }[] = scores.filter(
+      (scoreEntry: { score: number; timestamp: number }): boolean =>
+        sessionStart !== null && scoreEntry.timestamp >= sessionStart
+    );
+
+    const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
+    const scenario: BenchmarkScenario | undefined = this._deps.benchmark.getScenarios(difficulty).find(
+      (scenarioReference: BenchmarkScenario): boolean => scenarioReference.name === scenarioName
+    );
+
+    if (!scenario) return;
+
+    const estimate: ScenarioEstimate = this._deps.estimator.getScenarioEstimate(scenarioName);
+    this._renderDotCloudContents(container, sessionScores, scenario, estimate);
+  }
+
+  private _renderDotCloudContents(
+    container: HTMLElement,
+    sessionScores: { score: number; timestamp: number }[],
+    scenario: BenchmarkScenario,
+    estimate: ScenarioEstimate
+  ): void {
+    const sessionBestScore: number = sessionScores.length > 0
+      ? Math.max(...sessionScores.map((score: { score: number }): number => score.score))
+      : 0;
+
+    const achievedRU: number | undefined = sessionBestScore > 0
+      ? this._deps.estimator.getScenarioContinuousValue(sessionBestScore, scenario)
+      : undefined;
+
+    const dotCloud: DotCloudComponent = new DotCloudComponent({
+      entries: sessionScores,
+      thresholds: scenario.thresholds,
+      settings: this._deps.visualSettings.getSettings(),
+      isLatestInSession: sessionScores.length > 0,
+      targetRU: estimate.continuousValue !== -1 ? estimate.continuousValue : undefined,
+      achievedRU,
+    });
+
+    container.innerHTML = "";
+    container.appendChild(dotCloud.render());
+  }
+
+
 
   private _renderScenarioContent(state: RankedSessionState, isImproved: boolean): string {
     const scenarioName = state.sequence[state.currentIndex];
@@ -425,9 +455,7 @@ export class RankedView {
     return scoreMap;
   }
 
-  private _isImprovementDetected(estimateValue: number, currentScenario: string): boolean {
-    return this._isImproved(estimateValue, currentScenario);
-  }
+
 
   private _launchScenario(scenarioName: string): void {
     const encodedName: string = encodeURIComponent(scenarioName);
@@ -437,6 +465,8 @@ export class RankedView {
 
   private _calculateHolisticEstimateRank(): EstimatedRank {
     const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
+
     return this._deps.estimator.calculateHolisticEstimateRank(difficulty);
+
   }
 }

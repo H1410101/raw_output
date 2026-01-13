@@ -63,9 +63,7 @@ export class BenchmarkRowRenderer {
     difficulty: string = "Advanced",
   ): HTMLElement {
     this._currentDifficulty = difficulty;
-    const rowElement: HTMLElement = document.createElement("div");
-    rowElement.className = "scenario-row";
-    rowElement.setAttribute("data-scenario-name", scenario.name);
+    const rowElement: HTMLElement = this._createRowContainer(scenario);
 
     rowElement.appendChild(this._createNameCell(scenario.name));
 
@@ -73,23 +71,10 @@ export class BenchmarkRowRenderer {
       rowElement.appendChild(this._createDotCloudCell(scenario));
     }
 
-    if (this._visualSettings.showAllTimeBest) {
-      rowElement.appendChild(this._createRankBadge(scenario, highscore));
-    }
-
-    if (this._visualSettings.showSessionBest) {
-      rowElement.appendChild(this._createSessionRankBadge(scenario));
-    }
-
-    rowElement.appendChild(this._createEstimateRankBadge(scenario));
+    this._appendRankBadgesIfEnabled(rowElement, scenario, highscore);
 
     rowElement.appendChild(this._createPlayButton(scenario.name));
-
-    rowElement.addEventListener("click", (): void => {
-      rowElement.classList.toggle("selected");
-      this._audioService.playLight(0.6);
-      this._dotCloudRegistry.get(scenario.name)?.requestUpdate();
-    });
+    this._addRowClickListeners(rowElement, scenario);
 
     return rowElement;
   }
@@ -132,11 +117,82 @@ export class BenchmarkRowRenderer {
     difficulty: string = "Advanced",
   ): void {
     this._currentDifficulty = difficulty;
-    this._updateRankBadges(rowElement, scenario, highscore);
+    if (this._visualSettings.showRanks) {
+      this._updateRankBadges(rowElement, scenario, highscore);
+      if (this._visualSettings.showRankEstimate) {
+        this._updateRankEstimateBadge(rowElement, scenario);
+      }
+    }
     this._updateDotCloud(scenario);
-    this._updateEstimateBadge(rowElement, scenario);
   }
 
+  /**
+   * Creates the main container for a scenario row.
+   *
+   * @param scenario - The benchmark scenario data.
+   * @returns The created row container HTMLElement.
+   */
+  private _createRowContainer(scenario: BenchmarkScenario): HTMLElement {
+    const rowElement: HTMLElement = document.createElement("div");
+    rowElement.className = "scenario-row";
+    rowElement.setAttribute("data-scenario-name", scenario.name);
+
+    return rowElement;
+  }
+
+  /**
+   * Appends rank badges to the row element if they are enabled in visual settings.
+   *
+   * @param rowElement - The row HTMLElement to append badges to.
+   * @param scenario - The benchmark scenario data.
+   * @param highscore - The all-time highscore for the scenario.
+   */
+  private _appendRankBadgesIfEnabled(
+    rowElement: HTMLElement,
+    scenario: BenchmarkScenario,
+    highscore: number,
+  ): void {
+    if (!this._visualSettings.showRanks) {
+      return;
+    }
+
+    if (this._visualSettings.showAllTimeBest) {
+      rowElement.appendChild(this._createRankBadge(scenario, highscore));
+    }
+
+    if (this._visualSettings.showSessionBest) {
+      rowElement.appendChild(this._createSessionRankBadge(scenario));
+    }
+
+    if (this._visualSettings.showRankEstimate) {
+      rowElement.appendChild(this._createRankEstimateBadge(scenario));
+    }
+  }
+
+  /**
+   * Adds click listeners to the row element.
+   *
+   * @param rowElement - The row HTMLElement.
+   * @param scenario - The benchmark scenario data.
+   */
+  private _addRowClickListeners(
+    rowElement: HTMLElement,
+    scenario: BenchmarkScenario,
+  ): void {
+    rowElement.addEventListener("click", (): void => {
+      rowElement.classList.toggle("selected");
+      this._audioService.playLight(0.6);
+      this._dotCloudRegistry.get(scenario.name)?.requestUpdate();
+    });
+  }
+
+  /**
+   * Updates the rank badges on an existing row element.
+   *
+   * @param rowElement - The row HTMLElement.
+   * @param scenario - The benchmark scenario data.
+   * @param highscore - The current all-time highscore.
+   */
   private _updateRankBadges(
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
@@ -153,6 +209,12 @@ export class BenchmarkRowRenderer {
     this._updateSessionBadge(rowElement, scenario);
   }
 
+  /**
+   * Updates the session rank badge on an existing row element.
+   *
+   * @param rowElement - The row HTMLElement.
+   * @param scenario - The benchmark scenario data.
+   */
   private _updateSessionBadge(
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
@@ -179,27 +241,38 @@ export class BenchmarkRowRenderer {
       bestScore === 0 || !isSessionActive ? "hidden" : "visible";
   }
 
-  private _updateEstimateBadge(
+  /**
+   * Updates the rank estimate badge on an existing row element.
+   *
+   * @param rowElement - The row HTMLElement.
+   * @param scenario - The benchmark scenario data.
+   */
+  private _updateRankEstimateBadge(
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
   ): void {
-    const estimateBadge: HTMLElement | null =
-      rowElement.querySelector(".estimate-badge .badge-content");
-    if (estimateBadge) {
-      const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
+    const rankEstimateBadge: HTMLElement | null =
+      rowElement.querySelector(".rank-estimate-badge .badge-content");
+    if (rankEstimateBadge) {
+      const rankEstimate = this._rankEstimator.getScenarioEstimate(scenario.name);
       const difficultyEstimate = this._rankEstimator.getEstimateForValue(
-        estimate.continuousValue,
+        rankEstimate.continuousValue,
         this._currentDifficulty,
       );
 
-      this._fillEstimateBadgeContent(
-        estimateBadge,
+      this._fillRankEstimateBadgeContent(
+        rankEstimateBadge,
         difficultyEstimate.rankName,
         difficultyEstimate.progressToNext,
       );
     }
   }
 
+  /**
+   * Updates the dot cloud visualization for a given scenario.
+   *
+   * @param scenario - The benchmark scenario data.
+   */
   private _updateDotCloud(scenario: BenchmarkScenario): void {
     const component: DotCloudComponent | undefined = this._dotCloudRegistry.get(
       scenario.name,
@@ -209,6 +282,12 @@ export class BenchmarkRowRenderer {
     }
   }
 
+  /**
+   * Refreshes the data for a dot cloud component.
+   *
+   * @param component - The DotCloudComponent instance.
+   * @param scenario - The benchmark scenario data.
+   */
   private _refreshComponentData(
     component: DotCloudComponent,
     scenario: BenchmarkScenario,
@@ -223,15 +302,21 @@ export class BenchmarkRowRenderer {
           entries.length > 0 &&
           entries[0].timestamp >= sessionStart;
 
-        component.updateData(
+        component.updateData({
           entries,
-          scenario.thresholds,
+          thresholds: scenario.thresholds,
           isLatestInSession,
-          this._calculateAverageRankInterval(scenario),
-        );
+          rankInterval: this._calculateAverageRankInterval(scenario),
+        });
       });
   }
 
+  /**
+   * Creates a name cell for the scenario row.
+   *
+   * @param scenarioName - The name of the scenario.
+   * @returns The created HTMLSpanElement for the name.
+   */
   private _createNameCell(scenarioName: string): HTMLElement {
     const nameSpan: HTMLSpanElement = document.createElement("span");
     nameSpan.className = "scenario-name";
@@ -240,6 +325,12 @@ export class BenchmarkRowRenderer {
     return nameSpan;
   }
 
+  /**
+   * Creates a container for the dot cloud visualization.
+   *
+   * @param scenario - The benchmark scenario data.
+   * @returns The created HTMLDivElement for the dot cloud container.
+   */
   private _createDotCloudCell(scenario: BenchmarkScenario): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "dot-cloud-container";
@@ -252,6 +343,13 @@ export class BenchmarkRowRenderer {
     return container;
   }
 
+  /**
+   * Sets up lazy loading for the dot cloud visualization using IntersectionObserver.
+   *
+   * @param container - The dot cloud container HTMLElement.
+   * @param scenario - The benchmark scenario data.
+   * @param loadId - A unique ID for the load operation.
+   */
   private _setupLazyLoading(
     container: HTMLElement,
     scenario: BenchmarkScenario,
@@ -272,6 +370,13 @@ export class BenchmarkRowRenderer {
     observer.observe(container);
   }
 
+  /**
+   * Loads dot cloud data for a scenario.
+   *
+   * @param container - The dot cloud container HTMLElement.
+   * @param scenario - The benchmark scenario data.
+   * @param loadId - The unique ID for the load operation.
+   */
   private _loadDotCloudData(
     container: HTMLElement,
     scenario: BenchmarkScenario,
@@ -288,6 +393,13 @@ export class BenchmarkRowRenderer {
       });
   }
 
+  /**
+   * Injects the dot cloud visualization into the container.
+   *
+   * @param container - The dot cloud container HTMLElement.
+   * @param scenario - The benchmark scenario data.
+   * @param entries - The score entries for the dot cloud.
+   */
   private _injectDotCloudVisualization(
     container: HTMLElement,
     scenario: BenchmarkScenario,
@@ -313,6 +425,12 @@ export class BenchmarkRowRenderer {
     container.replaceWith(dotCloud.render());
   }
 
+  /**
+   * Calculates the average interval between rank thresholds for a scenario.
+   *
+   * @param scenario - The benchmark scenario data.
+   * @returns The average rank interval.
+   */
   private _calculateAverageRankInterval(scenario: BenchmarkScenario): number {
     const thresholds: number[] = Object.values(scenario.thresholds).sort(
       (a: number, b: number): number => a - b,
@@ -330,6 +448,12 @@ export class BenchmarkRowRenderer {
     return totalIntervalSum / (thresholds.length - 1);
   }
 
+  /**
+   * Creates a session rank badge for a scenario.
+   *
+   * @param scenario - The benchmark scenario data.
+   * @returns The created HTMLElement for the session rank badge.
+   */
   private _createSessionRankBadge(scenario: BenchmarkScenario): HTMLElement {
     const sessionBest = this._sessionService.getScenarioSessionBest(
       scenario.name,
@@ -350,23 +474,36 @@ export class BenchmarkRowRenderer {
     return badgeElement;
   }
 
-  private _createEstimateRankBadge(scenario: BenchmarkScenario): HTMLElement {
+  /**
+   * Creates a rank estimate badge for a scenario.
+   *
+   * @param scenario - The benchmark scenario data.
+   * @returns The created HTMLElement for the rank estimate badge.
+   */
+  private _createRankEstimateBadge(scenario: BenchmarkScenario): HTMLElement {
     const badgeContainer: HTMLDivElement = document.createElement("div");
-    badgeContainer.className = "rank-badge-container estimate-badge";
+    badgeContainer.className = "rank-badge-container rank-estimate-badge";
 
     const badgeContent: HTMLDivElement = document.createElement("div");
     badgeContent.className = "badge-content";
 
-    const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
-    const estimateRank = this._rankEstimator.getEstimateForValue(estimate.continuousValue, this._currentDifficulty);
+    const rankEstimate = this._rankEstimator.getScenarioEstimate(scenario.name);
+    const estimate = this._rankEstimator.getEstimateForValue(rankEstimate.continuousValue, this._currentDifficulty);
 
-    this._fillEstimateBadgeContent(badgeContent, estimateRank.rankName, estimateRank.progressToNext);
+    this._fillRankEstimateBadgeContent(badgeContent, estimate.rankName, estimate.progressToNext);
     badgeContainer.appendChild(badgeContent);
 
     return badgeContainer;
   }
 
-  private _fillEstimateBadgeContent(
+  /**
+   * Fills the content of a rank estimate badge.
+   *
+   * @param container - The HTMLElement to fill with content.
+   * @param rankName - The name of the rank.
+   * @param progress - The progress percentage to the next rank.
+   */
+  private _fillRankEstimateBadgeContent(
     container: HTMLElement,
     rankName: string,
     progress: number,
@@ -382,6 +519,13 @@ export class BenchmarkRowRenderer {
     `;
   }
 
+  /**
+   * Creates a rank badge for a scenario and score.
+   *
+   * @param scenario - The benchmark scenario data.
+   * @param score - The score to calculate the rank for.
+   * @returns The created HTMLElement for the rank badge.
+   */
   private _createRankBadge(
     scenario: BenchmarkScenario,
     score: number,
@@ -398,6 +542,13 @@ export class BenchmarkRowRenderer {
     return badgeContainer;
   }
 
+  /**
+   * Fills the content of a rank badge.
+   *
+   * @param container - The HTMLElement to fill with content.
+   * @param scenario - The benchmark scenario data.
+   * @param score - The score to calculate the rank for.
+   */
   private _fillBadgeContent(
     container: HTMLElement,
     scenario: BenchmarkScenario,
@@ -424,10 +575,16 @@ export class BenchmarkRowRenderer {
     `;
   }
 
+  /**
+   * Creates a play button for a scenario.
+   *
+   * @param scenarioName - The name of the scenario.
+   * @returns The created HTMLButtonElement for the play button.
+   */
   private _createPlayButton(scenarioName: string): HTMLElement {
     const playButton: HTMLButtonElement = document.createElement("button");
     playButton.className = "play-scenario-button";
-    playButton.title = `Launch ${scenarioName}`;
+    playButton.title = `Launch ${scenarioName} `;
 
     playButton.appendChild(this._createLaunchSocket());
     playButton.appendChild(this._createLaunchTriangle());
@@ -442,6 +599,11 @@ export class BenchmarkRowRenderer {
     return playButton;
   }
 
+  /**
+   * Creates the socket part of the launch button animation.
+   *
+   * @returns The created HTMLDivElement for the launch socket.
+   */
   private _createLaunchSocket(): HTMLElement {
     const socket: HTMLDivElement = document.createElement("div");
     socket.className = "launch-socket";
@@ -449,6 +611,11 @@ export class BenchmarkRowRenderer {
     return socket;
   }
 
+  /**
+   * Creates the triangle part of the launch button animation.
+   *
+   * @returns The created HTMLDivElement for the launch triangle.
+   */
   private _createLaunchTriangle(): HTMLElement {
     const triangle: HTMLDivElement = document.createElement("div");
     triangle.className = "launch-triangle";
@@ -456,6 +623,11 @@ export class BenchmarkRowRenderer {
     return triangle;
   }
 
+  /**
+   * Creates the dot part of the launch button animation.
+   *
+   * @returns The created HTMLDivElement for the launch dot.
+   */
   private _createLaunchDot(): HTMLElement {
     const dot: HTMLDivElement = document.createElement("div");
     dot.className = "launch-dot";
@@ -463,6 +635,11 @@ export class BenchmarkRowRenderer {
     return dot;
   }
 
+  /**
+   * Creates the progress bar for the launch button.
+   *
+   * @returns An object containing the container and the progress bar HTMLElement.
+   */
   private _createLaunchProgressBar(): {
     container: HTMLElement;
     bar: HTMLElement;
@@ -488,6 +665,13 @@ export class BenchmarkRowRenderer {
   private static readonly _regenStep: number =
     BenchmarkRowRenderer._depleteStep * 2;
 
+  /**
+   * Sets up hold interaction listeners for the play button.
+   *
+   * @param button - The play button HTMLElement.
+   * @param progressBar - The progress bar HTMLElement.
+   * @param scenarioName - The name of the scenario.
+   */
   private _setupHoldInteractions(
     button: HTMLElement,
     progressBar: HTMLElement,

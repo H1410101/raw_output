@@ -1,6 +1,7 @@
 import { BenchmarkService } from "./BenchmarkService";
 import { SessionService, SessionRankRecord } from "./SessionService";
 import { BenchmarkScenario } from "../data/benchmarks";
+import { RankEstimator } from "./RankEstimator";
 
 export type RankedSessionStatus = "IDLE" | "ACTIVE" | "COMPLETED";
 
@@ -15,6 +16,13 @@ export interface RankedSessionState {
     readonly startTime: string | null;
     readonly initialGauntletComplete: boolean;
     readonly rankedSessionId: string | null;
+}
+
+interface ScenarioMetric {
+    scenario: BenchmarkScenario;
+    current: number;
+    peak: number;
+    gap: number;
 }
 
 /**
@@ -157,7 +165,8 @@ export class RankedSessionService {
         }
 
         this._currentIndex--;
-        this._status = "ACTIVE"; // If we were in COMPLETED, going back makes us ACTIVE
+        // If we were in COMPLETED, going back makes us ACTIVE
+        this._status = "ACTIVE";
 
         this._saveToLocalStorage();
         this._notifyListeners();
@@ -261,89 +270,100 @@ export class RankedSessionService {
     }
 
     /**
-     * Generates a batch of 3 scenarios using Strong-Weak-Weak logic without randomness.
-     * @param difficulty
-     * @param excludeScenarios
+     * Generates a deterministic batch of three scenarios based on skill gap and current strength.
+     *
+     * @param difficulty - The difficulty tier to pull scenarios from.
+     * @param excludeScenarios - List of scenario names to exclude from the batch.
+     * @returns An array containing exactly three scenario names, or fewer if the pool is exhausted.
      */
     private _generateNextBatch(difficulty: string, excludeScenarios: string[]): string[] {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
-        // Deterministic Filter
-        const pool = scenarios.filter(s => !excludeScenarios.includes(s.name));
+        const pool: BenchmarkScenario[] = scenarios.filter((scenario: BenchmarkScenario) => !excludeScenarios.includes(scenario.name));
 
         if (pool.length < 3) {
-            // Fallback: Deterministic sort by name
-            return pool.sort((a, b) => a.name.localeCompare(b.name)).map(s => s.name);
+            return this._getFallbackBatch(pool);
         }
 
-        // 1. Calculate Metrics
-        const metrics = pool.map(scenario => {
-            const identity = this._rankEstimator.getScenarioEstimate(scenario.name);
-            const current = identity.continuousValue === -1 ? 0 : identity.continuousValue;
-            const peak = identity.highestAchieved === -1 ? 0 : identity.highestAchieved;
+        const metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool);
+        const slot1: ScenarioMetric = this._selectHighPotentialSlot(metrics);
+        const remaining: ScenarioMetric[] = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== slot1.scenario.name);
 
-            // Gap: Potential - Current
-            const gap = peak - current;
+        const sortedByStrength: ScenarioMetric[] = this._sortMetricsByStrength(remaining);
+        const slot2: ScenarioMetric = sortedByStrength[0];
+        const slot3: ScenarioMetric = this._selectDiverseThirdSlot(slot2, sortedByStrength.slice(1));
+
+        return [slot1.scenario.name, slot2.scenario.name, slot3.scenario.name];
+    }
+
+    private _getFallbackBatch(pool: BenchmarkScenario[]): string[] {
+        return pool
+            .sort((scenarioA: BenchmarkScenario, scenarioB: BenchmarkScenario) =>
+                scenarioA.name.localeCompare(scenarioB.name)
+            )
+            .map((scenario: BenchmarkScenario) => scenario.name);
+    }
+
+    private _calculateScenarioMetrics(pool: BenchmarkScenario[]): ScenarioMetric[] {
+        return pool.map((scenario: BenchmarkScenario) => {
+            const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
+            const current: number = estimate.continuousValue === -1 ? 0 : estimate.continuousValue;
+            const peak: number = estimate.highestAchieved === -1 ? 0 : estimate.highestAchieved;
 
             return {
                 scenario,
                 current,
                 peak,
-                gap
+                gap: peak - current
             };
         });
+    }
 
-        // 2. Select Slot 1: Strong (Max Gap)
-        const sortedByGap = [...metrics].sort((a, b) => {
-            // Primary: Gap (Descending)
-            const gapDiff = b.gap - a.gap;
-            if (Math.abs(gapDiff) > 0.0001) return gapDiff;
+    private _selectHighPotentialSlot(metrics: ScenarioMetric[]): ScenarioMetric {
+        return [...metrics].sort((metricA: ScenarioMetric, metricB: ScenarioMetric) => {
+            const gapDiff: number = (metricB.peak - metricB.current) - (metricA.peak - metricA.current);
+            if (Math.abs(gapDiff) > 0.0001) {
+                return gapDiff;
+            }
 
-            // Secondary: Peak High Score (Descending - target big fall-offs)
-            const peakDiff = b.peak - a.peak;
-            if (Math.abs(peakDiff) > 0.0001) return peakDiff;
+            const peakDiff: number = metricB.peak - metricA.peak;
+            if (Math.abs(peakDiff) > 0.0001) {
+                return peakDiff;
+            }
 
-            // Tertiary: Alphabetical (Deterministic)
-            return a.scenario.name.localeCompare(b.scenario.name);
+            return metricA.scenario.name.localeCompare(metricB.scenario.name);
+        })[0];
+    }
+
+    private _sortMetricsByStrength(metrics: ScenarioMetric[]): ScenarioMetric[] {
+        return [...metrics].sort((metricA: ScenarioMetric, metricB: ScenarioMetric) => {
+            const strengthDiff: number = metricA.current - metricB.current;
+            if (Math.abs(strengthDiff) > 0.0001) {
+                return strengthDiff;
+            }
+
+            const peakDiff: number = metricA.peak - metricB.peak;
+            if (Math.abs(peakDiff) > 0.0001) {
+                return peakDiff;
+            }
+
+            return metricA.scenario.name.localeCompare(metricB.scenario.name);
         });
-        const slot1 = sortedByGap[0];
+    }
 
-        // 3. Select Slot 2: Weak (Min Strength)
-        const remainingAfterSlot1 = metrics.filter(m => m.scenario.name !== slot1.scenario.name);
+    private _selectDiverseThirdSlot(slot2: ScenarioMetric, candidates: ScenarioMetric[]): ScenarioMetric {
+        const slot3: ScenarioMetric = candidates[0];
 
-        const sortedByStrength = [...remainingAfterSlot1].sort((a, b) => {
-            // Primary: Current Strength (Ascending - find weakest)
-            const strengthDiff = a.current - b.current;
-            if (Math.abs(strengthDiff) > 0.0001) return strengthDiff;
+        if (slot2.scenario.category === slot3.scenario.category && candidates.length > 1) {
+            const alternative: ScenarioMetric = candidates[1];
 
-            // Secondary: Peak High Score (Ascending - find true inability, not just decay)
-            // If currents are equal (e.g. 0.0), the one with the LOWER peak is "weaker".
-            const peakDiff = a.peak - b.peak;
-            if (Math.abs(peakDiff) > 0.0001) return peakDiff;
-
-            // Tertiary: Alphabetical
-            return a.scenario.name.localeCompare(b.scenario.name);
-        });
-
-        const slot2 = sortedByStrength[0];
-
-        // 4. Select Slot 3: Weak #2 (Next Min Strength)
-        const slot3Candidates = sortedByStrength.filter(m => m.scenario.name !== slot2.scenario.name);
-        let slot3 = slot3Candidates[0];
-
-        // 5. Diversity Check (Deterministic)
-        // If Slot 2 and Slot 3 share category, try to swap Slot 3 with next worst
-        if (slot2.scenario.category === slot3.scenario.category) {
-            if (slot3Candidates.length > 1) {
-                const altCandidate = slot3Candidates[1];
-                // Only swap if skill gap is not significant (> 1.0 rank unit)
-                if (Math.abs(altCandidate.current - slot3.current) < 1.0) {
-                    slot3 = altCandidate;
-                }
+            if (Math.abs(alternative.current - slot3.current) < 1.0) {
+                return alternative;
             }
         }
 
-        return [slot1.scenario.name, slot2.scenario.name, slot3.scenario.name];
+        return slot3;
     }
+
 
     private _subscribeToSessionEvents(): void {
         this._sessionService.onSessionUpdated((): void => {

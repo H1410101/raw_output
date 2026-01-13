@@ -1,28 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 
 describe("Header Symmetry Test", () => {
-    beforeEach(async () => {
-        document.body.innerHTML = `
-        <style>
-            .header-aligner {
-                display: inline-grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 2rem;
-                align-items: center;
-                justify-content: center;
-            }
-            .difficulty-tabs-container, 
-            .holistic-rank-container {
-                /* Ensure they don't collapse */
-                min-width: 0; 
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                border: 1px solid black; /* For visibility in debug */
-            }
-        </style>
-        <div id="app"></div>`;
+    beforeEach(async (): Promise<void> => {
+        document.body.innerHTML = _getHeaderSymmetryHtml();
     });
+
 
     it("Difficulty tabs and Rank UI should have equal width with inline-grid 1fr 1fr", () => {
         const difficultyDiv = document.createElement("div");
@@ -52,3 +34,26 @@ describe("Header Symmetry Test", () => {
         expect(diffWidth).toBe(rankWidth);
     });
 });
+
+function _getHeaderSymmetryHtml(): string {
+    return `
+        <style>
+            .header-aligner {
+                display: inline-grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2rem;
+                align-items: center;
+                justify-content: center;
+            }
+            .difficulty-tabs-container, 
+            .holistic-rank-container {
+                min-width: 0; 
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                border: 1px solid black;
+            }
+        </style>
+        <div id="app"></div>`;
+}
+

@@ -20,6 +20,8 @@ export class HUDProgressBar {
 
     /**
      * Returns the progress bar element.
+     * 
+     * @returns The root progress bar HTMLElement.
      */
     public get element(): HTMLElement {
         return this._element;

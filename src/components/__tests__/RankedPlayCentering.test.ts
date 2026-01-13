@@ -1,4 +1,4 @@
-import { expect, test, beforeEach } from "vitest";
+import { expect, test } from "vitest";
 
 /**
  * Technical Regression Test: Play Button Centering Symmetry.
@@ -49,8 +49,8 @@ function _setupStyle(): void {
         }
         .controls-left { display: flex; justify-content: flex-end; }
         .controls-right { display: flex; justify-content: flex-start; gap: calc(1rem * var(--label-font-multiplier)); }
-        .media-btn { width: 40px; height: 40px; flex-shrink: 0; }
-        .media-btn.primary { width: 60px; height: 60px; }
+        .media-btn { width: 2.5rem; height: 2.5rem; flex-shrink: 0; }
+        .media-btn.primary { width: 3.75rem; height: 3.75rem; }
     `;
     document.head.appendChild(style);
 }

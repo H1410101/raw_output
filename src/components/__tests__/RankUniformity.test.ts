@@ -1,13 +1,17 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { BenchmarkView } from '../BenchmarkView';
-import { RankedView } from '../RankedView';
-import { RankEstimator } from '../../services/RankEstimator';
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { BenchmarkView, BenchmarkViewServices } from "../BenchmarkView";
+import { RankedView, RankedViewDependencies } from "../RankedView";
+import { MockServiceFactory } from "./MockServiceFactory";
 
-// Mock CSS variables since we are in JSDOM
-const mockStyles = `
+
+const MOCK_CSS: string = `
   :root {
-    --lower-band-3: rgb(100, 100, 100);
-    --lower-band-1: rgb(50, 50, 50);
+    --lower-band-3: rgb(100,
+      100,
+      100);
+    --lower-band-1: rgb(50,
+      50,
+      50);
   }
   .rank-name {
     color: var(--lower-band-3);
@@ -19,215 +23,241 @@ const mockStyles = `
   }
 `;
 
-describe('RankUniformity', () => {
+interface ComputedStyles {
+    readonly color: string;
+    readonly fontWeight: string;
+}
+
+const initializeData = (): BenchmarkViewServices => {
+    _setupEnvironment();
+
+    return MockServiceFactory.createViewDependencies();
+};
+
+describe("RankUniformity: Table Standard", (): void => {
     let container: HTMLElement;
-    let mockServices: any;
+    let dependencies: BenchmarkViewServices;
 
-    beforeEach(() => {
-        // Mock document.fonts for JSDOM
-        Object.defineProperty(document, 'fonts', {
-            value: { status: 'loaded', ready: Promise.resolve() },
-            configurable: true
-        });
-
-        container = document.createElement('div');
+    beforeEach((): void => {
+        container = document.createElement("div");
         document.body.appendChild(container);
-        const style = document.createElement('style');
-        style.innerHTML = mockStyles;
-        document.head.appendChild(style);
-
-        // Simple mocks for services
-        const benchmarkService = {
-            getScenarios: vi.fn((diff) => [{ name: 'Scenario A', category: 'Cat', subcategory: 'Sub', thresholds: { 'Bronze': 100 } }]),
-            getAvailableDifficulties: vi.fn().mockReturnValue(['Advanced']),
-            getRankNames: vi.fn().mockReturnValue(['Bronze', 'Silver', 'Gold']),
-            getDifficulty: vi.fn().mockReturnValue('Advanced')
-        };
-
-        const rankEstimator = {
-            getEstimateMap: vi.fn().mockReturnValue({
-                'Scenario A': { continuousValue: 1.5, highestAchieved: 1.5, lastUpdated: new Date().toISOString() }
-            }),
-            getScenarioEstimate: vi.fn().mockReturnValue({ continuousValue: 1.5 }),
-            calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: 'Silver', progressToNext: 50, continuousValue: 1.5 }),
-            calculateOverallRank: vi.fn().mockReturnValue({ rankName: 'Silver', progressToNext: 50, continuousValue: 1.5 }),
-            getEstimateForValue: vi.fn().mockReturnValue({ rankName: 'Silver', progressToNext: 50, continuousValue: 1.5 }),
-            getScenarioContinuousValue: vi.fn().mockReturnValue(1.5),
-            applyDailyDecay: vi.fn(),
-            evolveScenarioEstimate: vi.fn()
-        };
-
-        const appState = {
-            getBenchmarkDifficulty: vi.fn().mockReturnValue('Advanced'),
-            getBenchmarkScrollTop: vi.fn().mockReturnValue(0),
-            setBenchmarkDifficulty: vi.fn(),
-            getIsFolderViewOpen: vi.fn().mockReturnValue(false),
-            getIsSettingsMenuOpen: vi.fn().mockReturnValue(false),
-            on: vi.fn(),
-            off: vi.fn(),
-            getTheme: vi.fn().mockReturnValue('dark')
-        };
-
-        const sessionService = {
-            on: vi.fn(),
-            off: vi.fn(),
-            onSessionUpdated: vi.fn(),
-            isSessionActive: vi.fn().mockReturnValue(false),
-            getScenarioSessionBest: vi.fn().mockReturnValue({ bestScore: 110 }),
-            getAllScenarioSessionBests: vi.fn().mockReturnValue([{ scenarioName: 'Scenario A', bestScore: 110 }]),
-            sessionStartTimestamp: Date.now()
-        };
-
-        const historyService = {
-            getHighscores: vi.fn().mockResolvedValue({ 'Scenario A': 120 }),
-            getBatchHighscores: vi.fn().mockResolvedValue({ 'Scenario A': 120 }),
-            getLastScores: vi.fn().mockResolvedValue([]),
-            getLastCheckTimestamp: vi.fn().mockResolvedValue(1000),
-            onHighscoreUpdated: vi.fn(),
-            onScoreRecorded: vi.fn()
-        };
-
-        const rankService = {
-            calculateRank: vi.fn().mockReturnValue({ currentRank: 'Silver', progressPercentage: 50 })
-        };
-
-        const visualSettings = {
-            getSettings: vi.fn().mockReturnValue({
-                showDotCloud: false,
-                showAllTimeBest: true,
-                showSessionBest: true,
-                scenarioFontSize: 'Medium',
-                uiScaling: 1,
-                categorySpacing: 1
-            }),
-            on: vi.fn(),
-            off: vi.fn(),
-            subscribe: vi.fn()
-        };
-
-        const rankedSession = {
-            state: { status: 'IDLE', sequence: [], currentIndex: 0 },
-            currentScenarioName: 'Scenario A',
-            on: vi.fn(),
-            off: vi.fn(),
-            onStateChanged: vi.fn()
-        };
-
-        mockServices = {
-            benchmark: benchmarkService,
-            history: historyService,
-            rank: rankService,
-            session: sessionService,
-            visualSettings: visualSettings,
-            audio: { playLight: vi.fn(), playHeavy: vi.fn() },
-            appState: appState,
-            rankEstimator: rankEstimator,
-            estimator: rankEstimator, // For RankedView
-            directory: { on: vi.fn(), currentFolderName: 'test' },
-            folderActions: {},
-            focus: { on: vi.fn(), subscribe: vi.fn(), getFocusState: vi.fn().mockReturnValue(null), clearFocus: vi.fn() },
-            sessionSettings: { getSettings: vi.fn(() => ({})), subscribe: vi.fn() },
-            cloudflare: {},
-            identity: { on: vi.fn() },
-            rankedSession: rankedSession
-        };
+        dependencies = initializeData();
     });
 
-    afterEach(() => {
-        if (container && container.parentNode) {
-            document.body.removeChild(container);
-        }
-        document.head.querySelectorAll('style').forEach(s => s.remove());
+    afterEach((): void => {
+        _teardownEnvironment(container);
     });
 
-    const getComputedStyles = (el: HTMLElement) => {
-        const styles = window.getComputedStyle(el);
-        return {
-            color: styles.color,
-            fontWeight: styles.fontWeight
-        };
-    };
-
-    const waitForSelector = async (selector: string): Promise<HTMLElement> => {
-        for (let i = 0; i < 50; i++) {
-            const el = container.querySelector(selector);
-            if (el) return el as HTMLElement;
-            await new Promise(r => setTimeout(r, 20));
-        }
-        throw new Error(`Timeout waiting for selector: ${selector}\nInner HTML: ${container.innerHTML.substring(0, 1000)}`);
-    };
-
-    it('should have consistent properties across all rank types', async () => {
-        const bv = new BenchmarkView(container, mockServices, mockServices.appState);
-        await bv.render();
-
-        const allTimeRank = await waitForSelector('.rank-badge-container:not(.session-badge):not(.estimate-badge) .rank-name');
-        const sessionRank = await waitForSelector('.session-badge .rank-name');
-        const estimateRank = await waitForSelector('.estimate-badge .rank-name');
-        const headerRank = await waitForSelector('.holistic-rank-container .rank-name');
-
-        const standardColor = 'rgb(100, 100, 100)';
-        const standardWeight = '700';
-
-        [allTimeRank, sessionRank, estimateRank, headerRank].forEach(el => {
-            const style = getComputedStyles(el);
-            expect(style.color).toBe(standardColor);
-            expect(style.fontWeight).toBe(standardWeight);
-        });
-
-        // HUD Ranks
-        container.innerHTML = '';
-        mockServices.rankedSession.state.status = 'ACTIVE';
-        mockServices.rankedSession.state.sequence = ['Scenario A'];
-        mockServices.session.isSessionActive.mockReturnValue(true);
-        const rv = new RankedView(container, mockServices);
-        await rv.render();
-
-        const targetRank = await waitForSelector('.stat-item.highlight .rank-name');
-        const achievedRank = await waitForSelector('.stat-item:not(.highlight) .rank-name');
-
-        [targetRank, achievedRank].forEach(el => {
-            const style = getComputedStyles(el);
-            expect(style.color).toBe(standardColor);
-            expect(style.fontWeight).toBe(standardWeight);
-        });
-    });
-
-    it('should have consistent properties for Unranked state', async () => {
-        mockServices.rankEstimator.getEstimateMap.mockReturnValue({});
-        mockServices.rankEstimator.calculateHolisticEstimateRank.mockReturnValue({ rankName: 'Unranked', progressToNext: 0, continuousValue: 0 });
-        mockServices.rankEstimator.getEstimateForValue.mockReturnValue({ rankName: 'Unranked', progressToNext: 0, continuousValue: 0 });
-        mockServices.rankEstimator.calculateOverallRank.mockReturnValue({ rankName: 'Unranked', progressToNext: 0, continuousValue: 0 });
-
-        mockServices.history.getHighscores.mockResolvedValue({});
-        mockServices.history.getBatchHighscores.mockResolvedValue({});
-        mockServices.session.getScenarioSessionBest.mockReturnValue(null);
-        mockServices.rank.calculateRank.mockReturnValue({ currentRank: 'Unranked', progressPercentage: 0 });
-
-        const bv = new BenchmarkView(container, mockServices, mockServices.appState);
-        await bv.render();
-
-        const allTimeRank = await waitForSelector('.rank-badge-container:not(.session-badge):not(.estimate-badge) .rank-name');
-        const headerRank = await waitForSelector('.holistic-rank-container .rank-name');
-
-        const unrankedColor = 'rgb(50, 50, 50)';
-        const unrankedWeight = '600';
-
-        expect(getComputedStyles(allTimeRank).color).toBe(unrankedColor);
-        expect(getComputedStyles(allTimeRank).fontWeight).toBe(unrankedWeight);
-        expect(getComputedStyles(headerRank).color).toBe(unrankedColor);
-        expect(getComputedStyles(headerRank).fontWeight).toBe(unrankedWeight);
-
-        container.innerHTML = '';
-        mockServices.rankedSession.state.status = 'ACTIVE';
-        mockServices.rankedSession.state.sequence = ['Scenario A'];
-        mockServices.session.getAllScenarioSessionBests.mockReturnValue([]);
-        mockServices.session.isSessionActive.mockReturnValue(true);
-        const rv = new RankedView(container, mockServices);
-        await rv.render();
-
-        const achievedRank = await waitForSelector('.stat-item:not(.highlight) .rank-name');
-        expect(getComputedStyles(achievedRank).color).toBe(unrankedColor);
-        expect(getComputedStyles(achievedRank).fontWeight).toBe(unrankedWeight);
+    it("should match standard table colors", async (): Promise<void> => {
+        await _testBenchmarkRanks(container, dependencies);
     });
 });
+
+describe("RankUniformity: HUD Standard", (): void => {
+    let container: HTMLElement;
+    let dependencies: BenchmarkViewServices;
+
+    beforeEach((): void => {
+        container = document.createElement("div");
+        document.body.appendChild(container);
+        dependencies = initializeData();
+    });
+
+    afterEach((): void => {
+        _teardownEnvironment(container);
+    });
+
+    it("should match standard HUD colors", async (): Promise<void> => {
+        await _testHudRanks(container, dependencies);
+    });
+});
+
+describe("RankUniformity: Unranked Bench", (): void => {
+    let container: HTMLElement;
+    let dependencies: BenchmarkViewServices;
+
+    beforeEach((): void => {
+        container = document.createElement("div");
+        document.body.appendChild(container);
+        dependencies = initializeData();
+    });
+
+    afterEach((): void => {
+        _teardownEnvironment(container);
+    });
+
+    it("should match unranked table color", async (): Promise<void> => {
+        _setupUnrankedMocks(dependencies);
+
+        const view: BenchmarkView = new BenchmarkView(container, dependencies, dependencies.appState);
+        await view.render();
+
+        const elements: HTMLElement[] = await _getUnrankedTableElements(container);
+        elements.forEach((element: HTMLElement) => {
+            const styles: ComputedStyles = _getStyles(element);
+            expect(styles.color).toBe(`rgb(${50
+                }, ${50
+                }, ${50
+                })`);
+            expect(styles.fontWeight).toBe("600");
+        });
+    });
+});
+
+describe("RankUniformity: Unranked HUD", (): void => {
+    let container: HTMLElement;
+    let dependencies: BenchmarkViewServices;
+
+    beforeEach((): void => {
+        container = document.createElement("div");
+        document.body.appendChild(container);
+        dependencies = initializeData();
+    });
+
+    afterEach((): void => {
+        _teardownEnvironment(container);
+    });
+
+    it("should match unranked HUD color", async (): Promise<void> => {
+        _setupUnrankedMocks(dependencies);
+        _setActiveStatus(dependencies);
+
+        const rankedDeps: RankedViewDependencies = dependencies as unknown as RankedViewDependencies;
+        const rankedView: RankedView = new RankedView(container, rankedDeps);
+        await rankedView.render();
+
+        const element: HTMLElement = await _waitForSelector(container, ".stat-item:not(.highlight) .rank-name");
+        const styles: ComputedStyles = _getStyles(element);
+
+        expect(styles.color).toBe(`rgb(${50
+            }, ${50
+            }, ${50
+            })`);
+        expect(styles.fontWeight).toBe("600");
+    });
+});
+
+async function _testBenchmarkRanks(container: HTMLElement, dependencies: BenchmarkViewServices): Promise<void> {
+    const view: BenchmarkView = new BenchmarkView(container, dependencies, dependencies.appState);
+    await view.render();
+
+    const elements: HTMLElement[] = await Promise.all([
+        _waitForSelector(container, ".rank-badge-container:not(.session-badge):not(.rank-estimate-badge) .rank-name"),
+        _waitForSelector(container, ".session-badge .rank-name"),
+        _waitForSelector(container, ".rank-estimate-badge .rank-name"),
+        _waitForSelector(container, ".holistic-rank-container .rank-name")
+    ]);
+
+    elements.forEach((element: HTMLElement) => {
+        const styles: ComputedStyles = _getStyles(element);
+        expect(styles.color).toBe(`rgb(${100
+            }, ${100
+            }, ${100
+            })`);
+        expect(styles.fontWeight).toBe("700");
+    });
+}
+
+function _setActiveStatus(dependencies: BenchmarkViewServices): void {
+    const session = (dependencies as unknown as RankedViewDependencies).rankedSession;
+
+
+    session.state = {
+        status: "ACTIVE",
+        sequence: ["Scenario A"],
+        currentIndex: 0,
+        difficulty: "Advanced",
+        startTime: new Date().toISOString(),
+        initialGauntletComplete: false,
+        rankedSessionId: "test-id"
+    };
+
+    vi.mocked(dependencies.session.isSessionActive).mockReturnValue(true);
+}
+
+async function _testHudRanks(container: HTMLElement, dependencies: BenchmarkViewServices): Promise<void> {
+    container.innerHTML = "";
+    _setActiveStatus(dependencies);
+
+    const rankedDeps: RankedViewDependencies = dependencies as unknown as RankedViewDependencies;
+    const rankedView: RankedView = new RankedView(container, rankedDeps);
+    await rankedView.render();
+
+    const elements: HTMLElement[] = await Promise.all([
+        _waitForSelector(container, ".stat-item.highlight .rank-name"),
+        _waitForSelector(container, ".stat-item:not(.highlight) .rank-name")
+    ]);
+
+    elements.forEach((element: HTMLElement) => {
+        const styles: ComputedStyles = _getStyles(element);
+        expect(styles.color).toBe(`rgb(${100
+            }, ${100
+            }, ${100
+            })`);
+        expect(styles.fontWeight).toBe("700");
+    });
+}
+
+function _setupUnrankedMocks(dependencies: BenchmarkViewServices): void {
+    const unranked: unknown = { rankName: "Unranked", progressToNext: 0, continuousValue: 0 };
+
+    vi.mocked(dependencies.rankEstimator.getRankEstimateMap).mockReturnValue({});
+    vi.mocked(dependencies.rankEstimator.calculateHolisticEstimateRank).mockReturnValue(unranked as EstimatedRank);
+    vi.mocked(dependencies.rankEstimator.getEstimateForValue).mockReturnValue(unranked as EstimatedRank);
+    vi.mocked(dependencies.rankEstimator.calculateOverallRank).mockReturnValue(unranked as EstimatedRank);
+    vi.mocked(dependencies.history.getBatchHighscores).mockResolvedValue({});
+    vi.mocked(dependencies.session.getScenarioSessionBest).mockReturnValue(null);
+    vi.mocked(dependencies.rank.calculateRank).mockReturnValue({
+        currentRank: "Unranked",
+        progressPercentage: 0,
+        nextRank: null,
+        rankLevel: -1
+    });
+
+}
+
+async function _getUnrankedTableElements(container: HTMLElement): Promise<HTMLElement[]> {
+    return Promise.all([
+        _waitForSelector(container, ".rank-badge-container:not(.session-badge):not(.rank-estimate-badge) .rank-name"),
+        _waitForSelector(container, ".holistic-rank-container .rank-name")
+    ]);
+}
+
+function _setupEnvironment(): void {
+    Object.defineProperty(document, "fonts", {
+        value: { status: "loaded", ready: Promise.resolve() },
+        configurable: true
+    });
+
+    const style: HTMLStyleElement = document.createElement("style");
+    style.setAttribute("id", "mock-styles");
+    style.innerHTML = MOCK_CSS;
+    document.head.appendChild(style);
+}
+
+function _teardownEnvironment(container: HTMLElement): void {
+    if (container.parentNode) {
+        document.body.removeChild(container);
+    }
+    document.getElementById("mock-styles")?.remove();
+}
+
+function _getStyles(element: HTMLElement): ComputedStyles {
+    const styles: CSSStyleDeclaration = window.getComputedStyle(element);
+
+    return {
+        color: styles.color,
+        fontWeight: styles.fontWeight
+    };
+}
+
+async function _waitForSelector(container: HTMLElement, selector: string): Promise<HTMLElement> {
+    for (let index: number = 0; index < 50; index++) {
+        const element: Element | null = container.querySelector(selector);
+        if (element) {
+            return element as HTMLElement;
+        }
+        await new Promise((resolve: (value: unknown) => void) => setTimeout(resolve, 20));
+    }
+    throw new Error(`Timeout waiting for selector: ${selector}`);
+}
