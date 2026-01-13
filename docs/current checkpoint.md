@@ -6,7 +6,9 @@
 Enhance the rank estimation logic with predictive math, better weighting for scenario performance, and refining the transition between tiers.
 
 ### Progress
-- [ ] Implement enhanced prediction math in `RankEstimator`.
-- [ ] Refine weighting for balanced vs. focused performance.
+- [x] Create Ranked Mechanics Design Document
+- [x] Implement enhanced prediction math in `RankEstimator` (Decay, Ranks, EMA)
+- [x] Refine weighting for balanced vs. focused performance (Hierarchical Aggregation)
+- [x] Implement Deterministic Scenario Selection (Strong-Weak-Weak)
 
-**Next Step:** Begin Phase 4.3.
+**Next Step:** Verify UI Integration and Commit.

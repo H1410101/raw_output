@@ -101,9 +101,15 @@ export class AppBootstrap {
       this._sessionSettingsService,
     );
 
+    this._rankEstimator = new RankEstimator(
+      this._rankService,
+      this._benchmarkService,
+    );
+
     this._rankedSessionService = new RankedSessionService(
       this._benchmarkService,
       this._sessionService,
+      this._rankEstimator,
     );
 
     this._sessionPulseService = new SessionPulseService(
@@ -120,11 +126,6 @@ export class AppBootstrap {
       sessionService: this._sessionService,
       benchmarkService: this._benchmarkService,
     });
-
-    this._rankEstimator = new RankEstimator(
-      this._rankService,
-      this._benchmarkService,
-    );
   }
 
   private _initUIComponents(): void {

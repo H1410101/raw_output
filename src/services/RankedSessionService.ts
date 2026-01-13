@@ -1,6 +1,5 @@
 import { BenchmarkService } from "./BenchmarkService";
 import { SessionService, SessionRankRecord } from "./SessionService";
-import { Prng } from "../utils/Prng";
 import { BenchmarkScenario } from "../data/benchmarks";
 
 export type RankedSessionStatus = "IDLE" | "ACTIVE" | "COMPLETED";
@@ -24,6 +23,7 @@ export interface RankedSessionState {
 export class RankedSessionService {
     private readonly _benchmarkService: BenchmarkService;
     private readonly _sessionService: SessionService;
+    private readonly _rankEstimator: RankEstimator;
     private readonly _storageKey: string = "ranked_session_state_v2";
 
     private _status: RankedSessionStatus = "IDLE";
@@ -41,13 +41,16 @@ export class RankedSessionService {
      *
      * @param benchmarkService - Service for accessing benchmark data.
      * @param sessionService - Service for session lifecycle.
+     * @param rankEstimator - Service for rank identity and selection metrics.
      */
     public constructor(
         benchmarkService: BenchmarkService,
         sessionService: SessionService,
+        rankEstimator: RankEstimator,
     ) {
         this._benchmarkService = benchmarkService;
         this._sessionService = sessionService;
+        this._rankEstimator = rankEstimator;
 
         this._loadFromLocalStorage();
         this._subscribeToSessionEvents();
@@ -136,12 +139,9 @@ export class RankedSessionService {
         this._sequence = [];
         this._initialGauntletComplete = false;
 
-        const prng: Prng = this._createPrng();
-
-        // Initial 3 scenarios
-        for (let i: number = 0; i < 3; i++) {
-            this._sequence.push(this._generateNextInSequence(prng, scenarios));
-        }
+        // Generate Initial Batch (Strong-Weak-Weak)
+        const batch = this._generateNextBatch(difficulty, []);
+        this._sequence.push(...batch);
 
         this._sessionService.setIsRanked(true);
         this._saveToLocalStorage();
@@ -189,7 +189,7 @@ export class RankedSessionService {
     }
 
     /**
-     * Extends a completed or near-complete session by one scenario.
+     * Extends a completed or near-complete session by adding a new batch.
      */
     public extendSession(): void {
         if (!this._difficulty || !this._startTime) {
@@ -198,15 +198,13 @@ export class RankedSessionService {
 
         // Passing this point mark the gate as open
         this._initialGauntletComplete = true;
-        const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(this._difficulty);
-        const prng: Prng = this._createPrng();
 
-        // Advance PRNG to match current sequence length
-        for (let index: number = 0; index < this._sequence.length; index++) {
-            this._generateNextInSequence(prng, scenarios);
-        }
+        // Generate Next Batch, excluding recently played scenarios to avoid repetition
+        // We exclude the last 3 scenarios from the candidate pool efficiently
+        const excludeList = this._sequence.slice(-3);
+        const batch = this._generateNextBatch(this._difficulty, excludeList);
 
-        this._sequence.push(this._generateNextInSequence(prng, scenarios));
+        this._sequence.push(...batch);
         this._status = "ACTIVE";
 
         this._saveToLocalStorage();
@@ -262,28 +260,87 @@ export class RankedSessionService {
         this._onStateChanged.push(callback);
     }
 
-    private _createPrng(): Prng {
-        const seedStr: string = `ranked-${this._difficulty}-${this._startTime}`;
+    /**
+     * Generates a batch of 3 scenarios using Strong-Weak-Weak logic without randomness.
+     */
+    private _generateNextBatch(difficulty: string, excludeScenarios: string[]): string[] {
+        const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
+        // Deterministic Filter
+        const pool = scenarios.filter(s => !excludeScenarios.includes(s.name));
 
-        return new Prng(Prng.seedFromString(seedStr));
-    }
+        if (pool.length < 3) {
+            // Fallback: Deterministic sort by name
+            return pool.sort((a, b) => a.name.localeCompare(b.name)).map(s => s.name);
+        }
 
-    private _generateNextInSequence(prng: Prng, pool: BenchmarkScenario[]): string {
-        // Strong-Weak-Weak logic placeholder:
-        // For now, we cycle through categories to ensure a balanced test.
-        // We'll use the PRNG to pick a scenario from the current category.
-        const categories: string[] = ["Dynamic Clicking", "Reactive Tracking", "Flick Tech", "Control Tracking"];
-        const categoryIndex: number = this._sequence.length % categories.length;
-        const targetCategory: string = categories[categoryIndex];
+        // 1. Calculate Metrics
+        const metrics = pool.map(scenario => {
+            const identity = this._rankEstimator.getScenarioIdentity(scenario.name);
+            const current = identity.continuousValue === -1 ? 0 : identity.continuousValue;
+            const peak = identity.highestAchieved === -1 ? 0 : identity.highestAchieved;
 
-        const filteredPool: BenchmarkScenario[] = pool.filter(
-            (scenario: BenchmarkScenario): boolean => scenario.category === targetCategory
-        );
+            // Gap: Potential - Current
+            const gap = peak - current;
 
-        const sourcePool: BenchmarkScenario[] = filteredPool.length > 0 ? filteredPool : pool;
-        const randomIndex: number = prng.nextInt(0, sourcePool.length);
+            return {
+                scenario,
+                current,
+                peak,
+                gap
+            };
+        });
 
-        return sourcePool[randomIndex].name;
+        // 2. Select Slot 1: Strong (Max Gap)
+        const sortedByGap = [...metrics].sort((a, b) => {
+            // Primary: Gap (Descending)
+            const gapDiff = b.gap - a.gap;
+            if (Math.abs(gapDiff) > 0.0001) return gapDiff;
+
+            // Secondary: Peak High Score (Descending - target big fall-offs)
+            const peakDiff = b.peak - a.peak;
+            if (Math.abs(peakDiff) > 0.0001) return peakDiff;
+
+            // Tertiary: Alphabetical (Deterministic)
+            return a.scenario.name.localeCompare(b.scenario.name);
+        });
+        const slot1 = sortedByGap[0];
+
+        // 3. Select Slot 2: Weak (Min Strength)
+        const remainingAfterSlot1 = metrics.filter(m => m.scenario.name !== slot1.scenario.name);
+
+        const sortedByStrength = [...remainingAfterSlot1].sort((a, b) => {
+            // Primary: Current Strength (Ascending - find weakest)
+            const strengthDiff = a.current - b.current;
+            if (Math.abs(strengthDiff) > 0.0001) return strengthDiff;
+
+            // Secondary: Peak High Score (Ascending - find true inability, not just decay)
+            // If currents are equal (e.g. 0.0), the one with the LOWER peak is "weaker".
+            const peakDiff = a.peak - b.peak;
+            if (Math.abs(peakDiff) > 0.0001) return peakDiff;
+
+            // Tertiary: Alphabetical
+            return a.scenario.name.localeCompare(b.scenario.name);
+        });
+
+        const slot2 = sortedByStrength[0];
+
+        // 4. Select Slot 3: Weak #2 (Next Min Strength)
+        const slot3Candidates = sortedByStrength.filter(m => m.scenario.name !== slot2.scenario.name);
+        let slot3 = slot3Candidates[0];
+
+        // 5. Diversity Check (Deterministic)
+        // If Slot 2 and Slot 3 share category, try to swap Slot 3 with next worst
+        if (slot2.scenario.category === slot3.scenario.category) {
+            if (slot3Candidates.length > 1) {
+                const altCandidate = slot3Candidates[1];
+                // Only swap if skill gap is not significant (> 1.0 rank unit)
+                if (Math.abs(altCandidate.current - slot3.current) < 1.0) {
+                    slot3 = altCandidate;
+                }
+            }
+        }
+
+        return [slot1.scenario.name, slot2.scenario.name, slot3.scenario.name];
     }
 
     private _subscribeToSessionEvents(): void {
