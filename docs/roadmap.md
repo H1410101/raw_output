@@ -172,11 +172,13 @@
 - **Deliverable**: Core `RankedSessionService`, One-time Gauntlet, Cyclic Scenarios, and UI State.
 - **Commit Goal**: v4.1 tag establishes the backend and basic UI for ranked runs.
 
-### Checkpoint 4.2: HUD & Progress Visualization
+### Checkpoint 4.2: HUD & Progress Visualization (Done)
 - **Deliverable**: HUD Timer, Progress Bar, and Daily Rank Decay Logic.
-### Checkpoint 4.3: Rank Estimator & Prediction Math
-### Checkpoint 4.4: HUD Integration & Live Feedback
-### Checkpoint 4.5: Scenario Transitions & Flow
+### Checkpoint 4.3: Rank Estimator & Prediction Math (Done)
+### Checkpoint 4.4: Ranked UI Zen & Symmetry (Done)
+- **Deliverable**: Pixel-perfect centering, icon-based controls, and layout stability.
+### Checkpoint 4.5: HUD Integration & Live Feedback
+### Checkpoint 4.6: Scenario Transitions & Flow
 ### Checkpoint 4.6: Target Bar & HUD Visuals
 ### Checkpoint 4.7: Audio Feedback
 ### Checkpoint 4.8: Visual System Unification & Theme

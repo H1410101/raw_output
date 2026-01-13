@@ -54,6 +54,7 @@ export class BenchmarkRowRenderer {
    *
    * @param scenario - The benchmark scenario data.
    * @param highscore - The all-time highscore for this scenario.
+   * @param difficulty
    * @returns The constructed row HTMLElement.
    */
   public renderRow(
@@ -122,6 +123,7 @@ export class BenchmarkRowRenderer {
    * @param rowElement - The existing HTMLElement of the row.
    * @param scenario - The scenario data to apply.
    * @param highscore - The current all-time highscore.
+   * @param difficulty
    */
   public updateRow(
     rowElement: HTMLElement,

@@ -1,10 +1,8 @@
 import { RankedSessionService, RankedSessionState } from "../services/RankedSessionService";
 import { SessionService, SessionRankRecord } from "../services/SessionService";
 import { BenchmarkService } from "../services/BenchmarkService";
-import { RankEstimator } from "../services/RankEstimator";
+import { RankEstimator, EstimatedRank } from "../services/RankEstimator";
 import { AppStateService } from "../services/AppStateService";
-import { HUDTimer } from "./ui/HUDTimer";
-import { HUDProgressBar } from "./ui/HUDProgressBar";
 
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
@@ -20,8 +18,6 @@ export interface RankedViewDependencies {
 export class RankedView {
   private readonly _container: HTMLElement;
   private readonly _deps: RankedViewDependencies;
-  private readonly _timer: HUDTimer;
-  private readonly _progressBar: HUDProgressBar;
 
   /**
    * Initializes the view with its mount point.
@@ -32,8 +28,6 @@ export class RankedView {
   public constructor(container: HTMLElement, deps: RankedViewDependencies) {
     this._container = container;
     this._deps = deps;
-    this._timer = new HUDTimer();
-    this._progressBar = new HUDProgressBar();
 
     this._setupListeners();
   }
@@ -56,7 +50,6 @@ export class RankedView {
     document.body.classList.toggle("ranked-mode-active", isSessionActive);
 
     if (state.status === "IDLE") {
-      this._timer.stop();
       this._renderIdle(viewContainer);
     } else {
       this._renderActiveState(state, viewContainer);
@@ -112,7 +105,7 @@ export class RankedView {
   private _evolveIdentity(scenarioName: string, score: number): void {
     const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
     const scenarios = this._deps.benchmark.getScenarios(difficulty);
-    const scenario = scenarios.find((scenario) => scenario.name === scenarioName);
+    const scenario = scenarios.find((scenarioRef) => scenarioRef.name === scenarioName);
 
     if (scenario) {
       const sessionValue: number = this._deps.estimator.getScenarioContinuousValue(score, scenario);
@@ -141,7 +134,6 @@ export class RankedView {
     container.className = "holistic-rank-container";
 
     const estimate = this._calculateHolisticIdentityRank();
-
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
 
@@ -190,23 +182,7 @@ export class RankedView {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "ranked-container idle";
 
-    container.innerHTML = `
-                <div class="ranked-header">
-                    <h2>Ranked Session</h2>
-                    <p class="subtitle">Directed evaluation for <span class="accent-text">${difficulty}</span></p>
-                </div>
-                <div class="ranked-body">
-                    <div class="ranked-info-card">
-                        <h3>Guided Progression</h3>
-                        <p>Play 3 scenarios to refine your rank identity.</p>
-                        <p class="minor">Sequence is unique to this run.</p>
-                    </div>
-                </div>
-                <div class="ranked-footer">
-                    <button id="start-ranked-btn" class="action-btn-large">START RANKED RUN</button>
-                </div>
-        `;
-
+    container.innerHTML = this._getIdleHtml(difficulty);
     parent.appendChild(container);
 
     const startBtn: HTMLButtonElement | null = container.querySelector("#start-ranked-btn");
@@ -215,147 +191,173 @@ export class RankedView {
     });
   }
 
+  private _getIdleHtml(): string {
+    const estimate = this._calculateHolisticIdentityRank();
+
+    return `
+      <div class="ranked-info-top">
+          <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
+          <h2 class="ranked-scenario-name" style="visibility: hidden;">Placeholder</h2>
+      </div>
+      <div class="ranked-main">
+          <div class="ranked-target">
+              <div class="media-controls">
+                  <div class="controls-left" style="visibility: hidden;">
+                      <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+                  </div>
+                  <button class="media-btn primary" id="start-ranked-btn" title="Start Run">
+                      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  </button>
+                  <div class="controls-right" style="visibility: hidden;">
+                      <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+                  </div>
+              </div>
+          </div>
+      </div>
+      <div class="ranked-stats-bar" style="visibility: hidden;">
+          ${this._renderStatItem("TARGET RANK", estimate.rankName, true)}
+      </div>
+    `;
+  }
+
   private _renderActiveState(state: RankedSessionState, parent: HTMLElement): void {
-    const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
-    const currentScenario = this._deps.rankedSession.currentScenarioName;
-
-    let scenarioEstimate = "Unranked";
-    let isImproved = false;
-
-    if (currentScenario) {
-      const identity = this._deps.estimator.getScenarioIdentity(currentScenario);
-      scenarioEstimate = this._deps.estimator.getEstimateForValue(identity.continuousValue, difficulty).rankName;
-      isImproved = this._isImprovementDetected(identity.continuousValue, currentScenario);
-    }
+    const targetEstimate = this._calculateHolisticIdentityRank();
+    const sessionEstimate = this._getSessionEstimate();
+    const isImproved = this._checkIfCurrentImproved();
 
     const container: HTMLDivElement = document.createElement("div");
     container.className = "ranked-container active";
 
     container.innerHTML = `
-                <div class="ranked-stats-bar" id="hud-mount-point">
-                    <!-- HUD Elements will be injected here -->
-                    ${this._renderStatItem("TARGET RANK", scenarioEstimate, true)}
-                </div>
-                <div class="ranked-main">
-                    ${this._renderMainContent(state, isImproved)}
-                    ${this._renderNavigation(state, isImproved)}
-                </div>
-                <div class="ranked-footer">
-                    <button id="end-ranked-btn" class="secondary-btn">END RUN</button>
-                    <button id="reset-ranked-btn" class="secondary-btn">RESET RUN</button>
-                </div>
-        `;
-
-    const hudMount = container.querySelector("#hud-mount-point");
-    if (hudMount) {
-      hudMount.prepend(this._timer.element);
-      hudMount.insertBefore(this._progressBar.element, hudMount.children[1]);
-
-      this._timer.start(state.startTime!);
-      this._progressBar.update(state.currentIndex, state.sequence.length, !state.initialGauntletComplete);
-    }
+      ${this._renderMainContent(state, isImproved)}
+      
+      <div class="ranked-stats-bar">
+          ${this._renderStatItem("TARGET RANK", targetEstimate.rankName, true)}
+          ${this._renderStatItem("SESSION RANK", sessionEstimate.rankName, false)}
+      </div>
+    `;
 
     parent.appendChild(container);
-
     this._attachActiveListeners(container);
+  }
+
+  private _getSessionEstimate(): EstimatedRank {
+    const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
+    const scores = this._deps.session.getAllScenarioSessionBests();
+
+    return this._deps.estimator.calculateOverallRank(difficulty, this._convertToScoreMap(scores));
+  }
+
+  private _checkIfCurrentImproved(): boolean {
+    const current = this._deps.rankedSession.currentScenarioName;
+    if (!current) return false;
+
+    const identity = this._deps.estimator.getScenarioIdentity(current);
+
+    return this._isImproved(identity.continuousValue, current);
   }
 
   private _isImproved(identityValue: number, currentScenario: string): boolean {
     const bests = this._deps.session.getAllScenarioSessionBests();
-    const record = bests.find((record) => record.scenarioName === currentScenario);
+    const record = bests.find((recordRef) => recordRef.scenarioName === currentScenario);
     if (!record) return false;
 
-    const difficulty = this._deps.appState.getBenchmarkDifficulty();
-    const scenario = this._deps.benchmark.getScenarios(difficulty).find((scenario) => scenario.name === currentScenario);
+    const diff = this._deps.appState.getBenchmarkDifficulty();
+    const scenario = this._deps.benchmark.getScenarios(diff).find((scenarioRef) => scenarioRef.name === currentScenario);
     if (!scenario) return false;
 
-    const sessionValue = this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario);
-
-    return sessionValue > identityValue;
+    return this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario) > identityValue;
   }
 
   private _renderStatItem(label: string, value: string, highlighted: boolean = false): string {
     return `
-            <div class="stat-item ${highlighted ? "highlight" : ""}">
-                <span class="label">${label}</span>
-                <span class="value">${value}</span>
-            </div>
-        `;
+      <div class="stat-item ${highlighted ? "highlight" : ""}">
+          <span class="label">${label}</span>
+          <span class="value">${value}</span>
+      </div>
+    `;
   }
 
   private _renderMainContent(state: RankedSessionState, isImproved: boolean): string {
     if (state.status === "COMPLETED") {
-      const estimate = this._calculateHolisticIdentityRank();
-
-      return `
-                <div class="ranked-result">
-                    <h2 class="congrats">RUN COMPLETE</h2>
-                    <p class="summary-rank">IDENTITY RANK: <span class="accent">${estimate.rankName}</span></p>
-                    <p>Initial evaluation finished.</p>
-                    <button id="extend-ranked-btn" class="bonus-btn">+ CONTINUE UNINTERRUPTED</button>
-                </div>
-            `;
+      return this._renderCompletedContent();
     }
 
+    return this._renderScenarioContent(state, isImproved);
+  }
+
+  private _renderCompletedContent(): string {
+    const estimate = this._calculateHolisticIdentityRank();
+
+    return `
+      <div class="ranked-result">
+          <h2 class="congrats">RUN COMPLETE</h2>
+          <p class="summary-rank">IDENTITY RANK: <span class="accent">${estimate.rankName}</span></p>
+          <p>Initial evaluation finished.</p>
+      </div>
+    `;
+  }
+
+  private _renderScenarioContent(state: RankedSessionState, isImproved: boolean): string {
     const scenarioName = state.sequence[state.currentIndex];
 
     return `
-            <div class="ranked-target">
-                <span class="now-playing">NOW PLAYING</span>
-                <h2 class="ranked-scenario-name">${scenarioName}</h2>
-                <p class="instruction">Hit your target rank to light up the path.</p>
-                
-                <div class="media-controls">
-                    <button class="media-btn secondary" id="ranked-back-btn" title="Previous Scenario" ${state.currentIndex === 0 ? "disabled" : ""}>
-                        <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-                    </button>
-                    <button class="media-btn primary" id="ranked-play-now" title="Play Now">
-                        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                    </button>
-                    <button class="media-btn secondary ${isImproved ? "luminous" : ""}" id="next-ranked-btn" title="Next Scenario">
-                        <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-                    </button>
-                </div>
-            </div>
-        `;
+      <div class="ranked-info-top">
+          <span class="now-playing">NOW PLAYING</span>
+          <h2 class="ranked-scenario-name">${scenarioName}</h2>
+      </div>
+      
+      <div class="ranked-main">
+          <div class="ranked-target">
+              ${this._renderMediaControls(state, isImproved)}
+          </div>
+      </div>
+    `;
   }
 
-  private _renderNavigation(state: RankedSessionState, isImproved: boolean): string {
-    return ""; // Navigation consolidated into media-controls in main content
+  private _renderMediaControls(state: RankedSessionState, isImproved: boolean): string {
+    return `
+      <div class="media-controls">
+          <div class="controls-left">
+              <button class="media-btn secondary" id="ranked-back-btn" title="Previous" ${state.currentIndex === 0 ? "disabled" : ""}>
+                  <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+              </button>
+          </div>
+
+          <button class="media-btn primary" id="ranked-play-now" title="Play Now">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+
+          <div class="controls-right">
+              <button class="media-btn secondary ${isImproved ? "luminous" : "dull"}" id="next-ranked-btn" title="Next">
+                  <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+              </button>
+              <button class="media-btn secondary destructive" id="end-ranked-btn">
+                  <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+          </div>
+      </div>
+    `;
   }
 
   private _attachActiveListeners(container: HTMLElement): void {
-    const resetBtn: HTMLButtonElement | null = container.querySelector("#reset-ranked-btn");
-    resetBtn?.addEventListener("click", (): void => {
-      this._deps.rankedSession.reset();
-    });
-
     const nextBtn: HTMLButtonElement | null = container.querySelector("#next-ranked-btn");
-    nextBtn?.addEventListener("click", (): void => {
-      this._deps.rankedSession.advance();
-    });
+    nextBtn?.addEventListener("click", () => this._deps.rankedSession.advance());
 
     const extendBtn: HTMLButtonElement | null = container.querySelector("#extend-ranked-btn");
-    extendBtn?.addEventListener("click", (): void => {
-      this._deps.rankedSession.extendSession();
-    });
+    extendBtn?.addEventListener("click", () => this._deps.rankedSession.extendSession());
 
     const endBtn: HTMLButtonElement | null = container.querySelector("#end-ranked-btn");
-    endBtn?.addEventListener("click", (): void => {
-      this._deps.rankedSession.endSession();
-    });
+    endBtn?.addEventListener("click", () => this._deps.rankedSession.endSession());
 
     const playNowBtn: HTMLButtonElement | null = container.querySelector("#ranked-play-now");
-    playNowBtn?.addEventListener("click", (): void => {
-      const state = this._deps.rankedSession.state;
-      const scenarioName = state.sequence[state.currentIndex];
+    playNowBtn?.addEventListener("click", () => {
+      const scenarioName = this._deps.rankedSession.state.sequence[this._deps.rankedSession.state.currentIndex];
       this._launchScenario(scenarioName);
     });
 
     const backBtn: HTMLButtonElement | null = container.querySelector("#ranked-back-btn");
-    backBtn?.addEventListener("click", (): void => {
-      this._deps.rankedSession.retreat();
-    });
+    backBtn?.addEventListener("click", () => this._deps.rankedSession.retreat());
   }
 
   private _convertToScoreMap(bests: SessionRankRecord[]): Map<string, number> {
@@ -386,8 +388,8 @@ export class RankedView {
     let totalValue = 0;
     let count = 0;
 
-    scenarios.forEach(s => {
-      const identity = identities[s.name];
+    scenarios.forEach(scen => {
+      const identity = identities[scen.name];
       if (identity && identity.continuousValue !== -1) {
         totalValue += identity.continuousValue;
         count++;
@@ -395,6 +397,7 @@ export class RankedView {
     });
 
     const averageValue = count > 0 ? totalValue / count : -1;
+
     return this._deps.estimator.getEstimateForValue(averageValue, difficulty);
   }
 }

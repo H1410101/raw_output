@@ -262,6 +262,8 @@ export class RankedSessionService {
 
     /**
      * Generates a batch of 3 scenarios using Strong-Weak-Weak logic without randomness.
+     * @param difficulty
+     * @param excludeScenarios
      */
     private _generateNextBatch(difficulty: string, excludeScenarios: string[]): string[] {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);

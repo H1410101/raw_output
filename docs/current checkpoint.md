@@ -9,6 +9,7 @@ Enhance the rank estimation logic with predictive math, better weighting for sce
 - [x] Create Ranked Mechanics Design Document
 - [x] Implement enhanced prediction math in `RankEstimator` (Decay, Ranks, EMA)
 - [x] Refine weighting for balanced vs. focused performance (Hierarchical Aggregation)
-- [x] Implement Deterministic Scenario Selection (Strong-Weak-Weak)
+- [x] Integrate Ranked Math and Deterministic Selection into UI
+- [x] Refine Ranked UI Aesthetics (Font scaling, Button consolidation)
 
-**Next Step:** Verify UI Integration and Commit.
+**Next Step:** Commit and proceed to Phase 4.4 if applicable.

@@ -242,6 +242,8 @@ export class RankEstimator {
 
     /**
      * Calculates the single "Rank Unit" value for a score.
+     * @param score
+     * @param sortedThresholds
      */
     private static _calculateRankUnit(score: number, sortedThresholds: number[]): number {
         // 1. Identify Rank Index
@@ -259,6 +261,7 @@ export class RankEstimator {
         // If rankIndex is -1, it means S < thresholds[0].
         if (rankIndex === -1) {
             const t0 = sortedThresholds[0];
+
             return t0 > 0 ? (score / t0) * 0.99 : 0;
         }
 
@@ -281,11 +284,15 @@ export class RankEstimator {
         const safeInterval = interval > 0 ? interval : 1;
 
         const delta = (score - tLower) / safeInterval;
+
         return rankIndex + delta;
     }
 
     /**
      * Calculates the decayed rank value.
+     * @param current
+     * @param peak
+     * @param daysPassed
      */
     private static _calculateDecay(current: number, peak: number, daysPassed: number): number {
         // Spec 1.2
@@ -310,11 +317,14 @@ export class RankEstimator {
         // But let's be safe.
 
         const candidate = Math.min(expDecay, linDecay);
+
         return Math.max(floor, candidate);
     }
 
     /**
      * Aggregates rank values hierarchically.
+     * @param scenarios
+     * @param scores
      */
     private static _calculateHierarchicalAverage(
         scenarios: BenchmarkScenario[],

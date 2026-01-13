@@ -65,6 +65,7 @@ export class BenchmarkTableComponent {
    *
    * @param scenarios - The list of scenarios to display.
    * @param highscores - A map of all-time highscores.
+   * @param difficulty
    * @returns The root container of the table.
    */
   public render(
