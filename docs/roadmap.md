@@ -177,7 +177,10 @@
 ### Checkpoint 4.3: Rank Estimator & Prediction Math (Done)
 ### Checkpoint 4.4: Ranked UI Zen & Symmetry (Done)
 - **Deliverable**: Pixel-perfect centering, icon-based controls, and layout stability.
-### Checkpoint 4.5: HUD Integration & Live Feedback
+### Checkpoint 4.5: Target RU & Session Visuals (Done)
+- **Deliverable**: RU amount targets, session-only dot clouds with target notches, and standardized rank displays.
+- **Commit Goal**: v4.5 tag implements precision performance visualization in the Ranked HUD.
+### Checkpoint 4.6: HUD Integration & Live Feedback
 ### Checkpoint 4.6: Scenario Transitions & Flow
 ### Checkpoint 4.6: Target Bar & HUD Visuals
 ### Checkpoint 4.7: Audio Feedback

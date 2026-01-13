@@ -16,6 +16,8 @@ export interface DotCloudConfiguration {
   readonly settings: VisualSettings;
   readonly isLatestInSession: boolean;
   readonly rankInterval?: number;
+  readonly targetRU?: number;
+  readonly achievedRU?: number;
 }
 
 /**
@@ -32,6 +34,8 @@ export class DotCloudComponent {
   private _settings: VisualSettings;
   private _mapper: RankScaleMapper;
   private _isLatestInSession: boolean;
+  private _targetRU?: number;
+  private _achievedRU?: number;
 
   private _canvasWidth: number = 0;
   private _canvasHeight: number = 0;
@@ -53,6 +57,8 @@ export class DotCloudComponent {
     this._rankThresholds = configuration.thresholds;
     this._settings = configuration.settings;
     this._isLatestInSession = configuration.isLatestInSession;
+    this._targetRU = configuration.targetRU;
+    this._achievedRU = configuration.achievedRU;
 
     this._recentEntries = ScoreProcessor.processTemporalScores(
       configuration.entries,
@@ -101,10 +107,14 @@ export class DotCloudComponent {
     thresholds: Record<string, number>,
     isLatestInSession: boolean,
     rankInterval?: number,
+    targetRU?: number,
+    achievedRU?: number,
   ): void {
     this._recentEntries = ScoreProcessor.processTemporalScores(entries);
     this._rankThresholds = thresholds;
     this._isLatestInSession = isLatestInSession;
+    this._targetRU = targetRU;
+    this._achievedRU = achievedRU;
 
     const thresholdValues: number[] = Object.values(thresholds).sort(
       (a: number, b: number) => a - b,
@@ -129,10 +139,8 @@ export class DotCloudComponent {
 
     this._syncContainerDimensions();
 
-    if (this._recentEntries.length > 0) {
-      this._setupVisualLayers();
-      this._performRenderCycle();
-    }
+    this._setupVisualLayers();
+    this._performRenderCycle();
 
     return this._container!;
   }
@@ -172,7 +180,7 @@ export class DotCloudComponent {
   private _handleDataUpdateSideEffects(): void {
     if (this._canvas) {
       this._rebuildRenderer();
-    } else if (this._container && this._recentEntries.length > 0) {
+    } else if (this._container) {
       this._setupVisualLayers();
     }
 
@@ -350,6 +358,8 @@ export class DotCloudComponent {
       bounds: this._calculateDynamicBounds(width),
       isLatestFromSession: this._isLatestInSession,
       settings: this._settings,
+      targetRU: this._targetRU,
+      achievedRU: this._achievedRU,
       dimensions: {
         width,
         height: this._canvasHeight,
@@ -366,6 +376,14 @@ export class DotCloudComponent {
     const scores: number[] = this._recentEntries.map(
       (entry: ScoreEntry): number => entry.score,
     );
+
+    if (scores.length === 0) {
+      const target = this._targetRU ?? this._achievedRU ?? 0;
+      return {
+        minRU: Math.floor(Math.max(0, target - 0.5)),
+        maxRU: Math.ceil(target + 0.5),
+      };
+    }
 
     const minRUScore: number = this._mapper.calculateRankUnit(
       Math.min(...scores),

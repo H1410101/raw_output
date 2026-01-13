@@ -81,7 +81,7 @@ export class BenchmarkRowRenderer {
       rowElement.appendChild(this._createSessionRankBadge(scenario));
     }
 
-    rowElement.appendChild(this._createIdentityRankBadge(scenario));
+    rowElement.appendChild(this._createEstimateRankBadge(scenario));
 
     rowElement.appendChild(this._createPlayButton(scenario.name));
 
@@ -134,7 +134,7 @@ export class BenchmarkRowRenderer {
     this._currentDifficulty = difficulty;
     this._updateRankBadges(rowElement, scenario, highscore);
     this._updateDotCloud(scenario);
-    this._updateIdentityBadge(rowElement, scenario);
+    this._updateEstimateBadge(rowElement, scenario);
   }
 
   private _updateRankBadges(
@@ -179,21 +179,21 @@ export class BenchmarkRowRenderer {
       bestScore === 0 || !isSessionActive ? "hidden" : "visible";
   }
 
-  private _updateIdentityBadge(
+  private _updateEstimateBadge(
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
   ): void {
-    const identityBadge: HTMLElement | null =
-      rowElement.querySelector(".identity-badge .badge-content");
-    if (identityBadge) {
-      const identity = this._rankEstimator.getScenarioIdentity(scenario.name);
+    const estimateBadge: HTMLElement | null =
+      rowElement.querySelector(".estimate-badge .badge-content");
+    if (estimateBadge) {
+      const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
       const difficultyEstimate = this._rankEstimator.getEstimateForValue(
-        identity.continuousValue,
+        estimate.continuousValue,
         this._currentDifficulty,
       );
 
-      this._fillIdentityBadgeContent(
-        identityBadge,
+      this._fillEstimateBadgeContent(
+        estimateBadge,
         difficultyEstimate.rankName,
         difficultyEstimate.progressToNext,
       );
@@ -350,23 +350,23 @@ export class BenchmarkRowRenderer {
     return badgeElement;
   }
 
-  private _createIdentityRankBadge(scenario: BenchmarkScenario): HTMLElement {
+  private _createEstimateRankBadge(scenario: BenchmarkScenario): HTMLElement {
     const badgeContainer: HTMLDivElement = document.createElement("div");
-    badgeContainer.className = "rank-badge-container identity-badge";
+    badgeContainer.className = "rank-badge-container estimate-badge";
 
     const badgeContent: HTMLDivElement = document.createElement("div");
     badgeContent.className = "badge-content";
 
-    const identity = this._rankEstimator.getScenarioIdentity(scenario.name);
-    const identityRank = this._rankEstimator.getEstimateForValue(identity.continuousValue, this._currentDifficulty);
+    const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
+    const estimateRank = this._rankEstimator.getEstimateForValue(estimate.continuousValue, this._currentDifficulty);
 
-    this._fillIdentityBadgeContent(badgeContent, identityRank.rankName, identityRank.progressToNext);
+    this._fillEstimateBadgeContent(badgeContent, estimateRank.rankName, estimateRank.progressToNext);
     badgeContainer.appendChild(badgeContent);
 
     return badgeContainer;
   }
 
-  private _fillIdentityBadgeContent(
+  private _fillEstimateBadgeContent(
     container: HTMLElement,
     rankName: string,
     progress: number,
@@ -495,13 +495,13 @@ export class BenchmarkRowRenderer {
   ): void {
     const state: LaunchHoldState = {
       progress: 100,
-      tickCount: 0,
       holdInterval: null,
       regenInterval: null,
       fadeTimeout: null,
       button,
       progressBar,
       scenarioName,
+      tickCount: 0,
     };
 
     button.addEventListener("mousedown", (event: MouseEvent): void => {

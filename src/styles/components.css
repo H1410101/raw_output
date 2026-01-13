@@ -38,13 +38,17 @@
     transition: filter 0.5s ease, opacity 0.5s ease;
 }
 
-/* Identity Badge Column */
-.identity-badge {
+/* Estimate Badge Column */
+.estimate-badge {
     opacity: 0.8;
 }
 
-.identity-badge .rank-name {
-    color: var(--upper-band-2);
+.estimate-badge .rank-name {
+    color: var(--lower-band-3);
+}
+
+.holistic-rank-container .rank-name:not(.unranked-text) {
+    color: var(--lower-band-3);
 }
 
 /* Media Player Controls */
@@ -162,4 +166,11 @@
     50% {
         box-shadow: 0 0 25px rgba(var(--accent-color-rgb), 0.4);
     }
+}
+
+.ranked-dot-cloud {
+    min-height: calc(2.2rem * var(--ui-scale));
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }

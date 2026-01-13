@@ -9,26 +9,26 @@ export interface EstimatedRank {
 }
 
 /**
- * Represents the persistent identity for a specific scenario.
+ * Represents the persistent estimate for a specific scenario.
  */
-export interface ScenarioIdentity {
+export interface ScenarioEstimate {
     readonly continuousValue: number;
     readonly highestAchieved: number;
     readonly lastUpdated: string;
 }
 
 /**
- * Represents the holistic identity across all scenarios.
+ * Represents the holistic estimate across all scenarios.
  */
-export type RankIdentityMap = Record<string, ScenarioIdentity>;
+export type RankEstimateMap = Record<string, ScenarioEstimate>;
 
 /**
- * Service for calculating holistic rank estimates and evolving per-scenario identities.
+ * Service for calculating holistic rank estimates and evolving per-scenario estimates.
  *
  * Implements the "Rank Mechanics Specification v4.3".
  */
 export class RankEstimator {
-    private static readonly _identityKey: string = "rank_identity_state_v2";
+    private static readonly _estimateKey: string = "rank_identity_state_v2";
     private static readonly _decayLambda: number = 0.05; // 5% per day linear baseline
     private static readonly _learningRate: number = 0.15; // increased from 0.1
     private static readonly _phi: number = 1.0; // Uncertainty factor
@@ -51,16 +51,16 @@ export class RankEstimator {
     }
 
     /**
-     * Retrieves the current persistent identity map.
+     * Retrieves the current persistent estimate map.
      *
-     * @returns The full identity map from storage.
+     * @returns The full estimate map from storage.
      */
-    public getIdentityMap(): RankIdentityMap {
-        const raw: string | null = localStorage.getItem(RankEstimator._identityKey);
+    public getEstimateMap(): RankEstimateMap {
+        const raw: string | null = localStorage.getItem(RankEstimator._estimateKey);
 
         if (raw) {
             try {
-                return JSON.parse(raw) as RankIdentityMap;
+                return JSON.parse(raw) as RankEstimateMap;
             } catch {
                 // Return default on error
             }
@@ -70,13 +70,13 @@ export class RankEstimator {
     }
 
     /**
-     * Retrieves the identity for a specific scenario.
+     * Retrieves the estimate for a specific scenario.
      *
      * @param scenarioName - The name of the scenario.
-     * @returns The scenario identity or a default unranked identity.
+     * @returns The scenario estimate or a default unranked estimate.
      */
-    public getScenarioIdentity(scenarioName: string): ScenarioIdentity {
-        const map: RankIdentityMap = this.getIdentityMap();
+    public getScenarioEstimate(scenarioName: string): ScenarioEstimate {
+        const map: RankEstimateMap = this.getEstimateMap();
 
         return map[scenarioName] || {
             continuousValue: -1,
@@ -118,14 +118,14 @@ export class RankEstimator {
     }
 
     /**
-     * Evolves the identity for a specific scenario.
+     * Evolves the estimate for a specific scenario.
      *
      * @param scenarioName - The scenario to update.
      * @param sessionRank - The continuous rank achieved in the current session.
      */
-    public evolveScenarioIdentity(scenarioName: string, sessionRank: number): void {
-        const map: RankIdentityMap = this.getIdentityMap();
-        const current: ScenarioIdentity = this.getScenarioIdentity(scenarioName);
+    public evolveScenarioEstimate(scenarioName: string, sessionRank: number): void {
+        const map: RankEstimateMap = this.getEstimateMap();
+        const current: ScenarioEstimate = this.getScenarioEstimate(scenarioName);
 
         let newValue: number = current.continuousValue;
 
@@ -143,7 +143,42 @@ export class RankEstimator {
             lastUpdated: new Date().toISOString(),
         };
 
-        localStorage.setItem(RankEstimator._identityKey, JSON.stringify(map));
+        localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
+    }
+
+    /**
+     * Calculates a holistic overall rank based on the current persistent estimates.
+     * Uses Hierarchical Aggregation (Specification 2.5).
+     *
+     * @param difficulty - The difficulty tier.
+     * @returns The aggregated estimated rank.
+     */
+    public calculateHolisticEstimateRank(difficulty: string): EstimatedRank {
+        const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
+        const rankNames: string[] = this._benchmarkService.getRankNames(difficulty);
+        const estimateMap = this.getEstimateMap();
+
+        if (scenarios.length === 0) {
+            return this._createEmptyEstimate();
+        }
+
+        // 1. Gather all existing estimates for this difficulty
+        const estimateRanks: Map<string, number> = new Map();
+        for (const scenario of scenarios) {
+            const estimate = estimateMap[scenario.name];
+            if (estimate && estimate.continuousValue !== -1) {
+                estimateRanks.set(scenario.name, estimate.continuousValue);
+            }
+        }
+
+        if (estimateRanks.size === 0) {
+            return this._createEmptyEstimate();
+        }
+
+        // 2. Aggregate Hierarchically
+        const overallRankValue = RankEstimator._calculateHierarchicalAverage(scenarios, estimateRanks);
+
+        return this._buildEstimate(overallRankValue, rankNames);
     }
 
     /**
@@ -182,17 +217,17 @@ export class RankEstimator {
     }
 
     /**
-     * Applies asymptotic daily decay across all known scenario identities.
+     * Applies asymptotic daily decay across all known scenario estimates.
      * Uses Max(Exponential, Linear) logic (Specification 1.2).
      */
     public applyDailyDecay(): void {
-        const map: RankIdentityMap = this.getIdentityMap();
+        const map: RankEstimateMap = this.getEstimateMap();
         const now: Date = new Date();
-        const updatedMap: RankIdentityMap = {};
+        const updatedMap: RankEstimateMap = {};
         let hasChanges = false;
 
-        for (const [scenario, identity] of Object.entries(map)) {
-            const last: Date = new Date(identity.lastUpdated);
+        for (const [scenario, estimate] of Object.entries(map)) {
+            const last: Date = new Date(estimate.lastUpdated);
 
             // Calculate days passed (float for precision, or floor?)
             // Spec says "delta t" in days.
@@ -200,41 +235,31 @@ export class RankEstimator {
             const daysPassed = msPassed / (1000 * 60 * 60 * 24);
 
             if (daysPassed <= 1.0) { // Only decay if > 24 hours
-                updatedMap[scenario] = identity;
+                updatedMap[scenario] = estimate;
                 continue;
             }
 
             // Perform Decay Math
             const newContinuous = RankEstimator._calculateDecay(
-                identity.continuousValue,
-                identity.highestAchieved,
+                estimate.continuousValue,
+                estimate.highestAchieved,
                 daysPassed
             );
 
-            if (Math.abs(newContinuous - identity.continuousValue) > 0.001) {
+            if (Math.abs(newContinuous - estimate.continuousValue) > 0.001) {
                 hasChanges = true;
                 updatedMap[scenario] = {
-                    ...identity,
+                    ...estimate,
                     continuousValue: newContinuous,
-                    // Note: We do NOT update lastUpdated on decay, 
-                    // otherwise we reset the decay timer without the user playing!
-                    // Actually, standard practice is to apply decay effectively "on access" or keep original time.
-                    // If we save it back, we must imply that the decay for *this period* is done.
-                    // However, our formula uses `daysPassed` since `lastUpdated`.
-                    // If we update `continuousValue` but NOT `lastUpdated`, next time we calculate decay,
-                    // we would use the OLD `lastUpdated` again, applying decay to the ALREADY decayed value based on the TOTAL time.
-                    // This matches the "Stateless" nature of the formula: DesiredState = f(OriginalState, TotalTime).
-                    // BUT: We are evolving `continuousValue` destructively here.
-                    // So we MUST update `lastUpdated` to `now` to "commit" the decay.
                     lastUpdated: now.toISOString()
                 };
             } else {
-                updatedMap[scenario] = identity;
+                updatedMap[scenario] = estimate;
             }
         }
 
         if (hasChanges) {
-            localStorage.setItem(RankEstimator._identityKey, JSON.stringify(updatedMap));
+            localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(updatedMap));
         }
     }
 
@@ -257,8 +282,6 @@ export class RankEstimator {
         }
 
         // 2. Unranked Case (Score < T_0)
-        // Spec 2.2: R = (S / T_0) * 0.99 -- Wait, T_0 IS the first threshold in the array (index 0).
-        // If rankIndex is -1, it means S < thresholds[0].
         if (rankIndex === -1) {
             const t0 = sortedThresholds[0];
 
@@ -266,18 +289,16 @@ export class RankEstimator {
         }
 
         // 3. Beyond Max Case
-        // Spec 2.2: V = T_max - T_max-1
         if (rankIndex === sortedThresholds.length - 1) {
             const tMax = sortedThresholds[rankIndex];
             const tPrev = rankIndex > 0 ? sortedThresholds[rankIndex - 1] : 0;
             const virtualInterval = tMax - tPrev;
-            const safeInterval = virtualInterval > 0 ? virtualInterval : 100; // Fallback
+            const safeInterval = virtualInterval > 0 ? virtualInterval : 100;
 
             return rankIndex + (score - tMax) / safeInterval;
         }
 
         // 4. Standard Case
-        // Spec 2.2: P = (S - T_i) / (T_i+1 - T_i)
         const tLower = sortedThresholds[rankIndex];
         const tUpper = sortedThresholds[rankIndex + 1];
         const interval = tUpper - tLower;
@@ -295,26 +316,14 @@ export class RankEstimator {
      * @param daysPassed
      */
     private static _calculateDecay(current: number, peak: number, daysPassed: number): number {
-        // Spec 1.2
         const floor = peak - 2 * RankEstimator._phi;
 
-        // If already below floor (unlikely but possible), stay there.
         if (current <= floor) {
             return current;
         }
 
-        // 1. Exponential Model (Half-Life 30 days)
         const expDecay = floor + (current - floor) * Math.pow(0.5, daysPassed / 30);
-
-        // 2. Linear Model (Saturation 90 days)
         const linDecay = current - (current - floor) * (daysPassed / 90);
-
-        // Logic: Max(Floor, Min(Exp, Lin)) -> "Most aggressive valid decay"
-        // Wait, Spec says: I_decayed = min(I_exp, I_lin). 
-        // We want the LOWER value (more decay).
-        // But we must floor it at I_floor.
-        // Actually both formulas inherently respect the floor conceptually if strictly applied to the delta.
-        // But let's be safe.
 
         const candidate = Math.min(expDecay, linDecay);
 
@@ -330,7 +339,6 @@ export class RankEstimator {
         scenarios: BenchmarkScenario[],
         scores: Map<string, number>
     ): number {
-        // Group by Category -> Subcategory
         const hierarchy: Record<string, Record<string, number[]>> = {};
 
         for (const scenario of scenarios) {
@@ -346,7 +354,6 @@ export class RankEstimator {
             hierarchy[cat][sub].push(val);
         }
 
-        // Average upwards
         const catAverages: number[] = [];
 
         for (const catKey in hierarchy) {
@@ -378,12 +385,8 @@ export class RankEstimator {
             rankLevel < 0
                 ? "Unranked"
                 : rankLevel >= rankNames.length
-                    ? rankNames[rankNames.length - 1] // Cap at max name
-                    : rankNames[rankLevel]; // Normal case
-
-        // If we heavily exceeded, we might want to show "MaxRank + 2" or something, 
-        // but for now we essentially clap the NAME, but keep the continuous value.
-        // Actually, if rankLevel > max, we should probably still show the max rank name.
+                    ? rankNames[rankNames.length - 1]
+                    : rankNames[rankLevel];
 
         return {
             rankName,

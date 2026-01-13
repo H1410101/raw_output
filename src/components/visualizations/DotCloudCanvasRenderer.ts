@@ -25,6 +25,8 @@ export interface RenderContext {
   readonly bounds: { minRU: number; maxRU: number };
   readonly isLatestFromSession: boolean;
   readonly settings: VisualSettings;
+  readonly targetRU?: number;
+  readonly achievedRU?: number;
   readonly dimensions: {
     readonly width: number;
     readonly height: number;
@@ -107,6 +109,14 @@ export class DotCloudCanvasRenderer {
     const labelColor: string = this._getLabelColor(styles);
 
     this._renderThresholds(notchHeight, labelColor, context);
+
+    if (context.targetRU !== undefined) {
+      this._renderTargetNotch(notchHeight, context);
+    }
+
+    if (context.achievedRU !== undefined) {
+      this._renderAchievedNotch(notchHeight, context);
+    }
   }
 
   /**
@@ -190,6 +200,74 @@ export class DotCloudCanvasRenderer {
         context,
       );
     });
+  }
+
+  private _renderTargetNotch(
+    notchHeight: number,
+    context: RenderContext,
+  ): void {
+    if (context.targetRU === undefined) return;
+
+    const rootStyles: CSSStyleDeclaration = getComputedStyle(document.documentElement);
+    const labelColor: string = rootStyles.getPropertyValue("--vis-label-color").trim();
+
+    const x: number = this._mapper.getHorizontalPosition(
+      context.targetRU,
+      context.bounds.minRU,
+      context.bounds.maxRU,
+      context.dimensions.width,
+    );
+
+    this._context.strokeStyle = labelColor;
+    this._context.globalAlpha = 0.4;
+    this._context.lineWidth = 1; // Match regular notches
+
+    // Short height for Target Marker
+    const shortHeight = notchHeight * 0.4;
+    const yStart = (notchHeight - shortHeight) / 2;
+
+    this._context.beginPath();
+    this._context.moveTo(x, yStart);
+    this._context.lineTo(x, yStart + shortHeight);
+    this._context.stroke();
+
+    this._context.globalAlpha = 1.0;
+  }
+
+  private _renderAchievedNotch(
+    notchHeight: number,
+    context: RenderContext,
+  ): void {
+    if (context.achievedRU === undefined) return;
+
+    const styles: CSSStyleDeclaration = getComputedStyle(this._context.canvas);
+    const highlightRgb: string = this._getStyleValue(styles, "--vis-highlight-rgb");
+    const latestRgb: string = this._getStyleValue(styles, "--vis-latest-rgb");
+
+    const x: number = this._mapper.getHorizontalPosition(
+      context.achievedRU,
+      context.bounds.minRU,
+      context.bounds.maxRU,
+      context.dimensions.width,
+    );
+
+    const isSession = context.isLatestFromSession;
+    const colorRgb = isSession ? highlightRgb : latestRgb;
+
+    this._context.strokeStyle = `rgb(${colorRgb})`;
+    this._context.globalAlpha = 1.0;
+    this._context.lineWidth = 2;
+
+    // Small notch for achieved Best
+    const shortHeight = notchHeight * 0.4;
+    const yStart = (notchHeight - shortHeight) / 2;
+
+    this._context.beginPath();
+    this._context.moveTo(x, yStart);
+    this._context.lineTo(x, yStart + shortHeight);
+    this._context.stroke();
+
+    this._context.globalAlpha = 1.0;
   }
 
   private _renderAllScores(

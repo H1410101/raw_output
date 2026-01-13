@@ -277,7 +277,7 @@ export class RankedSessionService {
 
         // 1. Calculate Metrics
         const metrics = pool.map(scenario => {
-            const identity = this._rankEstimator.getScenarioIdentity(scenario.name);
+            const identity = this._rankEstimator.getScenarioEstimate(scenario.name);
             const current = identity.continuousValue === -1 ? 0 : identity.continuousValue;
             const peak = identity.highestAchieved === -1 ? 0 : identity.highestAchieved;
 

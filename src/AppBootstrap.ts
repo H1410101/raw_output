@@ -214,6 +214,9 @@ export class AppBootstrap {
       benchmark: this._benchmarkService,
       estimator: this._rankEstimator,
       appState: this._appStateService,
+      history: this._historyService,
+      visualSettings: this._visualSettingsService,
+      audio: this._audioService,
     });
   }
 

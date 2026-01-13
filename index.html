@@ -1863,7 +1863,8 @@
             grid-row: 3;
             align-self: start;
             display: flex;
-            justify-content: center;
+            justify-content: space-around;
+            align-items: flex-start;
             gap: 2.5rem;
             padding: 1rem 1.75rem;
             background: rgba(var(--lower-band-1-rgb), 0.05);
@@ -1876,7 +1877,7 @@
         .stat-item {
             display: flex;
             flex-direction: column;
-            text-align: left;
+            align-items: center;
             min-width: 8rem;
         }
 
@@ -1887,19 +1888,19 @@
             letter-spacing: 0.15rem;
             color: var(--lower-band-1);
             opacity: 0.6;
-            margin-bottom: 0.35rem;
+            margin: 0;
+            line-height: 1;
         }
 
         .stat-item .value {
             font-size: calc(1.1rem * var(--label-font-multiplier));
             font-weight: 800;
-            color: var(--text-main);
+            color: var(--lower-band-3);
             letter-spacing: -0.01em;
         }
 
         .stat-item.highlight .value {
-            color: var(--accent-color);
-            text-shadow: 0 0 0.625rem rgba(var(--accent-color-rgb), 0.2);
+            color: var(--lower-band-3);
         }
 
         .ranked-main {

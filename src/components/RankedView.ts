@@ -3,6 +3,10 @@ import { SessionService, SessionRankRecord } from "../services/SessionService";
 import { BenchmarkService } from "../services/BenchmarkService";
 import { RankEstimator, EstimatedRank } from "../services/RankEstimator";
 import { AppStateService } from "../services/AppStateService";
+import { HistoryService } from "../services/HistoryService";
+import { VisualSettingsService } from "../services/VisualSettingsService";
+import { AudioService } from "../services/AudioService";
+import { DotCloudComponent } from "./visualizations/DotCloudComponent";
 
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
@@ -10,6 +14,9 @@ export interface RankedViewDependencies {
   readonly benchmark: BenchmarkService;
   readonly estimator: RankEstimator;
   readonly appState: AppStateService;
+  readonly history: HistoryService;
+  readonly visualSettings: VisualSettingsService;
+  readonly audio: AudioService;
 }
 
 /**
@@ -96,20 +103,20 @@ export class RankedView {
     );
 
     if (record) {
-      this._evolveIdentity(record.scenarioName, record.bestScore);
+      this._evolveEstimate(record.scenarioName, record.bestScore);
     }
 
     this.refresh();
   }
 
-  private _evolveIdentity(scenarioName: string, score: number): void {
+  private _evolveEstimate(scenarioName: string, score: number): void {
     const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
     const scenarios = this._deps.benchmark.getScenarios(difficulty);
     const scenario = scenarios.find((scenarioRef) => scenarioRef.name === scenarioName);
 
     if (scenario) {
       const sessionValue: number = this._deps.estimator.getScenarioContinuousValue(score, scenario);
-      this._deps.estimator.evolveScenarioIdentity(scenarioName, sessionValue);
+      this._deps.estimator.evolveScenarioEstimate(scenarioName, sessionValue);
     }
   }
 
@@ -133,7 +140,7 @@ export class RankedView {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "holistic-rank-container";
 
-    const estimate = this._calculateHolisticIdentityRank();
+    const estimate = this._calculateHolisticEstimateRank();
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
 
@@ -145,6 +152,15 @@ export class RankedView {
     `;
 
     return container;
+  }
+
+  private _formatRankValue(estimate: EstimatedRank): string {
+    if (estimate.rankName === "Unranked") {
+      return `<span class="rank-name unranked-text">Unranked</span><span class="rank-progress"></span>`;
+    }
+
+    const cleanName = estimate.rankName.replace(/\s+Rank$/i, "");
+    return `<span class="rank-name">${cleanName}</span><span class="rank-progress">+${estimate.progressToNext}%</span>`;
   }
 
   private _createDifficultyTabs(): HTMLElement {
@@ -192,8 +208,6 @@ export class RankedView {
   }
 
   private _getIdleHtml(): string {
-    const estimate = this._calculateHolisticIdentityRank();
-
     return `
       <div class="ranked-info-top">
           <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
@@ -201,6 +215,7 @@ export class RankedView {
       </div>
       <div class="ranked-main">
           <div class="ranked-target">
+              <div class="dot-cloud-container ranked-dot-cloud" style="visibility: hidden;"></div>
               <div class="media-controls">
                   <div class="controls-left" style="visibility: hidden;">
                       <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
@@ -214,14 +229,11 @@ export class RankedView {
               </div>
           </div>
       </div>
-      <div class="ranked-stats-bar" style="visibility: hidden;">
-          ${this._renderStatItem("TARGET RANK", estimate.rankName, true)}
-      </div>
     `;
   }
 
   private _renderActiveState(state: RankedSessionState, parent: HTMLElement): void {
-    const targetEstimate = this._calculateHolisticIdentityRank();
+    const targetEstimate = this._calculateHolisticEstimateRank();
     const sessionEstimate = this._getSessionEstimate();
     const isImproved = this._checkIfCurrentImproved();
 
@@ -232,8 +244,8 @@ export class RankedView {
       ${this._renderMainContent(state, isImproved)}
       
       <div class="ranked-stats-bar">
-          ${this._renderStatItem("TARGET RANK", targetEstimate.rankName, true)}
-          ${this._renderStatItem("SESSION RANK", sessionEstimate.rankName, false)}
+          ${this._renderStatItem("TARGET", this._formatRankValue(targetEstimate), true)}
+          ${this._renderStatItem("ACHIEVED", this._formatRankValue(sessionEstimate), false)}
       </div>
     `;
 
@@ -252,12 +264,12 @@ export class RankedView {
     const current = this._deps.rankedSession.currentScenarioName;
     if (!current) return false;
 
-    const identity = this._deps.estimator.getScenarioIdentity(current);
+    const estimate = this._deps.estimator.getScenarioEstimate(current);
 
-    return this._isImproved(identity.continuousValue, current);
+    return this._isImproved(estimate.continuousValue, current);
   }
 
-  private _isImproved(identityValue: number, currentScenario: string): boolean {
+  private _isImproved(estimateValue: number, currentScenario: string): boolean {
     const bests = this._deps.session.getAllScenarioSessionBests();
     const record = bests.find((recordRef) => recordRef.scenarioName === currentScenario);
     if (!record) return false;
@@ -266,7 +278,7 @@ export class RankedView {
     const scenario = this._deps.benchmark.getScenarios(diff).find((scenarioRef) => scenarioRef.name === currentScenario);
     if (!scenario) return false;
 
-    return this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario) > identityValue;
+    return this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario) > estimateValue;
   }
 
   private _renderStatItem(label: string, value: string, highlighted: boolean = false): string {
@@ -287,15 +299,57 @@ export class RankedView {
   }
 
   private _renderCompletedContent(): string {
-    const estimate = this._calculateHolisticIdentityRank();
+    const estimate = this._calculateHolisticEstimateRank();
 
     return `
       <div class="ranked-result">
           <h2 class="congrats">RUN COMPLETE</h2>
-          <p class="summary-rank">IDENTITY RANK: <span class="accent">${estimate.rankName}</span></p>
+          <p class="summary-rank">ESTIMATE RANK: <span class="accent">${estimate.rankName}</span></p>
           <p>Initial evaluation finished.</p>
       </div>
     `;
+  }
+
+  private _renderDotCloud(scenarioName: string): string {
+    const containerId = `dot-cloud-${scenarioName.replace(/\s+/g, "-")}`;
+
+    // Check if session is active
+    const sessionStart = this._deps.session.sessionStartTimestamp;
+
+    this._deps.history.getLastScores(scenarioName, 100).then(scores => {
+      const sessionScores = scores.filter(s => sessionStart !== null && s.timestamp >= sessionStart);
+      const container = document.getElementById(containerId);
+
+      if (container) {
+        const diff = this._deps.appState.getBenchmarkDifficulty();
+        const scenario = this._deps.benchmark.getScenarios(diff).find(s => s.name === scenarioName);
+        if (!scenario) return;
+
+        const estimate = this._deps.estimator.getScenarioEstimate(scenarioName);
+
+        const sessionBest = sessionScores.length > 0
+          ? Math.max(...sessionScores.map(s => s.score))
+          : 0;
+
+        const achievedRU = sessionBest > 0
+          ? this._deps.estimator.getScenarioContinuousValue(sessionBest, scenario)
+          : undefined;
+
+        const dotCloud = new DotCloudComponent({
+          entries: sessionScores,
+          thresholds: scenario.thresholds,
+          settings: this._deps.visualSettings.getSettings(),
+          isLatestInSession: sessionScores.length > 0,
+          targetRU: estimate.continuousValue !== -1 ? estimate.continuousValue : undefined,
+          achievedRU
+        });
+
+        container.innerHTML = "";
+        container.appendChild(dotCloud.render());
+      }
+    });
+
+    return `<div id="${containerId}" class="dot-cloud-container ranked-dot-cloud"></div>`;
   }
 
   private _renderScenarioContent(state: RankedSessionState, isImproved: boolean): string {
@@ -309,6 +363,7 @@ export class RankedView {
       
       <div class="ranked-main">
           <div class="ranked-target">
+              ${this._renderDotCloud(scenarioName)}
               ${this._renderMediaControls(state, isImproved)}
           </div>
       </div>
@@ -370,8 +425,8 @@ export class RankedView {
     return scoreMap;
   }
 
-  private _isImprovementDetected(identityValue: number, currentScenario: string): boolean {
-    return this._isImproved(identityValue, currentScenario);
+  private _isImprovementDetected(estimateValue: number, currentScenario: string): boolean {
+    return this._isImproved(estimateValue, currentScenario);
   }
 
   private _launchScenario(scenarioName: string): void {
@@ -380,24 +435,8 @@ export class RankedView {
     window.location.href = steamUrl;
   }
 
-  private _calculateHolisticIdentityRank(): { rankName: string; color: string; progressToNext: number } {
-    const difficulty = this._deps.appState.getBenchmarkDifficulty();
-    const identities = this._deps.estimator.getIdentityMap();
-    const scenarios = this._deps.benchmark.getScenarios(difficulty);
-
-    let totalValue = 0;
-    let count = 0;
-
-    scenarios.forEach(scen => {
-      const identity = identities[scen.name];
-      if (identity && identity.continuousValue !== -1) {
-        totalValue += identity.continuousValue;
-        count++;
-      }
-    });
-
-    const averageValue = count > 0 ? totalValue / count : -1;
-
-    return this._deps.estimator.getEstimateForValue(averageValue, difficulty);
+  private _calculateHolisticEstimateRank(): EstimatedRank {
+    const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
+    return this._deps.estimator.calculateHolisticEstimateRank(difficulty);
   }
 }
