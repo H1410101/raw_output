@@ -122,9 +122,11 @@
 .media-btn:hover:not(:disabled) {
     background: rgba(var(--lower-band-1-rgb), 0.15);
     color: var(--lower-band-3);
+    box-shadow: inset 0 0 0.5rem rgba(var(--lower-band-3-rgb), 0.2);
     transition:
         background 0.1s ease-out,
-        color 0.1s ease-out;
+        color 0.1s ease-out,
+        box-shadow 0.1s ease-out;
 }
 
 .media-btn.primary:hover {
