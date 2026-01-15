@@ -155,25 +155,43 @@ export class MockServiceFactory {
 
     private static _createVisualSettingsService(overrides: Record<string, unknown> = {}): VisualSettingsService {
         return {
-            getSettings: vi.fn().mockReturnValue({
-                theme: "dark",
-                scenarioFontSize: "Normal",
-                uiScaling: "Normal",
-                showDotCloud: true,
-                showSessionBest: true,
-                showAllTimeBest: true,
-                showRanks: true,
-                showRankEstimate: true,
-                categorySpacing: "Normal",
-                headerFontSize: "Normal",
-                labelFontSize: "Normal",
-                visDotSize: "Normal",
-                rankFontSize: "Normal"
-            }),
+            getSettings: vi.fn().mockReturnValue(this._createDefaultVisualSettings()),
             subscribe: vi.fn(),
             updateSetting: vi.fn(),
             ...overrides
         } as unknown as VisualSettingsService;
+    }
+
+
+    private static _createDefaultVisualSettings(): VisualSettings {
+        return {
+            theme: "dark",
+            showDotCloud: true,
+            dotOpacity: 40,
+            scalingMode: "Aligned",
+            dotSize: "Normal",
+            visDotSize: "Normal",
+            uiScaling: "Normal",
+            marginSpacing: "Normal",
+            verticalSpacing: "Normal",
+            scenarioFontSize: "Normal",
+            rankFontSize: "Normal",
+            launchButtonSize: "Normal",
+            headerFontSize: "Normal",
+            labelFontSize: "Normal",
+            categorySpacing: "Normal",
+            dotCloudSize: "Normal",
+            dotCloudWidth: "Normal",
+            visRankFontSize: "Normal",
+            showSessionBest: true,
+            showAllTimeBest: true,
+            dotJitterIntensity: "Normal",
+            showRankNotches: true,
+            highlightLatestRun: true,
+            showRankEstimate: true,
+            showRanks: true,
+            audioVolume: 80
+        };
     }
 
 

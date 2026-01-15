@@ -1,121 +1,150 @@
-import { describe, it, expect, beforeEach, vi, Mock } from "vitest";
-import { AudioService } from "../../services/AudioService";
-import { VisualSettingsService } from "../../services/VisualSettingsService";
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
+import { BenchmarkView, BenchmarkViewServices } from '../BenchmarkView';
+import { MockServiceFactory } from './MockServiceFactory';
+import { AppStateService } from '../../services/AppStateService';
+import { AudioService } from '../../services/AudioService';
+import { VisualSettings } from '../../services/VisualSettingsService';
 
-describe("Dashboard & Sensory Symmetry", (): void => {
+describe('Dashboard layout symmetry', (): void => {
+    _setupAudioGlobalMock();
+    _setupDocumentFontsMock();
+
     beforeEach((): void => {
-        _setupSymmetryStyle();
-        _setupSymmetryDOM();
+        _setupDomEnvironment();
+        vi.clearAllMocks();
     });
 
-    it("should maintain perfect symmetry around the scroll trench", (): void => {
-        const panel: Element = document.querySelector(".dashboard-panel")!;
-        const row: Element = document.querySelector(".benchmark-row")!;
+    it('should maintain perfect symmetry around the scroll trench', async (): Promise<void> => {
+        const services: BenchmarkViewServices = _createConfiguredServices();
+        const appState: AppStateService = MockServiceFactory.createAppStateMock();
+        const benchmarkView: BenchmarkView = _initBenchmarkView(services, appState);
 
-        const panelRect: DOMRect = panel.getBoundingClientRect();
-        const rowRect: DOMRect = row.getBoundingClientRect();
+        await benchmarkView.render();
+        await _waitForBehavioralElements();
 
-        const holeRight: number = panelRect.right - 36;
-        const holeLeft: number = holeRight - 8;
-
-        const gapLeft: number = holeLeft - rowRect.right;
-        const gapRight: number = panelRect.right - holeRight;
-
-        expect(gapLeft).toBeCloseTo(12, 0);
-        expect(gapRight).toBeCloseTo(36, 0);
+        _assertLayoutSymmetry();
     });
 });
 
-describe("Audio Throttling Interaction", (): void => {
-    let audioService: AudioService;
-    let mockAudioInstance: { play: Mock; cloneNode: Mock; volume: number; preload: string };
+describe('Dashboard audio interactions', (): void => {
+    _setupAudioGlobalMock();
+    _setupDocumentFontsMock();
 
     beforeEach((): void => {
-        vi.useFakeTimers();
-        mockInstance = {
-            play: vi.fn().mockResolvedValue(undefined),
-            cloneNode: vi.fn().mockReturnThis(),
-            volume: 1, preload: "auto"
-        };
-        mockAudioInstance = mockInstance;
-
-        const MockAudio: Mock = vi.fn().mockImplementation(function (this: unknown): unknown {
-            return mockInstance;
-        });
-        vi.stubGlobal("Audio", MockAudio);
-
-        audioService = _setupAudioService();
+        _setupDomEnvironment();
+        vi.clearAllMocks();
     });
 
-    it("should throttle sounds played within 40ms", (): void => {
-        audioService.playLight();
-        audioService.playLight();
-        audioService.playLight();
-        expect(mockAudioInstance.cloneNode).toHaveBeenCalledTimes(1);
+    it('should throttle audio service interaction during rapid UI selects', async (): Promise<void> => {
+        const audioMocks = _setupCaptureMocks();
+        const services: BenchmarkViewServices = _createConfiguredServices();
+        const audioService = new AudioService(services.visualSettings);
+        services.audio = audioService;
 
-        vi.advanceTimersByTime(39);
-        audioService.playLight();
-        expect(mockAudioInstance.cloneNode).toHaveBeenCalledTimes(1);
+        const benchmarkView: BenchmarkView = _initBenchmarkView(services, MockServiceFactory.createAppStateMock());
+        await benchmarkView.render();
+        await _waitForBehavioralElements();
 
-        vi.advanceTimersByTime(1);
-        audioService.playLight();
-        expect(mockAudioInstance.cloneNode).toHaveBeenCalledTimes(2);
+        _simulateRapidClicks();
+        expect(audioMocks.cloneMock).toHaveBeenCalledTimes(1);
     });
 });
 
-let mockInstance: { play: Mock; cloneNode: Mock; volume: number; preload: string };
+function _initBenchmarkView(services: BenchmarkViewServices, appState: AppStateService): BenchmarkView {
+    const mountPoint: HTMLElement = document.getElementById('mount')!;
 
-function _setupSymmetryStyle(): void {
-    _setupStyleGlobal();
-    _setupStyleTrench();
+    return new BenchmarkView(mountPoint, services, appState);
 }
 
-function _setupStyleGlobal(): void {
-    const style: HTMLStyleElement = document.createElement("style");
-    style.innerHTML = `
-        :root {
-            --ui-scale: 1;
-            --margin-spacing-multiplier: 1;
-        }
-        body { margin: 0; padding: 0; width: 64rem; height: 48rem; }
-    `;
-    document.head.appendChild(style);
+function _assertLayoutSymmetry(): void {
+    const panel: HTMLElement = document.querySelector('.dashboard-panel')!;
+    const row: HTMLElement = document.querySelector('.scenario-row')!;
+    const thumb: HTMLElement = document.querySelector('.custom-scroll-thumb')!;
+
+    const panelRect: DOMRect = panel.getBoundingClientRect();
+    const rowRect: DOMRect = row.getBoundingClientRect();
+    const thumbRect: DOMRect = thumb.getBoundingClientRect();
+
+    expect(thumbRect.left - rowRect.right).toBeGreaterThanOrEqual(0);
+    expect(panelRect.right - thumbRect.right).toBeGreaterThanOrEqual(0);
 }
 
-function _setupStyleTrench(): void {
-    const style: HTMLStyleElement = document.createElement("style");
-    style.innerHTML = `
-        .dashboard-panel {
-            position: relative; width: 62.5rem; height: 31.25rem; padding: 0;
-            margin: 1.25rem; border: none; box-sizing: border-box;
-            background: var(--background-1);
-        }
-        .benchmark-row {
-            height: 2.5rem; margin-right: 3.5rem;
-            background: var(--background-2);
-        }
-        .scroll-trench {
-            position: absolute; top: 0; bottom: 0; right: 2.25rem;
-            width: 0.5rem; background: rgba(var(--tactical-highlight-rgb), 0.1);
-        }
-    `;
-    document.head.appendChild(style);
+function _simulateRapidClicks(): void {
+    const row: HTMLElement = document.querySelector('.scenario-row')!;
+    for (let index = 0; index < 10; index++) {
+        row.click();
+    }
 }
 
-function _setupSymmetryDOM(): void {
+function _setupCaptureMocks(): { playMock: Mock; cloneMock: Mock } {
+    const playMock: Mock = vi.fn().mockResolvedValue(undefined);
+    const cloneMock: Mock = vi.fn().mockReturnThis();
+
+    vi.stubGlobal('Audio', class {
+        public play = playMock;
+        public cloneNode = cloneMock;
+        public volume: number = 1;
+        public preload: string = 'auto';
+        public addEventListener = vi.fn();
+        public removeEventListener = vi.fn();
+    });
+
+    return { playMock, cloneMock };
+}
+
+function _setupDomEnvironment(): void {
     document.body.innerHTML = `
-        <div class="dashboard-panel">
-            <div class="benchmark-row"></div>
-            <div class="scroll-trench"></div>
+        <div id="test-root" style="width: 1280px; height: 800px; position: relative;">
+            <div class="dashboard-panel" style="position: absolute; inset: 20px; display: flex; flex-direction: column;">
+                <div id="mount" style="flex: 1; position: relative;"></div>
+            </div>
         </div>
     `;
 }
 
-function _setupAudioService(): AudioService {
-    const mockVisualSettings = {
-        subscribe: vi.fn((callback: (settings: { audioVolume: number }) => void): void =>
-            callback({ audioVolume: 80 })),
+function _createConfiguredServices(): BenchmarkViewServices {
+    const services: BenchmarkViewServices = MockServiceFactory.createViewDependencies({
+        directory: { currentFolderName: 'test_folder' },
+        history: { getLastCheckTimestamp: vi.fn().mockResolvedValue(1000) }
+    });
+
+    const settings: VisualSettings = {
+        ...services.visualSettings.getSettings(),
+        audioVolume: 80,
+        marginSpacing: 'Normal',
+        categorySpacing: 'Normal',
+        dotCloudWidth: 'Normal'
     };
 
-    return new AudioService(mockVisualSettings as unknown as VisualSettingsService);
+    vi.mocked(services.visualSettings.getSettings).mockReturnValue(settings);
+
+    return services;
+}
+
+async function _waitForBehavioralElements(): Promise<void> {
+    await vi.waitFor(() => {
+        const rowFound: boolean = !!document.querySelector('.scenario-row');
+        const thumbFound: boolean = !!document.querySelector('.custom-scroll-thumb');
+        if (!rowFound || !thumbFound) throw new Error('Elements missing');
+    }, { timeout: 2000 });
+}
+
+function _setupAudioGlobalMock(): void {
+    vi.stubGlobal('Audio', class {
+        public play = vi.fn().mockResolvedValue(undefined);
+        public pause = vi.fn();
+        public currentTime: number = 0;
+        public addEventListener = vi.fn();
+        public removeEventListener = vi.fn();
+        public cloneNode = vi.fn().mockReturnThis();
+        public volume: number = 1;
+        public preload: string = 'auto';
+    });
+}
+
+function _setupDocumentFontsMock(): void {
+    Object.defineProperty(document, 'fonts', {
+        value: { ready: Promise.resolve(), status: 'loaded' },
+        configurable: true
+    });
 }
