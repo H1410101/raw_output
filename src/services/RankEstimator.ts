@@ -166,17 +166,16 @@ export class RankEstimator {
             return this._createEmptyEstimate();
         }
 
-        // 1. Gather all existing estimates for this difficulty
+        // 1. Gather all estimates for this difficulty
         const estimateRanks: Map<string, number> = new Map();
         for (const scenario of scenarios) {
             const estimate = estimateMap[scenario.name];
+            // Treat unranked (-1) or missing as 0 (0 RU)
+            let val = 0;
             if (estimate && estimate.continuousValue !== -1) {
-                estimateRanks.set(scenario.name, estimate.continuousValue);
+                val = estimate.continuousValue;
             }
-        }
-
-        if (estimateRanks.size === 0) {
-            return this._createEmptyEstimate();
+            estimateRanks.set(scenario.name, val);
         }
 
         // 2. Aggregate Hierarchically
