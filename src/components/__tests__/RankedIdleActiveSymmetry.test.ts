@@ -57,7 +57,7 @@ function _setupLayoutStyles(): void {
     // Emulate the new flex layout with gap
     style.innerHTML = `
         .ranked-container {
-            justify-content: center;
+            justify-content: flex-end;
             align-items: center;
             gap: 1rem;
         }

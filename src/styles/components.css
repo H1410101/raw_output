@@ -136,6 +136,15 @@
     box-shadow: 0 0 1.875rem rgba(var(--accent-color-rgb), 0.5);
 }
 
+.media-btn.primary:active:not(:disabled),
+.media-btn.primary.active {
+    background: rgba(var(--accent-color-rgb), 0.1);
+    color: var(--accent-color);
+    /* Retain a border-like effect with inset shadow to avoid layout shift */
+    box-shadow: inset 0 0 0 2px var(--accent-color), 0 0 1rem rgba(var(--accent-color-rgb), 0.4);
+    transition: none;
+}
+
 .media-btn:active:not(:disabled),
 .media-btn.active {
     color: var(--accent-color);
