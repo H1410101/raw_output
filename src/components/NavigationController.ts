@@ -142,6 +142,8 @@ export class NavigationController {
     await this._benchmarkView.tryReturnToTable();
 
     this._appStateService.setActiveTabId("nav-ranked");
+
+    await this._rankedView.render();
     this._updateVisibleView(this._viewRanked);
   }
 

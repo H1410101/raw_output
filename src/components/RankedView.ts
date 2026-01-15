@@ -559,7 +559,11 @@ export class RankedView {
     }
 
     if (rankedNavBtn) {
-      rankedNavBtn.classList.toggle("active", !isFolderActive);
+      const isRankedTabActive = this._deps.appState.getActiveTabId() === "nav-ranked";
+
+      if (isRankedTabActive) {
+        rankedNavBtn.classList.toggle("active", !isFolderActive);
+      }
     }
   }
 }
