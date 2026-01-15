@@ -215,6 +215,7 @@ export class AppBootstrap {
       appState: this._appStateService,
       history: this._historyService,
       visualSettings: this._visualSettingsService,
+      sessionSettings: this._sessionSettingsService,
       audio: this._audioService,
       directory: this._directoryService,
       folderActions: {

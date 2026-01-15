@@ -108,10 +108,9 @@
 }
 
 .media-btn.primary svg {
-    width: calc(1.5rem * var(--label-font-multiplier));
-    height: calc(1.5rem * var(--label-font-multiplier));
-    margin-left: calc(0.1rem * var(--label-font-multiplier));
-    /* Visual centering for play triangle */
+    width: 100%;
+    height: 100%;
+    /* margin-left removed to allow pure centering of the ring; triangle optical centering handled in SVG if needed */
 }
 
 .media-btn.secondary {
@@ -185,6 +184,16 @@
 
     50% {
         box-shadow: 0 0 1.5625rem rgba(var(--accent-color-rgb), 0.4);
+    }
+}
+
+@keyframes drain-vertical {
+    from {
+        transform: translateY(-100%);
+    }
+
+    to {
+        transform: translateY(0%);
     }
 }
 

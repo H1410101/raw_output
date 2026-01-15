@@ -12,6 +12,7 @@ import { RankTimelineComponent } from "./visualizations/RankTimelineComponent";
 import { FolderSettingsView } from "./ui/FolderSettingsView";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
+import { SessionSettingsService } from "../services/SessionSettingsService";
 
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
@@ -21,6 +22,7 @@ export interface RankedViewDependencies {
   readonly appState: AppStateService;
   readonly history: HistoryService;
   readonly visualSettings: VisualSettingsService;
+  readonly sessionSettings: SessionSettingsService;
   readonly audio: AudioService;
   readonly directory: DirectoryAccessService;
   readonly folderActions: {
@@ -135,6 +137,10 @@ export class RankedView {
 
     this._deps.session.onSessionUpdated((): void => {
       this._handleSessionUpdate();
+    });
+
+    this._deps.sessionSettings.subscribe((): void => {
+      this.refresh();
     });
   }
 
@@ -268,7 +274,11 @@ export class RankedView {
               <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
           </div>
           <button class="media-btn primary" id="start-ranked-btn">
-              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <svg viewBox="0 0 24 24">
+                  <g transform="matrix(0.6 0 0 0.6 4.8 4.8)">
+                      <path d="M8 5v14l11-7z"/>
+                  </g>
+              </svg>
           </button>
           <div class="controls-right" style="visibility: hidden;">
               <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
@@ -445,9 +455,7 @@ export class RankedView {
               </button>
           </div>
 
-          <button class="media-btn primary" id="ranked-play-now">
-              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-          </button>
+          ${this._getPlayButtonHtml()}
 
           <div class="controls-right">
               <button class="media-btn secondary ${isImproved ? "luminous" : "dull"}" id="next-ranked-btn">
@@ -458,6 +466,23 @@ export class RankedView {
               </button>
           </div>
       </div>
+    `;
+  }
+
+  private _getPlayButtonHtml(): string {
+    return `
+      <button class="media-btn primary" id="ranked-play-now">
+          <svg viewBox="0 0 24 24">
+              <mask id="play-drain-mask">
+                  <rect x="0" y="0" width="24" height="24" fill="black" />
+                  <rect id="play-drain-water" x="0" y="0" width="24" height="24" fill="white" />
+              </mask>
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none" mask="url(#play-drain-mask)" />
+              <g transform="matrix(0.6 0 0 0.6 4.8 4.8)">
+                  <path d="M8 5v14l11-7z"/>
+              </g>
+          </svg>
+      </button>
     `;
   }
 
@@ -485,6 +510,43 @@ export class RankedView {
       const popup: RankedHelpPopupComponent = new RankedHelpPopupComponent(this._deps.audio);
       popup.render();
     });
+
+    this._updateDrainAnimation(container);
+  }
+
+  private _updateDrainAnimation(container: HTMLElement): void {
+    const water: HTMLElement | null = container.querySelector("#play-drain-water");
+    if (!water) return;
+
+    const elapsed = this._deps.rankedSession.elapsedSeconds;
+    const totalMinutes = this._deps.sessionSettings.getSettings().rankedIntervalMinutes;
+    const totalSeconds = totalMinutes * 60;
+
+    // We animate the black rect from y=0 (obscuring nothing? Wait)
+    // Goal: "Cut-out initially filled" (VISIBLE Circle) -> "Unfill" (INVISIBLE Circle).
+    // White rect = Visible. Black rect = Invisible.
+    // Initially: Mask should be White.
+    // As time passes: Top becomes Black.
+    // So Black rect moves DOWN from TOP?
+
+    // Let's rely on translation.
+    // Black rect at y=-24 (Above). Moves to y=0?
+    // If Black rect is over the shape, it hides it.
+    // We want to HIDE the top part.
+    // So Black rect starts at y=-24 (Not covering).
+    // Ends at y=0 (Covering).
+    // Wait, if it covers from TOP, then as it moves DOWN, it covers more.
+
+    // Let's check: Water drained.
+    // Full Container (Visible).
+    // Level Drops. Top becomes Empty (Invisible).
+    // So yes, we need to hide the top part progressively.
+    // So a Masking Shape (Black) enters from the Top?
+
+    // Reset
+    water.style.transition = "none";
+    water.style.animation = `drain-vertical ${totalSeconds}s linear forwards`;
+    water.style.animationDelay = `-${elapsed}s`;
   }
 
 
