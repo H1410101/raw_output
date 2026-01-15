@@ -85,7 +85,7 @@ export class RankService {
       currentRank: index === -1 ? "Unranked" : thresholds[index][0],
       nextRank: nextRankEntry[0],
       progressPercentage: progress,
-      rankLevel: index,
+      rankLevel: index + 1,
     };
   }
 
@@ -104,7 +104,7 @@ export class RankService {
       currentRank: index === -1 ? "Unranked" : thresholds[index][0],
       nextRank: null,
       progressPercentage: progress,
-      rankLevel: index,
+      rankLevel: index + 1,
     };
   }
 
@@ -149,7 +149,7 @@ export class RankService {
       currentRank: "Unranked",
       nextRank: null,
       progressPercentage: 0,
-      rankLevel: -1,
+      rankLevel: 0,
     };
   }
 }

@@ -410,8 +410,8 @@ export class DotCloudComponent {
     width: number,
   ): { minRU: number; maxRU: number } {
     const highestRankIndex: number = this._mapper.getHighestRankIndex();
-
-    if (maxRUScore <= highestRankIndex || width <= this._dotRadius * 2) {
+    const highestRU: number = highestRankIndex + 1;
+    if (maxRUScore <= highestRU || width <= this._dotRadius * 2) {
       return this._mapper.calculateAlignedBounds(minRUScore, maxRUScore);
     }
 

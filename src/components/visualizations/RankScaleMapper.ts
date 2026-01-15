@@ -76,13 +76,13 @@ export class RankScaleMapper {
    */
   public identifyRelevantThresholds(minRU: number, maxRU: number): number[] {
     const visibleIndices: number[] = Array.from(this._thresholds.keys()).filter(
-      (index: number): boolean => index >= minRU && index <= maxRU,
+      (index: number): boolean => index + 1 >= minRU && index + 1 <= maxRU,
     );
 
     const highestIndex: number = this._thresholds.length - 1;
 
     if (visibleIndices.length === 0 && highestIndex >= 0) {
-      return [this._getClampedFallbackIndex(minRU, highestIndex)];
+      visibleIndices.push(this._getClampedFallbackIndex(minRU, highestIndex));
     }
 
     return this._ensureMinimumContext(
@@ -155,15 +155,15 @@ export class RankScaleMapper {
 
     for (let i = 0; i < 5; i++) {
       const range: number = maxRU - minRU || 1;
-      const firstT: number = thresholdIndices[0];
-      const lastT: number = thresholdIndices[thresholdIndices.length - 1];
+      const firstTRU: number = thresholdIndices[0] + 1;
+      const lastTRU: number = thresholdIndices[thresholdIndices.length - 1] + 1;
 
-      if ((firstT - minRU) / range < 0.1) {
-        minRU = (firstT - 0.1 * maxRU) / 0.9;
+      if ((firstTRU - minRU) / range < 0.1) {
+        minRU = (firstTRU - 0.1 * maxRU) / 0.9;
       }
 
-      if ((lastT - minRU) / range > 0.9) {
-        maxRU = (lastT - 0.1 * minRU) / 0.9;
+      if ((lastTRU - minRU) / range > 0.9) {
+        maxRU = (lastTRU - 0.1 * minRU) / 0.9;
       }
     }
 
@@ -171,13 +171,10 @@ export class RankScaleMapper {
   }
 
   private _calculateLowerBoundRU(score: number): number {
-    const firstInterval: number = this._thresholds[1]
-      ? this._thresholds[1] - this._thresholds[0]
-      : this._averageRankInterval;
+    const firstThreshold = this._thresholds[0];
+    const denominator = firstThreshold > 0 ? firstThreshold : 1;
 
-    const denominator: number = firstInterval || 1;
-
-    return (score - this._thresholds[0]) / denominator;
+    return score / denominator;
   }
 
   private _calculateUpperBoundRU(score: number, lastIndex: number): number {
@@ -188,7 +185,7 @@ export class RankScaleMapper {
 
     const denominator: number = lastInterval || 1;
 
-    return lastIndex + (score - this._thresholds[lastIndex]) / denominator;
+    return lastIndex + 1 + (score - this._thresholds[lastIndex]) / denominator;
   }
 
   private _calculateInternalRU(score: number): number {
@@ -200,15 +197,15 @@ export class RankScaleMapper {
         const progress: number =
           segmentSize === 0 ? 0 : (score - this._thresholds[i]) / segmentSize;
 
-        return i + progress;
+        return i + 1 + progress;
       }
     }
 
-    return this._thresholds.length - 1;
+    return this._thresholds.length;
   }
 
   private _getClampedFallbackIndex(minRU: number, highest: number): number {
-    return Math.max(0, Math.min(highest, Math.floor(minRU)));
+    return Math.max(0, Math.min(highest, Math.floor(minRU - 1)));
   }
 
   private _ensureMinimumContext(
@@ -234,46 +231,18 @@ export class RankScaleMapper {
     maxRU: number,
     highest: number,
   ): void {
-    const isPrimaryThresholdLeft: boolean = this._isThresholdLeftOfCenter(
-      highest,
-      minRU,
-      maxRU,
-    );
+    const primaryIndex: number = indices[0];
+    const thresholdRU: number = primaryIndex + 1;
+    const centerRU: number = (minRU + maxRU) / 2;
 
-    if (!isPrimaryThresholdLeft) {
-      this._appendAdjacentIndex(indices, indices[0], highest);
-    }
-  }
-
-  private _isThresholdLeftOfCenter(
-    thresholdIndex: number,
-    minRU: number,
-    maxRU: number,
-  ): boolean {
-    const range: number = maxRU - minRU;
-
-    if (range === 0) {
-      return false;
-    }
-
-    const normalizedPosition: number = (thresholdIndex - minRU) / range;
-
-    return normalizedPosition < 0.5;
-  }
-
-  private _appendAdjacentIndex(
-    indices: number[],
-    baseIndex: number,
-    maxPossible: number,
-  ): void {
-    if (baseIndex < maxPossible) {
-      indices.push(baseIndex + 1);
-
-      return;
-    }
-
-    if (baseIndex > 0) {
-      indices.push(baseIndex - 1);
+    if (thresholdRU <= centerRU) {
+      if (primaryIndex < highest) {
+        indices.push(primaryIndex + 1);
+      }
+    } else {
+      if (primaryIndex > 0) {
+        indices.push(primaryIndex - 1);
+      }
     }
   }
 }

@@ -322,11 +322,13 @@ export class DotCloudCanvasRenderer {
       context.sortedThresholds[thresholdIndex];
 
     const x: number = this._mapper.getHorizontalPosition(
-      thresholdIndex,
+      thresholdIndex + 1,
       context.bounds.minRU,
       context.bounds.maxRU,
       context.dimensions.width,
     );
+
+    this._logThresholdDebugInfo({ name: rankName, index: thresholdIndex }, { x, height: notchHeight }, context);
 
     this._drawVerticalNotch(x, notchHeight, labelColor, context.settings);
 
@@ -335,6 +337,23 @@ export class DotCloudCanvasRenderer {
       x,
       labelColor,
       context.dimensions,
+    );
+  }
+
+  private _logThresholdDebugInfo(
+    threshold: { name: string; index: number },
+    geometry: { x: number; height: number },
+    context: RenderContext,
+  ): void {
+    console.log(
+      `[DotCloudDebug] Drawing Notch for ${threshold.name} (idx ${threshold.index})`,
+      {
+        x: geometry.x,
+        minRU: context.bounds.minRU,
+        maxRU: context.bounds.maxRU,
+        canvasWidth: context.dimensions.width,
+        notchHeight: geometry.height,
+      },
     );
   }
 

@@ -294,10 +294,11 @@ export class RankEstimator {
         }
 
         // 2. Unranked Case (Score < T_0)
+        // 2. Unranked Case (Score < T_0)
         if (rankIndex === -1) {
             const thresholdZero = sortedThresholds[0];
 
-            return thresholdZero > 0 ? (score / thresholdZero) * 0.99 : 0;
+            return thresholdZero > 0 ? (score / thresholdZero) : 0;
         }
 
         // 3. Beyond Max Case
@@ -307,7 +308,7 @@ export class RankEstimator {
             const virtualInterval = tMax - tPrev;
             const safeInterval = virtualInterval > 0 ? virtualInterval : 100;
 
-            return rankIndex + (score - tMax) / safeInterval;
+            return rankIndex + 1 + (score - tMax) / safeInterval;
         }
 
         // 4. Standard Case
@@ -318,7 +319,7 @@ export class RankEstimator {
 
         const delta = (score - tLower) / safeInterval;
 
-        return rankIndex + delta;
+        return rankIndex + 1 + delta;
     }
 
     /**
@@ -418,12 +419,14 @@ export class RankEstimator {
         const rankLevel: number = Math.floor(value);
         const progress: number = Math.min(99, Math.max(0, Math.round((value - rankLevel) * 100)));
 
-        const rankName: string =
-            rankLevel < 0
-                ? "Unranked"
-                : rankLevel >= rankNames.length
-                    ? rankNames[rankNames.length - 1]
-                    : rankNames[rankLevel];
+        let rankName: string = "Unranked";
+
+        if (rankLevel >= 1) {
+            const index = rankLevel - 1;
+            rankName = index >= rankNames.length
+                ? rankNames[rankNames.length - 1]
+                : rankNames[index];
+        }
 
         return {
             rankName,
