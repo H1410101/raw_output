@@ -204,9 +204,17 @@
     margin: 0;
     overflow: hidden;
     background: transparent;
-    /* Fade edges to indicate continuity */
-    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
-    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+}
+
+.timeline-track {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Fade from 30%->20% and 70%->80% */
+    mask-image: linear-gradient(to right, transparent 20%, black 30%, black 70%, transparent 80%);
+    -webkit-mask-image: linear-gradient(to right, transparent 20%, black 30%, black 70%, transparent 80%);
 }
 
 .timeline-axis {
@@ -280,4 +288,31 @@
 
 .label-achieved {
     color: var(--accent-color);
+}
+
+.timeline-caret {
+    position: absolute;
+    bottom: 50%;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-left: 0.09375rem solid var(--upper-band-2);
+    border-top: 0.09375rem solid var(--upper-band-2);
+    margin-bottom: 0.12rem;
+    /* Lift so bottom tip touches line */
+    transform: translateX(-50%) rotate(-45deg);
+    z-index: 20;
+    filter: drop-shadow(0 0 0.25rem rgba(var(--upper-band-2-rgb), 0.5));
+}
+
+.timeline-caret.offscreen {
+    /* Align left with the text, instead of centered */
+    transform: rotate(-45deg);
+}
+
+.timeline-marker-label.offscreen {
+    /* Align left with the caret, instead of centered */
+    transform: none;
+    text-align: left;
+    margin-left: 0.2rem;
+    /* Minor spacing adjustment for visual balance */
 }
