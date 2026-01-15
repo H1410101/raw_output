@@ -370,8 +370,8 @@ export class RankedView {
     const scenarios = this._deps.benchmark.getScenarios(difficulty);
 
     for (const name of scenarioNames) {
-      const record = bests.find(r => r.scenarioName === name);
-      const scenario = scenarios.find(s => s.name === name);
+      const record = bests.find((record: SessionRankRecord) => record.scenarioName === name);
+      const scenario = scenarios.find((scenario: BenchmarkScenario) => scenario.name === name);
 
       if (record && scenario) {
         const val = this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario);

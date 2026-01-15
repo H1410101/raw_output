@@ -22,7 +22,8 @@ interface ScenarioMetric {
     scenario: BenchmarkScenario;
     current: number;
     peak: number;
-    gap: number; // peak - current
+    // peak - current
+    gap: number;
 }
 
 /**
@@ -298,15 +299,15 @@ export class RankedSessionService {
         if (!strongMetric) {
             return this._getFallbackBatch(pool);
         }
-        metrics = metrics.filter(m => m.scenario.name !== strongMetric.scenario.name);
+        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== strongMetric.scenario.name);
 
         // 2. Select Weak Scenario
         const weakMetric: ScenarioMetric | null = this._selectWeakScenario(metrics);
         if (!weakMetric) {
             // Should happen rarely given pool size, but fallback
-            return [strongMetric.scenario.name, ...this._getFallbackBatch(pool.filter(s => s.name !== strongMetric.scenario.name))];
+            return [strongMetric.scenario.name, ...this._getFallbackBatch(pool.filter((scenario: BenchmarkScenario) => scenario.name !== strongMetric.scenario.name))];
         }
-        metrics = metrics.filter(m => m.scenario.name !== weakMetric.scenario.name);
+        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== weakMetric.scenario.name);
 
         // 3. Select Mid Scenario
         // Mid selection depends on the other two for diversity penalty
@@ -356,7 +357,8 @@ export class RankedSessionService {
                 continue;
             }
 
-            const dist = metric.peak - metric.current; // same as metric.gap
+            // same as metric.gap
+            const dist = metric.peak - metric.current;
 
             // min(current + dist, peak) + dist
             // since current + dist = peak, min(peak, peak) = peak.
@@ -406,9 +408,8 @@ export class RankedSessionService {
         let maxScore = -Infinity;
 
         for (const metric of metrics) {
-            const dist = metric.peak - metric.current;
-
             // max(current + dist, peak) = max(peak, peak) = peak
+
             // score = peak - current - penalty
             // penalty: same category 0.25, same subcategory 0.5 (cumulative per chosen scenario)
 
