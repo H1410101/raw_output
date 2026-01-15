@@ -186,14 +186,12 @@ export class MockServiceFactory {
             dotCloudSize: "Normal",
             dotCloudWidth: "Normal",
             visRankFontSize: "Normal",
-            showSessionBest: true,
-            showAllTimeBest: true,
+            showSessionBest: true, showAllTimeBest: true,
             dotJitterIntensity: "Normal",
-            showRankNotches: true,
-            highlightLatestRun: true,
-            showRankEstimate: true,
-            showRanks: true,
-            audioVolume: 80
+            showRankNotches: true, highlightLatestRun: true,
+            showRankEstimate: true, showRanks: true,
+            audioVolume: 80,
+            showIntervalsSettings: true
         };
     }
 

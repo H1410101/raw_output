@@ -59,7 +59,7 @@ export class SettingsSectionRenderer {
 
     this._appendDotCloudToggle(container, settings);
     this._appendRankToggles(container, settings);
-    container.appendChild(this._createSessionIntervalSlider());
+    this._appendIntervalsGroup(container, settings);
   }
 
   private _appendDotCloudToggle(
@@ -243,6 +243,32 @@ export class SettingsSectionRenderer {
     );
   }
 
+  private _appendIntervalsGroup(
+    container: HTMLElement,
+    settings: VisualSettings,
+  ): void {
+    const intervalsToggle: HTMLElement = SettingsUiFactory.createToggle(
+      "Intervals",
+      settings.showIntervalsSettings,
+      (val: boolean): void =>
+        this._visualSettingsService.updateSetting("showIntervalsSettings", val),
+    );
+
+    const subRowsContainer: HTMLDivElement = document.createElement("div");
+    subRowsContainer.className = "settings-sub-rows";
+
+    if (!settings.showIntervalsSettings) {
+      subRowsContainer.classList.add("hidden");
+    }
+
+    subRowsContainer.appendChild(this._createSessionIntervalSlider());
+    subRowsContainer.appendChild(this._createRankedIntervalSlider());
+
+    container.appendChild(
+      SettingsUiFactory.createSettingsGroup(intervalsToggle, subRowsContainer),
+    );
+  }
+
   private _createSessionIntervalSlider(): HTMLElement {
     const sessionSettings = this._sessionSettingsService.getSettings();
     const options: number[] = [1, 5, 10, 15, 30, 45, 60, 90, 120];
@@ -255,6 +281,23 @@ export class SettingsSectionRenderer {
       onChange: (val: number): void =>
         this._sessionSettingsService.updateSetting(
           "sessionTimeoutMinutes",
+          val,
+        ),
+    });
+  }
+
+  private _createRankedIntervalSlider(): HTMLElement {
+    const sessionSettings = this._sessionSettingsService.getSettings();
+    const options: number[] = [1, 5, 10, 15, 30, 45, 60, 90, 120];
+
+    return SettingsUiFactory.createSlider({
+      label: "Ranked Interval",
+      value: sessionSettings.rankedIntervalMinutes,
+      options,
+      unit: " min",
+      onChange: (val: number): void =>
+        this._sessionSettingsService.updateSetting(
+          "rankedIntervalMinutes",
           val,
         ),
     });

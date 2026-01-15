@@ -27,6 +27,7 @@ export interface VisualSettings {
   showRankEstimate: boolean;
   showRanks: boolean;
   audioVolume: number;
+  showIntervalsSettings: boolean;
 }
 
 /**
@@ -151,14 +152,12 @@ export class VisualSettingsService {
       dotCloudSize: "Normal",
       dotCloudWidth: "Normal",
       visRankFontSize: "Normal",
-      showSessionBest: true,
-      showAllTimeBest: true,
+      showSessionBest: true, showAllTimeBest: true,
       dotJitterIntensity: "Normal",
-      showRankNotches: true,
-      highlightLatestRun: true,
-      showRankEstimate: true,
-      showRanks: true,
+      showRankNotches: true, highlightLatestRun: true,
+      showRankEstimate: true, showRanks: true,
       audioVolume: 80,
+      showIntervalsSettings: true,
     };
   }
 

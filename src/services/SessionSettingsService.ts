@@ -4,6 +4,8 @@
 export interface SessionSettings {
   /** The number of minutes of inactivity before a session is considered expired. */
   sessionTimeoutMinutes: number;
+  /** The interval used for ranked runs in minutes. */
+  rankedIntervalMinutes: number;
 }
 
 /**
@@ -90,6 +92,7 @@ export class SessionSettingsService {
   private _getDefaults(): SessionSettings {
     return {
       sessionTimeoutMinutes: 10,
+      rankedIntervalMinutes: 60,
     };
   }
 
