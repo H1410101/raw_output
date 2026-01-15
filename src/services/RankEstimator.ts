@@ -81,8 +81,9 @@ export class RankEstimator {
         const map: RankEstimateMap = this.getRankEstimateMap();
 
         return map[scenarioName] || {
-            continuousValue: -1,
-            highestAchieved: -1,
+            // Default to 0 instead of -1 to ensure it maps to a timeline position ("Unranked" usually 0-1)
+            continuousValue: 0,
+            highestAchieved: 0,
             lastUpdated: new Date().toISOString(),
         };
     }

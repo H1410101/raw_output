@@ -175,3 +175,89 @@
     justify-content: center;
     align-items: center;
 }
+
+/* Rank Timeline Visualization */
+.rank-timeline-container {
+    position: relative;
+    width: 100%;
+    height: 6rem;
+    margin: 1rem 0;
+    overflow: hidden;
+    background: transparent;
+    /* Fade edges to indicate continuity */
+    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+}
+
+.timeline-axis {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    /* user requested same thickness as notches. notches are 1px wide. */
+    background-color: var(--text-dim);
+    opacity: 0.5;
+    transform: translateY(-50%);
+}
+
+.timeline-tick {
+    position: absolute;
+    top: 50%;
+    width: 1px;
+    height: 0.75rem;
+    background-color: var(--text-dim);
+    transform: translateX(-50%);
+    opacity: 0.5;
+}
+
+.timeline-tick-label {
+    position: absolute;
+    top: calc(50% + 1rem);
+    transform: translateX(-50%);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    font-weight: 500;
+    opacity: 0.7;
+}
+
+/* Markers extending UP from the line */
+.timeline-marker {
+    position: absolute;
+    bottom: 50%;
+    width: 0.0625rem;
+    height: 0.75rem;
+    transform: translateX(-50%);
+    z-index: 10;
+    border-radius: 2px;
+}
+
+.timeline-marker-label {
+    position: absolute;
+    bottom: calc(50% + 1.5rem);
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0.125rem 0.25rem rgba(var(--surface-0-rgb), 0.5);
+}
+
+.marker-target {
+    background-color: var(--upper-band-2);
+    box-shadow: 0 0 0.5rem rgba(var(--upper-band-2-rgb), 0.4);
+}
+
+.label-target {
+    color: var(--upper-band-2);
+}
+
+.marker-achieved {
+    background-color: var(--accent-color);
+    box-shadow: 0 0 0.5rem rgba(var(--accent-color-rgb), 0.6);
+}
+
+.label-achieved {
+    color: var(--accent-color);
+}

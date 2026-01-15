@@ -8,7 +8,7 @@ import { AppStateService } from "../services/AppStateService";
 import { HistoryService } from "../services/HistoryService";
 import { VisualSettingsService } from "../services/VisualSettingsService";
 import { AudioService } from "../services/AudioService";
-import { DotCloudComponent } from "./visualizations/DotCloudComponent";
+import { RankTimelineComponent } from "./visualizations/RankTimelineComponent";
 
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
@@ -318,32 +318,22 @@ export class RankedView {
     `;
   }
 
-  private _renderDotCloud(scenarioName: string): string {
-    const containerId: string = `dot-cloud-${scenarioName.replace(/\s+/g, "-")}`;
-    const sessionStart: number | null = this._deps.session.sessionStartTimestamp;
+  private _renderRankTimeline(scenarioName: string): string {
+    const containerId: string = `rank-timeline-${scenarioName.replace(/\s+/g, "-")}`;
 
-    this._deps.history.getLastScores(scenarioName, 100).then(
-      (scores: { score: number; timestamp: number }[]): void => {
-        this._updateDotCloud(containerId, scenarioName, scores, sessionStart);
-      }
-    );
+    setTimeout((): void => {
+      this._updateRankTimeline(containerId, scenarioName);
+    }, 0);
 
-    return `<div id="${containerId}" class="dot-cloud-container ranked-dot-cloud"></div>`;
+    return `<div id="${containerId}" class="rank-timeline-container"></div>`;
   }
 
-  private _updateDotCloud(
+  private _updateRankTimeline(
     containerId: string,
-    scenarioName: string,
-    scores: { score: number; timestamp: number }[],
-    sessionStart: number | null
+    scenarioName: string
   ): void {
     const container: HTMLElement | null = document.getElementById(containerId);
     if (!container) return;
-
-    const sessionScores: { score: number; timestamp: number }[] = scores.filter(
-      (scoreEntry: { score: number; timestamp: number }): boolean =>
-        sessionStart !== null && scoreEntry.timestamp >= sessionStart
-    );
 
     const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
     const scenario: BenchmarkScenario | undefined = this._deps.benchmark.getScenarios(difficulty).find(
@@ -353,34 +343,26 @@ export class RankedView {
     if (!scenario) return;
 
     const estimate: ScenarioEstimate = this._deps.estimator.getScenarioEstimate(scenarioName);
-    this._renderDotCloudContents(container, sessionScores, scenario, estimate);
-  }
+    const bests: SessionRankRecord[] = this._deps.session.getAllScenarioSessionBests();
+    const record: SessionRankRecord | undefined = bests.find(
+      (sessionRecord: SessionRankRecord): boolean => sessionRecord.scenarioName === scenarioName
+    );
 
-  private _renderDotCloudContents(
-    container: HTMLElement,
-    sessionScores: { score: number; timestamp: number }[],
-    scenario: BenchmarkScenario,
-    estimate: ScenarioEstimate
-  ): void {
-    const sessionBestScore: number = sessionScores.length > 0
-      ? Math.max(...sessionScores.map((score: { score: number }): number => score.score))
-      : 0;
+    const bestScore: number = record ? record.bestScore : 0;
 
-    const achievedRU: number | undefined = sessionBestScore > 0
-      ? this._deps.estimator.getScenarioContinuousValue(sessionBestScore, scenario)
+    const achievedRU: number | undefined = bestScore > 0
+      ? this._deps.estimator.getScenarioContinuousValue(bestScore, scenario)
       : undefined;
 
-    const dotCloud: DotCloudComponent = new DotCloudComponent({
-      entries: sessionScores,
+    const timeline: RankTimelineComponent = new RankTimelineComponent({
       thresholds: scenario.thresholds,
       settings: this._deps.visualSettings.getSettings(),
-      isLatestInSession: sessionScores.length > 0,
       targetRU: estimate.continuousValue !== -1 ? estimate.continuousValue : undefined,
-      achievedRU,
+      achievedRU
     });
 
     container.innerHTML = "";
-    container.appendChild(dotCloud.render());
+    container.appendChild(timeline.render());
   }
 
 
@@ -396,7 +378,7 @@ export class RankedView {
       
       <div class="ranked-main">
           <div class="ranked-target">
-              ${this._renderDotCloud(scenarioName)}
+              ${this._renderRankTimeline(scenarioName)}
               ${this._renderMediaControls(state, isImproved)}
           </div>
       </div>
