@@ -209,16 +209,6 @@ export class RankedView {
     return container;
   }
 
-  private _formatRankValue(estimate: EstimatedRank): string {
-    if (estimate.rankName === "Unranked") {
-      return `<span class="rank-name unranked-text">Unranked</span><span class="rank-progress"></span>`;
-    }
-
-    const cleanName = estimate.rankName.replace(/\s+Rank$/i, "");
-
-    return `<span class="rank-name">${cleanName}</span><span class="rank-progress">+${estimate.progressToNext}%</span>`;
-
-  }
 
   private _createDifficultyTabs(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
@@ -298,12 +288,6 @@ export class RankedView {
     this._attachActiveListeners(container);
   }
 
-  private _getSessionEstimate(): EstimatedRank {
-    const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
-    const scores = this._deps.session.getAllScenarioSessionBests();
-
-    return this._deps.estimator.calculateOverallRank(difficulty, this._convertToScoreMap(scores));
-  }
 
   private _checkIfCurrentImproved(): boolean {
     const current = this._deps.rankedSession.currentScenarioName;
@@ -493,15 +477,6 @@ export class RankedView {
     backBtn?.addEventListener("click", () => this._deps.rankedSession.retreat());
   }
 
-  private _convertToScoreMap(bests: SessionRankRecord[]): Map<string, number> {
-    const scoreMap: Map<string, number> = new Map();
-
-    bests.forEach((record: SessionRankRecord): void => {
-      scoreMap.set(record.scenarioName, record.bestScore);
-    });
-
-    return scoreMap;
-  }
 
 
 
