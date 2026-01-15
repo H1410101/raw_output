@@ -83,12 +83,15 @@
     /* Sizing & Proportions */
     --ui-scale: 1;
     --vertical-spacing-multiplier: 1;
+    --margin-spacing-multiplier: 1;
+    --category-spacing-multiplier: 1;
     --scenario-font-multiplier: 1;
     --rank-font-multiplier: 1;
     --launch-button-multiplier: 1;
     --header-font-multiplier: 1;
     --label-font-multiplier: 1;
     --dot-cloud-multiplier: 1;
+    --dot-cloud-width-multiplier: 1;
 
     /* Visualization Semantic Tokens */
     --vis-label-color: var(--lower-band-1);
