@@ -135,6 +135,7 @@ export class NavigationController {
 
     if (isAlreadyActive) {
       await this._rankedView.tryReturnToTable();
+
       return;
     }
 

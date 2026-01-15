@@ -93,6 +93,7 @@ export class RankedView {
     // Check if we should show the folder settings view instead of the ranked view
     if (await this._shouldShowFolderSettings()) {
       await this._renderFolderView();
+
       return;
     }
 
@@ -277,7 +278,7 @@ export class RankedView {
                   <div class="controls-left" style="visibility: hidden;">
                       <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
                   </div>
-                  <button class="media-btn primary" id="start-ranked-btn" title="Start Run">
+                  <button class="media-btn primary" id="start-ranked-btn">
                       <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                   </button>
                   <div class="controls-right" style="visibility: hidden;">
@@ -441,17 +442,17 @@ export class RankedView {
     return `
       <div class="media-controls">
           <div class="controls-left">
-              <button class="media-btn secondary" id="ranked-back-btn" title="Previous" ${state.currentIndex === 0 ? "disabled" : ""}>
+              <button class="media-btn secondary" id="ranked-back-btn" ${state.currentIndex === 0 ? "disabled" : ""}>
                   <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
               </button>
           </div>
 
-          <button class="media-btn primary" id="ranked-play-now" title="Play Now">
+          <button class="media-btn primary" id="ranked-play-now">
               <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           </button>
 
           <div class="controls-right">
-              <button class="media-btn secondary ${isImproved ? "luminous" : "dull"}" id="next-ranked-btn" title="Next">
+              <button class="media-btn secondary ${isImproved ? "luminous" : "dull"}" id="next-ranked-btn">
                   <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
               </button>
               <button class="media-btn secondary destructive" id="end-ranked-btn">

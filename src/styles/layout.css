@@ -1571,7 +1571,10 @@ body.has-rank-popup .scenario-row {
     border: none;
     color: var(--lower-band-1);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition:
+        background 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+        color 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.8s cubic-bezier(0.22, 1, 0.36, 1);
     padding: calc(0.5rem * var(--vertical-spacing-multiplier)) calc(1.5rem * var(--vertical-spacing-multiplier));
     border-radius: 0.5rem;
     width: 100%;
@@ -1580,17 +1583,20 @@ body.has-rank-popup .scenario-row {
 .folder-action-item:hover {
     background: rgba(var(--lower-band-1-rgb), 0.15);
     color: var(--lower-band-3);
+    transition:
+        background 0.1s ease-out,
+        color 0.1s ease-out,
+        box-shadow 0.1s ease-out;
 }
 
 .folder-action-item.danger {
-    color: var(--status-hard);
-    opacity: 0.7;
+    /* Idle state matches standard action items (grey) */
 }
 
 .folder-action-item.danger:hover {
-    background: rgba(var(--status-hard-rgb), 0.1);
+    background: rgba(var(--lower-band-1-rgb), 0.15);
     color: var(--status-hard);
-    opacity: 1;
+    box-shadow: inset 0 0 1.5rem rgba(var(--status-hard-rgb), 0.2);
 }
 
 .folder-settings-separator {

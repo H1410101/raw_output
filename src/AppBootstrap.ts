@@ -227,6 +227,13 @@ export class AppBootstrap {
 
   private _setupActionListeners(): void {
     this._setupHeaderActions();
+
+    this._appStateService.onDifficultyChanged((): void => {
+      this._benchmarkView.updateDifficulty(
+        this._appStateService.getBenchmarkDifficulty(),
+      );
+      this._rankedView.refresh();
+    });
   }
 
   private _setupHeaderActions(): void {
@@ -266,11 +273,6 @@ export class AppBootstrap {
         this._audioService.playHeavy(0.4);
       });
       aboutPopup.render();
-    });
-
-    this._appStateService.onDifficultyChanged((): void => {
-      this._benchmarkView.updateDifficulty(this._appStateService.getBenchmarkDifficulty());
-      this._rankedView.refresh();
     });
   }
 
