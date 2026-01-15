@@ -4,9 +4,7 @@
     box-sizing: border-box;
 }
 
-html {
-    font-size: calc(clamp(1rem, 1vw + 0.75rem, 1.5rem) * var(--ui-scale));
-}
+html {}
 
 :root {
     /* Palette and Functional Tokens moved to palette.css */
@@ -17,23 +15,13 @@ body {
     padding: 0;
     background-color: var(--bg-color);
     color: var(--text-default);
-    font-family: "Nunito", sans-serif;
-    font-weight: 300;
     overflow: hidden;
     height: 100vh;
 }
 
-.m-plus-rounded-1c-medium {
-    font-family: "M PLUS Rounded 1c", sans-serif;
-    font-weight: 500;
-    font-style: normal;
-}
+.m-plus-rounded-1c-medium {}
 
-.m-plus-rounded-1c-medium {
-    font-family: "M PLUS Rounded 1c", sans-serif;
-    font-weight: 500;
-    font-style: normal;
-}
+.m-plus-rounded-1c-medium {}
 
 .background-dynamics {
     position: fixed;
@@ -117,13 +105,7 @@ body {
     display: flex;
     align-items: center;
     padding: calc(0.4rem * var(--margin-spacing-multiplier)) calc(0.8rem * var(--margin-spacing-multiplier));
-    line-height: 1.2;
-    font-family: "Nunito", sans-serif;
-    font-size: calc(1.75rem * var(--label-font-multiplier));
-    font-weight: 800;
-    letter-spacing: -0.02em;
     color: transparent;
-    text-shadow: calc(0.15rem * var(--label-font-multiplier)) calc(0.15rem * var(--label-font-multiplier)) calc(0.1rem * var(--label-font-multiplier)) var(--upper-band-2);
     opacity: 0;
     will-change:
         mask-image,
@@ -220,11 +202,7 @@ body {
 }
 
 h1 {
-    font-size: calc(1.75rem * var(--label-font-multiplier));
-    font-weight: 800;
     margin: 0;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
     background: linear-gradient(135deg,
             var(--upper-band-1) 0%,
             var(--upper-band-2) 50%,
@@ -265,9 +243,6 @@ h1 {
     padding: calc(0.4rem * var(--margin-spacing-multiplier)) calc(1rem * var(--margin-spacing-multiplier));
     border-radius: calc(0.5rem * var(--margin-spacing-multiplier));
     cursor: pointer;
-    font-family: inherit;
-    font-weight: 600;
-    font-size: 1rem;
     transition: all 0.2s ease;
 }
 
@@ -304,9 +279,6 @@ h1 {
     padding: 0.4rem 1rem;
     border-radius: 0.5rem;
     cursor: pointer;
-    font-family: inherit;
-    font-weight: 600;
-    font-size: 0.85rem;
     transition: all 0.2s ease;
 }
 
@@ -321,10 +293,7 @@ h1 {
     background: rgba(var(--lower-band-1-rgb), 0.3);
 }
 
-.action-status-text {
-    font-family: "Nunito", sans-serif;
-    font-weight: 600;
-}
+.action-status-text {}
 
 .header-action-btn {
     background: transparent;
@@ -635,25 +604,18 @@ body.has-rank-popup .scenario-row {
     width: 7.5rem;
     height: auto;
     flex-shrink: 0;
-    font-size: calc(0.65rem * var(--header-font-multiplier));
-    font-weight: 400;
     color: var(--lower-band-1);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    white-space: nowrap;
     padding: calc(0.125rem * var(--vertical-spacing-multiplier)) 0;
 }
 
 .column-header span {
     display: block;
-    text-align: center;
     width: 100%;
     margin-left: 20%;
 }
 
 .subcategory-header .column-header:last-of-type {
     color: var(--lower-band-1);
-    font-size: calc(0.8rem * var(--header-font-multiplier));
 }
 
 .header-name-spacer {
@@ -708,43 +670,26 @@ body.has-rank-popup .scenario-row {
     display: block;
     writing-mode: vertical-rl;
     transform: translateY(-50%) rotate(180deg);
-    text-transform: none;
-    letter-spacing: 0.1em;
-    font-size: calc(0.9rem * var(--label-font-multiplier));
-    font-weight: 600;
     color: var(--text-dim);
-    white-space: nowrap;
     pointer-events: none;
     padding: 1rem 0;
 }
 
 .category-label .vertical-text {
     color: var(--lower-band-3);
-    font-size: calc(1.1rem * var(--label-font-multiplier));
-    text-transform: uppercase;
-    font-weight: 700;
 }
 
 .subcategory-label .vertical-text {
     color: var(--lower-band-2);
-    font-size: calc(0.9rem * var(--label-font-multiplier));
-    text-transform: lowercase;
-    font-weight: 600;
 }
 
-.subcategory-label .vertical-text::first-letter {
-    text-transform: uppercase;
-}
+.subcategory-label .vertical-text::first-letter {}
 
 .scenario-name {
     width: var(--scenario-name-width, 15rem);
     flex-shrink: 0;
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: calc(0.8rem * var(--scenario-font-multiplier));
-    font-weight: var(--scenario-name-weight);
-    font-family: var(--scenario-name-family);
     color: var(--lower-band-1);
     transition: color 0.2s ease;
 }
@@ -780,8 +725,6 @@ body.has-rank-popup .scenario-row {
     justify-content: center;
     width: 7.5rem;
     flex-shrink: 0;
-    font-weight: 400;
-    text-transform: uppercase;
     overflow: visible;
     cursor: pointer;
 }
@@ -804,27 +747,19 @@ body.has-rank-popup .scenario-row {
 
 .rank-name {
     color: var(--lower-band-3);
-    font-size: calc(0.9rem * var(--rank-font-multiplier));
-    font-weight: 700;
     flex: 7;
-    text-align: right;
     padding-right: 0.3rem;
     transition: color 0.2s ease;
 }
 
 .rank-progress {
     color: var(--lower-band-1);
-    font-size: calc(0.65rem * var(--rank-font-multiplier));
-    font-weight: 400;
     flex: 3;
-    text-align: left;
     transition: color 0.2s ease;
 }
 
 .unranked-text {
     color: var(--lower-band-1) !important;
-    font-size: calc(0.9rem * var(--rank-font-multiplier));
-    font-weight: 600;
     transition: color 0.2s ease;
 }
 
@@ -846,15 +781,10 @@ body.has-rank-popup .scenario-row {
 }
 
 .run-score {
-    font-size: 1.1rem;
-    font-weight: 600;
     color: var(--accent-color);
 }
 
 .run-tag {
-    font-size: 0.6rem;
-    font-weight: 600;
-    text-transform: uppercase;
     padding: 0.15rem 0.4rem;
     border-radius: calc(1.5rem * var(--vertical-spacing-multiplier));
     margin-left: calc(1.5rem * var(--vertical-spacing-multiplier));
@@ -904,9 +834,6 @@ body.has-rank-popup .scenario-row {
     padding: calc(0.4rem * var(--margin-spacing-multiplier)) calc(1rem * var(--margin-spacing-multiplier));
     border-radius: calc(0.5rem * var(--margin-spacing-multiplier));
     cursor: pointer;
-    font-family: "Nunito", sans-serif;
-    font-weight: 600;
-    font-size: 1rem;
     transition: all 0.2s ease;
 }
 
@@ -940,6 +867,7 @@ body.has-rank-popup .scenario-row {
     justify-content: center;
     z-index: 100;
 }
+
 
 .difficulty-caret svg {
     width: 100%;
@@ -1068,10 +996,7 @@ body.has-rank-popup .scenario-row {
 }
 
 .rank-popup-rank-text {
-    font-size: 0.85rem;
     color: var(--text-dim);
-    font-weight: 600;
-    line-height: 1.2;
 }
 
 .rank-popup-separator {
@@ -1169,10 +1094,7 @@ body.has-rank-popup .scenario-row {
 
 .settings-menu-card h2 {
     margin: 0;
-    font-size: calc(1.25rem * var(--label-font-multiplier));
     color: var(--upper-band-2);
-    font-weight: 700;
-    letter-spacing: -0.02em;
 }
 
 .about-section {
@@ -1183,18 +1105,12 @@ body.has-rank-popup .scenario-row {
 
 .about-section p {
     margin: 0;
-    font-size: calc(0.9rem * var(--scenario-font-multiplier));
-    line-height: 1.5;
     color: var(--text-dim);
 }
 
 .about-section h3 {
     margin: calc(0.5rem * var(--margin-spacing-multiplier)) 0 calc(0.25rem * var(--margin-spacing-multiplier)) 0;
-    font-size: calc(0.85rem * var(--label-font-multiplier));
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
     color: var(--upper-band-1);
-    font-weight: 700;
 }
 
 .about-quote {
@@ -1204,37 +1120,26 @@ body.has-rank-popup .scenario-row {
     background: rgba(var(--upper-band-1-rgb), 0.03);
     border-left: calc(0.2rem * var(--margin-spacing-multiplier)) solid var(--upper-band-1);
     border-radius: 0 0.5rem 0.5rem 0;
-    font-style: italic;
 }
 
 .about-quote p {
     color: var(--text-dim) !important;
-    font-size: calc(0.85rem * var(--scenario-font-multiplier)) !important;
-    line-height: 1.6 !important;
 }
 
 .about-link-button {
     display: inline-block;
-    text-align: center;
     vertical-align: middle;
     padding: 0 calc(0.75rem * var(--margin-spacing-multiplier));
     background: rgba(var(--lower-band-1-rgb), 0.05);
     border: none;
     border-radius: calc(0.5rem * var(--margin-spacing-multiplier));
     color: var(--lower-band-1);
-    font-size: calc(0.9rem * var(--scenario-font-multiplier));
-    font-weight: 700;
     text-decoration: none;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
     transition: background 0.15s ease, color 0.15s ease;
     width: fit-content;
     cursor: pointer;
     height: 1.8rem;
-    line-height: 1.8rem;
     box-sizing: border-box;
-    white-space: nowrap;
-    -webkit-font-smoothing: antialiased;
     backface-visibility: hidden;
 }
 
@@ -1290,11 +1195,7 @@ body.has-rank-popup .scenario-row {
 }
 
 .settings-group-title {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
     color: var(--text-dim);
-    font-weight: 800;
     padding-bottom: calc(0.5rem * var(--margin-spacing-multiplier));
     border-bottom: 1px solid var(--glass-border);
 }
@@ -1347,9 +1248,7 @@ body.has-rank-popup .scenario-row {
 }
 
 .setting-item label {
-    font-size: 0.85rem;
     color: var(--text-dim);
-    font-weight: 500;
     width: 10rem;
     flex-shrink: 0;
 }
@@ -1641,17 +1540,12 @@ body.has-rank-popup .scenario-row {
     display: flex;
     flex-direction: column;
     align-items: center;
-    text-align: center;
     padding: 0;
     gap: calc(0.5rem * var(--margin-spacing-multiplier));
 }
 
 .folder-status-title {
-    font-size: 1.5rem;
-    font-weight: 800;
     color: var(--upper-band-2);
-    text-transform: uppercase;
-    letter-spacing: -0.02em;
 }
 
 .folder-status-details {
@@ -1662,19 +1556,12 @@ body.has-rank-popup .scenario-row {
 }
 
 .connected-label {
-    font-size: 0.75rem;
-    font-weight: 600;
     color: var(--lower-band-1);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
 }
 
 .folder-name-highlight {
-    font-size: 1.1rem;
-    font-weight: 700;
     color: var(--upper-band-1);
     max-width: 16rem;
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -1683,14 +1570,10 @@ body.has-rank-popup .scenario-row {
     background: transparent;
     border: none;
     color: var(--lower-band-1);
-    font-family: "Nunito", sans-serif;
-    font-weight: 600;
-    font-size: 0.9rem;
     cursor: pointer;
     transition: all 0.2s ease;
     padding: calc(0.5rem * var(--vertical-spacing-multiplier)) calc(1.5rem * var(--vertical-spacing-multiplier));
     border-radius: 0.5rem;
-    text-align: center;
     width: 100%;
 }
 
@@ -1729,7 +1612,6 @@ body.has-rank-popup .scenario-row {
     justify-content: stretch;
     align-items: flex-start;
     min-height: 0;
-    text-align: center;
 }
 
 .intro-text-content {
@@ -1744,7 +1626,6 @@ body.has-rank-popup .scenario-row {
 
 .app-introduction {
     color: var(--text-main);
-    line-height: 1.8;
     width: 100%;
     height: 100%;
     display: grid;
@@ -1779,15 +1660,11 @@ body.has-rank-popup .scenario-row {
 }
 
 .app-introduction h2 {
-    font-size: calc(2rem * var(--label-font-multiplier));
     margin: 0;
     color: var(--upper-band-3);
-    letter-spacing: -0.04em;
-    font-weight: 800;
 }
 
 .app-introduction p {
-    font-size: calc(0.9rem * var(--scenario-font-multiplier));
     margin: 0;
     color: var(--upper-band-1);
     opacity: 0.9;
@@ -1797,7 +1674,6 @@ body.has-rank-popup .scenario-row {
     background: rgba(var(--upper-band-1-rgb), 0.1);
     padding: 0.2rem 0.4rem;
     border-radius: 0.3rem;
-    font-family: var(--font-mono, monospace);
 }
 
 /* Ranked View Functional Styles */
@@ -1825,20 +1701,16 @@ body.has-rank-popup .scenario-row {
 
 .ranked-header {
     margin-bottom: 2rem;
-    text-align: left;
     flex-shrink: 0;
 }
 
 .ranked-header h2 {
-    font-size: calc(1.5rem * var(--label-font-multiplier));
     margin: 0;
     color: var(--upper-band-3);
-    letter-spacing: -0.02em;
 }
 
 .ranked-header .subtitle {
     color: var(--text-dim);
-    font-size: 0.9rem;
 }
 
 .ranked-stats-bar {
@@ -1864,21 +1736,13 @@ body.has-rank-popup .scenario-row {
 }
 
 .stat-item .label {
-    font-size: 0.65rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.15rem;
     color: var(--lower-band-1);
     opacity: 0.6;
     margin: 0;
-    line-height: 1;
 }
 
 .stat-item .value {
-    font-size: calc(1.1rem * var(--label-font-multiplier));
-    font-weight: 800;
     color: var(--lower-band-3);
-    letter-spacing: -0.01em;
 }
 
 .stat-item.highlight .value {
@@ -1897,12 +1761,13 @@ body.has-rank-popup .scenario-row {
 .ranked-info-top {
     grid-row: 1;
     align-self: end;
-    text-align: center;
     padding-bottom: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .ranked-target {
-    text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1910,33 +1775,22 @@ body.has-rank-popup .scenario-row {
 }
 
 .ranked-scenario-name {
-    font-size: calc(1.4rem * var(--label-font-multiplier));
     margin: 0.25rem 0;
     color: var(--upper-band-2);
-    font-weight: 800;
-    letter-spacing: -0.02em;
 }
 
 .now-playing {
-    font-size: 0.65rem;
-    font-weight: 900;
-    letter-spacing: 0.4rem;
     color: var(--lower-band-1);
     opacity: 0.5;
-    text-transform: uppercase;
 }
 
 .instruction {
     color: var(--text-dim);
-    font-size: 0.85rem;
     opacity: 0.8;
-    font-style: italic;
 }
 
 .action-btn-large {
     padding: 0.85rem 2.5rem;
-    font-size: 0.9rem;
-    font-weight: 800;
     background: var(--accent-color);
     color: var(--bg-color);
     border: none;
@@ -1944,7 +1798,6 @@ body.has-rank-popup .scenario-row {
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.3, 0.85, 0.15, 1);
     box-shadow: 0 0.5rem 1rem rgba(var(--accent-color-rgb), 0.15);
-    letter-spacing: 0.05rem;
 }
 
 .action-btn-large:hover {
@@ -1960,11 +1813,7 @@ body.has-rank-popup .scenario-row {
     padding: 0.4rem 1.25rem;
     border-radius: 0.5rem;
     cursor: pointer;
-    font-weight: 700;
-    font-size: 0.8rem;
     transition: all 0.2s ease;
-    text-transform: uppercase;
-    letter-spacing: 0.05rem;
 }
 
 .secondary-btn:hover {
@@ -1983,20 +1832,16 @@ body.has-rank-popup .scenario-row {
 
 .ranked-info-card h3 {
     color: var(--lower-band-3);
-    font-size: 1.1rem;
     margin-top: 0;
     margin-bottom: 0.75rem;
 }
 
 .ranked-info-card p {
-    font-size: 0.9rem;
-    line-height: 1.5;
     margin: 0.5rem 0;
     color: var(--text-dim);
 }
 
 .ranked-info-card p.minor {
-    font-size: 0.75rem;
     opacity: 0.6;
     margin-top: 1.25rem;
 }
@@ -2013,8 +1858,6 @@ body.has-rank-popup .scenario-row {
 /* Next Button Guidance */
 .next-btn {
     padding: 1rem 2.5rem;
-    font-size: 0.9rem;
-    font-weight: 800;
     border-radius: 0.5rem;
     cursor: pointer;
     border: none;
@@ -2055,12 +1898,8 @@ body.has-rank-popup .scenario-row {
     border: 1px dashed var(--lower-band-1);
     padding: 0.65rem 1.5rem;
     border-radius: 0.5rem;
-    font-weight: 700;
-    font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.2s ease;
-    text-transform: uppercase;
-    letter-spacing: 0.05rem;
 }
 
 .bonus-btn:hover {

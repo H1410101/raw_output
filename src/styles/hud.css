@@ -20,38 +20,24 @@
 
 .hud-label,
 .stat-item .label {
-    font-size: calc(0.65rem * var(--header-font-multiplier));
-    font-weight: 400;
     color: var(--lower-band-1);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
 }
 
 .hud-value,
 .stat-item .value {
-    font-size: calc(1.2rem * var(--label-font-multiplier));
-    font-weight: 800;
-    font-family: "M PLUS Rounded 1c", sans-serif;
     color: var(--lower-band-3);
 }
 
 .stat-item .label {
-    font-size: calc(0.65rem * var(--header-font-multiplier));
-    font-weight: 400;
     color: var(--lower-band-1);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    line-height: 1;
     margin: 0;
 }
 
 .stat-item .value {
-    text-shadow: none;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.2rem;
-    line-height: 1;
 }
 
 .stat-item.highlight .value {
@@ -59,17 +45,11 @@
 }
 
 .stat-item .rank-name {
-    font-size: calc(0.9rem * var(--label-font-multiplier));
-    font-weight: 700;
     color: inherit;
-    line-height: 1;
 }
 
 .stat-item .rank-progress {
-    font-size: calc(0.65rem * var(--label-font-multiplier));
-    font-weight: 400;
     opacity: 0.75;
-    line-height: 1;
 }
 
 .hud-progress-track {

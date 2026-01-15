@@ -3,6 +3,9 @@ import { BenchmarkView, BenchmarkViewServices } from "../BenchmarkView";
 import { RankedView, RankedViewDependencies } from "../RankedView";
 import { MockServiceFactory } from "./MockServiceFactory";
 import { EstimatedRank } from "../../services/RankEstimator";
+import { AppStateService } from "../../services/AppStateService";
+
+type BenchmarkViewTestDeps = BenchmarkViewServices & { appState: AppStateService };
 
 
 const MOCK_CSS: string = `
@@ -86,7 +89,7 @@ describe("RankUniformity: Unranked Bench", (): void => {
     it("should match unranked table color", async (): Promise<void> => {
         _setupUnrankedMocks(dependencies);
 
-        const view: BenchmarkView = new BenchmarkView(container, dependencies, dependencies.appState);
+        const view: BenchmarkView = new BenchmarkView(container, dependencies, (dependencies as BenchmarkViewTestDeps).appState);
         await view.render();
 
         const elements: HTMLElement[] = await _getUnrankedTableElements(container);
@@ -129,7 +132,7 @@ describe("RankUniformity: Unranked HUD", (): void => {
 });
 
 async function _testBenchmarkRanks(container: HTMLElement, dependencies: BenchmarkViewServices): Promise<void> {
-    const view: BenchmarkView = new BenchmarkView(container, dependencies, dependencies.appState);
+    const view: BenchmarkView = new BenchmarkView(container, dependencies, (dependencies as BenchmarkViewTestDeps).appState);
     await view.render();
 
     const elements: HTMLElement[] = await Promise.all([
@@ -150,15 +153,18 @@ function _setActiveStatus(dependencies: BenchmarkViewServices): void {
     const session = (dependencies as unknown as RankedViewDependencies).rankedSession;
 
 
-    session.state = {
-        status: "ACTIVE",
-        sequence: ["Scenario A"],
-        currentIndex: 0,
-        difficulty: "Advanced",
-        startTime: new Date().toISOString(),
-        initialGauntletComplete: false,
-        rankedSessionId: "test-id"
-    };
+    Object.defineProperty(session, "state", {
+        value: {
+            status: "ACTIVE",
+            sequence: ["Scenario A"],
+            currentIndex: 0,
+            difficulty: "Advanced",
+            startTime: new Date().toISOString(),
+            initialGauntletComplete: false,
+            rankedSessionId: "test-id"
+        },
+        writable: true
+    });
 
     vi.mocked(dependencies.session.isSessionActive).mockReturnValue(true);
 }
@@ -184,7 +190,7 @@ async function _testHudRanks(container: HTMLElement, dependencies: BenchmarkView
 }
 
 function _setupUnrankedMocks(dependencies: BenchmarkViewServices): void {
-    const unranked: unknown = { rankName: "Unranked", progressToNext: 0, continuousValue: 0 };
+    const unranked: unknown = { rankName: "Unranked", progressToNext: 0, continuousValue: 0, color: "grey" };
 
     vi.mocked(dependencies.rankEstimator.getRankEstimateMap).mockReturnValue({});
     vi.mocked(dependencies.rankEstimator.calculateHolisticEstimateRank).mockReturnValue(unranked as EstimatedRank);

@@ -98,8 +98,4 @@
     --vis-dot-rgb: var(--lower-band-2-rgb);
     --vis-highlight-rgb: var(--lower-band-3-rgb);
     --vis-latest-rgb: var(--lower-band-3-rgb);
-
-    /* Scenario Typography */
-    --scenario-name-weight: 500;
-    --scenario-name-family: "Nunito", sans-serif;
 }

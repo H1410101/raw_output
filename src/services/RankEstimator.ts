@@ -30,7 +30,7 @@ export type RankEstimateMap = Record<string, ScenarioEstimate>;
 export class RankEstimator {
     private static readonly _estimateKey: string = "rank_identity_state_v2";
 
-    private static readonly _decayLambda: number = 0.05;
+
 
     private static readonly _learningRate: number = 0.15;
 

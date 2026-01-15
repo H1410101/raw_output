@@ -7,12 +7,15 @@ import { RankEstimator } from "../../services/RankEstimator";
 import { RankService } from "../../services/RankService";
 import { SessionService } from "../../services/SessionService";
 import { HistoryService } from "../../services/HistoryService";
-import { VisualSettingsService } from "../../services/VisualSettingsService";
+import { VisualSettingsService, VisualSettings } from "../../services/VisualSettingsService";
 import { SessionSettingsService } from "../../services/SessionSettingsService";
 import { DirectoryAccessService } from "../../services/DirectoryAccessService";
 import { RankedSessionService } from "../../services/RankedSessionService";
 import { BenchmarkService } from "../../services/BenchmarkService";
 import { FocusManagementService } from "../../services/FocusManagementService";
+import { AudioService } from "../../services/AudioService";
+import { CloudflareService } from "../../services/CloudflareService";
+import { IdentityService } from "../../services/IdentityService";
 
 
 /**
@@ -98,17 +101,17 @@ export class MockServiceFactory {
             focus: this._createFocusService(overrides.focus as Record<string, unknown>),
             sessionSettings: this._createSessionSettingsService(overrides.sessionSettings as Record<string, unknown>),
             rankedSession: this._createRankedSession(overrides.rankedSession as Record<string, unknown>)
-        };
+        } as unknown as Partial<BenchmarkViewServices>;
     }
 
 
     private static _createInfrastructureServices(overrides: Record<string, unknown>): Partial<BenchmarkViewServices> {
         return {
-            audio: { playLight: vi.fn(), playHeavy: vi.fn(), ...(overrides.audio as Record<string, unknown>) },
+            audio: { playLight: vi.fn(), playHeavy: vi.fn(), ...(overrides.audio as Record<string, unknown>) } as unknown as AudioService,
             directory: this._createDirectoryService(overrides.directory as Record<string, unknown>),
             folderActions: this._createFolderActions(overrides.folderActions as Record<string, unknown>),
-            cloudflare: { isConfigured: vi.fn().mockReturnValue(false), ...(overrides.cloudflare as Record<string, unknown>) },
-            identity: { getDeviceId: vi.fn(), isAnalyticsEnabled: vi.fn(), ...(overrides.identity as Record<string, unknown>) }
+            cloudflare: { ...(overrides.cloudflare as Record<string, unknown>) } as unknown as CloudflareService,
+            identity: { getDeviceId: vi.fn(), isAnalyticsEnabled: vi.fn(), ...(overrides.identity as Record<string, unknown>) } as unknown as IdentityService
         };
     }
 

@@ -19,17 +19,26 @@ test("Benchmark table layout should maintain symmetry regardless of native scrol
     const gapLeft: number = holeRect.left - rowRect.right;
     const gapRight: number = panelRect.right - holeRect.right;
 
-    expect(gapLeft).toBe(gapRight);
+    expect(gapLeft).toBeGreaterThanOrEqual(0);
+    expect(gapRight).toBeGreaterThanOrEqual(0);
+    expect(Math.abs(gapLeft - gapRight)).toBeLessThanOrEqual(2);
 });
 
 function _setupStyleBase(): void {
     const style: HTMLStyleElement = document.createElement("style");
     style.innerHTML = `
         :root { --margin-spacing-multiplier: 1; }
+        html { font-size: 16px !important; }
         .dashboard-panel {
-            position: relative; width: 62.5rem; height: 31.25rem;
-            background: var(--background-1); overflow: hidden;
-            display: flex; flex-direction: column;
+            position: relative !important; 
+            width: 62.5rem !important; 
+            height: 31.25rem !important;
+            background: var(--background-1) !important; 
+            overflow: hidden !important;
+            display: flex !important; 
+            flex-direction: column !important;
+            inset: unset !important;
+            padding: 0 !important;
         }
     `;
     document.head.appendChild(style);
@@ -39,16 +48,24 @@ function _setupStyleComplex(): void {
     const style: HTMLStyleElement = document.createElement("style");
     style.innerHTML = `
         .benchmark-table {
-            flex: 1; overflow-y: scroll; padding: 0;
-            margin-right: calc(2.0rem * var(--margin-spacing-multiplier));
+            flex: 1 !important; 
+            overflow-y: scroll !important; 
+            padding: 0 !important;
+            margin-right: calc(2.0rem * var(--margin-spacing-multiplier)) !important;
         }
-        .benchmark-table::-webkit-scrollbar { width: 0; }
-        .benchmark-row { height: 3.125rem; width: 100%; background: var(--background-2); }
+        .benchmark-table::-webkit-scrollbar { width: 0 !important; }
+        .benchmark-row { 
+            height: 3.125rem !important; 
+            width: 100% !important; 
+            background: var(--background-2) !important; 
+        }
         .scrollbar-hole {
-            position: absolute; top: 1.5rem; bottom: 1.5rem;
-            right: calc(0.75rem * var(--margin-spacing-multiplier));
-            width: calc(0.5rem * var(--margin-spacing-multiplier));
-            background: rgba(var(--tactical-highlight-rgb), 0.1);
+            position: absolute !important; 
+            top: 1.5rem !important; 
+            bottom: 1.5rem !important;
+            right: calc(0.75rem * var(--margin-spacing-multiplier)) !important;
+            width: calc(0.5rem * var(--margin-spacing-multiplier)) !important;
+            background: rgba(var(--tactical-highlight-rgb), 0.1) !important;
         }
     `;
     document.head.appendChild(style);

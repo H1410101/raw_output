@@ -108,14 +108,7 @@ export class ScenarioNameWidthManager {
     return parseFloat(fontSize) || 16;
   }
 
-  private _getMasterScale(): number {
-    const scale: string = window
-      .getComputedStyle(document.documentElement)
-      .getPropertyValue("--master-scale")
-      .trim();
 
-    return parseFloat(scale) || 1.0;
-  }
 
   private _getMarginSpacingMultiplier(): number {
     const multiplier: string = window

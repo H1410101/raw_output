@@ -3,6 +3,7 @@ import { RankedView, RankedViewDependencies } from "../RankedView";
 import { MockServiceFactory } from "./MockServiceFactory";
 
 
+
 interface ViewLabelElements {
     targetRank: HTMLElement;
     achievedRank: HTMLElement;
@@ -87,7 +88,8 @@ describe("RankedView Unranked displays", (): void => {
         vi.mocked(mockDeps.estimator.calculateOverallRank).mockReturnValue({
             rankName: "Unranked",
             progressToNext: 0,
-            continuousValue: -1
+            continuousValue: -1,
+            color: "grey"
         });
 
         const view: RankedView = new RankedView(container, mockDeps);
@@ -180,7 +182,8 @@ function _mockHolisticRank(deps: RankedViewDependencies, rank: string, progress:
     vi.mocked(deps.estimator.calculateHolisticEstimateRank).mockReturnValue({
         rankName: rank,
         progressToNext: progress,
-        continuousValue: 1.5
+        continuousValue: 1.5,
+        color: "silver"
     });
 }
 
@@ -188,14 +191,15 @@ function _mockEstimateForValue(deps: RankedViewDependencies, rank: string, progr
     vi.mocked(deps.estimator.getEstimateForValue).mockReturnValue({
         rankName: rank,
         progressToNext: progress,
-        continuousValue: 1.5
+        continuousValue: 1.5,
+        color: "silver"
     });
 }
 
 function _mockEstimateAndSessionBest(deps: RankedViewDependencies, rank: string, progress: number): void {
     _mockEstimateForValue(deps, rank, progress);
     vi.mocked(deps.session.getAllScenarioSessionBests).mockReturnValue([
-        { scenarioName: "Scenario A", bestScore: 15 }
+        { scenarioName: "Scenario A", bestScore: 15, rankResult: { currentRank: "Bronze", progressPercentage: 50, rankLevel: 1, nextRank: "Silver" } }
     ]);
 }
 

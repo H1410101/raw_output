@@ -1,111 +1,108 @@
 import { expect, test, afterEach } from "vitest";
 import { BenchmarkView, BenchmarkViewServices } from "../BenchmarkView";
-
 import { RankedView, RankedViewDependencies } from "../RankedView";
-
 import { AppStateService } from "../../services/AppStateService";
 import { MockServiceFactory } from "./MockServiceFactory";
 
-/**
- * Technical Regression Test: Difficulty Selector Position Synchronization.
- * 
- * Verifies that the difficulty tabs occupy the exact same pixel coordinates
- * when switching between the Benchmark Table and the Ranked View.
- */
-test("difficulty.children.position.ext.syncAcrossViews", async (): Promise<void> => {
-    _applyGlobalStyles();
+test("difficultyTabsMaintainPixelPerfectSynchronizationAcrossViewTransitions", async (): Promise<void> => {
+    _applyLayoutConstraints();
 
-    const container: HTMLDivElement = _createDashboardContainer();
-    document.body.appendChild(container);
+    const dashboardContainer: HTMLDivElement = _prepareDashboardHost();
+    document.body.appendChild(dashboardContainer);
 
     const appState: AppStateService = new AppStateService();
-    const mockDependencies: BenchmarkViewServices = MockServiceFactory.createViewDependencies({
-
+    const mockServices: BenchmarkViewServices = MockServiceFactory.createViewDependencies({
         appState,
         session: { isSessionActive: (): boolean => true }
     });
 
+    const benchmarkTabCoordinates: DOMRect = await _captureBenchmarkDifficultyBounds(
+        dashboardContainer,
+        mockServices,
+        appState
+    );
 
-    const benchmarkRect: DOMRect = await _getBenchmarkTabsRect(container, mockDependencies, appState);
-    const rankedRect: DOMRect = await _getRankedTabsRect(container, mockDependencies);
+    const rankedTabCoordinates: DOMRect = await _captureRankedDifficultyBounds(
+        dashboardContainer,
+        mockServices
+    );
 
-    expect(rankedRect.top).toBe(benchmarkRect.top);
-    expect(rankedRect.left).toBe(benchmarkRect.left);
+    expect(rankedTabCoordinates.top).toBe(benchmarkTabCoordinates.top);
+    expect(rankedTabCoordinates.left).toBe(benchmarkTabCoordinates.left);
 });
 
 afterEach((): void => {
     document.body.innerHTML = "";
 });
 
-async function _getBenchmarkTabsRect(
-    container: HTMLElement,
-    dependencies: BenchmarkViewServices,
-    appState: AppStateService
+async function _captureBenchmarkDifficultyBounds(
+    host: HTMLElement,
+    services: BenchmarkViewServices,
+    state: AppStateService
 ): Promise<DOMRect> {
+    const viewMount: HTMLDivElement = _createViewContainer("view-benchmarks", "benchmark-view");
+    host.appendChild(viewMount);
 
-    const benchmarkMount: HTMLDivElement = document.createElement("div");
-    benchmarkMount.setAttribute("id", "view-benchmarks");
-    benchmarkMount.className = "benchmark-view";
+    const view: BenchmarkView = new BenchmarkView(viewMount, services, state);
+    await view.render();
 
-    container.appendChild(benchmarkMount);
+    return _getDifficultyTabsBoundsOrThrow();
+}
 
-    const benchmarkView: BenchmarkView = new BenchmarkView(benchmarkMount, dependencies, appState);
-    await benchmarkView.render();
+async function _captureRankedDifficultyBounds(
+    host: HTMLElement,
+    services: BenchmarkViewServices
+): Promise<DOMRect> {
+    host.innerHTML = "";
 
-    const tabs: Element | null = document.querySelector(".benchmark-view .difficulty-tabs");
+    const viewMount: HTMLDivElement = _createViewContainer("view-ranked", "ranked-view");
+    host.appendChild(viewMount);
+
+    const view: RankedView = new RankedView(viewMount, services as unknown as RankedViewDependencies);
+    await view.render();
+
+    return _getDifficultyTabsBoundsOrThrow();
+}
+
+function _getDifficultyTabsBoundsOrThrow(): DOMRect {
+    const tabs: Element | null = document.querySelector(".difficulty-tabs");
+
     if (!tabs) {
-        throw new Error("Benchmark difficulty tabs not found");
+        throw new Error("Difficulty tabs element not found in DOM");
     }
 
     return tabs.getBoundingClientRect();
 }
 
-async function _getRankedTabsRect(container: HTMLElement, dependencies: BenchmarkViewServices): Promise<DOMRect> {
-
-    container.innerHTML = "";
-
-    const rankedMount: HTMLDivElement = document.createElement("div");
-    rankedMount.setAttribute("id", "view-ranked");
-    rankedMount.className = "ranked-view";
-
-    container.appendChild(rankedMount);
-
-    const rankedView: RankedView = new RankedView(rankedMount, dependencies as unknown as RankedViewDependencies);
-
-    await rankedView.render();
-
-    const tabs: Element | null = document.querySelector(".ranked-view .difficulty-tabs");
-    if (!tabs) {
-        throw new Error("Ranked difficulty tabs not found");
-    }
-
-    return tabs.getBoundingClientRect();
-}
-
-function _createDashboardContainer(): HTMLDivElement {
+function _createViewContainer(containerId: string, className: string): HTMLDivElement {
     const container: HTMLDivElement = document.createElement("div");
-    container.className = "dashboard-panel";
-    container.style.width = "1000px";
-    container.style.height = "800px";
-    container.style.position = "relative";
+    container.setAttribute("id", containerId);
+    container.className = className;
+    container.style.width = "100%";
+    container.style.height = "100%";
 
     return container;
 }
 
-function _applyGlobalStyles(): void {
-    const style: HTMLStyleElement = document.createElement("style");
-    style.innerHTML = _getGlobalStylesContent();
+function _prepareDashboardHost(): HTMLDivElement {
+    const host: HTMLDivElement = document.createElement("div");
+    host.className = "dashboard-panel";
+    host.style.width = "1000px";
+    host.style.height = "800px";
+    host.style.position = "relative";
 
-    document.head.appendChild(style);
+    return host;
 }
 
-function _getGlobalStylesContent(): string {
-    return `
+function _applyLayoutConstraints(): void {
+    const style: HTMLStyleElement = document.createElement("style");
+    style.innerHTML = `
         :root { --margin-spacing-multiplier: 1; --ui-scale: 1; }
         .dashboard-panel { padding: 1.5rem; box-sizing: border-box; position: absolute; top: 0; left: 0; }
-        .benchmark-view, .ranked-view { width: 100%; height: 100%; }
+        .benchmark-header-controls { display: flex; justify-content: center; margin-bottom: 1.5rem; }
         .difficulty-tabs { display: flex; gap: 0.4rem; }
         .tab-button { padding: 0.4rem 1rem; font-size: 1rem; }
-        .benchmark-header-controls { display: flex; justify-content: center; margin-bottom: 1.5rem; }
     `;
+
+    document.head.appendChild(style);
 }
