@@ -24,7 +24,7 @@ describe("RankedSessionService: Lifecycle", (): void => {
         );
     });
 
-    it("should generate a sequence of 3 scenarios using Strong-Weak-Weak logic", (): void => {
+    it("should generate a sequence of 3 scenarios using Strong-Weak-Mid logic", (): void => {
         const scenarios: BenchmarkScenario[] = _createDiversePool();
         const estimates: Record<string, Partial<ScenarioEstimate>> = _createDiverseEstimates();
 
@@ -36,7 +36,7 @@ describe("RankedSessionService: Lifecycle", (): void => {
         _assertDiverseSequence(service.state.sequence);
     });
 
-    it("should handle diversity check (swap slot 3 if category collision)", (): void => {
+    it("should handle diversity check (penalty for similar categories)", (): void => {
         const scenarios: BenchmarkScenario[] = _createCollidingPool();
         const estimates: Record<string, Partial<ScenarioEstimate>> = _createCollidingEstimates();
 
@@ -95,9 +95,16 @@ function _assertDiverseSequence(sequence: string[]): void {
     // Slot 1: Strong (Max Gap). Gap: Clicking (2.0), others 0.
     expect(sequence[0]).toBe("scenClicking1");
 
-    const weaks: string[] = sequence.slice(1);
-    expect(weaks).toContain("scenFlick1");
-    expect(weaks).toContain("scenControl1");
+    const remainder: string[] = sequence.slice(1);
+    // Slot 2: Weak (Min Score). Flick (0), Control (0.5), Track1 (2), Track2 (2.5).
+    // Min is Flick (0).
+    expect(remainder).toContain("scenFlick1");
+
+    // Slot 3: Mid (Max Gap - Penalty).
+    // Remaining: Control (Gap 0), Track1 (Gap 0), Track2 (Gap 0).
+    // Penalties: Categories differ from Clicking and Flick.
+    // So all 0. Picks first available: scenTracking1.
+    expect(remainder).toContain("scenTracking1");
 }
 
 function _createCollidingPool(): BenchmarkScenario[] {
