@@ -208,6 +208,9 @@ export class RankTimelineComponent {
 
         const tick = document.createElement("div");
         tick.className = "timeline-tick";
+        if (!label) {
+            tick.classList.add("minor");
+        }
         tick.style.left = `${leftPercent}%`;
         parent.appendChild(tick);
 

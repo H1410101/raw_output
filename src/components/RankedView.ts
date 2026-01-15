@@ -11,6 +11,7 @@ import { AudioService } from "../services/AudioService";
 import { RankTimelineComponent } from "./visualizations/RankTimelineComponent";
 import { FolderSettingsView } from "./ui/FolderSettingsView";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
+import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
 
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
@@ -418,6 +419,9 @@ export class RankedView {
     return `
       <div class="media-controls">
           <div class="controls-left">
+              <button class="media-btn secondary" id="ranked-help-btn" title="Ranked Mode Info">
+                  <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+              </button>
               <button class="media-btn secondary" id="ranked-back-btn" ${state.currentIndex === 0 ? "disabled" : ""}>
                   <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
               </button>
@@ -457,6 +461,12 @@ export class RankedView {
 
     const backBtn: HTMLButtonElement | null = container.querySelector("#ranked-back-btn");
     backBtn?.addEventListener("click", () => this._deps.rankedSession.retreat());
+
+    const helpBtn: HTMLButtonElement | null = container.querySelector("#ranked-help-btn");
+    helpBtn?.addEventListener("click", (): void => {
+      const popup: RankedHelpPopupComponent = new RankedHelpPopupComponent(this._deps.audio);
+      popup.render();
+    });
   }
 
   private _convertToScoreMap(bests: SessionRankRecord[]): Map<string, number> {
