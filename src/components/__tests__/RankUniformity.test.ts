@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { BenchmarkView, BenchmarkViewServices } from "../BenchmarkView";
-import { RankedView, RankedViewDependencies } from "../RankedView";
 import { MockServiceFactory } from "./MockServiceFactory";
 import { EstimatedRank } from "../../services/RankEstimator";
 import { AppStateService } from "../../services/AppStateService";
@@ -53,24 +52,7 @@ describe("RankUniformity: Table Standard", (): void => {
     });
 });
 
-describe("RankUniformity: HUD Standard", (): void => {
-    let container: HTMLElement;
-    let dependencies: BenchmarkViewServices;
 
-    beforeEach((): void => {
-        container = document.createElement("div");
-        document.body.appendChild(container);
-        dependencies = initializeData();
-    });
-
-    afterEach((): void => {
-        _teardownEnvironment(container);
-    });
-
-    it("should match standard HUD colors", async (): Promise<void> => {
-        await _testHudRanks(container, dependencies);
-    });
-});
 
 describe("RankUniformity: Unranked Bench", (): void => {
     let container: HTMLElement;
@@ -101,35 +83,7 @@ describe("RankUniformity: Unranked Bench", (): void => {
     });
 });
 
-describe("RankUniformity: Unranked HUD", (): void => {
-    let container: HTMLElement;
-    let dependencies: BenchmarkViewServices;
 
-    beforeEach((): void => {
-        container = document.createElement("div");
-        document.body.appendChild(container);
-        dependencies = initializeData();
-    });
-
-    afterEach((): void => {
-        _teardownEnvironment(container);
-    });
-
-    it("should match unranked HUD color", async (): Promise<void> => {
-        _setupUnrankedMocks(dependencies);
-        _setActiveStatus(dependencies);
-
-        const rankedDeps: RankedViewDependencies = dependencies as unknown as RankedViewDependencies;
-        const rankedView: RankedView = new RankedView(container, rankedDeps);
-        await rankedView.render();
-
-        const element: HTMLElement = await _waitForSelector(container, ".stat-item:not(.highlight) .rank-name");
-        const styles: ComputedStyles = _getStyles(element);
-
-        expect(styles.color).toBe("rgb(50, 50, 50)");
-        expect(styles.fontWeight).toBe("600");
-    });
-});
 
 async function _testBenchmarkRanks(container: HTMLElement, dependencies: BenchmarkViewServices): Promise<void> {
     const view: BenchmarkView = new BenchmarkView(container, dependencies, (dependencies as BenchmarkViewTestDeps).appState);
@@ -149,45 +103,7 @@ async function _testBenchmarkRanks(container: HTMLElement, dependencies: Benchma
     });
 }
 
-function _setActiveStatus(dependencies: BenchmarkViewServices): void {
-    const session = (dependencies as unknown as RankedViewDependencies).rankedSession;
 
-
-    Object.defineProperty(session, "state", {
-        value: {
-            status: "ACTIVE",
-            sequence: ["Scenario A"],
-            currentIndex: 0,
-            difficulty: "Advanced",
-            startTime: new Date().toISOString(),
-            initialGauntletComplete: false,
-            rankedSessionId: "test-id"
-        },
-        writable: true
-    });
-
-    vi.mocked(dependencies.session.isSessionActive).mockReturnValue(true);
-}
-
-async function _testHudRanks(container: HTMLElement, dependencies: BenchmarkViewServices): Promise<void> {
-    container.innerHTML = "";
-    _setActiveStatus(dependencies);
-
-    const rankedDeps: RankedViewDependencies = dependencies as unknown as RankedViewDependencies;
-    const rankedView: RankedView = new RankedView(container, rankedDeps);
-    await rankedView.render();
-
-    const elements: HTMLElement[] = await Promise.all([
-        _waitForSelector(container, ".stat-item.highlight .rank-name"),
-        _waitForSelector(container, ".stat-item:not(.highlight) .rank-name")
-    ]);
-
-    elements.forEach((element: HTMLElement) => {
-        const styles: ComputedStyles = _getStyles(element);
-        expect(styles.color).toBe("rgb(100, 100, 100)");
-        expect(styles.fontWeight).toBe("700");
-    });
-}
 
 function _setupUnrankedMocks(dependencies: BenchmarkViewServices): void {
     const unranked: unknown = { rankName: "Unranked", progressToNext: 0, continuousValue: 0, color: "grey" };

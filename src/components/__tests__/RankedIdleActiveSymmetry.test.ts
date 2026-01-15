@@ -23,6 +23,7 @@ test("Ranked play button should be in the exact same location in Idle and Active
     const activeY: number = activeRect.top;
 
     // --- Verification ---
+    // --- Verification ---
     expect(idleX).toBeCloseTo(activeX, 1);
     expect(idleY).toBeCloseTo(activeY, 1);
 });
@@ -45,12 +46,7 @@ function _setupBaseStyles(): void {
             position: relative;
         }
         .ranked-stats-bar {
-            display: flex;
-            gap: 2.5rem;
-            padding: 1.25rem 1.75rem;
-            margin-bottom: 2rem;
-            flex-shrink: 0;
-            height: 5rem;
+            display: none; /* Removed in new layout */
         }
     `;
     document.head.appendChild(style);
@@ -58,21 +54,17 @@ function _setupBaseStyles(): void {
 
 function _setupLayoutStyles(): void {
     const style: HTMLStyleElement = document.createElement("style");
+    // Emulate the new flex layout with gap
     style.innerHTML = `
-        .ranked-main {
-            flex: 1 0 auto;
-            display: flex;
-            align-items: center;
+        .ranked-container {
             justify-content: center;
-            min-height: fit-content;
-            padding: 1rem 0;
+            align-items: center;
+            gap: 1rem;
         }
-        .ranked-target {
-            text-align: center;
+        .ranked-info-top {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 0.5rem;
         }
         .media-controls {
             display: grid;
@@ -83,27 +75,31 @@ function _setupLayoutStyles(): void {
         }
         .media-btn { width: 2.5rem; height: 2.5rem; }
         .media-btn.primary { width: 3.75rem; height: 3.75rem; }
+        
+        /* Mock visual element height for symmetry test */
+        .ranked-dot-cloud, .rank-timeline-container {
+            height: 6rem; 
+            width: 100%;
+        }
     `;
     document.head.appendChild(style);
 }
 
 function _setupIdleDOM(): void {
     document.body.innerHTML = `
-      <div class="ranked-container">
-        <div class="ranked-stats-bar" style="visibility: hidden;">Stats</div>
-        <div class="ranked-main">
-            <div class="ranked-target">
-                <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
-                <h2 class="ranked-scenario-name" style="visibility: hidden;">Placeholder</h2>
-                <div class="media-controls">
-                    <div class="controls-left" style="visibility: hidden;">
-                        <button class="media-btn secondary"></button>
-                    </div>
-                    <button class="media-btn primary" id="start-ranked-btn"></button>
-                    <div class="controls-right" style="visibility: hidden;">
-                        <button class="media-btn secondary"></button>
-                    </div>
-                </div>
+      <div class="ranked-container idle">
+        <div class="ranked-info-top">
+            <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
+            <h2 class="ranked-scenario-name" style="visibility: hidden;">Placeholder</h2>
+        </div>
+        <div class="dot-cloud-container ranked-dot-cloud" style="visibility: hidden;"></div>
+        <div class="media-controls">
+            <div class="controls-left" style="visibility: hidden;">
+                <button class="media-btn secondary"></button>
+            </div>
+            <button class="media-btn primary" id="start-ranked-btn"></button>
+            <div class="controls-right" style="visibility: hidden;">
+                <button class="media-btn secondary"></button>
             </div>
         </div>
       </div>
@@ -112,22 +108,20 @@ function _setupIdleDOM(): void {
 
 function _setupActiveDOM(): void {
     document.body.innerHTML = `
-      <div class="ranked-container">
-        <div class="ranked-stats-bar">Stats</div>
-        <div class="ranked-main">
-            <div class="ranked-target">
-                <span class="now-playing">NOW PLAYING</span>
-                <h2 class="ranked-scenario-name">Scenario Name</h2>
-                <div class="media-controls">
-                    <div class="controls-left">
-                        <button class="media-btn secondary"></button>
-                    </div>
-                    <button class="media-btn primary" id="ranked-play-now"></button>
-                    <div class="controls-right">
-                        <button class="media-btn secondary"></button>
-                        <button class="media-btn secondary destructive"></button>
-                    </div>
-                </div>
+      <div class="ranked-container active">
+        <div class="ranked-info-top">
+            <span class="now-playing">NOW PLAYING</span>
+            <h2 class="ranked-scenario-name">Scenario Name</h2>
+        </div>
+        <div class="rank-timeline-container"></div>
+        <div class="media-controls">
+            <div class="controls-left">
+                <button class="media-btn secondary"></button>
+            </div>
+            <button class="media-btn primary" id="ranked-play-now"></button>
+            <div class="controls-right">
+                <button class="media-btn secondary"></button>
+                <button class="media-btn secondary destructive"></button>
             </div>
         </div>
       </div>

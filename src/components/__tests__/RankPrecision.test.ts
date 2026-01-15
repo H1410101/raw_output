@@ -30,37 +30,7 @@ const initializeData = (container: HTMLElement): RankedViewDependencies => {
 
 };
 
-describe("Typography Calculation", (): void => {
-    let container: HTMLElement;
-    let mockDeps: RankedViewDependencies;
 
-    beforeEach((): void => {
-        container = document.createElement("div");
-        mockDeps = initializeData(container);
-    });
-
-    it("should match target calculation in session and table", async (): Promise<void> => {
-        const benchView: BenchmarkView = new BenchmarkView(
-            container,
-            mockDeps as unknown as BenchmarkViewServices,
-            mockDeps.appState
-        );
-        await benchView.render();
-
-
-        const tableText: string | null = container.querySelector(".holistic-rank-container .rank-name")?.textContent ?? null;
-
-        container.innerHTML = "";
-
-        const rankedView: RankedView = new RankedView(container, mockDeps);
-        await rankedView.render();
-        const sessionText: string | null = container.querySelector(".stat-item.highlight .rank-name")?.textContent ?? null;
-
-        expect(tableText).toBe("Silver");
-        expect(sessionText).toBe(tableText);
-        expect(vi.mocked(mockDeps.estimator.calculateHolisticEstimateRank)).toHaveBeenCalled();
-    });
-});
 
 
 const CONSISTENT_RANK_COLOR = "100, 133, 171";
@@ -94,7 +64,7 @@ async function _getHudRankProperties(
 ): Promise<RankLayoutProperties> {
     const rankedView: RankedView = new RankedView(container, mockDeps);
     await rankedView.render();
-    const hudRank: HTMLElement | null = container.querySelector(".stat-item .rank-name");
+    const hudRank: HTMLElement | null = container.querySelector(".holistic-rank-container .rank-name");
 
     if (!hudRank) {
         throw new Error("HUD Rank element not found");

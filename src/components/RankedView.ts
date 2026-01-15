@@ -271,41 +271,28 @@ export class RankedView {
           <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
           <h2 class="ranked-scenario-name" style="visibility: hidden;">Placeholder</h2>
       </div>
-      <div class="ranked-main">
-          <div class="ranked-target">
-              <div class="dot-cloud-container ranked-dot-cloud" style="visibility: hidden;"></div>
-              <div class="media-controls">
-                  <div class="controls-left" style="visibility: hidden;">
-                      <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-                  </div>
-                  <button class="media-btn primary" id="start-ranked-btn">
-                      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                  </button>
-                  <div class="controls-right" style="visibility: hidden;">
-                      <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-                  </div>
-              </div>
+      <div class="dot-cloud-container ranked-dot-cloud" style="visibility: hidden;"></div>
+      <div class="media-controls">
+          <div class="controls-left" style="visibility: hidden;">
+              <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+          </div>
+          <button class="media-btn primary" id="start-ranked-btn">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <div class="controls-right" style="visibility: hidden;">
+              <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
           </div>
       </div>
     `;
   }
 
   private _renderActiveState(state: RankedSessionState, parent: HTMLElement): void {
-    const targetEstimate = this._calculateHolisticEstimateRank();
-    const sessionEstimate = this._getSessionEstimate();
     const isImproved = this._checkIfCurrentImproved();
 
     const container: HTMLDivElement = document.createElement("div");
     container.className = "ranked-container active";
 
-    container.innerHTML = `
-      ${this._renderMainContent(state, isImproved)}
-      
-      <div class="ranked-stats-bar">
-          ${this._renderStatItem("TARGET", this._formatRankValue(targetEstimate), true)}
-          ${this._renderStatItem("ACHIEVED", this._formatRankValue(sessionEstimate), false)}
-      </div>
-    `;
+    container.innerHTML = this._renderMainContent(state, isImproved);
 
     parent.appendChild(container);
     this._attachActiveListeners(container);
@@ -339,14 +326,7 @@ export class RankedView {
     return this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario) > estimateValue;
   }
 
-  private _renderStatItem(label: string, value: string, highlighted: boolean = false): string {
-    return `
-      <div class="stat-item ${highlighted ? "highlight" : ""}">
-          <span class="label">${label}</span>
-          <span class="value">${value}</span>
-      </div>
-    `;
-  }
+
 
   private _renderMainContent(state: RankedSessionState, isImproved: boolean): string {
     if (state.status === "COMPLETED") {
@@ -429,12 +409,8 @@ export class RankedView {
           <h2 class="ranked-scenario-name">${scenarioName}</h2>
       </div>
       
-      <div class="ranked-main">
-          <div class="ranked-target">
-              ${this._renderRankTimeline(scenarioName)}
-              ${this._renderMediaControls(state, isImproved)}
-          </div>
-      </div>
+      ${this._renderRankTimeline(scenarioName)}
+      ${this._renderMediaControls(state, isImproved)}
     `;
   }
 

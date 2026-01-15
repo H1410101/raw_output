@@ -1691,8 +1691,11 @@ body.has-rank-popup .scenario-row {
 
 /* Ranked View Functional Styles */
 .ranked-container {
-    display: grid;
-    grid-template-rows: 1fr auto 1fr;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: calc(1rem * var(--vertical-spacing-multiplier));
     flex: 1;
     padding: 0;
     background: transparent;
@@ -1726,65 +1729,11 @@ body.has-rank-popup .scenario-row {
     color: var(--text-dim);
 }
 
-.ranked-stats-bar {
-    grid-row: 3;
-    align-self: start;
-    display: flex;
-    justify-content: space-around;
-    align-items: flex-start;
-    gap: 2.5rem;
-    padding: 1rem 1.75rem;
-    background: rgba(var(--lower-band-1-rgb), 0.05);
-    border-radius: 0.75rem;
-    border: 1px solid var(--glass-border);
-    width: fit-content;
-    margin: 2rem auto 0;
-}
-
-.stat-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 8rem;
-}
-
-.stat-item .label {
-    color: var(--lower-band-1);
-    opacity: 0.6;
-    margin: 0;
-}
-
-.stat-item .value {
-    color: var(--lower-band-3);
-}
-
-.stat-item.highlight .value {
-    color: var(--lower-band-3);
-}
-
-.ranked-main {
-    grid-row: 2;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: fit-content;
-    padding: 0;
-}
-
 .ranked-info-top {
-    grid-row: 1;
-    align-self: end;
-    padding-bottom: 2rem;
     display: flex;
     flex-direction: column;
     align-items: center;
-}
-
-.ranked-target {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
+    padding-bottom: 0;
 }
 
 .ranked-scenario-name {
