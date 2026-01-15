@@ -83,32 +83,32 @@ $$ I_{\text{new}} = I_{\text{old}} + \alpha \cdot (R_{\text{session}} - I_{\text
 
 ---
 
-## 3. Scenario Selection Protocol: "Strong-Weak-Weak"
+## 3. Scenario Selection Protocol: "Strong-Weak-Mid"
 
-**Principle: Targeted Stimuli**  
-To maximize neuroplasticity, training must oscillate between "Recovery" (fixing decayed skills) and "Correction" (addressing absolute weaknesses).
+**Principle: Balanced Progression**
+To maximize engagement and improvement, training oscillates between "Pushing Limits" (Strong), "Correcting Weakness" (Weak), and "Consolidating Gains" (Mid).
 
 A session consists of **3-Scenario Batches**, generated deterministically based on the player's current Identity Map.
 
 #### The Selection Logic
-1. **Slot 1: The "Strong" (Recovery)**
-    - **Goal**: Re-awaken a high-level skill that has decayed.
-    - **Metric**: Maximize `Gap = Peak - Current`.
-    - **Tie-Breaker**:
-        1. **Higher Peak**: Priority to recovering higher-level skills.
-        2. **Alphabetical**: Deterministic fallback.
+1.  **Slot 1: The "Strong" (Push Limits)**
+    -   **Goal**: Challenge the user at or slightly above their peak capability.
+    -   **Metric**: Maximize $Score = \min(R_{current} + \text{Gap}, R_{peak}) + \text{Gap}$
+        -   Where $\text{Gap} = R_{peak} - R_{current}$.
+    -   **Disqualification**: If $R_{current} > R_{peak}$ (Beyond Achievement), the scenario is skipped to avoid redundancy.
 
-2. **Slot 2: The "Weak" (Absolute Weakness)**
-    - **Goal**: Force improvement on the absolute lowest skill.
-    - **Metric**: Minimize `Strength = Current`.
-    - **Tie-Breaker**:
-        1. **Lower Peak**: Priority to skills that have *never* been good (true weakness vs. decay).
-        2. **Alphabetical**: Deterministic fallback.
+2.  **Slot 2: The "Weak" (Correction)**
+    -   **Goal**: Address scenarios where performance lags significantly behind potential.
+    -   **Metric**: Minimize $Score = \max(R_{current} - \text{Gap}, 0)$
+    -   **Interpretation**: Favors scenarios where $R_{current} \le \frac{1}{2} R_{peak}$.
 
-3. **Slot 3: The "Weak #2" (Reinforcement)**
-    - **Goal**: Secondary correction.
-    - **Metric**: 2nd Lowest `Strength`.
-    - **Diversity Check**: If Slot 2 and Slot 3 share the same **Category** (e.g., both "Static Clicking"), swap Slot 3 with the next lowest strength scenario from a different category, provided the skill difference is marginal (< 1.0 Rank Unit).
+3.  **Slot 3: The "Mid" (Consolidation)**
+    -   **Goal**: Bridge the gap between current and peak performance while maintaining variety.
+    -   **Metric**: Maximize $Score = \max(R_{current} + \text{Gap}, R_{peak}) - R_{current} - \text{Penalty}$
+        -   Simplifies to: $\text{Gap} - \text{Penalty}$.
+    -   **Diversity Penalty**:
+        -   **Same Subcategory** as any chosen scenario: $+0.5$.
+        -   **Same Category** as any chosen scenario: $+0.25$.
 
-**Why Deterministic?**
-Randomness is removed to ensure the "Assessment" is strictly measuring the player's worst bottlenecks. If a player fails a scenario, they cannot "re-roll" to get an easier one; they must improve their metrics to change the selection.
+**Session Result Calculation**:
+The "Achieved Rank" displayed at the end of the session is calculated as the average of the rank units achieved in the **1st (Strong)** and **3rd (Mid)** scenarios.

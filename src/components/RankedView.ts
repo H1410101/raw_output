@@ -210,16 +210,6 @@ export class RankedView {
     return container;
   }
 
-  private _formatRankValue(estimate: EstimatedRank): string {
-    if (estimate.rankName === "Unranked") {
-      return `<span class="rank-name unranked-text">Unranked</span><span class="rank-progress"></span>`;
-    }
-
-    const cleanName = estimate.rankName.replace(/\s+Rank$/i, "");
-
-    return `<span class="rank-name">${cleanName}</span><span class="rank-progress">+${estimate.progressToNext}%</span>`;
-
-  }
 
   private _createDifficultyTabs(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
@@ -299,12 +289,6 @@ export class RankedView {
     this._attachActiveListeners(container);
   }
 
-  private _getSessionEstimate(): EstimatedRank {
-    const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
-    const scores = this._deps.session.getAllScenarioSessionBests();
-
-    return this._deps.estimator.calculateOverallRank(difficulty, this._convertToScoreMap(scores));
-  }
 
   private _checkIfCurrentImproved(): boolean {
     const current = this._deps.rankedSession.currentScenarioName;
@@ -338,18 +322,52 @@ export class RankedView {
   }
 
   private _renderCompletedContent(): string {
-    const estimate = this._calculateHolisticEstimateRank();
+    const estimate = this._calculateSessionAchievedRank();
 
     return `
       <div class="ranked-result">
           <h2 class="congrats">RUN COMPLETE</h2>
           <div class="summary-card">
-              <p class="summary-rank">ESTIMATE RANK: <span class="accent">${estimate.rankName}</span></p>
-              <p class="summary-subtitle">Initial evaluation finished.</p>
+              <p class="summary-rank">ACHIEVED RANK: <span class="accent">${estimate.rankName}</span></p>
+              <p class="summary-subtitle">Session Performance</p>
           </div>
           <button class="next-btn luminous" id="extend-ranked-btn">CONTINUE TO INFINITE RUN</button>
       </div>
     `;
+  }
+
+  private _calculateSessionAchievedRank(): EstimatedRank {
+    const state = this._deps.rankedSession.state;
+    const sequence = state.sequence;
+    const difficulty = this._deps.appState.getBenchmarkDifficulty();
+
+    if (sequence.length < 3) {
+      // Should not happen in COMPLETED state normally
+      return this._deps.estimator.getEstimateForValue(0, difficulty);
+    }
+
+    // 1st scenario (Strong) and 3rd scenario (Mid)
+    const scenarioNames = [sequence[0], sequence[2]];
+    let totalRankValue = 0;
+    let count = 0;
+
+    const bests = this._deps.session.getAllScenarioSessionBests();
+    const scenarios = this._deps.benchmark.getScenarios(difficulty);
+
+    for (const name of scenarioNames) {
+      const record = bests.find((record: SessionRankRecord) => record.scenarioName === name);
+      const scenario = scenarios.find((scenario: BenchmarkScenario) => scenario.name === name);
+
+      if (record && scenario) {
+        const val = this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario);
+        totalRankValue += val;
+        count++;
+      }
+    }
+
+    const average = count > 0 ? totalRankValue / count : 0;
+
+    return this._deps.estimator.getEstimateForValue(average, difficulty);
   }
 
   private _renderRankTimeline(scenarioName: string): string {
@@ -469,15 +487,6 @@ export class RankedView {
     });
   }
 
-  private _convertToScoreMap(bests: SessionRankRecord[]): Map<string, number> {
-    const scoreMap: Map<string, number> = new Map();
-
-    bests.forEach((record: SessionRankRecord): void => {
-      scoreMap.set(record.scenarioName, record.bestScore);
-    });
-
-    return scoreMap;
-  }
 
 
 

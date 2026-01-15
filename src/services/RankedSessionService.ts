@@ -22,6 +22,7 @@ interface ScenarioMetric {
     scenario: BenchmarkScenario;
     current: number;
     peak: number;
+    // peak - current
     gap: number;
 }
 
@@ -147,7 +148,7 @@ export class RankedSessionService {
         this._sequence = [];
         this._initialGauntletComplete = false;
 
-        // Generate Initial Batch (Strong-Weak-Weak)
+        // Generate Initial Batch (Strong-Weak-Mid)
         const batch = this._generateNextBatch(difficulty, []);
         this._sequence.push(...batch);
 
@@ -276,6 +277,13 @@ export class RankedSessionService {
      * @param excludeScenarios - List of scenario names to exclude from the batch.
      * @returns An array containing exactly three scenario names, or fewer if the pool is exhausted.
      */
+    /**
+     * Generates a deterministic batch of three scenarios based on Strong-Weak-Mid strategy.
+     *
+     * @param difficulty - The difficulty tier to pull scenarios from.
+     * @param excludeScenarios - List of scenario names to exclude from the batch.
+     * @returns An array containing exactly three scenario names, or fewer if the pool is exhausted.
+     */
     private _generateNextBatch(difficulty: string, excludeScenarios: string[]): string[] {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
         const pool: BenchmarkScenario[] = scenarios.filter((scenario: BenchmarkScenario) => !excludeScenarios.includes(scenario.name));
@@ -284,22 +292,37 @@ export class RankedSessionService {
             return this._getFallbackBatch(pool);
         }
 
-        const metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool);
-        const slot1: ScenarioMetric = this._selectHighPotentialSlot(metrics);
-        const remaining: ScenarioMetric[] = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== slot1.scenario.name);
+        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool);
 
-        const sortedByStrength: ScenarioMetric[] = this._sortMetricsByStrength(remaining);
-        const slot2: ScenarioMetric = sortedByStrength[0];
-        const slot3: ScenarioMetric = this._selectDiverseThirdSlot(slot2, sortedByStrength.slice(1));
+        // 1. Select Strong Scenario
+        const strongMetric: ScenarioMetric | null = this._selectStrongScenario(metrics);
+        if (!strongMetric) {
+            return this._getFallbackBatch(pool);
+        }
+        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== strongMetric.scenario.name);
 
-        return [slot1.scenario.name, slot2.scenario.name, slot3.scenario.name];
+        // 2. Select Weak Scenario
+        const weakMetric: ScenarioMetric | null = this._selectWeakScenario(metrics);
+        if (!weakMetric) {
+            // Should happen rarely given pool size, but fallback
+            return [strongMetric.scenario.name, ...this._getFallbackBatch(pool.filter((scenario: BenchmarkScenario) => scenario.name !== strongMetric.scenario.name))];
+        }
+        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== weakMetric.scenario.name);
+
+        // 3. Select Mid Scenario
+        // Mid selection depends on the other two for diversity penalty
+        const midMetric: ScenarioMetric = this._selectMidScenario(metrics, [strongMetric, weakMetric]);
+
+        return [strongMetric.scenario.name, weakMetric.scenario.name, midMetric.scenario.name];
     }
 
     private _getFallbackBatch(pool: BenchmarkScenario[]): string[] {
+        // Simple alpha sort fallback if logic fails or pool is too small
         return pool
             .sort((scenarioA: BenchmarkScenario, scenarioB: BenchmarkScenario) =>
                 scenarioA.name.localeCompare(scenarioB.name)
             )
+            .slice(0, 3)
             .map((scenario: BenchmarkScenario) => scenario.name);
     }
 
@@ -309,59 +332,111 @@ export class RankedSessionService {
             const current: number = estimate.continuousValue === -1 ? 0 : estimate.continuousValue;
             const peak: number = estimate.highestAchieved === -1 ? 0 : estimate.highestAchieved;
 
+            // "distance_from_peak" is naturally peak - current
+            const gap = peak - current;
+
             return {
                 scenario,
                 current,
                 peak,
-                gap: peak - current
+                gap
             };
         });
     }
 
-    private _selectHighPotentialSlot(metrics: ScenarioMetric[]): ScenarioMetric {
-        return [...metrics].sort((metricA: ScenarioMetric, metricB: ScenarioMetric) => {
-            const gapDiff: number = (metricB.peak - metricB.current) - (metricA.peak - metricA.current);
-            if (Math.abs(gapDiff) > 0.0001) {
-                return gapDiff;
+    private _selectStrongScenario(metrics: ScenarioMetric[]): ScenarioMetric | null {
+        // Logic: Highest score for min(current_rank + distance_from_peak, top_rank) + distance_from_peak
+        // Disqualify if current_rank > peak (beyond rank)
+
+        let bestMetric: ScenarioMetric | null = null;
+        let maxScore = -Infinity;
+
+        for (const metric of metrics) {
+            // "except if current_rank is a beyond rank (above peak), it is disqualified entirely"
+            if (metric.current > metric.peak) {
+                continue;
             }
 
-            const peakDiff: number = metricB.peak - metricA.peak;
-            if (Math.abs(peakDiff) > 0.0001) {
-                return peakDiff;
-            }
+            // same as metric.gap
+            const dist = metric.peak - metric.current;
 
-            return metricA.scenario.name.localeCompare(metricB.scenario.name);
-        })[0];
-    }
+            // min(current + dist, peak) + dist
+            // since current + dist = peak, min(peak, peak) = peak.
+            // so score = peak + dist = peak + (peak - current) = 2*peak - current
+            const score = metric.peak + dist;
 
-    private _sortMetricsByStrength(metrics: ScenarioMetric[]): ScenarioMetric[] {
-        return [...metrics].sort((metricA: ScenarioMetric, metricB: ScenarioMetric) => {
-            const strengthDiff: number = metricA.current - metricB.current;
-            if (Math.abs(strengthDiff) > 0.0001) {
-                return strengthDiff;
-            }
-
-            const peakDiff: number = metricA.peak - metricB.peak;
-            if (Math.abs(peakDiff) > 0.0001) {
-                return peakDiff;
-            }
-
-            return metricA.scenario.name.localeCompare(metricB.scenario.name);
-        });
-    }
-
-    private _selectDiverseThirdSlot(slot2: ScenarioMetric, candidates: ScenarioMetric[]): ScenarioMetric {
-        const slot3: ScenarioMetric = candidates[0];
-
-        if (slot2.scenario.category === slot3.scenario.category && candidates.length > 1) {
-            const alternative: ScenarioMetric = candidates[1];
-
-            if (Math.abs(alternative.current - slot3.current) < 1.0) {
-                return alternative;
+            if (score > maxScore) {
+                maxScore = score;
+                bestMetric = metric;
             }
         }
 
-        return slot3;
+        return bestMetric;
+    }
+
+    private _selectWeakScenario(metrics: ScenarioMetric[]): ScenarioMetric | null {
+        // Logic: Lowest score for max(current_rank - distance_from_peak, 0)
+
+        let bestMetric: ScenarioMetric | null = null;
+        let minScore = Infinity;
+
+        for (const metric of metrics) {
+            const dist = metric.peak - metric.current;
+
+            // max(current - dist, 0)
+            const score = Math.max(metric.current - dist, 0);
+
+            if (score < minScore) {
+                minScore = score;
+                bestMetric = metric;
+            } else if (score === minScore) {
+                // Tie-breaker: use larger gap (we want weak scenarios, often meaning high potential)
+                // or just alphabetical for determinism
+                if (bestMetric && metric.scenario.name.localeCompare(bestMetric.scenario.name) < 0) {
+                    bestMetric = metric;
+                }
+            }
+        }
+
+        return bestMetric;
+    }
+
+    private _selectMidScenario(metrics: ScenarioMetric[], chosen: ScenarioMetric[]): ScenarioMetric {
+        // Logic: Highest score for max(current_rank + distance_from_peak, top_rank) - current_rank - closeness_penalty
+
+        let bestMetric: ScenarioMetric | null = null;
+        let maxScore = -Infinity;
+
+        for (const metric of metrics) {
+            // max(current + dist, peak) = max(peak, peak) = peak
+
+            // score = peak - current - penalty
+            // penalty: same category 0.25, same subcategory 0.5 (cumulative per chosen scenario)
+
+            let penalty = 0;
+            for (const other of chosen) {
+                if (other.scenario.subcategory === metric.scenario.subcategory) {
+                    penalty += 0.5;
+                }
+                // Assuming "Same Category" is an *additional* or *alternative* check?
+                // Usually subcategory implies category. Only adding if strictly same category?
+                // User said: "same category is 0.25, and the same subcategory is 0.5"
+                // I'll assume if subcategory matches, it's 0.5. If only category matches, 0.25.
+                else if (other.scenario.category === metric.scenario.category) {
+                    penalty += 0.25;
+                }
+            }
+
+            // Score = peak - current - penalty = gap - penalty
+            const score = (metric.peak - metric.current) - penalty;
+
+            if (score > maxScore) {
+                maxScore = score;
+                bestMetric = metric;
+            }
+        }
+
+        return bestMetric || metrics[0];
     }
 
 

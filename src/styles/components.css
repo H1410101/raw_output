@@ -19,6 +19,7 @@
     border-radius: calc(1.5rem * var(--margin-spacing-multiplier));
     padding: calc(0.2rem * var(--margin-spacing-multiplier)) 0;
     min-height: 2.2rem;
+    text-transform: uppercase;
     /* Match difficulty tabs height */
 }
 
@@ -26,7 +27,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
     padding: 0 1.5rem;
 }
 
