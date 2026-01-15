@@ -201,6 +201,7 @@ export class AppBootstrap {
         benchmarkView: this._benchmarkView,
         appStateService: this._appStateService,
         rankedSession: this._rankedSessionService,
+        rankedView: this._rankedView,
       },
     );
   }
@@ -215,6 +216,12 @@ export class AppBootstrap {
       history: this._historyService,
       visualSettings: this._visualSettingsService,
       audio: this._audioService,
+      directory: this._directoryService,
+      folderActions: {
+        onLinkFolder: (): Promise<void> => this._handleManualFolderSelection(),
+        onForceScan: (): Promise<void> => this._handleManualImport(),
+        onUnlinkFolder: (): void => this._handleFolderRemoval(),
+      },
     });
   }
 
@@ -244,7 +251,11 @@ export class AppBootstrap {
     folderBtn.addEventListener("click", (): void => {
       this._animateButton(folderBtn);
 
-      this._benchmarkView.toggleFolderView();
+      if (this._appStateService.getActiveTabId() === "nav-ranked") {
+        this._rankedView.toggleFolderView();
+      } else {
+        this._benchmarkView.toggleFolderView();
+      }
     });
 
     const aboutBtn = this._getRequiredElement("header-about-btn");

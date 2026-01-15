@@ -1,5 +1,6 @@
 import { AppStateService } from "../services/AppStateService";
 import { BenchmarkView } from "./BenchmarkView";
+import { RankedView } from "./RankedView";
 import { RankedSessionService } from "../services/RankedSessionService";
 
 /**
@@ -32,6 +33,8 @@ export interface NavDependencies {
   readonly appStateService: AppStateService;
   /** Service for ranked session lifecycle. */
   readonly rankedSession: RankedSessionService;
+  /** The ranked view component. */
+  readonly rankedView: RankedView;
 }
 
 /**
@@ -50,6 +53,7 @@ export class NavigationController {
 
   private readonly _appStateService: AppStateService;
   private readonly _rankedSession: RankedSessionService;
+  private readonly _rankedView: RankedView;
 
   /**
    * Initializes the controller with grouped navigation elements and dependencies.
@@ -73,6 +77,7 @@ export class NavigationController {
 
     this._appStateService = dependencies.appStateService;
     this._rankedSession = dependencies.rankedSession;
+    this._rankedView = dependencies.rankedView;
 
     this._rankedSession.onStateChanged((): void => {
       this._updateButtonStates();
@@ -129,6 +134,7 @@ export class NavigationController {
       this._appStateService.getActiveTabId() === "nav-ranked";
 
     if (isAlreadyActive) {
+      await this._rankedView.tryReturnToTable();
       return;
     }
 
