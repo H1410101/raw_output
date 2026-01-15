@@ -17,6 +17,8 @@ export class ScenarioNameWidthManager {
     this._context = this._canvas.getContext("2d")!;
   }
 
+  public static readonly scenarioNamePaddingRem: number = 0.2;
+
   /**
    * Calculates the required width for the scenario name column.
    *
@@ -41,13 +43,13 @@ export class ScenarioNameWidthManager {
     this._prepareContext(fontConfig, multiplier);
 
     const maxPx: number = this._measureMaxScenarioWidth(scenarios);
-    const unscaledRootFontSize: number =
-      this._getRootFontSize() / this._getMasterScale();
+    const rootFontSize: number = this._getRootFontSize();
 
-    const padding: number = 1.5;
-    const spacing: number = padding * this._getMarginSpacingMultiplier();
+    const spacing: number =
+      ScenarioNameWidthManager.scenarioNamePaddingRem *
+      this._getMarginSpacingMultiplier();
 
-    const widthRem: number = maxPx / unscaledRootFontSize + spacing;
+    const widthRem: number = maxPx / rootFontSize + spacing;
     this._maxNameWidth = widthRem;
 
     return this._maxNameWidth;
@@ -68,12 +70,9 @@ export class ScenarioNameWidthManager {
     config: { weight: string; family: string },
     multiplier: number,
   ): void {
-    const masterScale: number = this._getMasterScale();
-    const unscaledRootFontSize: number = this._getRootFontSize() / masterScale;
-
-    const baseRem: number = 0.9;
+    const baseRem: number = 0.8;
     const currentFontSizePx: number =
-      baseRem * unscaledRootFontSize * multiplier * masterScale;
+      baseRem * this._getRootFontSize() * multiplier;
 
     this._context.font = `${config.weight} ${currentFontSizePx}px ${config.family}`;
   }

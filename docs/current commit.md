@@ -1,38 +1,29 @@
-# Current Commit: Merge 'ranked-runs-1' into 'ranked-runs-2'
+# Commit: Corrected Scenario Name Column Width Regression
 
-## Changes
-- Resolved all merge conflicts in:
-  - `src/services/RankEstimator.ts`
-  - `src/services/RankedSessionService.ts`
-  - `src/services/__tests__/RankedSessionService.test.ts`
-  - `src/components/BenchmarkView.ts`
-  - `src/components/RankedView.ts`
-  - `src/components/benchmark/BenchmarkRowRenderer.ts`
-  - `src/components/__tests__/DifficultyPositionSync.test.ts`
-  - `src/components/__tests__/RankUniformity.test.ts`
-  - `src/components/__tests__/RankedViewLabels.test.ts`
-  - `src/components/__tests__/RankPrecision.test.ts`
+## Gist
+Resolved a layout regression where the scenario name column in the benchmark table was excessively wide due to double-scaling of its width reservation.
 
-- **Standardized Naming Convention:**
-  - Renamed `ScenarioRankEstimate` to `ScenarioEstimate` everywhere.
-  - Renamed `getScenarioRankEstimate` to `getScenarioEstimate`.
-  - Renamed `evolveScenarioRankEstimate` to `evolveScenarioEstimate`.
-  - Renamed `getEstimateMap` to `getRankEstimateMap`.
-  - Renamed CSS class `.estimate-badge` to `.rank-estimate-badge`.
+## Key Changes
+- **Regression Detection**: Implemented a pixel-perfect "Ink Width" test suite in `BenchmarkTable.test.ts` that uses a canvas to measure actual text rendering against DOM reservations.
+- **Scaling Correction**: Refactored `ScenarioNameWidthManager.ts` to correctly convert measured pixels to `rem` units by using the current scaled root font size, eliminating the redundant multiplication by the master scale.
+- **Magic Number Elimination**: Factored out the `1.5` padding (later optimized to `0.2`) into a static constant `SCENARIO_NAME_PADDING_REM` shared between the manager and the tests.
+- **Layout Tightening**: Reduced the default horizontal padding for scenario names to `0.2rem` for a more premium, high-density aesthetic.
 
-- **Logic Integration:**
-  - Integrated modular decay logic (`_processScenarioDecay`) from `ranked-runs-2` with the structural changes from `ranked-runs-1`.
-  - Ensured `BenchmarkRowRenderer` and `RankedView` use the new `RankEstimator` API correctly.
+## Architecture & Principles
+- **Embedded Documentation**: Updated `ScenarioNameWidthManager` with clear API documentation.
+- **Short Methods**: All new and refactored logic is broken down into concise, single-purpose helpers (e.g., `_scanForRightmostOpaquePixel`, `_calculateInkWidthsForScenarios`).
+- **Explicit Types**: Applied strict TypeScript annotations to all new testing and production code.
 
-- **Visual Fixes:**
-  - Fixed syntax error in `src/styles/components.css` restoration.
-  - Updated test mocks to include `showRanks: true` and `showRankEstimate: true` where missing.
+## Verification
+- `BenchmarkTable Page Layout > scenario name column should be tight to the maximum ink width of all names`: **PASS**
+- `BenchmarkTable Page Layout > all scenario name columns should have identical reserved widths`: **PASS**
+- `BenchmarkTable Page Layout > all scenarios should be present in the rendered table`: **PASS**
 
-- **Malicious Lint Compliance Fixes:**
-  - Identified and resolving bypasses in `RankPrecision.test.ts`, `RankedViewLabels.test.ts`, and `RankUniformity.test.ts` where RGB triplets and pixel units were split to evade linter checks.
-
-## Status
-- Build/Type check consistent.
-- All 14 test suites passing (37 tests total).
-- Linting fully compliant; bypasses removed from tests and linters adjusted for test environments.
-
+```mermaid
+graph LR
+    A[ScenarioNameWidthManager] -- measures --> B(Canvas Text Metrics)
+    B -- pixel width --> C{Conversion Logic}
+    C -- ÷ Root Font Size --> D[rem Width]
+    D -- CSS variable --> E(.scenario-name Width)
+    E -- validates --> F[Test: Ink vs Reserved]
+```
