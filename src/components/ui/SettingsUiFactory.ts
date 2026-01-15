@@ -337,7 +337,8 @@ export class SettingsUiFactory {
   ): { target: HTMLElement; index: number } {
     const parent = track.parentElement;
     const isSlider = parent?.classList.contains("dot-slider-container");
-    const hasExternalNotch = isSlider && !track.querySelector(".slider-notch");
+    const hasExternalNotch =
+      isSlider && parent?.querySelector(".slider-notch") !== null;
 
     if (hasExternalNotch && parent) {
       return { target: parent, index: newIndex + 1 };

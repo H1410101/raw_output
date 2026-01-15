@@ -51,19 +51,27 @@ export class RankTimelineComponent {
      */
     public render(): HTMLElement {
         this._container.innerHTML = "";
-
-        const axis = document.createElement("div");
-        axis.className = "timeline-axis";
-        this._container.appendChild(axis);
+        this._renderAxis();
 
         const { minRU, maxRU } = this._calculateViewBounds();
         const ruRange = maxRU - minRU;
 
-        // Iterate through all integer RUs visible in the window
+        this._renderTicks(minRU, maxRU, ruRange);
+        this._renderMarkers(minRU, ruRange);
+
+        return this._container;
+    }
+
+    private _renderAxis(): void {
+        const axis = document.createElement("div");
+        axis.className = "timeline-axis";
+        this._container.appendChild(axis);
+    }
+
+    private _renderTicks(minRU: number, maxRU: number, range: number): void {
         const startRU = Math.ceil(minRU - 0.5);
         const endRU = Math.floor(maxRU + 0.5);
 
-        // Defined these outside the loop to be accessible inside.
         const rankNames = Object.keys(this._config.thresholds).sort(
             (a, b) => this._config.thresholds[a] - this._config.thresholds[b]
         );
@@ -77,21 +85,70 @@ export class RankTimelineComponent {
                 return Math.abs(rankUnit - i) < 0.001;
             });
 
-            this._renderRankTick(i, matchingRank || "", minRU, ruRange);
+            this._renderRankTick(i, matchingRank || "", minRU, range);
+        }
+    }
+
+    private _renderMarkers(minRU: number, range: number): void {
+        const targetRU = this._config.targetRU;
+        const achievedRU = this._config.achievedRU;
+
+        if (targetRU !== undefined && targetRU !== null && achievedRU !== undefined) {
+            this._renderOverlappingMarkers(minRU, range, targetRU, achievedRU);
+        } else {
+            this._renderSingleMarkers(minRU, range, targetRU, achievedRU);
+        }
+    }
+
+    private _renderOverlappingMarkers(
+        minRU: number,
+        range: number,
+        target: number,
+        achieved: number
+    ): void {
+        const tPct = ((target - minRU) / range) * 100;
+        const aPct = ((achieved - minRU) / range) * 100;
+
+        // Minimum separation in percentage (approx 30% for clean label separation)
+        const minSep = 30;
+        const diff = Math.abs(tPct - aPct);
+
+        let finalTPct = tPct;
+        let finalAPct = aPct;
+
+        if (diff < minSep) {
+            const center = (tPct + aPct) / 2;
+            const offset = minSep / 2;
+
+            // If exactly equal, default target left, achieved right (or vice versa)
+            // If not equal, push further in current direction
+            if (tPct <= aPct) {
+                finalTPct = center - offset;
+                finalAPct = center + offset;
+            } else {
+                finalTPct = center + offset;
+                finalAPct = center - offset;
+            }
         }
 
-        // Render Achieved (Upward)
-        if (this._config.achievedRU !== undefined) {
-            this._renderMarker(this._config.achievedRU, "Achieved", "achieved", { minRU, range: ruRange });
-        }
+        this._renderMarker(finalAPct, "Achieved", "achieved");
+        this._renderMarker(finalTPct, "Target", "target");
+    }
 
-        // Render Target (Upward)
-        // Check if defined, even if 0
-        if (this._config.targetRU !== undefined && this._config.targetRU !== null) {
-            this._renderMarker(this._config.targetRU, "Target", "target", { minRU, range: ruRange });
+    private _renderSingleMarkers(
+        minRU: number,
+        range: number,
+        target?: number,
+        achieved?: number
+    ): void {
+        if (achieved !== undefined) {
+            const aPct = ((achieved - minRU) / range) * 100;
+            this._renderMarker(aPct, "Achieved", "achieved");
         }
-
-        return this._container;
+        if (target !== undefined && target !== null) {
+            const tPct = ((target - minRU) / range) * 100;
+            this._renderMarker(tPct, "Target", "target");
+        }
     }
 
     private _renderRankTick(rankUnit: number, label: string, minRU: number, range: number): void {
@@ -110,12 +167,11 @@ export class RankTimelineComponent {
     }
 
     private _renderMarker(
-        rankUnit: number,
+        leftPercent: number,
         label: string,
-        type: "achieved" | "target",
-        viewBounds: { minRU: number; range: number }
+        type: "achieved" | "target"
     ): void {
-        const leftPercent = ((rankUnit - viewBounds.minRU) / viewBounds.range) * 100;
+
 
         const marker = document.createElement("div");
         marker.className = `timeline-marker marker-${type}`;
