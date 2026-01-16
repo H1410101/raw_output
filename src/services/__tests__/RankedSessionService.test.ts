@@ -47,31 +47,46 @@ describe("RankedSessionService: Timer Expiry", (): void => {
 
     beforeEach((): void => {
         mocks = _createMocks();
-        service = new RankedSessionService(
-            mocks.benchmark,
-            mocks.session,
-            mocks.estimator,
-            mocks.settings
-        );
+        service = _createRankedService(mocks);
     });
 
     it("should transition to SUMMARY state when timer expires", (): void => {
         vi.useFakeTimers();
-        const scenarios: BenchmarkScenario[] = _createDiversePool();
-        const estimates: Record<string, Partial<ScenarioEstimate>> = _createDiverseEstimates();
+        const settings: { rankedIntervalMinutes: number } = { rankedIntervalMinutes: 1 };
+        (mocks.settings.getSettings as Mock).mockReturnValue(settings);
 
-        (mocks.benchmark.getScenarios as Mock).mockReturnValue(scenarios);
-        _mockEstimates(mocks.estimator, estimates);
-        (mocks.settings.getSettings as Mock).mockReturnValue({ rankedIntervalMinutes: 1 });
-
-        service.startSession("Gold");
-        expect(service.state.status).toBe("ACTIVE");
+        _setupStandardSession(service, mocks);
 
         // Advance time by 61 seconds
         vi.advanceTimersByTime(61 * 1000);
 
         expect(service.state.status).toBe("SUMMARY");
         vi.useRealTimers();
+    });
+});
+
+describe("RankedSessionService: Timer Reset", (): void => {
+    let service: RankedSessionService;
+    let mocks: MockSet;
+
+    beforeEach((): void => {
+        mocks = _createMocks();
+        service = _createRankedService(mocks);
+    });
+
+    it("should reset the timer when a new score is recorded", async (): Promise<void> => {
+        _setupStandardSession(service, mocks);
+        const initialStartTime: string | null = service.state.startTime;
+
+        // Ensure at least 1ms passes
+        await new Promise((resolve): void => { setTimeout(resolve, 1); });
+
+        const onSessionUpdated: Mock = mocks.session.onSessionUpdated as Mock;
+        const onSessionUpdatedCallback: SessionUpdateListener = onSessionUpdated.mock.calls[0][0] as SessionUpdateListener;
+        onSessionUpdatedCallback(["someScenario"]);
+
+        const newStartTime: string | null = service.state.startTime;
+        expect(newStartTime).not.toBe(initialStartTime);
     });
 });
 
@@ -186,3 +201,24 @@ function _assertCollidingSequence(sequence: string[]): void {
     expect(sequence[1]).toBe("weakTrack1");
     expect(sequence[2]).toBe("weakFlick1");
 }
+
+function _setupStandardSession(service: RankedSessionService, mocks: MockSet): void {
+    const scenarios: BenchmarkScenario[] = _createDiversePool();
+    const estimates: Record<string, Partial<ScenarioEstimate>> = _createDiverseEstimates();
+
+    (mocks.benchmark.getScenarios as Mock).mockReturnValue(scenarios);
+    _mockEstimates(mocks.estimator, estimates);
+
+    service.startSession("Gold");
+}
+
+function _createRankedService(mocks: MockSet): RankedSessionService {
+    return new RankedSessionService(
+        mocks.benchmark,
+        mocks.session,
+        mocks.estimator,
+        mocks.settings
+    );
+}
+
+type SessionUpdateListener = (updatedScenarioNames?: string[]) => void;

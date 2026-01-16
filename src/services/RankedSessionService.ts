@@ -517,9 +517,22 @@ export class RankedSessionService {
 
 
     private _subscribeToSessionEvents(): void {
-        this._sessionService.onSessionUpdated((): void => {
+        this._sessionService.onSessionUpdated((updatedScenarioNames?: string[]): void => {
+            if (updatedScenarioNames && updatedScenarioNames.length > 0) {
+                this._resetTimerOnScore();
+            }
+
             this._notifyListeners();
         });
+    }
+
+    private _resetTimerOnScore(): void {
+        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
+            return;
+        }
+
+        this._startTime = new Date().toISOString();
+        this._saveToLocalStorage();
     }
 
     private _saveToLocalStorage(): void {
