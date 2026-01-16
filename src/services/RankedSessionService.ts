@@ -2,8 +2,9 @@ import { BenchmarkService } from "./BenchmarkService";
 import { SessionService, SessionRankRecord } from "./SessionService";
 import { BenchmarkScenario } from "../data/benchmarks";
 import { RankEstimator } from "./RankEstimator";
+import { SessionSettingsService } from "./SessionSettingsService";
 
-export type RankedSessionStatus = "IDLE" | "ACTIVE" | "COMPLETED";
+export type RankedSessionStatus = "IDLE" | "ACTIVE" | "COMPLETED" | "SUMMARY";
 
 /**
  * Encapsulates the state of a ranked session.
@@ -33,6 +34,7 @@ export class RankedSessionService {
     private readonly _benchmarkService: BenchmarkService;
     private readonly _sessionService: SessionService;
     private readonly _rankEstimator: RankEstimator;
+    private readonly _sessionSettings: SessionSettingsService;
     private readonly _storageKey: string = "ranked_session_state_v2";
 
     private _status: RankedSessionStatus = "IDLE";
@@ -42,6 +44,7 @@ export class RankedSessionService {
     private _startTime: string | null = null;
     private _rankedSessionId: string | null = null;
     private _initialGauntletComplete: boolean = false;
+    private _timerInterval: number | null = null;
 
     private readonly _onStateChanged: (() => void)[] = [];
 
@@ -51,18 +54,22 @@ export class RankedSessionService {
      * @param benchmarkService - Service for accessing benchmark data.
      * @param sessionService - Service for session lifecycle.
      * @param rankEstimator - Service for rank identity and selection metrics.
+     * @param sessionSettings - Service for accessing session configuration.
      */
     public constructor(
         benchmarkService: BenchmarkService,
         sessionService: SessionService,
         rankEstimator: RankEstimator,
+        sessionSettings: SessionSettingsService,
     ) {
         this._benchmarkService = benchmarkService;
         this._sessionService = sessionService;
         this._rankEstimator = rankEstimator;
+        this._sessionSettings = sessionSettings;
 
         this._loadFromLocalStorage();
         this._subscribeToSessionEvents();
+        this._initTimer();
     }
 
     /**
@@ -130,6 +137,23 @@ export class RankedSessionService {
     }
 
     /**
+     * Returns the remaining time in seconds for the current session.
+     * 
+     * @returns Seconds remaining, or 0 if inactive or expired.
+     */
+    public get remainingSeconds(): number {
+        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
+            return 0;
+        }
+
+        const totalMinutes: number = this._sessionSettings.getSettings().rankedIntervalMinutes;
+        const totalSeconds: number = totalMinutes * 60;
+        const elapsed: number = this.elapsedSeconds;
+
+        return Math.max(0, totalSeconds - elapsed);
+    }
+
+    /**
      * Starts a new ranked session for the given difficulty.
      *
      * @param difficulty - The difficulty tier to play.
@@ -153,6 +177,7 @@ export class RankedSessionService {
         this._sequence.push(...batch);
 
         this._sessionService.setIsRanked(true);
+        this._startTimer();
         this._saveToLocalStorage();
         this._notifyListeners();
     }
@@ -241,8 +266,47 @@ export class RankedSessionService {
         this._rankedSessionId = null;
         this._initialGauntletComplete = false;
 
+        if (this._timerInterval !== null) {
+            window.clearInterval(this._timerInterval);
+            this._timerInterval = null;
+        }
+
         localStorage.removeItem(this._storageKey);
         this._notifyListeners();
+    }
+
+    private _initTimer(): void {
+        if (this._status === "ACTIVE" || this._status === "COMPLETED") {
+            this._startTimer();
+        }
+    }
+
+    private _startTimer(): void {
+        if (this._timerInterval !== null) {
+            return;
+        }
+
+        this._timerInterval = window.setInterval((): void => {
+            this._checkTimerExpiry();
+        }, 1000);
+    }
+
+    private _checkTimerExpiry(): void {
+        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
+            return;
+        }
+
+        if (this.remainingSeconds <= 0) {
+            this._status = "SUMMARY";
+
+            if (this._timerInterval !== null) {
+                window.clearInterval(this._timerInterval);
+                this._timerInterval = null;
+            }
+
+            this._saveToLocalStorage();
+            this._notifyListeners();
+        }
     }
 
     /**

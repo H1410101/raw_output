@@ -108,6 +108,7 @@ export class AppBootstrap {
       this._benchmarkService,
       this._sessionService,
       this._rankEstimator,
+      this._sessionSettingsService,
     );
 
     new SessionPulseService(

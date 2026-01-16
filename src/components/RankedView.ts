@@ -328,7 +328,36 @@ export class RankedView {
       return this._renderCompletedContent();
     }
 
+    if (state.status === "SUMMARY") {
+      return this._renderSummaryContent();
+    }
+
     return this._renderScenarioContent(state, isImproved);
+  }
+
+  private _renderSummaryContent(): string {
+    const estimate = this._calculateSessionAchievedRank();
+    const bests = this._deps.session.getAllScenarioSessionBests();
+
+    return `
+      <div class="ranked-result summary-view">
+          <h2 class="congrats">SESSION EXPIRED</h2>
+          <div class="summary-card">
+              <p class="summary-rank">FINAL RANK: <span class="accent">${estimate.rankName}</span></p>
+              <p class="summary-subtitle">Run Overview</p>
+              <div class="scenarios-list">
+                  ${bests.length > 0 ? bests.map(record => `
+                      <div class="scenario-summary-item">
+                          <span class="scenario-name">${record.scenarioName}</span>
+                          <span class="scenario-score">${record.bestScore.toFixed(1)}</span>
+                          <span class="scenario-rank">${record.rankResult.currentRank}</span>
+                      </div>
+                  `).join('') : '<p class="no-scenarios">No scenarios played this session.</p>'}
+              </div>
+          </div>
+          <button class="next-btn luminous" id="finish-ranked-btn">BACK TO HUB</button>
+      </div>
+    `;
   }
 
   private _renderCompletedContent(): string {
@@ -495,6 +524,9 @@ export class RankedView {
 
     const endBtn: HTMLButtonElement | null = container.querySelector("#end-ranked-btn");
     endBtn?.addEventListener("click", () => this._deps.rankedSession.endSession());
+
+    const finishBtn: HTMLButtonElement | null = container.querySelector("#finish-ranked-btn");
+    finishBtn?.addEventListener("click", () => this._deps.rankedSession.endSession());
 
     const playNowBtn: HTMLButtonElement | null = container.querySelector("#ranked-play-now");
     playNowBtn?.addEventListener("click", () => {

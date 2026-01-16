@@ -5,10 +5,13 @@ import { SessionService } from "../SessionService";
 import { RankEstimator, ScenarioEstimate } from "../RankEstimator";
 import { BenchmarkScenario } from "../../data/benchmarks";
 
+import { SessionSettingsService } from "../SessionSettingsService";
+
 interface MockSet {
     benchmark: BenchmarkService;
     session: SessionService;
     estimator: RankEstimator;
+    settings: SessionSettingsService;
 }
 
 describe("RankedSessionService: Lifecycle", (): void => {
@@ -20,7 +23,8 @@ describe("RankedSessionService: Lifecycle", (): void => {
         service = new RankedSessionService(
             mocks.benchmark,
             mocks.session,
-            mocks.estimator
+            mocks.estimator,
+            mocks.settings
         );
     });
 
@@ -34,6 +38,55 @@ describe("RankedSessionService: Lifecycle", (): void => {
         service.startSession("Gold");
 
         _assertDiverseSequence(service.state.sequence);
+    });
+});
+
+describe("RankedSessionService: Timer Expiry", (): void => {
+    let service: RankedSessionService;
+    let mocks: MockSet;
+
+    beforeEach((): void => {
+        mocks = _createMocks();
+        service = new RankedSessionService(
+            mocks.benchmark,
+            mocks.session,
+            mocks.estimator,
+            mocks.settings
+        );
+    });
+
+    it("should transition to SUMMARY state when timer expires", (): void => {
+        vi.useFakeTimers();
+        const scenarios: BenchmarkScenario[] = _createDiversePool();
+        const estimates: Record<string, Partial<ScenarioEstimate>> = _createDiverseEstimates();
+
+        (mocks.benchmark.getScenarios as Mock).mockReturnValue(scenarios);
+        _mockEstimates(mocks.estimator, estimates);
+        (mocks.settings.getSettings as Mock).mockReturnValue({ rankedIntervalMinutes: 1 });
+
+        service.startSession("Gold");
+        expect(service.state.status).toBe("ACTIVE");
+
+        // Advance time by 61 seconds
+        vi.advanceTimersByTime(61 * 1000);
+
+        expect(service.state.status).toBe("SUMMARY");
+        vi.useRealTimers();
+    });
+});
+
+describe("RankedSessionService: Diversity", (): void => {
+    let service: RankedSessionService;
+    let mocks: MockSet;
+
+    beforeEach((): void => {
+        mocks = _createMocks();
+        service = new RankedSessionService(
+            mocks.benchmark,
+            mocks.session,
+            mocks.estimator,
+            mocks.settings
+        );
     });
 
     it("should handle diversity check (penalty for similar categories)", (): void => {
@@ -60,7 +113,10 @@ function _createMocks(): MockSet {
             onSessionUpdated: vi.fn(),
             getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
         } as unknown as SessionService,
-        estimator: { getScenarioEstimate: vi.fn() } as unknown as RankEstimator
+        estimator: { getScenarioEstimate: vi.fn() } as unknown as RankEstimator,
+        settings: {
+            getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
+        } as unknown as SessionSettingsService
     };
 }
 
