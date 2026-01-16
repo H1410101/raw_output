@@ -526,7 +526,7 @@ export class RankedView {
     endBtn?.addEventListener("click", () => this._deps.rankedSession.endSession());
 
     const finishBtn: HTMLButtonElement | null = container.querySelector("#finish-ranked-btn");
-    finishBtn?.addEventListener("click", () => this._deps.rankedSession.endSession());
+    finishBtn?.addEventListener("click", () => this._deps.rankedSession.reset());
 
     const playNowBtn: HTMLButtonElement | null = container.querySelector("#ranked-play-now");
     playNowBtn?.addEventListener("click", () => {

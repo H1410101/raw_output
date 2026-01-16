@@ -247,11 +247,23 @@ export class RankedSessionService {
     }
 
     /**
-     * Ends the session gracefully without resetting identity progress.
-     * Returns the user to the idle state.
+     * Gracefully transitions the session to a summary state.
+     * This stops the timer and marks the session as ready for review.
      */
     public endSession(): void {
-        this.reset();
+        if (this._status === "IDLE" || this._status === "SUMMARY") {
+            return;
+        }
+
+        this._status = "SUMMARY";
+
+        if (this._timerInterval !== null) {
+            window.clearInterval(this._timerInterval);
+            this._timerInterval = null;
+        }
+
+        this._saveToLocalStorage();
+        this._notifyListeners();
     }
 
     /**
