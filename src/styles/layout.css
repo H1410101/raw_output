@@ -1141,7 +1141,7 @@ h1 {
     background: var(--dull-color);
     border-radius: 1px;
     cursor: pointer;
-        transition: background 0.2s ease;
+    transition: background 0.2s ease;
 }
 
 .slider-notch.active,
@@ -1326,102 +1326,77 @@ h1 {
 /* Folder Settings View */
 .folder-settings-container {
     display: flex;
+    justify-content: center;
+    align-items: center;
     height: 100%;
     min-height: 0;
     overflow: hidden;
     background: rgba(var(--background-1-rgb), 0.05);
 }
 
-.folder-settings-container::before {
-    content: "";
-    flex: 1;
-    background: rgba(var(--background-1-rgb), 0.1);
-}
-
-.folder-settings-container::after {
-    content: "";
-    flex: 1;
-}
-
-.folder-settings-actions-column {
-    flex: 0 0 auto;
+.folder-settings-main-content {
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--glass-border);
-    background: rgba(var(--background-1-rgb), 0.1);
-}
-
-.folder-settings-actions-content {
-    display: grid;
-    grid-template-rows: 1fr auto 1fr;
-    height: 100%;
-    box-sizing: border-box;
-    padding: calc(4rem * var(--margin-spacing-multiplier)) calc(2.5rem * var(--margin-spacing-multiplier));
-    min-width: calc(24rem * var(--margin-spacing-multiplier));
-    width: fit-content;
-}
-
-.folder-settings-row-wrapper {
-    display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    align-items: center;
-    width: 100%;
+    gap: calc(1.5rem * var(--vertical-spacing-multiplier));
+    padding: calc(2rem * var(--margin-spacing-multiplier));
+    max-width: 40rem;
+    text-align: center;
 }
 
-.folder-settings-row-wrapper.top-wrapper {
-    align-self: end;
-}
-
-.folder-settings-row-wrapper.bottom-wrapper {
-    align-self: start;
-}
-
-.folder-setting-row {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 0;
-    gap: calc(0.5rem * var(--margin-spacing-multiplier));
-}
-
-.folder-status-title {
-    color: var(--upper-band-2);
-}
-
-.folder-status-details {
+.intro-top-group {
     display: flex;
     flex-direction: column;
     gap: calc(0.25rem * var(--vertical-spacing-multiplier));
+}
+
+.intro-top-group h2 {
+    font-size: 2.25rem;
+    margin: 0;
+    background: linear-gradient(135deg, var(--upper-band-1) 0%, var(--upper-band-3) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.setup-instruction {
+    font-size: 1.15rem;
+    color: var(--lower-band-1);
+    margin: 0;
+}
+
+.central-folder-icon-wrapper {
+    display: flex;
+    justify-content: center;
     align-items: center;
 }
 
-.connected-label {
-    color: var(--lower-band-1);
-}
-
-.folder-name-highlight {
-    color: var(--upper-band-1);
-    max-width: 16rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.folder-action-item {
+.central-folder-icon-btn {
     background: transparent;
     border: none;
     color: var(--lower-band-1);
+    width: 5rem;
+    height: 5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
     cursor: pointer;
     transition:
         background 0.8s cubic-bezier(0.22, 1, 0.36, 1),
-        color 0.8s cubic-bezier(0.22, 1, 0.36, 1),
-        box-shadow 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-    padding: calc(0.5rem * var(--vertical-spacing-multiplier)) calc(1.5rem * var(--vertical-spacing-multiplier));
-    border-radius: 0.5rem;
-    width: 100%;
+        color 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
 }
 
-.folder-action-item:hover {
+.central-folder-icon-btn svg {
+    width: 2.2rem;
+    height: 2.2rem;
+    fill: currentColor;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.central-folder-icon-btn:hover {
     background: rgba(var(--lower-band-1-rgb), 0.15);
     color: var(--lower-band-3);
     box-shadow: inset 0 0 1.5rem rgba(var(--lower-band-3-rgb), 0.2);
@@ -1431,75 +1406,13 @@ h1 {
         box-shadow 0.1s ease-out;
 }
 
-.folder-action-item.danger {
-    /* Idle state matches standard action items (grey) */
+.central-folder-icon-btn:active {
+    color: var(--accent-color);
+    background: rgba(var(--lower-band-1-rgb), 0.1);
+    transform: scale(0.95);
+    transition: none;
 }
 
-.folder-action-item.danger:hover {
-    background: rgba(var(--lower-band-1-rgb), 0.15);
-    color: var(--status-hard);
-    box-shadow: inset 0 0 1.5rem rgba(var(--status-hard-rgb), 0.2);
-}
-
-.folder-settings-separator {
-    height: 1px;
-    background: var(--glass-border);
-    margin: calc(1.5rem * var(--vertical-spacing-multiplier)) 0;
-}
-
-.intro-separator {
-    margin: calc(1.5rem * var(--vertical-spacing-multiplier)) auto !important;
-    width: 100%;
-    flex-shrink: 0;
-}
-
-.folder-settings-intro-column {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: stretch;
-    align-items: flex-start;
-    min-height: 0;
-}
-
-.intro-text-content {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    box-sizing: border-box;
-    padding: calc(4rem * var(--margin-spacing-multiplier)) calc(2.5rem * var(--margin-spacing-multiplier));
-    min-width: calc(32rem * var(--margin-spacing-multiplier));
-    width: fit-content;
-}
-
-.app-introduction {
-    color: var(--text-main);
-    width: 100%;
-    height: 100%;
-    display: grid;
-    grid-template-rows: 1fr auto 1fr;
-}
-
-.intro-group-wrapper {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-}
-
-.intro-group-wrapper.top-wrapper {
-    align-self: end;
-}
-
-.intro-group-wrapper.bottom-wrapper {
-    align-self: start;
-}
-
-.intro-top-group {
-    display: flex;
-    flex-direction: column;
-}
 
 .intro-bottom-group {
     display: flex;
@@ -1507,22 +1420,22 @@ h1 {
     gap: calc(0.75rem * var(--vertical-spacing-multiplier));
 }
 
-.app-introduction h2 {
+
+.path-instruction {
+    color: var(--text-dim);
+    line-height: 1.6;
     margin: 0;
-    color: var(--upper-band-3);
 }
 
-.app-introduction p {
-    margin: 0;
-    color: var(--upper-band-1);
-    opacity: 0.9;
+.path-instruction code {
+    background: rgba(var(--lower-band-1-rgb), 0.1);
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.4rem;
+    color: var(--lower-band-3);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.9em;
 }
 
-.app-introduction code {
-    background: rgba(var(--upper-band-1-rgb), 0.1);
-    padding: 0.2rem 0.4rem;
-    border-radius: 0.3rem;
-}
 
 /* Ranked View Functional Styles */
 .ranked-container {
