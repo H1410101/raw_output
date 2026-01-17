@@ -112,6 +112,16 @@ export class DirectoryAccessService {
   }
 
   /**
+   * Checks if the currently selected directory (or its discovered subfolder)
+   * is a valid Kovaak's 'stats' folder.
+   *
+   * @returns True if the selection resolves to a 'stats' folder.
+   */
+  public isStatsFolderSelected(): boolean {
+    return this._directoryHandle?.name.toLowerCase() === "stats";
+  }
+
+  /**
    * Clears the current directory handle and removes it from persistent storage.
    */
   public clearStoredHandle(): void {

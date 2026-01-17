@@ -1,10 +1,26 @@
 /**
  * Configuration for the folder settings actions.
  */
-interface FolderActionHandlers {
+export interface FolderActionHandlers {
   readonly onLinkFolder: () => Promise<void>;
   readonly onForceScan: () => Promise<void>;
   readonly onUnlinkFolder: () => void;
+}
+
+/**
+ * Configuration for the folder settings view.
+ */
+export interface FolderSettingsConfig {
+  /** Callbacks for folder-related interactions. */
+  readonly handlers: FolderActionHandlers;
+  /** The name of the currently linked folder, if any. */
+  readonly currentFolderName: string | null;
+  /** Whether the application has successfully parsed statistics. */
+  readonly hasStats?: boolean;
+  /** Whether the current folder selection is invalid. */
+  readonly isInvalid?: boolean;
+  /** Whether the current folder selection is valid. */
+  readonly isValid?: boolean;
 }
 
 /**
@@ -19,24 +35,26 @@ export class FolderSettingsView {
   /** Whether the application has successfully parsed statistics. */
   private readonly _hasStats: boolean;
 
+  /** Whether the current folder selection is invalid. */
+  private readonly _isInvalid: boolean;
+
+  /** Whether the current folder selection is valid. */
+  private readonly _isValid: boolean;
+
   /** Active ResizeObservers for cleanup. */
   private readonly _observers: ResizeObserver[] = [];
 
   /**
    * Initializes the view with state management and action handlers.
    *
-   * @param handlers - Callbacks for folder-related interactions.
-   * @param currentFolderName - The name of the currently linked folder, if any.
-   * @param hasStats - Whether the application has successfully parsed statistics.
+   * @param config - The view configuration.
    */
-  public constructor(
-    handlers: FolderActionHandlers,
-    currentFolderName: string | null,
-    hasStats: boolean = false,
-  ) {
-    this._handlers = handlers;
-    this._currentFolderName = currentFolderName;
-    this._hasStats = hasStats;
+  public constructor(config: FolderSettingsConfig) {
+    this._handlers = config.handlers;
+    this._currentFolderName = config.currentFolderName;
+    this._hasStats = config.hasStats ?? false;
+    this._isInvalid = config.isInvalid ?? false;
+    this._isValid = config.isValid ?? false;
   }
 
   /**
@@ -77,7 +95,11 @@ export class FolderSettingsView {
     container.className = "central-folder-icon-wrapper";
 
     const button: HTMLButtonElement = document.createElement("button");
-    button.className = "central-folder-icon-btn";
+    const baseClass = "central-folder-icon-btn";
+    let finalClass = baseClass;
+    if (this._isInvalid) finalClass += " invalid-selection";
+    else if (this._isValid) finalClass += " valid-selection";
+    button.className = finalClass;
     button.title = "Link Kovaak's Stats Folder";
     button.setAttribute("aria-label", "Link Kovaak's Stats Folder");
 
