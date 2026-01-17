@@ -156,7 +156,7 @@ export class RankPopupComponent {
 
     private _calculateVisibleRanks(above: string[], below: string[]): { showAbove: string[], showBelow: string[], hasMoreAbove: boolean, hasMoreBelow: boolean } {
         const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
-        const unitHeightPx = 2.5 * remPx;
+        const unitHeightPx = 1.8 * remPx;
 
         const rect = this._target.getBoundingClientRect();
         const distTop = rect.top;
@@ -230,11 +230,11 @@ export class RankPopupComponent {
         div.className = "rank-caret";
         div.style.flex = "none";
         div.style.width = "0.6rem";
-        div.style.height = "0.4rem";
+        div.style.height = "0.2rem";
         div.style.display = "flex";
         div.style.alignItems = "center";
         div.style.justifyContent = "center";
-        div.style.margin = "0.1rem 0";
+        div.style.margin = "0.05rem 0";
 
         const chevron = this._createChevronElement(isUp);
         div.appendChild(chevron);
@@ -244,16 +244,16 @@ export class RankPopupComponent {
 
     private _createChevronElement(isUp: boolean): HTMLElement {
         const chevron = document.createElement("div");
-        chevron.style.width = "0.4rem";
-        chevron.style.height = "0.4rem";
+        chevron.style.width = "0.2rem";
+        chevron.style.height = "0.2rem";
 
         const color = "var(--text-dim)";
-        chevron.style.borderTop = `2px solid ${color}`;
-        chevron.style.borderRight = `2px solid ${color}`;
+        chevron.style.borderTop = `1px solid ${color}`;
+        chevron.style.borderRight = `1px solid ${color}`;
         chevron.style.opacity = "0.5";
         chevron.style.transform = isUp
-            ? "rotate(-45deg) translateY(2px)"
-            : "rotate(135deg) translateY(2px)";
+            ? "rotate(-45deg) translateY(1px)"
+            : "rotate(135deg) translateY(1px)";
 
         return chevron;
     }
@@ -268,12 +268,14 @@ export class RankPopupComponent {
 
         if (isCurrent && computedStyle) {
             this._syncFontStyles(text, computedStyle);
-            text.style.color = computedStyle.color;
-            text.style.padding = "0.2rem 0";
+            text.style.color = "var(--accent-color)";
+            text.style.padding = "0";
+            text.style.fontWeight = "500";
         } else {
             text.style.color = "var(--text-dim)";
             text.style.fontSize = "0.9rem";
-            text.style.padding = "0.2rem 0";
+            text.style.padding = "0";
+            text.style.fontWeight = "500";
             text.style.textTransform = "uppercase";
         }
 
@@ -281,7 +283,6 @@ export class RankPopupComponent {
     }
 
     private _syncFontStyles(text: HTMLSpanElement, computedStyle: CSSStyleDeclaration): void {
-        text.style.color = computedStyle.color;
         text.style.fontFamily = computedStyle.fontFamily;
         text.style.fontSize = computedStyle.fontSize;
         text.style.fontWeight = computedStyle.fontWeight;

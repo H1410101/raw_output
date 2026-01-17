@@ -11,10 +11,17 @@ const MOCK_CSS: string = `
   :root {
     --lower-band-3: rgb(100, 100, 100);
     --lower-band-1: rgb(50, 50, 50);
+    --accent-color: rgb(193, 230, 227);
   }
   .rank-name {
     color: var(--lower-band-3);
     font-weight: 700;
+  }
+  .rank-estimate-badge .rank-name:not(.unranked-text) {
+    color: var(--accent-color);
+  }
+  .holistic-rank-container .rank-name:not(.unranked-text) {
+    color: var(--accent-color);
   }
   .unranked-text {
     color: var(--lower-band-1) !important;
@@ -89,17 +96,21 @@ async function _testBenchmarkRanks(container: HTMLElement, dependencies: Benchma
     const view: BenchmarkView = new BenchmarkView(container, dependencies, (dependencies as BenchmarkViewTestDeps).appState);
     await view.render();
 
-    const elements: HTMLElement[] = await Promise.all([
-        _waitForSelector(container, ".rank-badge-container:not(.session-badge):not(.rank-estimate-badge) .rank-name"),
-        _waitForSelector(container, ".session-badge .rank-name"),
-        _waitForSelector(container, ".rank-estimate-badge .rank-name"),
-        _waitForSelector(container, ".holistic-rank-container .rank-name")
-    ]);
+    const allTime = await _waitForSelector(container, ".rank-badge-container:not(.session-badge):not(.rank-estimate-badge) .rank-name");
+    const session = await _waitForSelector(container, ".session-badge .rank-name");
+    const estimate = await _waitForSelector(container, ".rank-estimate-badge .rank-name");
+    const holistic = await _waitForSelector(container, ".holistic-rank-container .rank-name");
 
-    elements.forEach((element: HTMLElement) => {
-        const styles: ComputedStyles = _getStyles(element);
-        expect(styles.color).toBe("rgb(100, 100, 100)");
-        expect(styles.fontWeight).toBe("700");
+    const standardColor = "rgb(100, 100, 100)";
+    const accentColor = "rgb(193, 230, 227)";
+
+    expect(_getStyles(allTime).color).toBe(standardColor);
+    expect(_getStyles(session).color).toBe(standardColor);
+    expect(_getStyles(estimate).color).toBe(accentColor);
+    expect(_getStyles(holistic).color).toBe(accentColor);
+
+    [allTime, session, estimate, holistic].forEach(element => {
+        expect(_getStyles(element).fontWeight).toBe("700");
     });
 }
 

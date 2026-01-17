@@ -52,12 +52,12 @@
     opacity: 0.8;
 }
 
-.rank-estimate-badge .rank-name {
-    color: var(--lower-band-3);
+.rank-estimate-badge .rank-name:not(.unranked-text) {
+    color: var(--accent-color);
 }
 
 .holistic-rank-container .rank-name:not(.unranked-text) {
-    color: var(--lower-band-3);
+    color: var(--accent-color);
 }
 
 
