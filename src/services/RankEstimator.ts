@@ -32,16 +32,18 @@ export class RankEstimator {
 
 
 
-    private static readonly _learningRate: number = 0.15;
+    private static readonly _learningRate: number = 0.5;
 
     private static readonly _phi: number = 1.0;
 
     private readonly _benchmarkService: BenchmarkService;
 
+    private readonly _onEstimateUpdated: ((scenarioName: string) => void)[] = [];
+
+
     /**
      * Initializes the estimator.
      *
-     * @param rankService - Service for individual rank calculations.
      * @param benchmarkService - Service for accessing benchmark definitions.
      */
     public constructor(
@@ -133,12 +135,23 @@ export class RankEstimator {
 
         let newValue: number = current.continuousValue;
 
-        if (current.continuousValue === -1) {
-            // Anchor: Start at S-2 for unranked seed
-            newValue = Math.max(0, sessionRank - 2);
+        // Anchor Logic: Absolute floor at SessionRank - 2.0
+        // No matter whether you've played before, any highscore moves your rank to at least RU - 2.0.
+        const anchorFloor = Math.max(0, sessionRank - 2.0);
+
+        if (current.continuousValue < anchorFloor) {
+            // If this rule is invoked, other rank gains are invalidated.
+            // We jump straight to the anchor.
+            newValue = anchorFloor;
         } else {
-            // EMA Update (Specification 2.4)
-            newValue = current.continuousValue + RankEstimator._learningRate * (sessionRank - current.continuousValue);
+            // Otherwise, we use standard EMA with the new learning rate (0.5).
+            if (current.continuousValue === -1) {
+                // Legacy fallback for uninitialized -1 values, treating them as 0 for EMA 
+                // (though getScenarioEstimate defaults to 0 now)
+                newValue = RankEstimator._learningRate * sessionRank;
+            } else {
+                newValue = current.continuousValue + RankEstimator._learningRate * (sessionRank - current.continuousValue);
+            }
         }
 
         map[scenarioName] = {
@@ -148,6 +161,22 @@ export class RankEstimator {
         };
 
         localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
+
+        this._notifyListeners(scenarioName);
+    }
+
+
+
+    /**
+     * Subscribes to changes in rank estimates.
+     * @param callback - Function to call when an estimate changes.
+     */
+    public onEstimateUpdated(callback: (scenarioName: string) => void): void {
+        this._onEstimateUpdated.push(callback);
+    }
+
+    private _notifyListeners(scenarioName: string): void {
+        this._onEstimateUpdated.forEach(callback => callback(scenarioName));
     }
 
     /**

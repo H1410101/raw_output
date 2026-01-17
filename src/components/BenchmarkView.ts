@@ -342,6 +342,10 @@ export class BenchmarkView {
         this._refreshIfVisible();
       }
     });
+
+    this._rankEstimator.onEstimateUpdated((scenarioName: string): void => {
+      this._updateSingleScenario(scenarioName);
+    });
   }
 
   private _subscribeToFocusUpdates(): void {

@@ -145,41 +145,9 @@ export class RankedView {
   }
 
   private _handleSessionUpdate(): void {
-    const state: RankedSessionState = this._deps.rankedSession.state;
-    if (state.status !== "ACTIVE") {
-      this.refresh();
-
-      return;
-    }
-
-    const current: string | null = this._deps.rankedSession.currentScenarioName;
-    if (!current) {
-      this.refresh();
-
-      return;
-    }
-
-    const bests: SessionRankRecord[] = this._deps.session.getAllScenarioSessionBests();
-    const record: SessionRankRecord | undefined = bests.find(
-      (record: SessionRankRecord): boolean => record.scenarioName === current
-    );
-
-    if (record) {
-      this._evolveEstimate(record.scenarioName, record.bestScore);
-    }
-
+    // We simply refresh the view when the session updates.
+    // Rank evolution is now deferred to RankedSessionService.endSession().
     this.refresh();
-  }
-
-  private _evolveEstimate(scenarioName: string, score: number): void {
-    const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
-    const scenarios = this._deps.benchmark.getScenarios(difficulty);
-    const scenario = scenarios.find((scenarioRef) => scenarioRef.name === scenarioName);
-
-    if (scenario) {
-      const sessionValue: number = this._deps.estimator.getScenarioContinuousValue(score, scenario);
-      this._deps.estimator.evolveScenarioEstimate(scenarioName, sessionValue);
-    }
   }
 
   private _createHeaderControls(): HTMLElement {

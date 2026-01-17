@@ -55,6 +55,8 @@ describe("RankedSessionService: Timer Expiry", (): void => {
         const settings: { rankedIntervalMinutes: number } = { rankedIntervalMinutes: 1 };
         (mocks.settings.getSettings as Mock).mockReturnValue(settings);
 
+        (mocks.settings.getSettings as Mock).mockReturnValue(settings);
+
         _setupStandardSession(service, mocks);
 
         // Advance time by 61 seconds
@@ -126,6 +128,8 @@ function _createMocks(): MockSet {
         session: {
             setIsRanked: vi.fn(),
             onSessionUpdated: vi.fn(),
+            resetSession: vi.fn(),
+            // Missing mock added back
             getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
         } as unknown as SessionService,
         estimator: { getScenarioEstimate: vi.fn() } as unknown as RankEstimator,

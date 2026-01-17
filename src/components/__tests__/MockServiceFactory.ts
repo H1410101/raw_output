@@ -58,6 +58,7 @@ export class MockServiceFactory {
             getEstimateForValue: vi.fn().mockReturnValue({ rankName: "Silver", progressToNext: 50, continuousValue: 1.5 }),
             getScenarioContinuousValue: vi.fn().mockReturnValue(1.5),
             applyDailyDecay: vi.fn(),
+            onEstimateUpdated: vi.fn(),
             evolveScenarioEstimate: vi.fn(),
             ...overrides
         } as unknown as RankEstimator;
