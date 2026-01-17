@@ -359,33 +359,29 @@ export class RankTimelineComponent {
 
         const opacity = (this._config.settings.dotOpacity ?? 40) / 100;
 
-        // Find top 3 run scores to show notches
+        // Find the score threshold for the top 3 runs
         const sorted = [...attempts].sort((a, b) => b - a);
-        const top3Scores = sorted.slice(0, 3);
-        const uniqueTopScores = Array.from(new Set(top3Scores));
-
-        uniqueTopScores.forEach(score => {
-            const leftPercent = ((score - minRU) / range) * 100;
-            if (leftPercent < 0 || leftPercent > 100) return;
-            this._renderAttemptNotch(parent, leftPercent);
-        });
+        const top3Threshold = sorted.length >= 3 ? sorted[2] : (sorted[sorted.length - 1] ?? -Infinity);
 
         attempts.forEach(rankUnit => {
             const leftPercent = ((rankUnit - minRU) / range) * 100;
             if (leftPercent < 0 || leftPercent > 100) return;
 
-            const dot = document.createElement("div");
-            dot.className = "timeline-attempt-dot";
-            dot.style.left = `${leftPercent}%`;
-            dot.style.opacity = opacity.toString();
-            parent.appendChild(dot);
+            const isTop3 = rankUnit >= top3Threshold;
+            this._renderAttemptNotch(parent, leftPercent, isTop3, opacity);
         });
     }
 
-    private _renderAttemptNotch(parent: HTMLElement, percent: number): void {
+    private _renderAttemptNotch(parent: HTMLElement, percent: number, isTop3: boolean, opacity: number): void {
         const notch = document.createElement("div");
         notch.className = "timeline-marker marker-attempt";
+
+        if (!isTop3) {
+            notch.classList.add("secondary");
+        }
+
         notch.style.left = `${percent}%`;
+        notch.style.opacity = opacity.toString();
         parent.appendChild(notch);
     }
 

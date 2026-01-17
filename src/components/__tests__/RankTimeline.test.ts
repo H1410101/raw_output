@@ -100,7 +100,7 @@ describe("RankTimelineComponent Logic", () => {
 
         expect(ranges.minRU).toBeCloseTo(-1.25);
     });
-    it("should render attempt dots", () => {
+    it("should render attempt notches instead of dots", () => {
         const config: RankTimelineConfiguration = {
             thresholds: mockThresholds,
             settings: { dotOpacity: 50 } as VisualSettings,
@@ -111,9 +111,9 @@ describe("RankTimelineComponent Logic", () => {
         const component = new RankTimelineComponent(config);
         const container = component.render();
 
-        const dots = container.querySelectorAll(".timeline-attempt-dot");
-        expect(dots.length).toBe(2);
-        expect((dots[0] as HTMLElement).style.opacity).toBe("0.5");
+        const notches = container.querySelectorAll(".marker-attempt");
+        expect(notches.length).toBe(2);
+        expect((notches[0] as HTMLElement).style.opacity).toBe("0.5");
     });
     it("should have anchors follow notches when overlapping", () => {
         const config: RankTimelineConfiguration = {
@@ -181,7 +181,7 @@ describe("RankTimelineComponent Logic", () => {
         expect(parseFloat(progressLine.style.width)).toBeCloseTo(13.33, 1);
     });
 
-    it("should render half-notches for top 3 runs", () => {
+    it("should render notches for all runs, highlighting top 3", () => {
         const config: RankTimelineConfiguration = {
             thresholds: mockThresholds,
             settings: mockSettings,
@@ -193,8 +193,15 @@ describe("RankTimelineComponent Logic", () => {
         const component = new RankTimelineComponent(config);
         const container = component.render();
 
-        const halfNotches = container.querySelectorAll(".marker-attempt");
-        // Should have 3 half-notches for 5, 4, 3
-        expect(halfNotches.length).toBe(3);
+        const allNotches = container.querySelectorAll(".marker-attempt");
+        expect(allNotches.length).toBe(5);
+
+        const accentNotches = container.querySelectorAll(".marker-attempt:not(.secondary)");
+        // Should have 3 accent notches for 5, 4, 3
+        expect(accentNotches.length).toBe(3);
+
+        const secondaryNotches = container.querySelectorAll(".marker-attempt.secondary");
+        // Should have 2 secondary notches for 2, 1
+        expect(secondaryNotches.length).toBe(2);
     });
 });
