@@ -588,7 +588,8 @@ export class BenchmarkView {
       rankInner.style.cursor = "pointer";
       rankInner.addEventListener("click", (event: Event) => {
         event.stopPropagation();
-        const popup = new RankPopupComponent(rankInner, estimate.rankName);
+        const rankNames = this._benchmarkService.getRankNames(this._activeDifficulty);
+        const popup = new RankPopupComponent(rankInner, estimate.rankName, rankNames);
         popup.render();
       });
     }

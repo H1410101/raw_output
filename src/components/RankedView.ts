@@ -220,7 +220,9 @@ export class RankedView {
       rankInner.style.cursor = "pointer";
       rankInner.addEventListener("click", (event: Event) => {
         event.stopPropagation();
-        const popup = new RankPopupComponent(rankInner, estimate.rankName);
+        const difficulty = this._deps.appState.getBenchmarkDifficulty();
+        const rankNames = this._deps.benchmark.getRankNames(difficulty);
+        const popup = new RankPopupComponent(rankInner, estimate.rankName, rankNames);
         popup.render();
       });
     }
