@@ -158,4 +158,24 @@ describe("RankTimelineComponent Logic", () => {
         // Cleanup
         document.body.removeChild(container);
     });
+
+    it("should render the expected notch at the midpoint", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 2,
+            achievedRU: 4,
+            expectedRU: 3
+        };
+        const component = new RankTimelineComponent(config);
+        const container = component.render();
+
+        const expectedNotch = container.querySelector(".marker-expected") as HTMLElement;
+        expect(expectedNotch).toBeTruthy();
+
+        // Window is 7.5, center is (2+4)/2 = 3. 
+        // MinRU = 3 - 3.75 = -0.75.
+        // Left offset for 3: (3 - (-0.75)) / 7.5 = 3.75 / 7.5 = 0.5 (50%).
+        expect(expectedNotch.style.left).toBe("50%");
+    });
 });

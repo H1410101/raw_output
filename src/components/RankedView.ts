@@ -422,6 +422,7 @@ export class RankedView {
       settings: this._deps.visualSettings.getSettings(),
       targetRU: estimate.continuousValue !== -1 ? estimate.continuousValue : undefined,
       achievedRU,
+      expectedRU: this._calculateExpectedRU(estimate.continuousValue, achievedRU),
       attemptsRU
     });
 
@@ -446,6 +447,14 @@ export class RankedView {
     const attemptsRU = scenarioRuns.map(run => this._deps.estimator.getScenarioContinuousValue(run.score, scenario));
 
     return { estimate, achievedRU, attemptsRU };
+  }
+
+  private _calculateExpectedRU(currentRU: number, achievedRU?: number): number | undefined {
+    if (achievedRU === undefined) {
+      return undefined;
+    }
+
+    return RankEstimator.calculateEvolvedValue(currentRU, achievedRU);
   }
 
 

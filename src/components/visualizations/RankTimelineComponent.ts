@@ -9,6 +9,7 @@ export interface RankTimelineConfiguration {
     readonly attemptsRU?: number[];
     // How many RUs to show. Default to 3.5
     readonly rangeWindow?: number;
+    readonly expectedRU?: number;
 }
 
 interface MarkerRenderOptions {
@@ -82,6 +83,7 @@ export class RankTimelineComponent {
         this._renderTicks(track, minRU, maxRU, ruRange);
         this._renderAttempts(track, minRU, ruRange);
         this._renderMarkers(minRU, ruRange, track);
+        this._renderExpectedNotch(track, minRU, ruRange);
 
         return this._container;
     }
@@ -399,5 +401,22 @@ export class RankTimelineComponent {
             minRU: minRU,
             maxRU: minRU + windowSize
         };
+    }
+
+    private _renderExpectedNotch(parent: HTMLElement, minRU: number, range: number): void {
+        const expectedRU = this._config.expectedRU;
+        if (expectedRU === undefined || expectedRU === null) {
+            return;
+        }
+
+        const leftPercent = ((expectedRU - minRU) / range) * 100;
+        if (leftPercent < 0 || leftPercent > 100) {
+            return;
+        }
+
+        const notch = document.createElement("div");
+        notch.className = "timeline-marker marker-expected";
+        notch.style.left = `${leftPercent}%`;
+        parent.appendChild(notch);
     }
 }

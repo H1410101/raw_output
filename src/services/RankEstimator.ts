@@ -123,6 +123,35 @@ export class RankEstimator {
     }
 
     /**
+     * Calculates the new evolved rank value based on current and session performance.
+     * Ensures that rank units are never lost (Specification 4.3).
+     *
+     * @param currentValue - The current persistent rank value.
+     * @param sessionValue - The continuous rank achieved in the current session.
+     * @returns The new evolved rank value.
+     */
+    public static calculateEvolvedValue(currentValue: number, sessionValue: number): number {
+        const current = currentValue === -1 ? 0 : currentValue;
+
+        // Anchor Logic: Absolute floor at SessionRank - 2.0
+        // No matter whether you've played before, any highscore moves your rank to at least RU - 2.0.
+        const anchorFloor = Math.max(0, sessionValue - 2.0);
+
+        let evolvedValue: number;
+
+        if (current < anchorFloor) {
+            // If this rule is invoked, other rank gains are invalidated.
+            // We jump straight to the anchor.
+            evolvedValue = anchorFloor;
+        } else {
+            // Otherwise, we use standard EMA with the new learning rate (0.5).
+            evolvedValue = current + RankEstimator._learningRate * (sessionValue - current);
+        }
+
+        // Rank Units (RU) cannot be lost (cannot go below current value)
+        return Math.max(current, evolvedValue);
+    }
+
     /**
      * Evolves the rank estimate for a specific scenario.
      *
@@ -133,26 +162,7 @@ export class RankEstimator {
         const map: RankEstimateMap = this.getRankEstimateMap();
         const current: ScenarioEstimate = this.getScenarioEstimate(scenarioName);
 
-        let newValue: number = current.continuousValue;
-
-        // Anchor Logic: Absolute floor at SessionRank - 2.0
-        // No matter whether you've played before, any highscore moves your rank to at least RU - 2.0.
-        const anchorFloor = Math.max(0, sessionRank - 2.0);
-
-        if (current.continuousValue < anchorFloor) {
-            // If this rule is invoked, other rank gains are invalidated.
-            // We jump straight to the anchor.
-            newValue = anchorFloor;
-        } else {
-            // Otherwise, we use standard EMA with the new learning rate (0.5).
-            if (current.continuousValue === -1) {
-                // Legacy fallback for uninitialized -1 values, treating them as 0 for EMA 
-                // (though getScenarioEstimate defaults to 0 now)
-                newValue = RankEstimator._learningRate * sessionRank;
-            } else {
-                newValue = current.continuousValue + RankEstimator._learningRate * (sessionRank - current.continuousValue);
-            }
-        }
+        const newValue = RankEstimator.calculateEvolvedValue(current.continuousValue, sessionRank);
 
         map[scenarioName] = {
             continuousValue: newValue,
