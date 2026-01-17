@@ -359,6 +359,17 @@ export class RankTimelineComponent {
 
         const opacity = (this._config.settings.dotOpacity ?? 40) / 100;
 
+        // Find top 3 run scores to show notches
+        const sorted = [...attempts].sort((a, b) => b - a);
+        const top3Scores = sorted.slice(0, 3);
+        const uniqueTopScores = Array.from(new Set(top3Scores));
+
+        uniqueTopScores.forEach(score => {
+            const leftPercent = ((score - minRU) / range) * 100;
+            if (leftPercent < 0 || leftPercent > 100) return;
+            this._renderAttemptNotch(parent, leftPercent);
+        });
+
         attempts.forEach(rankUnit => {
             const leftPercent = ((rankUnit - minRU) / range) * 100;
             if (leftPercent < 0 || leftPercent > 100) return;
@@ -369,6 +380,13 @@ export class RankTimelineComponent {
             dot.style.opacity = opacity.toString();
             parent.appendChild(dot);
         });
+    }
+
+    private _renderAttemptNotch(parent: HTMLElement, percent: number): void {
+        const notch = document.createElement("div");
+        notch.className = "timeline-marker marker-attempt";
+        notch.style.left = `${percent}%`;
+        parent.appendChild(notch);
     }
 
     private _calculateViewBounds(): { minRU: number; maxRU: number } {

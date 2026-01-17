@@ -180,4 +180,21 @@ describe("RankTimelineComponent Logic", () => {
         expect(parseFloat(progressLine.style.left)).toBeCloseTo(36.66, 1);
         expect(parseFloat(progressLine.style.width)).toBeCloseTo(13.33, 1);
     });
+
+    it("should render half-notches for top 3 runs", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 2,
+            achievedRU: 2,
+            // Top 3 are 5, 4, 3
+            attemptsRU: [1, 2, 3, 4, 5]
+        };
+        const component = new RankTimelineComponent(config);
+        const container = component.render();
+
+        const halfNotches = container.querySelectorAll(".marker-attempt");
+        // Should have 3 half-notches for 5, 4, 3
+        expect(halfNotches.length).toBe(3);
+    });
 });
