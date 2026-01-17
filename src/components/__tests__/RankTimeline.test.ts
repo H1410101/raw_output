@@ -100,4 +100,19 @@ describe("RankTimelineComponent Logic", () => {
 
         expect(ranges.minRU).toBeCloseTo(-1.25);
     });
+    it("should render attempt dots", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: { dotOpacity: 50 } as VisualSettings,
+            targetRU: 2,
+            achievedRU: 3,
+            attemptsRU: [2.5, 2.7]
+        };
+        const component = new RankTimelineComponent(config);
+        const container = component.render();
+
+        const dots = container.querySelectorAll(".timeline-attempt-dot");
+        expect(dots.length).toBe(2);
+        expect((dots[0] as HTMLElement).style.opacity).toBe("0.5");
+    });
 });

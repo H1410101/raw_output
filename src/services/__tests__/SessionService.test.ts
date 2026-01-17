@@ -30,6 +30,14 @@ describe("SessionService Creation", (): void => {
         _registerFirstRun(service);
         expect(service.sessionId).toBe(`session_${now}`);
     });
+    it("should track all runs in a session", (): void => {
+        _registerFirstRun(service);
+        _registerSecondRun(service);
+        const runs = service.getAllSessionRuns();
+        expect(runs.length).toBe(2);
+        expect(runs[0].scenarioName).toBe("Scenario A");
+        expect(runs[1].scenarioName).toBe("Scenario B");
+    });
 });
 
 describe("SessionService Persistence", (): void => {

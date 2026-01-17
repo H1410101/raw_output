@@ -6,6 +6,7 @@ export interface RankTimelineConfiguration {
     readonly settings: VisualSettings;
     readonly targetRU?: number;
     readonly achievedRU?: number;
+    readonly attemptsRU?: number[];
     // How many RUs to show. Default to 3.5
     readonly rangeWindow?: number;
 }
@@ -62,6 +63,7 @@ export class RankTimelineComponent {
 
         this._renderAxis(track);
         this._renderTicks(track, minRU, maxRU, ruRange);
+        this._renderAttempts(track, minRU, ruRange);
         this._renderMarkers(minRU, ruRange, track);
 
         return this._container;
@@ -237,6 +239,24 @@ export class RankTimelineComponent {
         text.innerText = label.toUpperCase();
         text.style.left = `${leftPercent}%`;
         parent.appendChild(text);
+    }
+
+    private _renderAttempts(parent: HTMLElement, minRU: number, range: number): void {
+        const attempts = this._config.attemptsRU;
+        if (!attempts || attempts.length === 0) return;
+
+        const opacity = (this._config.settings.dotOpacity ?? 40) / 100;
+
+        attempts.forEach(rankUnit => {
+            const leftPercent = ((rankUnit - minRU) / range) * 100;
+            if (leftPercent < 0 || leftPercent > 100) return;
+
+            const dot = document.createElement("div");
+            dot.className = "timeline-attempt-dot";
+            dot.style.left = `${leftPercent}%`;
+            dot.style.opacity = opacity.toString();
+            parent.appendChild(dot);
+        });
     }
 
     private _calculateViewBounds(): { minRU: number; maxRU: number } {

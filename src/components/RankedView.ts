@@ -401,27 +401,37 @@ export class RankedView {
 
     if (!scenario) return;
 
-    const estimate: ScenarioEstimate = this._deps.estimator.getScenarioEstimate(scenarioName);
-    const bests: SessionRankRecord[] = this._deps.session.getAllScenarioSessionBests();
-    const record: SessionRankRecord | undefined = bests.find(
-      (sessionRecord: SessionRankRecord): boolean => sessionRecord.scenarioName === scenarioName
-    );
-
-    const bestScore: number = record ? record.bestScore : 0;
-
-    const achievedRU: number | undefined = bestScore > 0
-      ? this._deps.estimator.getScenarioContinuousValue(bestScore, scenario)
-      : undefined;
+    const { estimate, achievedRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
 
     const timeline: RankTimelineComponent = new RankTimelineComponent({
       thresholds: scenario.thresholds,
       settings: this._deps.visualSettings.getSettings(),
       targetRU: estimate.continuousValue !== -1 ? estimate.continuousValue : undefined,
-      achievedRU
+      achievedRU,
+      attemptsRU
     });
 
     container.innerHTML = "";
     container.appendChild(timeline.render());
+  }
+
+  private _getScenarioPerformanceData(
+    scenarioName: string,
+    scenario: BenchmarkScenario
+  ): { estimate: ScenarioEstimate, achievedRU?: number, attemptsRU?: number[] } {
+    const estimate = this._deps.estimator.getScenarioEstimate(scenarioName);
+    const bests = this._deps.session.getAllScenarioSessionBests();
+    const record = bests.find(recordEntry => recordEntry.scenarioName === scenarioName);
+
+    const achievedRU = record && record.bestScore > 0
+      ? this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario)
+      : undefined;
+
+    const sessionRuns = this._deps.session.getAllSessionRuns();
+    const scenarioRuns = sessionRuns.filter(run => run.scenarioName === scenarioName);
+    const attemptsRU = scenarioRuns.map(run => this._deps.estimator.getScenarioContinuousValue(run.score, scenario));
+
+    return { estimate, achievedRU, attemptsRU };
   }
 
 
