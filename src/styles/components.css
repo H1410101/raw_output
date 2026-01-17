@@ -366,17 +366,20 @@
 }
 
 .timeline-caret.offscreen {
-    /* Align left with the text, instead of centered */
-    border-color: var(--text-default);
+    position: static;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-right: 0.3rem;
+    margin-bottom: 0;
     transform: rotate(-45deg);
+    border-color: var(--lower-band-1);
 }
 
 .timeline-marker-label.offscreen {
-    /* Align left with the caret, instead of centered */
+    color: var(--lower-band-1);
     transform: none;
     text-align: left;
-    margin-left: 0.2rem;
-    /* Minor spacing adjustment for visual balance */
+    margin-left: 0;
 }
 
 /* Summary View */

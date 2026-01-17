@@ -142,17 +142,16 @@ export class RankTimelineComponent {
         const leftPercent = 25;
         // Snapped to 25% (mid-fade)
 
-        // Render Caret (replacing notch) - Goes to main container (unmasked)
-        const caret = document.createElement("div");
-        caret.className = "timeline-caret offscreen";
-        caret.style.left = `${leftPercent}%`;
-        this._container.appendChild(caret);
-
         // Render Label - Goes to main container (unmasked)
         const anchor = document.createElement("div");
         anchor.className = "timeline-marker-anchor anchor-target offscreen";
         anchor.style.left = `${leftPercent}%`;
         this._container.appendChild(anchor);
+
+        // Render Caret within anchor
+        const caret = document.createElement("div");
+        caret.className = "timeline-caret offscreen";
+        anchor.appendChild(caret);
 
         const text = document.createElement("div");
         text.className = `timeline-marker-label label-target offscreen`;
