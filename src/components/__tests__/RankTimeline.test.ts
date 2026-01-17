@@ -76,10 +76,10 @@ describe("RankTimelineComponent Logic", () => {
         const caret = container.querySelector(".timeline-caret");
         expect(caret).toBeTruthy();
 
-        // Check for "TARGET" label snapped to 25%
-        const targetLabel = Array.from(container.querySelectorAll(".label-target")).find(element => element.textContent === "TARGET") as HTMLElement;
-        expect(targetLabel).toBeTruthy();
-        expect(targetLabel.style.left).toBe("25%");
+        // Check for "TARGET" anchor snapped to 25%
+        const targetAnchor = container.querySelector(".anchor-target") as HTMLElement;
+        expect(targetAnchor).toBeTruthy();
+        expect(targetAnchor.style.left).toBe("25%");
     });
 
     it("should NOT clamp if achieved is close to target", () => {
@@ -115,7 +115,7 @@ describe("RankTimelineComponent Logic", () => {
         expect(dots.length).toBe(2);
         expect((dots[0] as HTMLElement).style.opacity).toBe("0.5");
     });
-    it("should have labels follow notches even when overlapping", () => {
+    it("should have anchors follow notches when overlapping", () => {
         const config: RankTimelineConfiguration = {
             thresholds: mockThresholds,
             settings: mockSettings,
@@ -126,14 +126,36 @@ describe("RankTimelineComponent Logic", () => {
         const container = component.render();
 
         const markers = container.querySelectorAll(".timeline-marker");
-        const labels = container.querySelectorAll(".timeline-marker-label");
+        const anchors = container.querySelectorAll(".timeline-marker-anchor");
 
         // Everything should be at 50%
         expect((markers[0] as HTMLElement).style.left).toBe("50%");
         expect((markers[1] as HTMLElement).style.left).toBe("50%");
 
-        const labelPositions = Array.from(labels).map(label => (label as HTMLElement).style.left);
-        expect(labelPositions[0]).toBe("50%");
-        expect(labelPositions[1]).toBe("50%");
+        expect((anchors[0] as HTMLElement).style.left).toBe("50%");
+        expect((anchors[1] as HTMLElement).style.left).toBe("50%");
+    });
+
+    it("should resolve collisions by shifting labels in the DOM", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 2,
+            achievedRU: 2
+        };
+        const component = new RankTimelineComponent(config);
+        const container = component.render();
+        container.style.width = "1000px";
+
+        document.body.appendChild(container);
+
+        component.resolveCollisions();
+
+        const labels = container.querySelectorAll(".timeline-marker-label");
+        expect((labels[0] as HTMLElement).style.transform).toContain("translateX");
+        expect((labels[1] as HTMLElement).style.transform).toContain("translateX");
+
+        // Cleanup
+        document.body.removeChild(container);
     });
 });

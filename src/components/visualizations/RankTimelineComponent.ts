@@ -27,6 +27,11 @@ export class RankTimelineComponent {
     private _config: RankTimelineConfiguration;
     private _mapper: RankScaleMapper;
 
+    private _targetAnchor: HTMLElement | null = null;
+    private _achievedAnchor: HTMLElement | null = null;
+    private _targetLabel: HTMLElement | null = null;
+    private _achievedLabel: HTMLElement | null = null;
+
     /**
      * Initializes the timeline.
      * @param config - The initial configuration.
@@ -60,6 +65,10 @@ export class RankTimelineComponent {
      */
     public render(): HTMLElement {
         this._container.innerHTML = "";
+        this._targetAnchor = null;
+        this._achievedAnchor = null;
+        this._targetLabel = null;
+        this._achievedLabel = null;
 
         // Create track for masked content (axis, ticks, labels)
         const track = document.createElement("div");
@@ -137,11 +146,18 @@ export class RankTimelineComponent {
         this._container.appendChild(caret);
 
         // Render Label - Goes to main container (unmasked)
+        const anchor = document.createElement("div");
+        anchor.className = "timeline-marker-anchor anchor-target offscreen";
+        anchor.style.left = `${leftPercent}%`;
+        this._container.appendChild(anchor);
+
         const text = document.createElement("div");
         text.className = `timeline-marker-label label-target offscreen`;
         text.innerText = "TARGET";
-        text.style.left = `${leftPercent}%`;
-        this._container.appendChild(text);
+        anchor.appendChild(text);
+
+        this._targetAnchor = anchor;
+        this._targetLabel = text;
     }
 
     private _renderOverlappingMarkers(
@@ -226,11 +242,85 @@ export class RankTimelineComponent {
         marker.style.left = `${options.notchPercent}%`;
         options.parent.appendChild(marker);
 
+        const anchor = document.createElement("div");
+        anchor.className = `timeline-marker-anchor anchor-${options.type}`;
+        anchor.style.left = `${options.labelPercent}%`;
+        options.parent.appendChild(anchor);
+
         const text = document.createElement("div");
         text.className = `timeline-marker-label label-${options.type}`;
         text.innerText = options.label.toUpperCase();
-        text.style.left = `${options.labelPercent}%`;
-        options.parent.appendChild(text);
+        anchor.appendChild(text);
+
+        if (options.type === "target") {
+            this._targetAnchor = anchor;
+            this._targetLabel = text;
+        } else {
+            this._achievedAnchor = anchor;
+            this._achievedLabel = text;
+        }
+    }
+
+    /**
+     * Resolves collisions between the Target and Achieved markers.
+     * This must be called after the component is added to the DOM.
+     */
+    public resolveCollisions(): void {
+        const hasRequiredElements = this._targetAnchor && this._achievedAnchor &&
+            this._targetLabel && this._achievedLabel;
+        if (!hasRequiredElements) return;
+
+        const targetRect: DOMRect = this._targetAnchor!.getBoundingClientRect();
+        const achievedRect: DOMRect = this._achievedAnchor!.getBoundingClientRect();
+
+        const buffer: number = this._getCollisionBuffer();
+        if (!this._detectOverlap(targetRect, achievedRect, buffer)) return;
+
+        const { finalTargetCenter, finalAchievedCenter, currentTargetCenter, currentAchievedCenter } =
+            this._calculateResolutionPositions(targetRect, achievedRect, buffer);
+
+        this._targetLabel!.style.transform = `translateX(${finalTargetCenter - currentTargetCenter}px)`;
+        this._achievedLabel!.style.transform = `translateX(${finalAchievedCenter - currentAchievedCenter}px)`;
+    }
+
+    private _getCollisionBuffer(): number {
+        const rootFontSize: number = parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+        return 0.5 * rootFontSize;
+    }
+
+    private _detectOverlap(targetRect: DOMRect, achievedRect: DOMRect, buffer: number): boolean {
+        return targetRect.left < achievedRect.right + buffer &&
+            targetRect.right > achievedRect.left - buffer;
+    }
+
+    private _calculateResolutionPositions(
+        targetRect: DOMRect,
+        achievedRect: DOMRect,
+        buffer: number
+    ): {
+        finalTargetCenter: number,
+        finalAchievedCenter: number,
+        currentTargetCenter: number,
+        currentAchievedCenter: number
+    } {
+        const currentTargetCenter = targetRect.left + (targetRect.width / 2);
+        const currentAchievedCenter = achievedRect.left + (achievedRect.width / 2);
+        const requiredTotalWidth = targetRect.width + achievedRect.width + buffer;
+        const midpointX = (currentTargetCenter + currentAchievedCenter) / 2;
+
+        let finalTargetCenter: number;
+        let finalAchievedCenter: number;
+
+        if (currentTargetCenter <= currentAchievedCenter) {
+            finalTargetCenter = midpointX - (requiredTotalWidth / 2) + (targetRect.width / 2);
+            finalAchievedCenter = midpointX + (requiredTotalWidth / 2) - (achievedRect.width / 2);
+        } else {
+            finalTargetCenter = midpointX + (requiredTotalWidth / 2) - (targetRect.width / 2);
+            finalAchievedCenter = midpointX - (requiredTotalWidth / 2) + (achievedRect.width / 2);
+        }
+
+        return { finalTargetCenter, finalAchievedCenter, currentTargetCenter, currentAchievedCenter };
     }
 
     private _isTargetOffscreen(minRU: number, range: number): boolean {

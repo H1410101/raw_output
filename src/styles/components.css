@@ -285,15 +285,25 @@
     border-radius: 2px;
 }
 
-.timeline-marker-label {
+.timeline-marker-anchor {
     position: absolute;
     bottom: calc(50% + 1.5rem);
     transform: translateX(-50%);
+    width: fit-content;
+    height: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.timeline-marker-label {
+    position: relative;
     font-size: 0.7rem;
     font-weight: 700;
     white-space: nowrap;
     letter-spacing: 0.05em;
     text-shadow: 0 0.125rem 0.25rem rgba(var(--surface-0-rgb), 0.5);
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .marker-target {

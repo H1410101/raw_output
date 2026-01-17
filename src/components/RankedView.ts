@@ -413,6 +413,7 @@ export class RankedView {
 
     container.innerHTML = "";
     container.appendChild(timeline.render());
+    timeline.resolveCollisions();
   }
 
   private _getScenarioPerformanceData(
