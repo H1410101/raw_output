@@ -83,7 +83,7 @@ export class RankTimelineComponent {
         this._renderTicks(track, minRU, maxRU, ruRange);
         this._renderAttempts(track, minRU, ruRange);
         this._renderMarkers(minRU, ruRange, track);
-        this._renderExpectedNotch(track, minRU, ruRange);
+        this._renderProgressLine(track, minRU, ruRange);
 
         return this._container;
     }
@@ -418,5 +418,31 @@ export class RankTimelineComponent {
         notch.className = "timeline-marker marker-expected";
         notch.style.left = `${leftPercent}%`;
         parent.appendChild(notch);
+    }
+
+    private _renderProgressLine(parent: HTMLElement, minRU: number, range: number): void {
+        const targetRU = this._config.targetRU;
+        const expectedRU = this._config.expectedRU;
+
+        if (targetRU === undefined || targetRU === null || expectedRU === undefined || expectedRU === null) {
+            return;
+        }
+
+        const tPct = ((targetRU - minRU) / range) * 100;
+        const ePct = ((expectedRU - minRU) / range) * 100;
+
+        const left = Math.min(tPct, ePct);
+        const right = Math.max(tPct, ePct);
+        const width = right - left;
+
+        if (right < 0 || left > 100 || width <= 0.001) {
+            return;
+        }
+
+        const line = document.createElement("div");
+        line.className = "timeline-progress-line";
+        line.style.left = `${left}%`;
+        line.style.width = `${width}%`;
+        parent.appendChild(line);
     }
 }

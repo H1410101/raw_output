@@ -242,7 +242,7 @@
     right: 0;
     height: 1px;
     /* user requested same thickness as notches. notches are 1px wide. */
-    background-color: var(--text-dim);
+    background-color: var(--text-default);
     opacity: 0.5;
     transform: translateY(-50%);
 }
@@ -252,7 +252,7 @@
     top: 50%;
     width: 1px;
     height: 0.75rem;
-    background-color: var(--text-dim);
+    background-color: var(--text-default);
     transform: translateX(-50%);
     opacity: 0.5;
 }
@@ -339,6 +339,16 @@
     opacity: 0.8;
 }
 
+.timeline-progress-line {
+    position: absolute;
+    top: 50%;
+    height: 2px;
+    background-color: var(--accent-color);
+    transform: translateY(-50%);
+    z-index: 2;
+    border-radius: 1px;
+}
+
 .timeline-caret {
     position: absolute;
     bottom: 50%;
@@ -355,6 +365,7 @@
 
 .timeline-caret.offscreen {
     /* Align left with the text, instead of centered */
+    border-color: var(--text-default);
     transform: rotate(-45deg);
 }
 

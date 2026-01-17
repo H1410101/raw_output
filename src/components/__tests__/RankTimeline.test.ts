@@ -159,7 +159,7 @@ describe("RankTimelineComponent Logic", () => {
         document.body.removeChild(container);
     });
 
-    it("should render the expected notch at the midpoint", () => {
+    it("should render the progress line between target and expected", () => {
         const config: RankTimelineConfiguration = {
             thresholds: mockThresholds,
             settings: mockSettings,
@@ -170,12 +170,14 @@ describe("RankTimelineComponent Logic", () => {
         const component = new RankTimelineComponent(config);
         const container = component.render();
 
-        const expectedNotch = container.querySelector(".marker-expected") as HTMLElement;
-        expect(expectedNotch).toBeTruthy();
+        const progressLine = container.querySelector(".timeline-progress-line") as HTMLElement;
+        expect(progressLine).toBeTruthy();
 
         // Window is 7.5, center is (2+4)/2 = 3. 
         // MinRU = 3 - 3.75 = -0.75.
-        // Left offset for 3: (3 - (-0.75)) / 7.5 = 3.75 / 7.5 = 0.5 (50%).
-        expect(expectedNotch.style.left).toBe("50%");
+        // tPct (target=2): (2 - (-0.75)) / 7.5 = 2.75 / 7.5 = 36.666...%
+        // ePct (expected=3): (3 - (-0.75)) / 7.5 = 3.75 / 7.5 = 50%
+        expect(parseFloat(progressLine.style.left)).toBeCloseTo(36.66, 1);
+        expect(parseFloat(progressLine.style.width)).toBeCloseTo(13.33, 1);
     });
 });
