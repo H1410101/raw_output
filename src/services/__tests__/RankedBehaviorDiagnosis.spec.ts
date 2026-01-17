@@ -104,13 +104,16 @@ describe('Ranked Session Diagnosis', () => {
 
         // 3. Play the current scenario (Register Run)
         // Score 150 (Silver is 200, Bronze 100). Should give decent rank unit.
-        sessionService.registerRun({
-            scenarioName: currentScenario!,
-            score: 150,
-            scenario: mockScenarios.find((ref) => ref.name === currentScenario)!,
-            difficulty: 'Intermediate',
-            timestamp: new Date()
-        });
+        // We need 3 runs for the rank to count (Strict 3rd logic).
+        for (let i = 0; i < 3; i++) {
+            sessionService.registerRun({
+                scenarioName: currentScenario!,
+                score: 150,
+                scenario: mockScenarios.find((ref) => ref.name === currentScenario)!,
+                difficulty: 'Intermediate',
+                timestamp: new Date()
+            });
+        }
 
         // 4. Check Estimate
         const newEstimate = rankEstimator.getScenarioEstimate(currentScenario!).continuousValue;
