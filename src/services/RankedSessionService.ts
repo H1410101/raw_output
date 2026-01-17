@@ -48,6 +48,7 @@ export class RankedSessionService {
     private _initialGauntletComplete: boolean = false;
     private _playedScenarios: Set<string> = new Set();
     private _initialEstimates: Record<string, number> = {};
+    private _tickerHandle: number | null = null;
 
     private readonly _onStateChanged: (() => void)[] = [];
 
@@ -72,6 +73,12 @@ export class RankedSessionService {
 
         this._loadFromLocalStorage();
         this._subscribeToSessionEvents();
+        this._startTicker();
+    }
+
+    private _startTicker(): void {
+        if (this._tickerHandle !== null) return;
+        this._tickerHandle = window.setInterval(() => this.checkExpiration(), 1000);
     }
 
     /**
