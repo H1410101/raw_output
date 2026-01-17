@@ -136,6 +136,7 @@ function _createMocks(): MockSet {
             stopRankedSession: vi.fn(),
             getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
             getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
+            getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
         } as unknown as SessionService,
         estimator: { getScenarioEstimate: vi.fn() } as unknown as RankEstimator,
         settings: {

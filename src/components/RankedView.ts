@@ -1,5 +1,5 @@
 import { RankedSessionService, RankedSessionState } from "../services/RankedSessionService";
-import { SessionService, SessionRankRecord } from "../services/SessionService";
+import { SessionService } from "../services/SessionService";
 import { BenchmarkService } from "../services/BenchmarkService";
 import { RankEstimator, EstimatedRank, ScenarioEstimate } from "../services/RankEstimator";
 import { BenchmarkScenario } from "../data/benchmarks";
@@ -292,15 +292,28 @@ export class RankedView {
   }
 
   private _isImproved(estimateValue: number, currentScenario: string): boolean {
-    const bests = this._deps.session.getAllRankedScenarioBests();
-    const record = bests.find((recordRef) => recordRef.scenarioName === currentScenario);
-    if (!record) return false;
+    const allRuns = this._deps.session.getAllRankedSessionRuns();
+    const runs = allRuns
+      .filter((run) => run.scenarioName === currentScenario)
+      .map((run) => run.score);
+
+    if (runs.length === 0) return false;
 
     const diff = this._deps.appState.getBenchmarkDifficulty();
     const scenario = this._deps.benchmark.getScenarios(diff).find((scenarioRef) => scenarioRef.name === currentScenario);
     if (!scenario) return false;
 
-    return this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario) > estimateValue;
+    const effectiveScore = this._calculateEffectiveScore(runs);
+
+    return this._deps.estimator.getScenarioContinuousValue(effectiveScore, scenario) > estimateValue;
+  }
+
+  private _calculateEffectiveScore(scores: number[]): number {
+    if (scores.length < 3) return 0;
+
+    const sorted = [...scores].sort((a, b) => b - a);
+
+    return sorted[2];
   }
 
 
@@ -319,7 +332,7 @@ export class RankedView {
 
   private _renderSummaryContent(): string {
     const estimate = this._calculateSessionAchievedRank();
-    const bests = this._deps.session.getAllRankedScenarioBests();
+    const effectiveStats = this._calculateEffectiveStats();
 
     return `
       <div class="ranked-result summary-view">
@@ -328,18 +341,36 @@ export class RankedView {
               <p class="summary-rank">FINAL RANK: <span class="accent">${estimate.rankName}</span></p>
               <p class="summary-subtitle">Run Overview</p>
               <div class="scenarios-list">
-                  ${bests.length > 0 ? bests.map(record => `
-                      <div class="scenario-summary-item">
-                          <span class="scenario-name">${record.scenarioName}</span>
-                          <span class="scenario-score">${record.bestScore.toFixed(1)}</span>
-                          <span class="scenario-rank">${record.rankResult.currentRank}</span>
-                      </div>
+                  ${effectiveStats.length > 0 ? effectiveStats.map(stat => `
+                      <div class="scenario-summary-item"><span class="scenario-name">${stat.name}</span><span class="scenario-score">${stat.score.toFixed(1)}</span><span class="scenario-rank">${stat.rank}</span></div>
                   `).join('') : '<p class="no-scenarios">No scenarios played this session.</p>'}
               </div>
           </div>
           <button class="next-btn luminous" id="finish-ranked-btn">BACK TO HUB</button>
       </div>
     `;
+  }
+
+  private _calculateEffectiveStats(): { name: string; score: number; rank: string }[] {
+    const bests = this._deps.session.getAllRankedScenarioBests();
+    const allRuns = this._deps.session.getAllRankedSessionRuns();
+    const diff = this._deps.appState.getBenchmarkDifficulty();
+    const scenarios = this._deps.benchmark.getScenarios(diff);
+
+    return bests.map(record => {
+      const runs = allRuns.filter((run) => run.scenarioName === record.scenarioName).map((run) => run.score);
+      const effectiveScore = this._calculateEffectiveScore(runs);
+      const scenario = scenarios.find((ref) => ref.name === record.scenarioName);
+      let rankName = record.rankResult.currentRank;
+
+      if (scenario) {
+        const continuousValue = this._deps.estimator.getScenarioContinuousValue(effectiveScore, scenario);
+        const computedEstimate = this._deps.estimator.getEstimateForValue(continuousValue, diff);
+        rankName = computedEstimate.rankName;
+      }
+
+      return { name: record.scenarioName, score: effectiveScore, rank: rankName };
+    });
   }
 
   private _renderCompletedContent(): string {
@@ -372,15 +403,19 @@ export class RankedView {
     let totalRankValue = 0;
     let count = 0;
 
-    const bests = this._deps.session.getAllRankedScenarioBests();
+    const allRuns = this._deps.session.getAllRankedSessionRuns();
     const scenarios = this._deps.benchmark.getScenarios(difficulty);
 
     for (const name of scenarioNames) {
-      const record = bests.find((record: SessionRankRecord) => record.scenarioName === name);
-      const scenario = scenarios.find((scenario: BenchmarkScenario) => scenario.name === name);
+      const runs = allRuns
+        .filter((run) => run.scenarioName === name)
+        .map((run) => run.score);
 
-      if (record && scenario) {
-        const val = this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario);
+      const scenario = scenarios.find((ref) => ref.name === name);
+
+      if (runs.length > 0 && scenario) {
+        const effectiveScore = this._calculateEffectiveScore(runs);
+        const val = this._deps.estimator.getScenarioContinuousValue(effectiveScore, scenario);
         totalRankValue += val;
         count++;
       }
@@ -448,10 +483,10 @@ export class RankedView {
     const attemptsRU = scenarioRuns.map(run => this._deps.estimator.getScenarioContinuousValue(run.score, scenario));
 
     // Calculate achievedRU as the 3rd highest
-    let achievedRU = bestRU;
-    if (attemptsRU.length > 0) {
+    let achievedRU = undefined;
+    if (attemptsRU.length >= 3) {
       const sorted = [...attemptsRU].sort((a, b) => b - a);
-      achievedRU = sorted.length >= 3 ? sorted[2] : sorted[sorted.length - 1];
+      achievedRU = sorted[2];
     }
 
     return { estimate, achievedRU, bestRU, attemptsRU };
