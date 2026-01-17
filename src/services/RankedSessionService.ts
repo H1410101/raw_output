@@ -282,6 +282,19 @@ export class RankedSessionService {
     }
 
     /**
+     * Checks if the session timer has expired and transitions to summary if so.
+     */
+    public checkExpiration(): void {
+        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
+            return;
+        }
+
+        if (this.remainingSeconds <= 0) {
+            this.endSession();
+        }
+    }
+
+    /**
      * Resets the ranked session state to idle.
      */
     public reset(): void {
