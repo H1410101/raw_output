@@ -592,7 +592,7 @@ export class BenchmarkView {
             <span class="${rankClass}">
                 <span class="rank-text-inner">${estimate.rankName}</span>
             </span>
-            <span class="rank-progress">${isUnranked ? "" : `+${estimate.progressToNext}%`}</span>
+            <span class="rank-progress">${estimate.continuousValue === 0 ? "" : `+${estimate.progressToNext}%`}</span>
         </div>
     `;
 

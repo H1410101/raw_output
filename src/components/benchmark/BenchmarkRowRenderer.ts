@@ -264,6 +264,7 @@ export class BenchmarkRowRenderer {
         rankEstimateBadge,
         difficultyEstimate.rankName,
         difficultyEstimate.progressToNext,
+        difficultyEstimate.continuousValue,
       );
     }
   }
@@ -490,7 +491,7 @@ export class BenchmarkRowRenderer {
     const rankEstimate = this._rankEstimator.getScenarioEstimate(scenario.name);
     const estimate = this._rankEstimator.getEstimateForValue(rankEstimate.continuousValue, this._currentDifficulty);
 
-    this._fillRankEstimateBadgeContent(badgeContent, estimate.rankName, estimate.progressToNext);
+    this._fillRankEstimateBadgeContent(badgeContent, estimate.rankName, estimate.progressToNext, estimate.continuousValue);
     badgeContainer.appendChild(badgeContent);
 
     return badgeContainer;
@@ -502,11 +503,13 @@ export class BenchmarkRowRenderer {
    * @param container - The HTMLElement to fill with content.
    * @param rankName - The name of the rank.
    * @param progress - The progress percentage to the next rank.
+   * @param continuousValue - The continuous rank unit value.
    */
   private _fillRankEstimateBadgeContent(
     container: HTMLElement,
     rankName: string,
     progress: number,
+    continuousValue: number,
   ): void {
     const isUnranked: boolean = rankName === "Unranked";
     const rankClass: string = isUnranked
@@ -515,7 +518,7 @@ export class BenchmarkRowRenderer {
 
     container.innerHTML = `
       <span class="${rankClass}">${rankName}</span>
-      <span class="rank-progress">${isUnranked ? "" : `+${progress}%`}</span>
+      <span class="rank-progress">${continuousValue === 0 ? "" : `+${progress}%`}</span>
     `;
   }
 
