@@ -182,22 +182,22 @@ export class RankPopupComponent {
         section.style.alignItems = "center";
 
         if (isAbove && hasOverflow) {
-            section.appendChild(this._createCaret(true));
+            section.appendChild(this._createCaret());
         }
 
         const items = [...ranks].reverse();
         items.forEach(rank => {
             if (isAbove) {
                 section.appendChild(this._createRankItem(rank, false));
-                section.appendChild(this._createCaret(true));
+                section.appendChild(this._createCaret());
             } else {
-                section.appendChild(this._createCaret(false));
+                section.appendChild(this._createCaret());
                 section.appendChild(this._createRankItem(rank, false));
             }
         });
 
         if (!isAbove && hasOverflow) {
-            section.appendChild(this._createCaret(false));
+            section.appendChild(this._createCaret());
         }
 
         return section;
@@ -225,7 +225,7 @@ export class RankPopupComponent {
         };
     }
 
-    private _createCaret(isUp: boolean): HTMLElement {
+    private _createCaret(): HTMLElement {
         const div = document.createElement("div");
         div.className = "rank-caret";
         div.style.flex = "none";
@@ -236,13 +236,13 @@ export class RankPopupComponent {
         div.style.justifyContent = "center";
         div.style.margin = "0.05rem 0";
 
-        const chevron = this._createChevronElement(isUp);
+        const chevron = this._createChevronElement();
         div.appendChild(chevron);
 
         return div;
     }
 
-    private _createChevronElement(isUp: boolean): HTMLElement {
+    private _createChevronElement(): HTMLElement {
         const chevron = document.createElement("div");
         chevron.style.width = "0.2rem";
         chevron.style.height = "0.2rem";
@@ -251,9 +251,7 @@ export class RankPopupComponent {
         chevron.style.borderTop = `1px solid ${color}`;
         chevron.style.borderRight = `1px solid ${color}`;
         chevron.style.opacity = "0.5";
-        chevron.style.transform = isUp
-            ? "rotate(-45deg) translateY(1px)"
-            : "rotate(135deg) translateY(1px)";
+        chevron.style.transform = "rotate(-45deg) translateY(1px)";
 
         return chevron;
     }
