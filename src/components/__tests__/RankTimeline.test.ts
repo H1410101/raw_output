@@ -115,4 +115,25 @@ describe("RankTimelineComponent Logic", () => {
         expect(dots.length).toBe(2);
         expect((dots[0] as HTMLElement).style.opacity).toBe("0.5");
     });
+    it("should have labels follow notches even when overlapping", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 2,
+            achievedRU: 2
+        };
+        const component = new RankTimelineComponent(config);
+        const container = component.render();
+
+        const markers = container.querySelectorAll(".timeline-marker");
+        const labels = container.querySelectorAll(".timeline-marker-label");
+
+        // Everything should be at 50%
+        expect((markers[0] as HTMLElement).style.left).toBe("50%");
+        expect((markers[1] as HTMLElement).style.left).toBe("50%");
+
+        const labelPositions = Array.from(labels).map(label => (label as HTMLElement).style.left);
+        expect(labelPositions[0]).toBe("50%");
+        expect(labelPositions[1]).toBe("50%");
+    });
 });

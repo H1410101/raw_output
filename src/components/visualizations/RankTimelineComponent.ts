@@ -11,6 +11,14 @@ export interface RankTimelineConfiguration {
     readonly rangeWindow?: number;
 }
 
+interface MarkerRenderOptions {
+    readonly parent: HTMLElement;
+    readonly notchPercent: number;
+    readonly labelPercent: number;
+    readonly label: string;
+    readonly type: "achieved" | "target";
+}
+
 /**
  * Visualizes the rank progression timeline.
  */
@@ -102,22 +110,9 @@ export class RankTimelineComponent {
         const targetRU = this._config.targetRU;
         const achievedRU = this._config.achievedRU;
 
-        // Offscreen Target Logic ( Target is to the left )
-        // "Pulled" towards center if < 25%
-        let targetIsOffscreen = false;
-        if (targetRU !== undefined) {
-            const tPct = ((targetRU - minRU) / range) * 100;
-            if (tPct < 25) {
-                targetIsOffscreen = true;
-            }
-        }
-
-        if (targetIsOffscreen) {
+        if (this._isTargetOffscreen(minRU, range)) {
             this._renderOffscreenTarget();
-            if (achievedRU !== undefined) {
-                const aPct = ((achievedRU - minRU) / range) * 100;
-                this._renderMarker(track, aPct, "Achieved", "achieved");
-            }
+            this._renderAchievedInOffscreenMode(track, minRU, range);
 
             return;
         }
@@ -158,30 +153,20 @@ export class RankTimelineComponent {
         const tPct = ((target - bounds.min) / bounds.range) * 100;
         const aPct = ((achieved - bounds.min) / bounds.range) * 100;
 
-        // Minimum separation in percentage (approx 30% for clean label separation)
-        const minSep = 30;
-        const diff = Math.abs(tPct - aPct);
-
-        let finalTPct = tPct;
-        let finalAPct = aPct;
-
-        if (diff < minSep) {
-            const center = (tPct + aPct) / 2;
-            const offset = minSep / 2;
-
-            // If exactly equal, default target left, achieved right (or vice versa)
-            // If not equal, push further in current direction
-            if (tPct <= aPct) {
-                finalTPct = center - offset;
-                finalAPct = center + offset;
-            } else {
-                finalTPct = center + offset;
-                finalAPct = center - offset;
-            }
-        }
-
-        this._renderMarker(parent, finalAPct, "Achieved", "achieved");
-        this._renderMarker(parent, finalTPct, "Target", "target");
+        this._renderMarker({
+            parent,
+            notchPercent: aPct,
+            labelPercent: aPct,
+            label: "Achieved",
+            type: "achieved"
+        });
+        this._renderMarker({
+            parent,
+            notchPercent: tPct,
+            labelPercent: tPct,
+            label: "Target",
+            type: "target"
+        });
     }
 
     private _renderSingleMarkers(
@@ -192,11 +177,23 @@ export class RankTimelineComponent {
     ): void {
         if (achieved !== undefined) {
             const aPct = ((achieved - bounds.min) / bounds.range) * 100;
-            this._renderMarker(parent, aPct, "Achieved", "achieved");
+            this._renderMarker({
+                parent,
+                notchPercent: aPct,
+                labelPercent: aPct,
+                label: "Achieved",
+                type: "achieved"
+            });
         }
         if (target !== undefined && target !== null) {
             const tPct = ((target - bounds.min) / bounds.range) * 100;
-            this._renderMarker(parent, tPct, "Target", "target");
+            this._renderMarker({
+                parent,
+                notchPercent: tPct,
+                labelPercent: tPct,
+                label: "Target",
+                type: "target"
+            });
         }
     }
 
@@ -223,22 +220,44 @@ export class RankTimelineComponent {
         parent.appendChild(text);
     }
 
-    private _renderMarker(
-        parent: HTMLElement,
-        leftPercent: number,
-        label: string,
-        type: "achieved" | "target"
-    ): void {
+    private _renderMarker(options: MarkerRenderOptions): void {
         const marker = document.createElement("div");
-        marker.className = `timeline-marker marker-${type}`;
-        marker.style.left = `${leftPercent}%`;
-        parent.appendChild(marker);
+        marker.className = `timeline-marker marker-${options.type}`;
+        marker.style.left = `${options.notchPercent}%`;
+        options.parent.appendChild(marker);
 
         const text = document.createElement("div");
-        text.className = `timeline-marker-label label-${type}`;
-        text.innerText = label.toUpperCase();
-        text.style.left = `${leftPercent}%`;
-        parent.appendChild(text);
+        text.className = `timeline-marker-label label-${options.type}`;
+        text.innerText = options.label.toUpperCase();
+        text.style.left = `${options.labelPercent}%`;
+        options.parent.appendChild(text);
+    }
+
+    private _isTargetOffscreen(minRU: number, range: number): boolean {
+        const targetRU = this._config.targetRU;
+        if (targetRU === undefined) return false;
+
+        const tPct = ((targetRU - minRU) / range) * 100;
+
+        return tPct < 25;
+    }
+
+    private _renderAchievedInOffscreenMode(
+        track: HTMLElement,
+        minRU: number,
+        range: number
+    ): void {
+        const achievedRU = this._config.achievedRU;
+        if (achievedRU === undefined) return;
+
+        const aPct = ((achievedRU - minRU) / range) * 100;
+        this._renderMarker({
+            parent: track,
+            notchPercent: aPct,
+            labelPercent: aPct,
+            label: "Achieved",
+            type: "achieved"
+        });
     }
 
     private _renderAttempts(parent: HTMLElement, minRU: number, range: number): void {
