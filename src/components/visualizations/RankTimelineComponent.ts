@@ -277,7 +277,7 @@ export class RankTimelineComponent {
         if (!this._detectOverlap(targetRect, achievedRect, buffer)) return;
 
         const { finalTargetCenter, finalAchievedCenter, currentTargetCenter, currentAchievedCenter } =
-            this._calculateResolutionPositions(targetRect, achievedRect, buffer);
+            this._calculateResolutionPositions(targetRect, achievedRect);
 
         this._targetLabel!.style.transform = `translateX(${finalTargetCenter - currentTargetCenter}px)`;
         this._achievedLabel!.style.transform = `translateX(${finalAchievedCenter - currentAchievedCenter}px)`;
@@ -296,8 +296,7 @@ export class RankTimelineComponent {
 
     private _calculateResolutionPositions(
         targetRect: DOMRect,
-        achievedRect: DOMRect,
-        buffer: number
+        achievedRect: DOMRect
     ): {
         finalTargetCenter: number,
         finalAchievedCenter: number,
@@ -306,18 +305,20 @@ export class RankTimelineComponent {
     } {
         const currentTargetCenter = targetRect.left + (targetRect.width / 2);
         const currentAchievedCenter = achievedRect.left + (achievedRect.width / 2);
-        const requiredTotalWidth = targetRect.width + achievedRect.width + buffer;
-        const midpointX = (currentTargetCenter + currentAchievedCenter) / 2;
 
         let finalTargetCenter: number;
         let finalAchievedCenter: number;
 
         if (currentTargetCenter <= currentAchievedCenter) {
-            finalTargetCenter = midpointX - (requiredTotalWidth / 2) + (targetRect.width / 2);
-            finalAchievedCenter = midpointX + (requiredTotalWidth / 2) - (achievedRect.width / 2);
+            // Target is on the left: attach its right edge to its notch (half width displacement)
+            finalTargetCenter = currentTargetCenter - (targetRect.width / 2);
+            // Achieved is on the right: attach its left edge to its notch (half width displacement)
+            finalAchievedCenter = currentAchievedCenter + (achievedRect.width / 2);
         } else {
-            finalTargetCenter = midpointX + (requiredTotalWidth / 2) - (targetRect.width / 2);
-            finalAchievedCenter = midpointX - (requiredTotalWidth / 2) + (achievedRect.width / 2);
+            // Achieved is on the left: attach its right edge to its notch (half width displacement)
+            finalAchievedCenter = currentAchievedCenter - (achievedRect.width / 2);
+            // Target is on the right: attach its left edge to its notch (half width displacement)
+            finalTargetCenter = currentTargetCenter + (targetRect.width / 2);
         }
 
         return { finalTargetCenter, finalAchievedCenter, currentTargetCenter, currentAchievedCenter };

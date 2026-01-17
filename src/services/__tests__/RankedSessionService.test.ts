@@ -129,7 +129,8 @@ function _createMocks(): MockSet {
             setIsRanked: vi.fn(),
             onSessionUpdated: vi.fn(),
             resetSession: vi.fn(),
-            // Missing mock added back
+            startRankedSession: vi.fn(),
+            stopRankedSession: vi.fn(),
             getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
         } as unknown as SessionService,
         estimator: { getScenarioEstimate: vi.fn() } as unknown as RankEstimator,

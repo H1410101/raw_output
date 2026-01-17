@@ -221,11 +221,11 @@ export class RunIngestionService {
 
     const scenario: BenchmarkScenario | undefined = difficulty
       ? this._benchmarkService
-          .getScenarios(difficulty)
-          .find(
-            (benchmarkScenario: BenchmarkScenario) =>
-              benchmarkScenario.name === run.scenarioName,
-          )
+        .getScenarios(difficulty)
+        .find(
+          (benchmarkScenario: BenchmarkScenario) =>
+            benchmarkScenario.name === run.scenarioName,
+        )
       : undefined;
 
     return {
@@ -240,9 +240,11 @@ export class RunIngestionService {
   private _identifyLatestSessionItems(
     sortedHandles: FileHandleWithDate[],
   ): FileHandleWithDate[] {
+    const isRanked = this._sessionService.isRanked;
+
     if (
       sortedHandles.length === 0 ||
-      this._isMostRecentRunExpired(sortedHandles[0])
+      (!isRanked && this._isMostRecentRunExpired(sortedHandles[0]))
     ) {
       return [];
     }
@@ -261,12 +263,22 @@ export class RunIngestionService {
   ): FileHandleWithDate[] {
     const sessionItems: FileHandleWithDate[] = [sortedHandles[0]];
 
-    for (let i: number = 1; i < sortedHandles.length; i++) {
-      const gap: number =
-        sortedHandles[i - 1].date.getTime() - sortedHandles[i].date.getTime();
+    const isRanked = this._sessionService.isRanked;
+    const rankedStartTime = this._sessionService.rankedStartTime ?? 0;
 
-      if (gap > this._sessionService.sessionTimeoutMilliseconds) {
-        break;
+    for (let i: number = 1; i < sortedHandles.length; i++) {
+      const runDate = sortedHandles[i].date.getTime();
+      const gap: number =
+        sortedHandles[i - 1].date.getTime() - runDate;
+
+      const isBeyondTimeout = gap > this._sessionService.sessionTimeoutMilliseconds;
+
+      if (isBeyondTimeout) {
+        // If we're beyond timeout, we stop UNLESS we are in a ranked run
+        // and the current run is still after the ranked floor.
+        if (!isRanked || runDate < rankedStartTime) {
+          break;
+        }
       }
 
       sessionItems.push(sortedHandles[i]);

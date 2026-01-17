@@ -5,16 +5,16 @@ The `services` folder contains the core business logic of the application. These
 ## Core Services
 
 ### `SessionService`
-Manages the lifecycle of a training session. It tracks the best scores achieved within the current session window and handles session expiration.
+Manages the lifecycle of a training session. It maintains dual tracks: a **Global Track** for all runs in the current session window, and a **Ranked Track** for data recorded specifically during high-stakes ranked runs.
 - **Relies on**: `RankService`, `SessionSettingsService`
 - **Used by**: `RankedSessionService`, `RunIngestionService`
 
 ### `RunIngestionService`
-Orchestrates the ingestion of CSV performance data from the local file system. It detects new runs and populates them into the `SessionService`.
+Orchestrates the ingestion of CSV performance data from the local file system. It detects new runs and populates them into both the Global and Ranked tracks of `SessionService` as appropriate.
 - **Relies on**: `DirectoryAccessService`, `KovaaksCsvParsingService`, `HistoryService`, `SessionService`, `BenchmarkService`
 
 ### `RankedSessionService`
-Manages the "Ranked Run" experience, which includes a guided sequence of scenarios and a timed session.
+Manages the "Ranked Run" experience, which includes a guided sequence of scenarios and a timed session. It consumes data exclusively from the Ranked track of `SessionService`.
 - **Relies on**: `BenchmarkService`, `SessionService`, `RankEstimator`, `SessionSettingsService`
 
 ## Relationships
@@ -22,9 +22,10 @@ Manages the "Ranked Run" experience, which includes a guided sequence of scenari
 ```mermaid
 graph TD
     RunIngestionService -->|updates runs| SessionService
+    SessionService -->|Global Track| BenchmarkView
+    SessionService -->|Ranked Track| RankedView
     RankedSessionService -->|subscribes to| SessionService
     SessionService -->|notifies| RankedSessionService
-    RankedSessionService -->|manages timer| RankedSessionService
 ```
 
-The `RankedSessionService` listens for updates from the `SessionService`. When new scores are recorded (detected by `RunIngestionService` and registered in `SessionService`), the `RankedSessionService` resets its internal run timer to the maximum allowed duration.
+The `RankedSessionService` listens for updates from the `SessionService`. When new scores are recorded, the `RankedSessionService` resets its internal run timer. It ensures that the `RankedView` only shows improvements made within the context of an active ranked run.

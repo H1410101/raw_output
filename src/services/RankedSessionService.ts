@@ -185,9 +185,9 @@ export class RankedSessionService {
         const batch = this._generateNextBatch(difficulty, []);
         this._sequence.push(...batch);
 
-        // Ensure we start fresh, clearing any lingering ephemeral bests from previous runs.
-        this._sessionService.resetSession(false);
-        this._sessionService.setIsRanked(true);
+        // Signal the start of an explicit ranked session with a timestamp floor.
+        // This ensures old runs from the global session are not carried over.
+        this._sessionService.startRankedSession(Date.now());
         this._startTimer();
         this._saveToLocalStorage();
         this._notifyListeners();
@@ -275,6 +275,8 @@ export class RankedSessionService {
 
         this._evolveRanksForPlayedScenarios();
 
+        this._sessionService.stopRankedSession();
+
         this._saveToLocalStorage();
         this._notifyListeners();
     }
@@ -296,6 +298,8 @@ export class RankedSessionService {
             window.clearInterval(this._timerInterval);
             this._timerInterval = null;
         }
+
+        this._sessionService.stopRankedSession();
 
         localStorage.removeItem(this._storageKey);
         this._notifyListeners();
@@ -346,7 +350,7 @@ export class RankedSessionService {
             return false;
         }
 
-        const bests: SessionRankRecord[] = this._sessionService.getAllScenarioSessionBests();
+        const bests: SessionRankRecord[] = this._sessionService.getAllRankedScenarioBests();
 
         return bests.some((record: SessionRankRecord): boolean => record.scenarioName === current);
     }
@@ -549,7 +553,7 @@ export class RankedSessionService {
         const difficulty = this._difficulty;
         if (!difficulty) return;
 
-        const bests = this._sessionService.getAllScenarioSessionBests();
+        const bests = this._sessionService.getAllRankedScenarioBests();
         const scenarios = this._benchmarkService.getScenarios(difficulty);
 
         this._playedScenarios.forEach(scenarioName => {

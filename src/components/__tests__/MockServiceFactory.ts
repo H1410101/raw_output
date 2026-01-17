@@ -150,6 +150,9 @@ export class MockServiceFactory {
             isSessionActive: vi.fn().mockReturnValue(false),
             getScenarioSessionBest: vi.fn().mockReturnValue({ bestScore: 110 }),
             getAllScenarioSessionBests: vi.fn().mockReturnValue([{ scenarioName: "Scenario A", bestScore: 110 }]),
+            getRankedScenarioBest: vi.fn().mockReturnValue({ bestScore: 110 }),
+            getAllRankedScenarioBests: vi.fn().mockReturnValue([{ scenarioName: "Scenario A", bestScore: 110 }]),
+            getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
             sessionStartTimestamp: Date.now(),
             setIsRanked: vi.fn(),
             ...overrides

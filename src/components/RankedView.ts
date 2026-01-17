@@ -278,7 +278,7 @@ export class RankedView {
   }
 
   private _isImproved(estimateValue: number, currentScenario: string): boolean {
-    const bests = this._deps.session.getAllScenarioSessionBests();
+    const bests = this._deps.session.getAllRankedScenarioBests();
     const record = bests.find((recordRef) => recordRef.scenarioName === currentScenario);
     if (!record) return false;
 
@@ -305,7 +305,7 @@ export class RankedView {
 
   private _renderSummaryContent(): string {
     const estimate = this._calculateSessionAchievedRank();
-    const bests = this._deps.session.getAllScenarioSessionBests();
+    const bests = this._deps.session.getAllRankedScenarioBests();
 
     return `
       <div class="ranked-result summary-view">
@@ -358,7 +358,7 @@ export class RankedView {
     let totalRankValue = 0;
     let count = 0;
 
-    const bests = this._deps.session.getAllScenarioSessionBests();
+    const bests = this._deps.session.getAllRankedScenarioBests();
     const scenarios = this._deps.benchmark.getScenarios(difficulty);
 
     for (const name of scenarioNames) {
@@ -421,15 +421,14 @@ export class RankedView {
     scenario: BenchmarkScenario
   ): { estimate: ScenarioEstimate, achievedRU?: number, attemptsRU?: number[] } {
     const estimate = this._deps.estimator.getScenarioEstimate(scenarioName);
-    const bests = this._deps.session.getAllScenarioSessionBests();
-    const record = bests.find(recordEntry => recordEntry.scenarioName === scenarioName);
+    const record = this._deps.session.getRankedScenarioBest(scenarioName);
 
     const achievedRU = record && record.bestScore > 0
       ? this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario)
       : undefined;
 
-    const sessionRuns = this._deps.session.getAllSessionRuns();
-    const scenarioRuns = sessionRuns.filter(run => run.scenarioName === scenarioName);
+    const rankedRuns = this._deps.session.getAllRankedSessionRuns();
+    const scenarioRuns = rankedRuns.filter(run => run.scenarioName === scenarioName);
     const attemptsRU = scenarioRuns.map(run => this._deps.estimator.getScenarioContinuousValue(run.score, scenario));
 
     return { estimate, achievedRU, attemptsRU };
