@@ -317,7 +317,7 @@
 
 .marker-target {
     background-color: var(--upper-band-2);
-    box-shadow: 0 0 0.5rem rgba(var(--upper-band-2-rgb), 0.4);
+    box-shadow: none;
 }
 
 .label-target {
@@ -326,7 +326,7 @@
 
 .marker-achieved {
     background-color: var(--accent-color);
-    box-shadow: 0 0 0.5rem rgba(var(--accent-color-rgb), 0.6);
+    box-shadow: none;
 }
 
 .label-achieved {
@@ -344,7 +344,7 @@
     /* Lift so bottom tip touches line */
     transform: translateX(-50%) rotate(-45deg);
     z-index: 20;
-    filter: drop-shadow(0 0 0.25rem rgba(var(--upper-band-2-rgb), 0.5));
+    filter: none;
 }
 
 .timeline-caret.offscreen {

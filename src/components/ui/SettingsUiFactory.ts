@@ -649,7 +649,7 @@ export class SettingsUiFactory {
     const delay = distance * 0.03;
 
     item.style.transition =
-      "background 0.2s ease, box-shadow 0.2s ease, height 0.2s ease, border-radius 0.2s ease, transform 0.2s ease";
+      "background 0.2s ease, height 0.2s ease, border-radius 0.2s ease, transform 0.2s ease";
     item.style.transitionDelay = `${delay}s`;
   }
 
