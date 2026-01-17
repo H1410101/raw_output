@@ -204,4 +204,25 @@ describe("RankTimelineComponent Logic", () => {
         // Should have 2 secondary notches for 2, 1
         expect(secondaryNotches.length).toBe(2);
     });
+
+    it("should use scrollAnchorRU for view bounds if provided", () => {
+        // Target 2. Achieved 3 (where label is). ScrollAnchor 10 (far ahead).
+        // Window 7.5. Clamp at 70%.
+        // 0.7 * 7.5 = 5.25.
+        // If it follows ScrollAnchor (10), MinRU should be 10 - 5.25 = 4.75.
+        // If it followed Achieved (3), MinRU would be standard centering or different clamp.
+
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 2,
+            achievedRU: 3,
+            scrollAnchorRU: 10
+        };
+        const component = new RankTimelineComponent(config);
+        const ranges = (component as any)._calculateViewBounds();
+
+        expect(ranges.minRU).toBeCloseTo(4.75);
+        expect(ranges.maxRU).toBeCloseTo(12.25);
+    });
 });

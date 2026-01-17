@@ -415,13 +415,14 @@ export class RankedView {
 
     if (!scenario) return;
 
-    const { estimate, achievedRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
+    const { estimate, achievedRU, bestRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
 
     const timeline: RankTimelineComponent = new RankTimelineComponent({
       thresholds: scenario.thresholds,
       settings: this._deps.visualSettings.getSettings(),
       targetRU: estimate.continuousValue !== -1 ? estimate.continuousValue : undefined,
       achievedRU,
+      scrollAnchorRU: bestRU,
       expectedRU: this._calculateExpectedRU(estimate.continuousValue, achievedRU),
       attemptsRU
     });
@@ -434,11 +435,11 @@ export class RankedView {
   private _getScenarioPerformanceData(
     scenarioName: string,
     scenario: BenchmarkScenario
-  ): { estimate: ScenarioEstimate, achievedRU?: number, attemptsRU?: number[] } {
+  ): { estimate: ScenarioEstimate, achievedRU?: number, bestRU?: number, attemptsRU?: number[] } {
     const estimate = this._deps.estimator.getScenarioEstimate(scenarioName);
     const record = this._deps.session.getRankedScenarioBest(scenarioName);
 
-    const achievedRU = record && record.bestScore > 0
+    const bestRU = record && record.bestScore > 0
       ? this._deps.estimator.getScenarioContinuousValue(record.bestScore, scenario)
       : undefined;
 
@@ -446,7 +447,14 @@ export class RankedView {
     const scenarioRuns = rankedRuns.filter(run => run.scenarioName === scenarioName);
     const attemptsRU = scenarioRuns.map(run => this._deps.estimator.getScenarioContinuousValue(run.score, scenario));
 
-    return { estimate, achievedRU, attemptsRU };
+    // Calculate achievedRU as the 3rd highest
+    let achievedRU = bestRU;
+    if (attemptsRU.length > 0) {
+      const sorted = [...attemptsRU].sort((a, b) => b - a);
+      achievedRU = sorted.length >= 3 ? sorted[2] : sorted[sorted.length - 1];
+    }
+
+    return { estimate, achievedRU, bestRU, attemptsRU };
   }
 
   private _calculateExpectedRU(currentRU: number, achievedRU?: number): number | undefined {

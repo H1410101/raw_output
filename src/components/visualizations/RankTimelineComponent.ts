@@ -6,6 +6,7 @@ export interface RankTimelineConfiguration {
     readonly settings: VisualSettings;
     readonly targetRU?: number;
     readonly achievedRU?: number;
+    readonly scrollAnchorRU?: number;
     readonly attemptsRU?: number[];
     // How many RUs to show. Default to 3.5
     readonly rangeWindow?: number;
@@ -387,7 +388,7 @@ export class RankTimelineComponent {
 
     private _calculateViewBounds(): { minRU: number; maxRU: number } {
         const target = this._config.targetRU ?? 0;
-        const achieved = this._config.achievedRU;
+        const achieved = this._config.scrollAnchorRU ?? this._config.achievedRU;
 
         let center = target;
         if (achieved !== undefined) {
