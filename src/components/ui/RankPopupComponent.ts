@@ -1,242 +1,293 @@
-import { BenchmarkScenario, DifficultyTier } from "../../data/benchmarks";
 
 /**
- * Configuration for the RankPopupComponent.
- */
-export interface RankPopupConfig {
-  readonly difficulty: DifficultyTier;
-  readonly scenarios: BenchmarkScenario[];
-  readonly rankNames: string[];
-  readonly anchorElement: HTMLElement;
-  readonly onDismiss: () => void;
-}
-
-/**
- * Component that renders a simplified popup showing rank order for a specific difficulty.
- *
- * It appears as a singular glass pane with the difficulty as a title and
- * the ranks listed with separators, without complex sub-styling or hover effects.
+ * Component that renders a popup for a rank element, providing a vertical list of possible ranks.
  */
 export class RankPopupComponent {
-  private readonly _config: RankPopupConfig;
+    private readonly _target: HTMLElement;
+    private readonly _currentRankName: string;
+    private readonly _allRanks: string[];
+    private readonly _closeCallbacks: (() => void)[] = [];
 
-  private _containerElement: HTMLElement | null = null;
-
-  private _overlayElement: HTMLElement | null = null;
-
-  private _bridgeElement: HTMLElement | null = null;
-
-  private _mouseMoveHandler: ((event: MouseEvent) => void) | null = null;
-  private _resizeObserver: ResizeObserver | null = null;
-
-  /**
-   * Initializes the popup with required data and anchor.
-   *
-   * @param config - The popup configuration.
-   */
-  public constructor(config: RankPopupConfig) {
-    this._config = config;
-  }
-
-  /**
-   * Renders the popup into the document body.
-   */
-  public render(): void {
-    this._overlayElement = this._createOverlay();
-    this._containerElement = this._createPopupContainer();
-    this._bridgeElement = this._createHoverBridge();
-
-    this._overlayElement.appendChild(this._containerElement);
-    this._overlayElement.appendChild(this._bridgeElement);
-    document.body.appendChild(this._overlayElement);
-    document.body.classList.add("has-rank-popup");
-    this._config.anchorElement.classList.add("active-popup");
-
-    this._positionPopup();
-    this._setupMouseTracking();
-    this._setupOverlayClip();
-
-    requestAnimationFrame((): void => {
-      requestAnimationFrame((): void => {
-        this._overlayElement?.classList.add("active");
-      });
-    });
-  }
-
-  /**
-   * Removes the popup from the DOM.
-   */
-  public destroy(): void {
-    if (this._mouseMoveHandler) {
-      window.removeEventListener("mousemove", this._mouseMoveHandler);
-      this._mouseMoveHandler = null;
+    /**
+     * Creates a new RankPopupComponent instance.
+     * 
+     * @param target The element to anchor the popup to.
+     * @param currentRankName The name of the currently selected rank.
+     * @param allRanks The list of all available ranks to display.
+     */
+    public constructor(
+        target: HTMLElement,
+        currentRankName: string,
+        allRanks: string[]
+    ) {
+        this._target = target;
+        this._currentRankName = currentRankName;
+        this._allRanks = allRanks;
     }
 
-    if (this._overlayElement) {
-      this._overlayElement.remove();
-      document.body.classList.remove("has-rank-popup");
-      this._config.anchorElement.classList.remove("active-popup");
-      this._resizeObserver?.disconnect();
-      this._resizeObserver = null;
-      this._overlayElement = null;
-      this._containerElement = null;
-      this._bridgeElement = null;
-    }
-  }
-
-  private _createOverlay(): HTMLElement {
-    const overlay: HTMLDivElement = document.createElement("div");
-
-    overlay.className = "rank-popup-overlay";
-
-    overlay.addEventListener("click", (event: MouseEvent): void => {
-      if (event.target === overlay) {
-        this._config.onDismiss();
-      }
-    });
-
-    return overlay;
-  }
-
-  private _createPopupContainer(): HTMLElement {
-    const container: HTMLDivElement = document.createElement("div");
-
-    container.className = "rank-popup-container";
-
-    const list: HTMLDivElement = document.createElement("div");
-    list.className = "rank-popup-list";
-
-    this._config.rankNames.forEach((rankName: string, index: number): void => {
-      if (index > 0) {
-        list.appendChild(this._createSeparatorCaret());
-      }
-      list.appendChild(this._createRankText(rankName));
-    });
-
-    container.appendChild(list);
-
-    return container;
-  }
-
-  private _createRankText(name: string): HTMLElement {
-    const text: HTMLDivElement = document.createElement("div");
-
-    text.className = "rank-popup-rank-text";
-    text.textContent = name;
-
-    return text;
-  }
-
-  private _createHoverBridge(): HTMLElement {
-    const bridge: HTMLDivElement = document.createElement("div");
-
-    bridge.className = "hover-bridge";
-
-    return bridge;
-  }
-
-  private _createSeparatorCaret(): HTMLElement {
-    const caret: HTMLDivElement = document.createElement("div");
-
-    caret.className = "rank-popup-separator";
-    caret.innerHTML = `
-      <svg viewBox="0 0 24 24" width="10" height="10" style="opacity: 0.4;">
-        <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    `;
-
-    return caret;
-  }
-
-  private _positionPopup(): void {
-    if (!this._containerElement) return;
-
-    const anchorRect: DOMRect =
-      this._config.anchorElement.getBoundingClientRect();
-
-    const popupWidth: number = this._containerElement.offsetWidth || 180;
-    const centerX: number = anchorRect.left + anchorRect.width / 2;
-    const left: number = centerX - popupWidth / 2;
-    const top: number = anchorRect.bottom - 2;
-
-    this._containerElement.style.left = `${this._clamp(left, 20, window.innerWidth - popupWidth - 20)}px`;
-    this._containerElement.style.top = `${top}px`;
-
-    if (this._bridgeElement) {
-      this._bridgeElement.style.left = `${anchorRect.left}px`;
-      this._bridgeElement.style.top = `${anchorRect.top}px`;
-      this._bridgeElement.style.width = `${anchorRect.width}px`;
-      this._bridgeElement.style.height = `${anchorRect.height + 20}px`;
+    /**
+     * Subscribes a callback function to be executed when the popup is closed.
+     * 
+     * @param callback The function to invoke on closure.
+     */
+    public subscribeToClose(callback: () => void): void {
+        this._closeCallbacks.push(callback);
     }
 
-    this._updateOverlayClip();
-  }
+    /**
+     * Renders the popup into the document body and initiates positioning logic.
+     */
+    public render(): void {
+        const overlay: HTMLElement = this._createOverlay();
+        const popup: HTMLElement = this._createPopup();
 
-  private _setupOverlayClip(): void {
-    if (!this._overlayElement) return;
+        const glassPane = popup.querySelector('.settings-menu-container') as HTMLElement;
 
-    this._resizeObserver = new ResizeObserver((): void => {
-      this._positionPopup();
-    });
+        if (glassPane) {
+            glassPane.style.opacity = '0';
+        }
 
-    this._resizeObserver.observe(this._config.anchorElement);
-    this._resizeObserver.observe(document.body);
-  }
+        overlay.appendChild(popup);
+        document.body.appendChild(overlay);
 
-  private _updateOverlayClip(): void {
-    if (!this._overlayElement) return;
+        this._adjustPosition(glassPane);
+    }
 
-    const anchorRect: DOMRect =
-      this._config.anchorElement.getBoundingClientRect();
+    private _adjustPosition(glassPane: HTMLElement | null): void {
+        if (!glassPane) {
+            return;
+        }
 
-    const top: number = anchorRect.top;
-    const left: number = anchorRect.left;
-    const right: number = anchorRect.right;
-    const bottom: number = anchorRect.bottom;
+        const aboveSection = glassPane.querySelector('.rank-section-above') as HTMLElement;
+        const belowSection = glassPane.querySelector('.rank-section-below') as HTMLElement;
 
-    this._overlayElement.style.clipPath = `polygon(
-      0vw 0vh,
-      0vw 100vh,
-      ${left}px 100vh,
-      ${left}px ${top}px,
-      ${right}px ${top}px,
-      ${right}px ${bottom}px,
-      ${left}px ${bottom}px,
-      ${left}px 100vh,
-      100vw 100vh,
-      100vw 0vh
-    )`;
-  }
+        if (aboveSection && belowSection) {
+            const hAbove = aboveSection.offsetHeight;
+            const hBelow = belowSection.offsetHeight;
+            const shiftY = (hBelow - hAbove) * 0.5;
 
-  private _setupMouseTracking(): void {
-    this._mouseMoveHandler = (event: MouseEvent): void => {
-      if (!this._containerElement) return;
+            glassPane.style.top = `${shiftY}px`;
+        }
 
-      const elements: Element[] = document.elementsFromPoint(
-        event.clientX,
-        event.clientY,
-      );
+        glassPane.style.opacity = '1';
+    }
 
-      const isOverPopup: boolean = elements.some((element: Element): boolean =>
-        this._containerElement!.contains(element),
-      );
-      const isOverAnchor: boolean = elements.some((element: Element): boolean =>
-        this._config.anchorElement.contains(element),
-      );
-      const isOverBridge: boolean = elements.some(
-        (element: Element): boolean =>
-          this._bridgeElement?.contains(element) ?? false,
-      );
+    private _createOverlay(): HTMLElement {
+        const overlay: HTMLDivElement = document.createElement("div");
+        overlay.className = "settings-overlay";
 
-      if (!isOverPopup && !isOverAnchor && !isOverBridge) {
-        this._config.onDismiss();
-      }
-    };
+        overlay.addEventListener("click", (event: MouseEvent): void => {
+            if (event.target === overlay) {
+                overlay.remove();
+                this._closeCallbacks.forEach((callback): void => callback());
+            }
+        });
 
-    window.addEventListener("mousemove", this._mouseMoveHandler);
-  }
+        return overlay;
+    }
 
-  private _clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
-  }
+    private _createPopup(): HTMLElement {
+        const anchor: HTMLDivElement = this._createAnchor();
+        const glassPane: HTMLDivElement = this._createGlassPane();
+
+        anchor.appendChild(glassPane);
+
+        return anchor;
+    }
+
+    private _createAnchor(): HTMLDivElement {
+        const rect = this._target.getBoundingClientRect();
+        const anchor: HTMLDivElement = document.createElement("div");
+        anchor.style.position = "absolute";
+        anchor.style.top = `${rect.top}px`;
+        anchor.style.left = `${rect.left}px`;
+        anchor.style.width = `${rect.width}px`;
+        anchor.style.height = `${rect.height}px`;
+
+        anchor.style.display = "flex";
+        anchor.style.alignItems = "center";
+        anchor.style.justifyContent = "center";
+
+        anchor.style.pointerEvents = "none";
+
+        return anchor;
+    }
+
+    private _createGlassPane(): HTMLDivElement {
+        const glassPane: HTMLDivElement = document.createElement("div");
+        glassPane.className = "settings-menu-container rank-popup-pane";
+
+        this._applyBaseStyles(glassPane);
+        this._applyLayoutStyles(glassPane);
+
+        const { above, below } = this._splitRanks();
+        const visible = this._calculateVisibleRanks(above, below);
+
+        const aboveSection = this._createRankSection("rank-section-above", visible.showAbove, visible.hasMoreAbove, true);
+        const currentItem = this._createCurrentRankItem();
+        const belowSection = this._createRankSection("rank-section-below", visible.showBelow, visible.hasMoreBelow, false);
+
+        glassPane.appendChild(aboveSection);
+        glassPane.appendChild(currentItem);
+        glassPane.appendChild(belowSection);
+
+        return glassPane;
+    }
+
+    private _applyBaseStyles(element: HTMLElement): void {
+        element.style.position = "relative";
+        element.style.margin = "0";
+        element.style.padding = "0.4rem 1rem";
+        element.style.width = "auto";
+        element.style.height = "auto";
+        element.style.minHeight = "0";
+        element.style.minWidth = "0";
+        element.style.flexShrink = "0";
+        element.style.pointerEvents = "auto";
+        element.style.transition = "none";
+    }
+
+    private _applyLayoutStyles(element: HTMLElement): void {
+        element.style.display = "flex";
+        element.style.flexDirection = "column";
+        element.style.alignItems = "center";
+        element.style.gap = "0";
+    }
+
+    private _calculateVisibleRanks(above: string[], below: string[]): { showAbove: string[], showBelow: string[], hasMoreAbove: boolean, hasMoreBelow: boolean } {
+        const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
+        const unitHeightPx = 1.8 * remPx;
+
+        const rect = this._target.getBoundingClientRect();
+        const distTop = rect.top;
+        const distBottom = window.innerHeight - rect.bottom;
+
+        const buffer = 10;
+        const maxAbove = Math.max(0, Math.floor((distTop - buffer) / unitHeightPx));
+        const maxBelow = Math.max(0, Math.floor((distBottom - buffer) / unitHeightPx));
+
+        return {
+            showAbove: above.slice(0, maxAbove),
+            showBelow: below.slice(-maxBelow),
+            hasMoreAbove: above.length > maxAbove,
+            hasMoreBelow: below.length > maxBelow
+        };
+    }
+
+    private _createRankSection(className: string, ranks: string[], hasOverflow: boolean, isAbove: boolean): HTMLElement {
+        const section = document.createElement("div");
+        section.className = className;
+        section.style.display = "flex";
+        section.style.flexDirection = "column";
+        section.style.alignItems = "center";
+
+        if (isAbove && hasOverflow) {
+            section.appendChild(this._createCaret());
+        }
+
+        const items = [...ranks].reverse();
+        items.forEach(rank => {
+            if (isAbove) {
+                section.appendChild(this._createRankItem(rank, false));
+                section.appendChild(this._createCaret());
+            } else {
+                section.appendChild(this._createCaret());
+                section.appendChild(this._createRankItem(rank, false));
+            }
+        });
+
+        if (!isAbove && hasOverflow) {
+            section.appendChild(this._createCaret());
+        }
+
+        return section;
+    }
+
+    private _createCurrentRankItem(): HTMLElement {
+        const computedStyle = window.getComputedStyle(this._target);
+
+        return this._createRankItem(this._currentRankName, true, computedStyle);
+    }
+
+    private _splitRanks(): { above: string[], below: string[] } {
+        const index = this._allRanks.indexOf(this._currentRankName);
+        if (index === -1) {
+            if (this._currentRankName === "Unranked") {
+                return { above: [...this._allRanks], below: [] };
+            }
+
+            return { above: [], below: [] };
+        }
+
+        return {
+            below: this._allRanks.slice(0, index),
+            above: this._allRanks.slice(index + 1)
+        };
+    }
+
+    private _createCaret(): HTMLElement {
+        const div = document.createElement("div");
+        div.className = "rank-caret";
+        div.style.flex = "none";
+        div.style.width = "0.6rem";
+        div.style.height = "0.2rem";
+        div.style.display = "flex";
+        div.style.alignItems = "center";
+        div.style.justifyContent = "center";
+        div.style.margin = "0.05rem 0";
+
+        const chevron = this._createChevronElement();
+        div.appendChild(chevron);
+
+        return div;
+    }
+
+    private _createChevronElement(): HTMLElement {
+        const chevron = document.createElement("div");
+        chevron.style.width = "0.2rem";
+        chevron.style.height = "0.2rem";
+
+        const color = "var(--text-dim)";
+        chevron.style.borderTop = `1px solid ${color}`;
+        chevron.style.borderRight = `1px solid ${color}`;
+        chevron.style.opacity = "0.5";
+        chevron.style.transform = "rotate(-45deg) translateY(1px)";
+
+        return chevron;
+    }
+
+    private _createRankItem(rank: string, isCurrent: boolean, computedStyle?: CSSStyleDeclaration): HTMLSpanElement {
+        const text: HTMLSpanElement = document.createElement("span");
+        text.className = isCurrent ? "rank-name current" : "rank-name dim";
+        text.textContent = rank;
+        text.style.flex = "none";
+        text.style.textAlign = "center";
+        text.style.whiteSpace = "nowrap";
+
+        if (isCurrent && computedStyle) {
+            this._syncFontStyles(text, computedStyle);
+            text.style.color = "var(--accent-color)";
+            text.style.padding = "0";
+            text.style.fontWeight = "500";
+        } else {
+            text.style.color = "var(--text-dim)";
+            text.style.fontSize = "0.9rem";
+            text.style.padding = "0";
+            text.style.fontWeight = "500";
+            text.style.textTransform = "uppercase";
+        }
+
+        return text;
+    }
+
+    private _syncFontStyles(text: HTMLSpanElement, computedStyle: CSSStyleDeclaration): void {
+        text.style.fontFamily = computedStyle.fontFamily;
+        text.style.fontSize = computedStyle.fontSize;
+        text.style.fontWeight = computedStyle.fontWeight;
+        text.style.letterSpacing = computedStyle.letterSpacing;
+        text.style.lineHeight = computedStyle.lineHeight;
+        text.style.textTransform = computedStyle.textTransform;
+        text.style.fontStyle = computedStyle.fontStyle;
+        text.style.textShadow = computedStyle.textShadow;
+    }
 }

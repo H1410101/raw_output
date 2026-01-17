@@ -38,17 +38,26 @@
     transition: filter 0.5s ease, opacity 0.5s ease;
 }
 
+/* Rank Popup Specific Overrides */
+.rank-badge-container.active-popup {
+    z-index: 2001;
+}
+
+.rank-popup-pane::before {
+    display: none !important;
+}
+
 /* Rank Estimate Badge Column */
 .rank-estimate-badge {
     opacity: 0.8;
 }
 
-.rank-estimate-badge .rank-name {
-    color: var(--lower-band-3);
+.rank-estimate-badge .rank-name:not(.unranked-text) {
+    color: var(--accent-color);
 }
 
 .holistic-rank-container .rank-name:not(.unranked-text) {
-    color: var(--lower-band-3);
+    color: var(--accent-color);
 }
 
 

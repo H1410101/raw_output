@@ -53,8 +53,8 @@ describe("Typography Consistency", (): void => {
 
         expect(hudProps.weight).toBe(700);
         expect(tableProps.weight).toBe(700);
-        expect(tableProps.color.toLowerCase()).toBe(`rgb(${CONSISTENT_RANK_COLOR})`);
-        expect(hudProps.color.toLowerCase()).toBe(`rgb(${CONSISTENT_RANK_COLOR})`);
+        expect(tableProps.color.toLowerCase()).toBe(`rgb(193, 230, 227)`);
+        expect(hudProps.color.toLowerCase()).toBe(`rgb(193, 230, 227)`);
     });
 });
 
@@ -147,9 +147,11 @@ function _setupGlobalStyles(): void {
     style.innerHTML = `
         :root { 
             --lower-band-3: rgb(${CONSISTENT_RANK_COLOR});
+            --accent-color: rgb(193, 230, 227);
         }
         .rank-name { color: var(--lower-band-3); font-weight: 700; }
-        .rank-estimate-badge .rank-name { color: var(--lower-band-3); font-weight: 700; }
+        .rank-estimate-badge .rank-name:not(.unranked-text) { color: var(--accent-color); font-weight: 700; }
+        .holistic-rank-container .rank-name:not(.unranked-text) { color: var(--accent-color); font-weight: 700; }
         .stat-item.highlight .value { color: var(--lower-band-3); font-weight: 700; }
         .stat-item .rank-name { color: inherit; font-weight: 700; }
     `;

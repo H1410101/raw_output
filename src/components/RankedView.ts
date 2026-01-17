@@ -12,6 +12,7 @@ import { RankTimelineComponent } from "./visualizations/RankTimelineComponent";
 import { FolderSettingsView } from "./ui/FolderSettingsView";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
+import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { SessionSettingsService } from "../services/SessionSettingsService";
 
 export interface RankedViewDependencies {
@@ -169,17 +170,30 @@ export class RankedView {
   private _createHolisticRankUI(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "holistic-rank-container";
-
     const estimate = this._calculateHolisticEstimateRank();
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
 
     container.innerHTML = `
         <div class="badge-content">
-            <span class="${rankClass}">${estimate.rankName}</span>
+            <span class="${rankClass}">
+                <span class="rank-text-inner">${estimate.rankName}</span>
+            </span>
             <span class="rank-progress">${isUnranked ? "" : `+${estimate.progressToNext}%`}</span>
         </div>
     `;
+
+    const rankInner = container.querySelector(".rank-text-inner") as HTMLElement;
+    if (rankInner) {
+      rankInner.style.cursor = "pointer";
+      rankInner.addEventListener("click", (event: Event) => {
+        event.stopPropagation();
+        const difficulty = this._deps.appState.getBenchmarkDifficulty();
+        const rankNames = this._deps.benchmark.getRankNames(difficulty);
+        const popup = new RankPopupComponent(rankInner, estimate.rankName, rankNames);
+        popup.render();
+      });
+    }
 
     return container;
   }

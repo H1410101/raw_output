@@ -17,6 +17,7 @@ import { BenchmarkTableComponent } from "./benchmark/BenchmarkTableComponent";
 import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsController";
 import { FolderSettingsView } from "./ui/FolderSettingsView";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
+
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 import { AudioService } from "../services/AudioService";
@@ -85,8 +86,6 @@ export class BenchmarkView {
   private _tableComponent: BenchmarkTableComponent | null = null;
 
   private _folderSettingsView: FolderSettingsView | null = null;
-
-  private _rankPopup: RankPopupComponent | null = null;
 
   private _activeDifficulty: DifficultyTier;
 
@@ -273,8 +272,6 @@ export class BenchmarkView {
     this._tableComponent?.destroy();
 
     this._folderSettingsView?.destroy();
-
-    this._rankPopup?.destroy();
 
     window.removeEventListener("resize", this._handleWindowResize);
   }
@@ -583,10 +580,23 @@ export class BenchmarkView {
 
     container.innerHTML = `
         <div class="badge-content">
-            <span class="${rankClass}">${estimate.rankName}</span>
+            <span class="${rankClass}">
+                <span class="rank-text-inner">${estimate.rankName}</span>
+            </span>
             <span class="rank-progress">${isUnranked ? "" : `+${estimate.progressToNext}%`}</span>
         </div>
     `;
+
+    const rankInner = container.querySelector(".rank-text-inner") as HTMLElement;
+    if (rankInner) {
+      rankInner.style.cursor = "pointer";
+      rankInner.addEventListener("click", (event: Event) => {
+        event.stopPropagation();
+        const rankNames = this._benchmarkService.getRankNames(this._activeDifficulty);
+        const popup = new RankPopupComponent(rankInner, estimate.rankName, rankNames);
+        popup.render();
+      });
+    }
 
     return container;
   }
@@ -616,23 +626,10 @@ export class BenchmarkView {
     label.textContent = difficulty;
     tab.appendChild(label);
 
-    if (isActive) {
-      const caret: HTMLElement = this._createCaretElement();
 
-      caret.addEventListener("mouseenter", (event: MouseEvent): void => {
-        const fromElement: Node | null = event.relatedTarget as Node;
-        if (fromElement && tab.contains(fromElement)) {
-          this._showRankPopup(tab);
-        }
-      });
-
-      tab.appendChild(caret);
-    }
 
     tab.addEventListener("click", (): void => {
-      if (isActive) {
-        this._showRankPopup(tab);
-      } else {
+      if (!isActive) {
         this._handleDifficultyChange(difficulty);
       }
     });
@@ -640,37 +637,7 @@ export class BenchmarkView {
     return tab;
   }
 
-  private _createCaretElement(): HTMLElement {
-    const caret: HTMLDivElement = document.createElement("div");
-    caret.className = "difficulty-caret";
 
-    caret.innerHTML = `
-      <svg viewBox="0 0 24 24">
-        <path d="M7 10l5 5 5-5" />
-      </svg>
-    `;
-
-    return caret;
-  }
-
-  private _showRankPopup(anchor: HTMLElement): void {
-    if (this._rankPopup) {
-      this._rankPopup.destroy();
-    }
-
-    this._rankPopup = new RankPopupComponent({
-      difficulty: this._activeDifficulty,
-      scenarios: this._benchmarkService.getScenarios(this._activeDifficulty),
-      rankNames: this._benchmarkService.getRankNames(this._activeDifficulty),
-      anchorElement: anchor,
-      onDismiss: (): void => {
-        this._rankPopup?.destroy();
-        this._rankPopup = null;
-      },
-    });
-
-    this._rankPopup.render();
-  }
 
   private async _handleDifficultyChange(
     difficulty: DifficultyTier,
