@@ -40,7 +40,6 @@ describe("RankedSessionService: Lifecycle", (): void => {
         _assertDiverseSequence(service.state.sequence);
     });
 });
-
 describe("RankedSessionService: Timer Expiry", (): void => {
     let service: RankedSessionService;
     let mocks: MockSet;
@@ -50,11 +49,13 @@ describe("RankedSessionService: Timer Expiry", (): void => {
         service = _createRankedService(mocks);
     });
 
+    afterEach((): void => {
+        vi.useRealTimers();
+    });
+
     it("should transition to SUMMARY state when timer expires", (): void => {
         vi.useFakeTimers();
         const settings: { rankedIntervalMinutes: number } = { rankedIntervalMinutes: 1 };
-        (mocks.settings.getSettings as Mock).mockReturnValue(settings);
-
         (mocks.settings.getSettings as Mock).mockReturnValue(settings);
 
         _setupStandardSession(service, mocks);
@@ -62,8 +63,10 @@ describe("RankedSessionService: Timer Expiry", (): void => {
         // Advance time by 61 seconds
         vi.advanceTimersByTime(61 * 1000);
 
+        // We need to trigger a check since we don't have a background timer yet
+        service.checkExpiration();
+
         expect(service.state.status).toBe("SUMMARY");
-        vi.useRealTimers();
     });
 });
 
@@ -132,6 +135,7 @@ function _createMocks(): MockSet {
             startRankedSession: vi.fn(),
             stopRankedSession: vi.fn(),
             getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
+            getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
         } as unknown as SessionService,
         estimator: { getScenarioEstimate: vi.fn() } as unknown as RankEstimator,
         settings: {

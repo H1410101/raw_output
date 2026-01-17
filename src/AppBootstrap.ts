@@ -19,7 +19,7 @@ import { VisualSettingsService } from "./services/VisualSettingsService";
 import { AudioService } from "./services/AudioService";
 import { CloudflareService } from "./services/CloudflareService";
 import { IdentityService } from "./services/IdentityService";
-import { SessionPulseService } from "./services/SessionPulseService";
+import { SessionSyncService } from "./services/SessionSyncService";
 import { RankedSessionService } from "./services/RankedSessionService";
 import { RankEstimator } from "./services/RankEstimator";
 import { SettingsUiFactory } from "./components/ui/SettingsUiFactory";
@@ -111,12 +111,14 @@ export class AppBootstrap {
       this._sessionSettingsService,
     );
 
-    new SessionPulseService(
-      this._sessionService,
-      this._rankedSessionService,
-      this._identityService,
-      this._cloudflareService,
-    );
+    new SessionSyncService({
+      sessionService: this._sessionService,
+      rankedSessionService: this._rankedSessionService,
+      identityService: this._identityService,
+      cloudflareService: this._cloudflareService,
+      rankEstimator: this._rankEstimator,
+      benchmarkService: this._benchmarkService,
+    });
 
     this._ingestionService = new RunIngestionService({
       directoryService: this._directoryService,

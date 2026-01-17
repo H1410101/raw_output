@@ -16,8 +16,9 @@ export interface RankedSessionState {
     readonly difficulty: string | null;
     readonly startTime: string | null;
     readonly initialGauntletComplete: boolean;
-    readonly rankedSessionId: string | null;
+    readonly rankedSessionId: number | null;
     readonly playedScenarios: string[];
+    readonly initialEstimates: Record<string, number>;
 }
 
 interface ScenarioMetric {
@@ -43,10 +44,10 @@ export class RankedSessionService {
     private _currentIndex: number = 0;
     private _difficulty: string | null = null;
     private _startTime: string | null = null;
-    private _rankedSessionId: string | null = null;
+    private _rankedSessionId: number | null = null;
     private _initialGauntletComplete: boolean = false;
-    private _timerInterval: number | null = null;
     private _playedScenarios: Set<string> = new Set();
+    private _initialEstimates: Record<string, number> = {};
 
     private readonly _onStateChanged: (() => void)[] = [];
 
@@ -71,7 +72,6 @@ export class RankedSessionService {
 
         this._loadFromLocalStorage();
         this._subscribeToSessionEvents();
-        this._initTimer();
     }
 
     /**
@@ -89,6 +89,7 @@ export class RankedSessionService {
             initialGauntletComplete: this._initialGauntletComplete,
             rankedSessionId: this._rankedSessionId,
             playedScenarios: Array.from(this._playedScenarios),
+            initialEstimates: { ...this._initialEstimates },
         };
     }
 
@@ -97,7 +98,7 @@ export class RankedSessionService {
      *
      * @returns The session ID or null if inactive.
      */
-    public get sessionId(): string | null {
+    public get sessionId(): number | null {
         return this._rankedSessionId;
     }
 
@@ -174,7 +175,7 @@ export class RankedSessionService {
 
         this._difficulty = difficulty;
         this._startTime = new Date().toISOString();
-        this._rankedSessionId = `ranked-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        this._rankedSessionId = Date.now();
         this._status = "ACTIVE";
         this._currentIndex = 0;
         this._sequence = [];
@@ -188,7 +189,9 @@ export class RankedSessionService {
         // Signal the start of an explicit ranked session with a timestamp floor.
         // This ensures old runs from the global session are not carried over.
         this._sessionService.startRankedSession(Date.now());
-        this._startTimer();
+        this._initialEstimates = {};
+        this._recordInitialEstimates(batch);
+
         this._saveToLocalStorage();
         this._notifyListeners();
     }
@@ -253,6 +256,8 @@ export class RankedSessionService {
         this._sequence.push(...batch);
         this._status = "ACTIVE";
 
+        this._recordInitialEstimates(batch);
+
         this._saveToLocalStorage();
         this._notifyListeners();
     }
@@ -268,17 +273,25 @@ export class RankedSessionService {
 
         this._status = "SUMMARY";
 
-        if (this._timerInterval !== null) {
-            window.clearInterval(this._timerInterval);
-            this._timerInterval = null;
-        }
-
         this._evolveRanksForPlayedScenarios();
 
         this._sessionService.stopRankedSession();
 
         this._saveToLocalStorage();
         this._notifyListeners();
+    }
+
+    /**
+     * Checks if the session timer has expired and transitions to summary if so.
+     */
+    public checkExpiration(): void {
+        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
+            return;
+        }
+
+        if (this.remainingSeconds <= 0) {
+            this.endSession();
+        }
     }
 
     /**
@@ -293,11 +306,7 @@ export class RankedSessionService {
         this._rankedSessionId = null;
         this._initialGauntletComplete = false;
         this._playedScenarios.clear();
-
-        if (this._timerInterval !== null) {
-            window.clearInterval(this._timerInterval);
-            this._timerInterval = null;
-        }
+        this._initialEstimates = {};
 
         this._sessionService.stopRankedSession();
 
@@ -305,39 +314,6 @@ export class RankedSessionService {
         this._notifyListeners();
     }
 
-    private _initTimer(): void {
-        if (this._status === "ACTIVE" || this._status === "COMPLETED") {
-            this._startTimer();
-        }
-    }
-
-    private _startTimer(): void {
-        if (this._timerInterval !== null) {
-            return;
-        }
-
-        this._timerInterval = window.setInterval((): void => {
-            this._checkTimerExpiry();
-        }, 1000);
-    }
-
-    private _checkTimerExpiry(): void {
-        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
-            return;
-        }
-
-        if (this.remainingSeconds <= 0) {
-            this._status = "SUMMARY";
-
-            if (this._timerInterval !== null) {
-                window.clearInterval(this._timerInterval);
-                this._timerInterval = null;
-            }
-
-            this._saveToLocalStorage();
-            this._notifyListeners();
-        }
-    }
 
     /**
      * Checks if the user has played the current target scenario in this session.
@@ -587,6 +563,7 @@ export class RankedSessionService {
             initialGauntletComplete: this._initialGauntletComplete,
             rankedSessionId: this._rankedSessionId,
             playedScenarios: Array.from(this._playedScenarios),
+            initialEstimates: { ...this._initialEstimates },
         };
 
         localStorage.setItem(this._storageKey, JSON.stringify(state));
@@ -610,8 +587,17 @@ export class RankedSessionService {
             if (state.playedScenarios) {
                 this._playedScenarios = new Set(state.playedScenarios);
             }
+            this._initialEstimates = state.initialEstimates || {};
         } catch {
             localStorage.removeItem(this._storageKey);
+        }
+    }
+
+    private _recordInitialEstimates(scenarioNames: string[]): void {
+        for (const name of scenarioNames) {
+            if (!(name in this._initialEstimates)) {
+                this._initialEstimates[name] = this._rankEstimator.getScenarioEstimate(name).continuousValue;
+            }
         }
     }
 
