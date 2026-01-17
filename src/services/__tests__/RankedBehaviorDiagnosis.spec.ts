@@ -42,10 +42,7 @@ const mockBenchmarkService = {
 
 class FakeRankedView {
     public constructor(
-        private readonly _rankedSession: RankedSessionService,
-        private readonly _session: SessionService,
-        private readonly _estimator: RankEstimator,
-        private readonly _benchmark: BenchmarkService
+        private readonly _rankedSession: RankedSessionService
     ) {
         // New Architecture: View is passive regarding rank evolution.
         // It listens only to re-render, not to trigger logic.
@@ -60,10 +57,6 @@ describe('Ranked Session Diagnosis', () => {
     let sessionService: SessionService;
     let rankedSessionService: RankedSessionService;
     let rankEstimator: RankEstimator;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    let view: FakeRankedView;
-
-
     beforeEach(() => {
         mockLocalStorage.clear();
         vi.useFakeTimers();
@@ -84,15 +77,16 @@ describe('Ranked Session Diagnosis', () => {
         );
 
         // Initialize estimates to 0
-        const initialEstimates = {};
+        const initialEstimates: Record<string, { continuousValue: number; highestAchieved: number; lastUpdated: string }> = {};
         mockScenarios.forEach((scenario) => {
             initialEstimates[scenario.name] = { continuousValue: 0, highestAchieved: 0, lastUpdated: new Date().toISOString() };
         });
         localStorage.setItem('rank_identity_state_v2', JSON.stringify(initialEstimates));
 
         // Instantiate "View" which attaches listeners
-        view = new FakeRankedView(rankedSessionService, sessionService, rankEstimator, mockBenchmarkService);
+        new FakeRankedView(rankedSessionService);
     });
+
 
     afterEach(() => {
         vi.clearAllMocks();
