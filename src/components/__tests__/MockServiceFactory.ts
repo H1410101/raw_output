@@ -215,6 +215,7 @@ export class MockServiceFactory {
         return {
             currentFolderName: "test",
             originalSelectionName: "test",
+            isStatsFolderSelected: vi.fn().mockReturnValue(true),
             ...overrides
         } as unknown as DirectoryAccessService;
     }

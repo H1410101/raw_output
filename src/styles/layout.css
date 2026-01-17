@@ -1413,6 +1413,52 @@ h1 {
     transition: none;
 }
 
+@keyframes invalid-folder-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--status-error-rgb), 0.4);
+        border-color: rgba(var(--status-error-rgb), 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 1rem rgba(var(--status-error-rgb), 0);
+        border-color: rgba(var(--status-error-rgb), 0.8);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(var(--status-error-rgb), 0);
+        border-color: rgba(var(--status-error-rgb), 0.4);
+    }
+}
+
+.central-folder-icon-btn.invalid-selection {
+    color: var(--status-error);
+    border: 2px solid var(--status-error);
+    animation: invalid-folder-pulse 2s infinite;
+}
+
+@keyframes valid-folder-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--status-success-rgb), 0.4);
+        border-color: rgba(var(--status-success-rgb), 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 1rem rgba(var(--status-success-rgb), 0);
+        border-color: rgba(var(--status-success-rgb), 0.8);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(var(--status-success-rgb), 0);
+        border-color: rgba(var(--status-success-rgb), 0.4);
+    }
+}
+
+.central-folder-icon-btn.valid-selection {
+    color: var(--status-success);
+    border: 2px solid var(--status-success);
+    animation: valid-folder-pulse 2s infinite;
+}
+
 
 .intro-bottom-group {
     display: flex;

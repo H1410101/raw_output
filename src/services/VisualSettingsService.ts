@@ -136,7 +136,7 @@ export class VisualSettingsService {
     return {
       theme: "dark",
       showDotCloud: true,
-      dotOpacity: 40,
+      dotOpacity: 50,
       scalingMode: "Aligned",
       dotSize: "Normal",
       visDotSize: "Normal",

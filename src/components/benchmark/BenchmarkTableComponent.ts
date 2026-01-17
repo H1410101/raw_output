@@ -86,7 +86,6 @@ export class BenchmarkTableComponent {
     this._updateNameColumnWidth(scenarios);
     this._appendCategorizedContent(scrollArea, scenarios, highscores);
     this._initializeControllers(tableContainer, scrollArea, scrollThumb);
-    this._restoreScrollPosition(scrollArea);
 
     tableContainer.appendChild(scrollArea);
     tableContainer.appendChild(scrollThumb);
@@ -204,14 +203,6 @@ export class BenchmarkTableComponent {
     controller.initialize();
     this._labelPositioner = new BenchmarkLabelPositioner(scrollArea);
     this._labelPositioner.initialize();
-  }
-
-  private _restoreScrollPosition(scrollArea: HTMLElement): void {
-    const savedScrollTop: number =
-      this._appStateService.getBenchmarkScrollTop();
-    requestAnimationFrame((): void => {
-      scrollArea.scrollTop = savedScrollTop;
-    });
   }
 
   private _appendCategorizedContent(

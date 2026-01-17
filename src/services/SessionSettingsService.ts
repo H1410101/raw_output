@@ -91,8 +91,8 @@ export class SessionSettingsService {
 
   private _getDefaults(): SessionSettings {
     return {
-      sessionTimeoutMinutes: 10,
-      rankedIntervalMinutes: 60,
+      sessionTimeoutMinutes: 15,
+      rankedIntervalMinutes: 5,
     };
   }
 

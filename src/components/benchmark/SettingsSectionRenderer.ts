@@ -509,12 +509,12 @@ export class SettingsSectionRenderer {
   }
 
   /**
-   * Builds and appends the Cloudflare connectivity settings section.
+   * Builds and appends the Anonymous Feedback settings section.
    *
    * @param container - The element to append settings to.
    */
   public appendCloudflareSection(container: HTMLElement): void {
-    container.appendChild(SettingsUiFactory.createGroupTitle("Cloudflare Edge"));
+    container.appendChild(SettingsUiFactory.createGroupTitle("Anonymous Feedback"));
 
     this._appendPrivacyToggles(container);
     this._appendDeviceIdentity(container);
@@ -544,7 +544,7 @@ export class SettingsSectionRenderer {
   private _appendConnectivityTest(container: HTMLElement): void {
     container.appendChild(
       SettingsUiFactory.createActionButton(
-        "Connectivity Test",
+        "Check Connection to Server",
         "Run Handshake",
         async (statusElement: HTMLElement): Promise<void> => {
           this._executeHandshake(statusElement);

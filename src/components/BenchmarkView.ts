@@ -15,7 +15,7 @@ import {
 } from "../services/FocusManagementService";
 import { BenchmarkTableComponent } from "./benchmark/BenchmarkTableComponent";
 import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsController";
-import { FolderSettingsView } from "./ui/FolderSettingsView";
+import { FolderSettingsView, FolderActionHandlers } from "./ui/FolderSettingsView";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
 
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
@@ -197,11 +197,11 @@ export class BenchmarkView {
       return false;
     }
 
-    const isFolderLinked: boolean = !!this._directoryService.currentFolderName;
+    const isStatsFolder: boolean = this._directoryService.isStatsFolderSelected();
     const lastCheck: number =
       await this._historyService.getLastCheckTimestamp();
 
-    if (isFolderLinked && lastCheck > 0) {
+    if (isStatsFolder && lastCheck > 0) {
       await this._dismissFolderView();
 
       return true;
@@ -365,21 +365,25 @@ export class BenchmarkView {
     });
   }
 
-  private _applyActiveFocus(): void {
+  private _applyActiveFocus(): boolean {
     const focusState: FocusState | null = this._focusService.getFocusState();
 
     if (focusState && this._tableComponent) {
-      this._tableComponent.focusScenario(focusState.scenarioName, "auto");
+      this._tableComponent.focusScenario(focusState.scenarioName, "smooth");
 
       this._focusService.clearFocus();
+
+      return true;
     }
+
+    return false;
   }
 
   private async _shouldShowFolderSettings(): Promise<boolean> {
-    const isFolderLinked: boolean = !!this._directoryService.currentFolderName;
+    const isStatsFolder: boolean = this._directoryService.isStatsFolderSelected();
     const isManualOpen: boolean = this._appStateService.getIsFolderViewOpen();
 
-    if (!isFolderLinked || isManualOpen) {
+    if (!isStatsFolder || isManualOpen) {
       return true;
     }
 
@@ -390,7 +394,24 @@ export class BenchmarkView {
   }
 
   private _renderFolderSettings(lastCheck: number): void {
-    const handlers = {
+    const handlers = this._createFolderViewHandlers();
+
+    const isInvalid = !!this._directoryService.originalSelectionName && !this._directoryService.isStatsFolderSelected();
+    const isValid = this._directoryService.isStatsFolderSelected();
+
+    this._folderSettingsView = new FolderSettingsView({
+      handlers,
+      currentFolderName: this._directoryService.originalSelectionName,
+      hasStats: lastCheck > 0,
+      isInvalid,
+      isValid,
+    });
+
+    this._mountPoint.appendChild(this._folderSettingsView.render());
+  }
+
+  private _createFolderViewHandlers(): FolderActionHandlers {
+    return {
       onLinkFolder: async (): Promise<void> => {
         await this._folderActions.onLinkFolder();
         await this._dismissFolderView();
@@ -404,14 +425,6 @@ export class BenchmarkView {
         await this._dismissFolderView();
       },
     };
-
-    this._folderSettingsView = new FolderSettingsView(
-      handlers,
-      this._directoryService.originalSelectionName,
-      lastCheck > 0,
-    );
-
-    this._mountPoint.appendChild(this._folderSettingsView.render());
   }
 
   private _updateHeaderButtonStates(isFolderActive: boolean): void {
@@ -452,8 +465,8 @@ export class BenchmarkView {
       this._createViewContainer(scenarios, highscores),
     );
 
-    this._applyActiveFocus();
     this._restoreScrollPosition();
+    this._applyActiveFocus();
   }
 
   private _restoreScrollPosition(): void {
@@ -583,7 +596,7 @@ export class BenchmarkView {
             <span class="${rankClass}">
                 <span class="rank-text-inner">${estimate.rankName}</span>
             </span>
-            <span class="rank-progress">${isUnranked ? "" : `+${estimate.progressToNext}%`}</span>
+            <span class="rank-progress">${estimate.continuousValue === 0 ? "" : `+${estimate.progressToNext}%`}</span>
         </div>
     `;
 

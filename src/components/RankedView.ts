@@ -9,7 +9,7 @@ import { HistoryService } from "../services/HistoryService";
 import { VisualSettingsService } from "../services/VisualSettingsService";
 import { AudioService } from "../services/AudioService";
 import { RankTimelineComponent } from "./visualizations/RankTimelineComponent";
-import { FolderSettingsView } from "./ui/FolderSettingsView";
+import { FolderSettingsView, FolderActionHandlers } from "./ui/FolderSettingsView";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
@@ -77,11 +77,11 @@ export class RankedView {
       return false;
     }
 
-    const isFolderLinked: boolean = !!this._deps.directory.currentFolderName;
+    const isStatsFolder: boolean = this._deps.directory.isStatsFolderSelected();
     const lastCheck: number =
       await this._deps.history.getLastCheckTimestamp();
 
-    if (isFolderLinked && lastCheck > 0) {
+    if (isStatsFolder && lastCheck > 0) {
       await this._dismissFolderView();
 
       return true;
@@ -179,7 +179,7 @@ export class RankedView {
             <span class="${rankClass}">
                 <span class="rank-text-inner">${estimate.rankName}</span>
             </span>
-            <span class="rank-progress">${isUnranked ? "" : `+${estimate.progressToNext}%`}</span>
+            <span class="rank-progress">${estimate.continuousValue === 0 ? "" : `+${estimate.progressToNext}%`}</span>
         </div>
     `;
 
@@ -641,10 +641,10 @@ export class RankedView {
   }
 
   private async _shouldShowFolderSettings(): Promise<boolean> {
-    const isFolderLinked: boolean = !!this._deps.directory.currentFolderName;
+    const isStatsFolder: boolean = this._deps.directory.isStatsFolderSelected();
     const isManualOpen: boolean = this._deps.appState.getIsFolderViewOpen();
 
-    if (!isFolderLinked || isManualOpen) {
+    if (!isStatsFolder || isManualOpen) {
       return true;
     }
 
@@ -663,7 +663,25 @@ export class RankedView {
 
     this._updateHeaderButtonStates(true);
 
-    const handlers = {
+    const handlers = this._createFolderViewHandlers();
+    const isInvalid = !!this._deps.directory.originalSelectionName && !this._deps.directory.isStatsFolderSelected();
+    const isValid = this._deps.directory.isStatsFolderSelected();
+
+    this._folderSettingsView = new FolderSettingsView({
+      handlers,
+      currentFolderName: this._deps.directory.originalSelectionName,
+      hasStats: lastCheck > 0,
+      isInvalid,
+      isValid,
+    });
+
+    this._container.classList.remove("session-active");
+    document.body.classList.remove("ranked-mode-active");
+    this._container.appendChild(this._folderSettingsView.render());
+  }
+
+  private _createFolderViewHandlers(): FolderActionHandlers {
+    return {
       onLinkFolder: async (): Promise<void> => {
         await this._deps.folderActions.onLinkFolder();
         await this._dismissFolderView();
@@ -677,18 +695,6 @@ export class RankedView {
         await this._dismissFolderView();
       },
     };
-
-    this._folderSettingsView = new FolderSettingsView(
-      handlers,
-      this._deps.directory.originalSelectionName,
-      lastCheck > 0,
-    );
-
-    // Ensure ranked mode classes are removed
-    this._container.classList.remove("session-active");
-    document.body.classList.remove("ranked-mode-active");
-
-    this._container.appendChild(this._folderSettingsView.render());
   }
 
   private async _dismissFolderView(): Promise<void> {

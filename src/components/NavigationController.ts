@@ -2,6 +2,7 @@ import { AppStateService } from "../services/AppStateService";
 import { BenchmarkView } from "./BenchmarkView";
 import { RankedView } from "./RankedView";
 import { RankedSessionService } from "../services/RankedSessionService";
+import { FocusManagementService } from "../services/FocusManagementService";
 
 /**
  * Interface for navigation trigger elements.
@@ -35,6 +36,8 @@ export interface NavDependencies {
   readonly rankedSession: RankedSessionService;
   /** The ranked view component. */
   readonly rankedView: RankedView;
+  /** Service for managing the focused scenario. */
+  readonly focusService: FocusManagementService;
 }
 
 /**
@@ -54,6 +57,7 @@ export class NavigationController {
   private readonly _appStateService: AppStateService;
   private readonly _rankedSession: RankedSessionService;
   private readonly _rankedView: RankedView;
+  private readonly _focusService: FocusManagementService;
 
   /**
    * Initializes the controller with grouped navigation elements and dependencies.
@@ -78,6 +82,7 @@ export class NavigationController {
     this._appStateService = dependencies.appStateService;
     this._rankedSession = dependencies.rankedSession;
     this._rankedView = dependencies.rankedView;
+    this._focusService = dependencies.focusService;
 
     this._rankedSession.onStateChanged((): void => {
       this._updateButtonStates();
@@ -124,8 +129,20 @@ export class NavigationController {
 
     this._updateVisibleView(this._viewBenchmarks);
 
+    if (!isAlreadyActive || wasFolderDismissed) {
+      this._highlightCurrentRankedScenario();
+    }
+
     if (!isAlreadyActive && !wasFolderDismissed) {
       await this._benchmarkView.render();
+    }
+  }
+
+  private _highlightCurrentRankedScenario(): void {
+    const currentScenario: string | null = this._rankedSession.currentScenarioName;
+
+    if (currentScenario) {
+      this._focusService.focusScenario(currentScenario, "RANKED_SESSION");
     }
   }
 
