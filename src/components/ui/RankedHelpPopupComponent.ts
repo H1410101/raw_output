@@ -71,7 +71,7 @@ export class RankedHelpPopupComponent {
         card.appendChild(this._createMainTitle("Ranked Mode"));
         card.appendChild(this._createIntroSection());
         card.appendChild(this._createMechanicsSection());
-        card.appendChild(this._createTipsSection());
+        card.appendChild(this._createQuirksSection());
 
         return card;
     }
@@ -114,7 +114,7 @@ export class RankedHelpPopupComponent {
         text.style.fontWeight = "600";
         text.style.color = "var(--upper-band-3)";
         text.textContent =
-            "Ranked Mode is a structured way to play through benchmarks, offering a guided session that adapts to your performance.";
+            "Ranked Mode compiles scenarios into a playlist, balancing strong and weak scenarios using your existing rank estimates, as well as avoiding recently played scenarios.";
 
         section.appendChild(text);
 
@@ -126,7 +126,7 @@ export class RankedHelpPopupComponent {
         section.className = "about-section";
 
         const title: HTMLHeadingElement = document.createElement("h3");
-        title.textContent = "How it Works";
+        title.textContent = "How it works";
 
         section.appendChild(title);
         section.appendChild(this._createMechanicsList());
@@ -135,35 +135,48 @@ export class RankedHelpPopupComponent {
     }
 
     private _createMechanicsList(): HTMLElement {
+        const list: HTMLUListElement = this._createDefaultList();
+
+        list.appendChild(this._createListItem("Click the play button on a blank ranked screen to start a ranked session"));
+        list.appendChild(this._createListItem("When in a session, click the play button again to launch the scenario into Kovaak's."));
+        list.appendChild(this._createListItem("After playing, your scores should appear on the timeline."));
+        list.appendChild(this._createListItem("Navigate between scenarios in the playlist with the previous and next buttons."));
+
+        return list;
+    }
+
+    private _createQuirksSection(): HTMLElement {
+        const section: HTMLDivElement = document.createElement("div");
+        section.className = "about-section";
+
+        const title: HTMLHeadingElement = document.createElement("h3");
+        title.textContent = "Note the following quirks:";
+
+        section.appendChild(title);
+        section.appendChild(this._createQuirksList());
+
+        return section;
+    }
+
+    private _createQuirksList(): HTMLElement {
+        const list: HTMLUListElement = this._createDefaultList();
+
+        list.appendChild(this._createListItem("The next button brightens when you gain any rank rating. You are encouraged to try to achieve this, but note that the dimmed next button is functional anyway."));
+        list.appendChild(this._createListItem("As of writing, Kovaak's does not handle launching scenarios robustly. Know that Kovaak's sometimes freezes and leaks memory when launching, but also note that I can't really do much about this. I recommend not spam-clicking the launch button, and ending task in task manager if Kovaak's is unresponsive."));
+        list.appendChild(this._createListItem("Your new rank is halfway from your current rank to your third highest score in the session, to prevent fluke runs and make you prove your rank."));
+        list.appendChild(this._createListItem("Rank rating decreases by a bit each day, but this should not be terribly notable unless you take a long hiatus. This is intentional; the rank attempts to reflect your actual skill level, and gaining initial ranks is always fast regardless."));
+
+        return list;
+    }
+
+    private _createDefaultList(): HTMLUListElement {
         const list: HTMLUListElement = document.createElement("ul");
         list.style.margin = "0";
         list.style.paddingLeft = "1.5rem";
         list.style.color = "var(--text-dim)";
         list.style.fontSize = "calc(0.9rem * var(--scenario-font-multiplier))";
 
-        list.appendChild(this._createListItem("Click 'Play Now' to launch the current scenario directly in KovaaK's."));
-        list.appendChild(this._createListItem("After playing, your score is automatically recorded if you have the stats folder linked."));
-        list.appendChild(this._createListItem("Use 'Next' to move to the next scenario in the sequence."));
-        list.appendChild(this._createListItem("The session starts with a fixed set of scenarios, then unlocks 'Infinite Run' for continuous play."));
-
         return list;
-    }
-
-    private _createTipsSection(): HTMLElement {
-        const section: HTMLDivElement = document.createElement("div");
-        section.className = "about-section";
-
-        const title: HTMLHeadingElement = document.createElement("h3");
-        title.textContent = "Tips";
-
-        section.appendChild(title);
-
-        const tipsParagraph: HTMLParagraphElement = document.createElement("p");
-        tipsParagraph.textContent = "Your rank estimate is updated in real-time as you play. Consistent performance across different scenarios is key to ranking up.";
-
-        section.appendChild(tipsParagraph);
-
-        return section;
     }
 
     private _createListItem(text: string): HTMLLIElement {

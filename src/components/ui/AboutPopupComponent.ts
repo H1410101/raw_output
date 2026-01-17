@@ -270,7 +270,7 @@ export class AboutPopupComponent {
         container.appendChild(this._createPassionParagraph());
         container.appendChild(this._createChoiceParagraph());
         container.appendChild(this._createRawOutputList());
-        container.appendChild(this._createFutureParagraph());
+        container.appendChild(this._createLiveRankedParagraph());
     }
 
     private _createPassionParagraph(): HTMLParagraphElement {
@@ -308,12 +308,12 @@ export class AboutPopupComponent {
         return item;
     }
 
-    private _createFutureParagraph(): HTMLParagraphElement {
-        const futureParagraph: HTMLParagraphElement = document.createElement("p");
-        futureParagraph.textContent =
-            "I wanted to also create a sort of Ranked Mode, with you against the benchmark. I think I will still do it at some point, but that point looks like it might be 6 months or a year from now.";
+    private _createLiveRankedParagraph(): HTMLParagraphElement {
+        const paragraph: HTMLParagraphElement = document.createElement("p");
+        paragraph.textContent =
+            "Ranked Mode is now live! It provides a guided session experience with dynamic scenario selection and a persistent ranking system that tracks your progress over time.";
 
-        return futureParagraph;
+        return paragraph;
     }
 
     private _createAcknowledgementsSection(): HTMLElement {

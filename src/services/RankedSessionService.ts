@@ -529,17 +529,23 @@ export class RankedSessionService {
         const difficulty = this._difficulty;
         if (!difficulty) return;
 
-        const bests = this._sessionService.getAllRankedScenarioBests();
+        const allRuns = this._sessionService.getAllRankedSessionRuns();
         const scenarios = this._benchmarkService.getScenarios(difficulty);
 
         this._playedScenarios.forEach(scenarioName => {
-            const record = bests.find(recordEntry => recordEntry.scenarioName === scenarioName);
             const scenario = scenarios.find(scenarioEntry => scenarioEntry.name === scenarioName);
 
-            if (record && scenario) {
-                const effectiveScore = record.bestScore;
-                const sessionValue = this._rankEstimator.getScenarioContinuousValue(effectiveScore, scenario);
-                this._rankEstimator.evolveScenarioEstimate(scenarioName, sessionValue);
+            if (scenario) {
+                const scenarioRuns = allRuns
+                    .filter(run => run.scenarioName === scenarioName)
+                    .sort((a, b) => b.score - a.score);
+
+                if (scenarioRuns.length > 0) {
+                    const targetIndex = Math.min(scenarioRuns.length, 3) - 1;
+                    const effectiveScore = scenarioRuns[targetIndex].score;
+                    const sessionValue = this._rankEstimator.getScenarioContinuousValue(effectiveScore, scenario);
+                    this._rankEstimator.evolveScenarioEstimate(scenarioName, sessionValue);
+                }
             }
         });
     }
