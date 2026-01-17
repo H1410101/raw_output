@@ -205,6 +205,7 @@ export class AppBootstrap {
         appStateService: this._appStateService,
         rankedSession: this._rankedSessionService,
         rankedView: this._rankedView,
+        focusService: this._focusService,
       },
     );
   }

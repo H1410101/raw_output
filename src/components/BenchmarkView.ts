@@ -365,14 +365,18 @@ export class BenchmarkView {
     });
   }
 
-  private _applyActiveFocus(): void {
+  private _applyActiveFocus(): boolean {
     const focusState: FocusState | null = this._focusService.getFocusState();
 
     if (focusState && this._tableComponent) {
-      this._tableComponent.focusScenario(focusState.scenarioName, "auto");
+      this._tableComponent.focusScenario(focusState.scenarioName, "smooth");
 
       this._focusService.clearFocus();
+
+      return true;
     }
+
+    return false;
   }
 
   private async _shouldShowFolderSettings(): Promise<boolean> {
@@ -461,8 +465,8 @@ export class BenchmarkView {
       this._createViewContainer(scenarios, highscores),
     );
 
-    this._applyActiveFocus();
     this._restoreScrollPosition();
+    this._applyActiveFocus();
   }
 
   private _restoreScrollPosition(): void {
