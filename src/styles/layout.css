@@ -1248,9 +1248,9 @@ h1 {
     width: 0;
     height: 0;
     border-style: solid;
-    border-width: 0.3rem 0 0.3rem 0.5rem;
+    border-width: 0.22rem 0 0.22rem 0.35rem;
     border-color: transparent transparent transparent var(--text-dim);
-    margin-left: 0.125rem;
+    margin-left: 0.08rem;
     border-radius: 0.0625rem;
     z-index: 1;
     transition: all 0.2s ease;
