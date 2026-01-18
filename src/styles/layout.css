@@ -477,9 +477,14 @@ h1 {
     right: calc(0.75rem * var(--margin-spacing-multiplier));
     width: calc(0.5rem * var(--margin-spacing-multiplier));
     height: 2rem;
-    background: var(--glow-color);
+    background-color: var(--glow-color);
+    background-image:
+        radial-gradient(circle at -100% 0%, rgba(var(--white-rgb), 1) 0%, transparent 40%),
+        linear-gradient(90deg, rgba(var(--white-rgb), 0.5) 0%, transparent 50%),
+        linear-gradient(90deg, transparent 50%, rgba(var(--pill-shadow-rgb), 0.5) 100%),
+        radial-gradient(circle at 200% 100%, rgba(var(--pill-shadow-rgb), 1) 0%, transparent 40%);
+    box-shadow: inset -0.1rem -0.3rem 0.4rem -0.1rem rgba(var(--pill-shadow-inner-rgb), 0);
     border-radius: calc(1.5rem * var(--margin-spacing-multiplier));
-    box-shadow: none;
     pointer-events: auto;
     cursor: pointer;
     user-select: none;
@@ -1126,7 +1131,10 @@ h1 {
 }
 
 .circle-checkbox.checked {
-    background: radial-gradient(circle at 30% 30%, var(--white) 0%, var(--glow-color) 40%, var(--black) 100%);
+    background-color: var(--glow-color);
+    background-image:
+        radial-gradient(circle at 30% 30%, rgba(var(--white-rgb), 1) 5%, transparent 20%),
+        radial-gradient(circle at 30% 30%, transparent 51%, rgba(var(--highlight-bg-1-rgb), 0.6) 67%);
     box-shadow: none;
 }
 
@@ -1187,7 +1195,10 @@ h1 {
 }
 
 .dot-target.glow {
-    background: radial-gradient(circle at 30% 30%, var(--white) 0%, var(--glow-color) 40%, var(--black) 100%);
+    background-color: var(--glow-color);
+    background-image:
+        radial-gradient(circle at 30% 30%, rgba(var(--white-rgb), 1) 5%, transparent 20%),
+        radial-gradient(circle at 30% 30%, transparent 51%, rgba(var(--highlight-bg-1-rgb), 0.6) 67%);
     box-shadow: none;
 }
 
@@ -1195,7 +1206,10 @@ h1 {
     width: 0.75rem;
     height: 1.25rem;
     border-radius: calc(1.5rem * var(--vertical-spacing-multiplier));
-    background: radial-gradient(circle at 30% 30%, var(--white) 0%, var(--glow-color) 40%, var(--black) 100%);
+    background-color: var(--glow-color);
+    background-image:
+        radial-gradient(circle at 30% 20%, rgba(var(--white-rgb), 1) 5%, transparent 20%),
+        radial-gradient(circle at 8% 30%, transparent 57%, rgba(var(--highlight-bg-1-rgb), 0.6) 70%);
     box-shadow: none;
 }
 
@@ -1270,7 +1284,10 @@ h1 {
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, var(--white) 0%, var(--glow-color) 40%, var(--black) 100%);
+    background-color: var(--glow-color);
+    background-image:
+        radial-gradient(circle at 30% 30%, rgba(var(--white-rgb), 1) 5%, transparent 20%),
+        radial-gradient(circle at 30% 30%, transparent 51%, rgba(var(--highlight-bg-1-rgb), 0.6) 67%);
     opacity: 0;
     transform: scale(0.5);
     transition: all 0.2s cubic-bezier(0.3, 0.85, 0.15, 1);
@@ -1508,9 +1525,16 @@ h1 {
 }
 
 .ranked-container::-webkit-scrollbar-thumb {
-    background: var(--lower-band-1);
+    background-color: var(--glow-color);
+    background-image:
+        radial-gradient(circle at -100% 0%, rgba(var(--white-rgb), 1) 0%, transparent 40%),
+        linear-gradient(90deg, rgba(var(--white-rgb), 0.5) 0%, transparent 50%),
+        linear-gradient(90deg, transparent 50%, rgba(var(--pill-shadow-rgb), 0.5) 100%),
+        radial-gradient(circle at 200% 100%, rgba(var(--pill-shadow-rgb), 1) 0%, transparent 40%);
+    box-shadow: inset -0.1rem -0.3rem 0.4rem -0.1rem rgba(var(--pill-shadow-inner-rgb), 0);
     border-radius: 0.25rem;
 }
+
 
 .ranked-header {
     margin-bottom: 2rem;
