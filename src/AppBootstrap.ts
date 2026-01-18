@@ -23,6 +23,7 @@ import { SessionSyncService } from "./services/SessionSyncService";
 import { RankedSessionService } from "./services/RankedSessionService";
 import { RankEstimator } from "./services/RankEstimator";
 import { SettingsUiFactory } from "./components/ui/SettingsUiFactory";
+import { AnalyticsPopupComponent } from "./components/ui/AnalyticsPopupComponent";
 
 /**
  * Orchestrate service instantiation and dependency wiring.
@@ -64,6 +65,8 @@ export class AppBootstrap {
   private _identityService!: IdentityService;
   private _rankedSessionService!: RankedSessionService;
   private _rankEstimator!: RankEstimator;
+
+  private _hasPromptedAnalytics: boolean = false;
 
   /**
    * Initializes the application's core logic and UI components.
@@ -154,6 +157,8 @@ export class AppBootstrap {
 
     this._setupActionListeners();
     this._setupGlobalButtonSounds();
+
+    this._checkAnalyticsPrompt();
   }
 
   private _createStatusView(): ApplicationStatusView {
@@ -316,6 +321,8 @@ export class AppBootstrap {
       await this._synchronizeAndMonitor(handle);
 
       this._benchmarkView.refresh();
+
+      this._checkAnalyticsPrompt();
     }
   }
 
@@ -405,5 +412,23 @@ export class AppBootstrap {
     }
 
     return element;
+  }
+
+  private _checkAnalyticsPrompt(): void {
+    if (this._hasPromptedAnalytics) {
+      return;
+    }
+
+    if (
+      !this._identityService.isAnalyticsEnabled() &&
+      this._directoryService.isStatsFolderSelected()
+    ) {
+      const popup: AnalyticsPopupComponent = new AnalyticsPopupComponent(
+        this._identityService,
+        this._audioService,
+      );
+      popup.render();
+      this._hasPromptedAnalytics = true;
+    }
   }
 }
