@@ -15,6 +15,8 @@ export interface ScenarioEstimate {
     readonly continuousValue: number;
     readonly highestAchieved: number;
     readonly lastUpdated: string;
+    readonly penalty: number;
+    readonly lastPlayed: string;
 }
 
 /**
@@ -82,11 +84,31 @@ export class RankEstimator {
     public getScenarioEstimate(scenarioName: string): ScenarioEstimate {
         const map: RankEstimateMap = this.getRankEstimateMap();
 
-        return map[scenarioName] || {
-            // Default to 0 instead of -1 to ensure it maps to a timeline position ("Unranked" usually 0-1)
-            continuousValue: 0,
-            highestAchieved: 0,
-            lastUpdated: new Date().toISOString(),
+        const stored = map[scenarioName];
+        if (!stored) {
+            return {
+                continuousValue: 0,
+                highestAchieved: 0,
+                lastUpdated: new Date().toISOString(),
+                penalty: 0,
+                lastPlayed: new Date().toISOString(),
+            };
+        }
+
+        // Apply penalty decay on read
+        const now = new Date();
+        const lastPlayedStr = stored.lastPlayed || stored.lastUpdated || now.toISOString();
+        const lastPlayed = new Date(lastPlayedStr);
+        const elapsedMs = now.getTime() - lastPlayed.getTime();
+        const daysPassed = Math.max(0, elapsedMs / (1000 * 60 * 60 * 24));
+        const currentPenalty = Math.max(0, (stored.penalty || 0) - 0.5 * daysPassed);
+
+        return {
+            ...stored,
+            penalty: currentPenalty,
+            lastPlayed: lastPlayedStr,
+            // We don't update lastUpdated here to avoid constant writes on read,
+            // but the returned object reflects the decayed penalty.
         };
     }
 
@@ -168,10 +190,36 @@ export class RankEstimator {
             continuousValue: newValue,
             highestAchieved: Math.max(current.highestAchieved, newValue),
             lastUpdated: new Date().toISOString(),
+            penalty: current.penalty,
+            lastPlayed: current.lastPlayed,
         };
 
         localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
 
+        this._notifyListeners(scenarioName);
+    }
+
+    /**
+     * Records a play for a scenario, increasing its "recently played" penalty.
+     * Each play moves 10% closer to the max penalty of 5 Rank Units.
+     *
+     * @param scenarioName - The name of the scenario played.
+     */
+    public recordPlay(scenarioName: string): void {
+        const map: RankEstimateMap = this.getRankEstimateMap();
+        const current: ScenarioEstimate = this.getScenarioEstimate(scenarioName);
+
+        const maxPenalty = 5.0;
+        const newPenalty = current.penalty + (maxPenalty - current.penalty) * 0.1;
+
+        map[scenarioName] = {
+            ...current,
+            penalty: newPenalty,
+            lastPlayed: new Date().toISOString(),
+            lastUpdated: new Date().toISOString(),
+        };
+
+        localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
         this._notifyListeners(scenarioName);
     }
 
@@ -299,11 +347,14 @@ export class RankEstimator {
             daysPassed
         );
 
-        if (Math.abs(newContinuous - estimate.continuousValue) > 0.001) {
+        const newPenalty = Math.max(0, (estimate.penalty || 0) - 0.5 * daysPassed);
+
+        if (Math.abs(newContinuous - estimate.continuousValue) > 0.001 || Math.abs(newPenalty - (estimate.penalty || 0)) > 0.001) {
             return {
                 newEstimate: {
                     ...estimate,
                     continuousValue: newContinuous,
+                    penalty: newPenalty,
                     lastUpdated: now.toISOString(),
                 },
                 changed: true,

@@ -27,6 +27,7 @@ interface ScenarioMetric {
     peak: number;
     // peak - current
     gap: number;
+    penalty: number;
 }
 
 /**
@@ -408,6 +409,7 @@ export class RankedSessionService {
             const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
             const current: number = estimate.continuousValue === -1 ? 0 : estimate.continuousValue;
             const peak: number = estimate.highestAchieved === -1 ? 0 : estimate.highestAchieved;
+            const penalty: number = estimate.penalty || 0;
 
             // "distance_from_peak" is naturally peak - current
             const gap = peak - current;
@@ -416,7 +418,8 @@ export class RankedSessionService {
                 scenario,
                 current,
                 peak,
-                gap
+                gap,
+                penalty
             };
         });
     }
@@ -434,13 +437,13 @@ export class RankedSessionService {
                 continue;
             }
 
-            // same as metric.gap
-            const dist = metric.peak - metric.current;
-
             // min(current + dist, peak) + dist
             // since current + dist = peak, min(peak, peak) = peak.
             // so score = peak + dist = peak + (peak - current) = 2*peak - current
-            const score = metric.peak + dist;
+            const dist = metric.peak - metric.current;
+
+            // Apply penalty: decrease rank estimate (effectively subtracts from score)
+            const score = metric.peak + dist - metric.penalty;
 
             if (score > maxScore) {
                 maxScore = score;
@@ -461,7 +464,8 @@ export class RankedSessionService {
             const dist = metric.peak - metric.current;
 
             // max(current - dist, 0)
-            const score = Math.max(metric.current - dist, 0);
+            // Apply penalty: increase rank estimate (effectively adds to score)
+            const score = Math.max(metric.current - dist, 0) + metric.penalty;
 
             if (score < minScore) {
                 minScore = score;
@@ -505,7 +509,8 @@ export class RankedSessionService {
             }
 
             // Score = peak - current - penalty = gap - penalty
-            const score = (metric.peak - metric.current) - penalty;
+            // also subtract the recently-played penalty to make it less likely
+            const score = (metric.peak - metric.current) - penalty - metric.penalty;
 
             if (score > maxScore) {
                 maxScore = score;
@@ -524,7 +529,10 @@ export class RankedSessionService {
 
                 // Track that these scenarios have been played in THIS active session
                 if (this._status === "ACTIVE") {
-                    updatedScenarioNames.forEach(name => this._playedScenarios.add(name));
+                    updatedScenarioNames.forEach(name => {
+                        this._playedScenarios.add(name);
+                        this._rankEstimator.recordPlay(name);
+                    });
                 }
             }
 

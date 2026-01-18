@@ -138,7 +138,7 @@ function _createMocks(): MockSet {
             getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
             getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
         } as unknown as SessionService,
-        estimator: { getScenarioEstimate: vi.fn() } as unknown as RankEstimator,
+        estimator: { getScenarioEstimate: vi.fn(), recordPlay: vi.fn() } as unknown as RankEstimator,
         settings: {
             getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
         } as unknown as SessionSettingsService
@@ -147,7 +147,7 @@ function _createMocks(): MockSet {
 
 function _mockEstimates(estimator: RankEstimator, estimates: Record<string, Partial<ScenarioEstimate>>): void {
     (estimator.getScenarioEstimate as Mock).mockImplementation((name: string) => {
-        return estimates[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "" };
+        return estimates[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "", penalty: 0, lastPlayed: "" };
     });
 }
 
