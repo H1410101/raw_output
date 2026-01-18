@@ -17,6 +17,7 @@ export interface ScenarioEstimate {
     readonly lastUpdated: string;
     readonly penalty: number;
     readonly lastPlayed: string;
+    readonly lastDecayed: string;
 }
 
 /**
@@ -86,12 +87,15 @@ export class RankEstimator {
 
         const stored = map[scenarioName];
         if (!stored) {
+            const now = new Date().toISOString();
+
             return {
                 continuousValue: 0,
                 highestAchieved: 0,
-                lastUpdated: new Date().toISOString(),
+                lastUpdated: now,
                 penalty: 0,
-                lastPlayed: new Date().toISOString(),
+                lastPlayed: now,
+                lastDecayed: now,
             };
         }
 
@@ -107,6 +111,7 @@ export class RankEstimator {
             ...stored,
             penalty: currentPenalty,
             lastPlayed: lastPlayedStr,
+            lastDecayed: stored.lastDecayed || stored.lastUpdated || now.toISOString(),
             // We don't update lastUpdated here to avoid constant writes on read,
             // but the returned object reflects the decayed penalty.
         };
@@ -192,6 +197,7 @@ export class RankEstimator {
             lastUpdated: new Date().toISOString(),
             penalty: current.penalty,
             lastPlayed: current.lastPlayed,
+            lastDecayed: current.lastDecayed,
         };
 
         localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
@@ -217,6 +223,7 @@ export class RankEstimator {
             penalty: newPenalty,
             lastPlayed: new Date().toISOString(),
             lastUpdated: new Date().toISOString(),
+            lastDecayed: current.lastDecayed,
         };
 
         localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
@@ -333,11 +340,11 @@ export class RankEstimator {
         estimate: ScenarioEstimate,
         now: Date
     ): { newEstimate: ScenarioEstimate; changed: boolean } {
-        const last: Date = new Date(estimate.lastUpdated);
-        const msPassed = now.getTime() - last.getTime();
+        const lastDecay: Date = new Date(estimate.lastDecayed || estimate.lastUpdated);
+        const msPassed = now.getTime() - lastDecay.getTime();
         const daysPassed = msPassed / (1000 * 60 * 60 * 24);
 
-        if (daysPassed <= 1.0) {
+        if (daysPassed < 1.0) {
             return { newEstimate: estimate, changed: false };
         }
 
@@ -355,7 +362,9 @@ export class RankEstimator {
                     ...estimate,
                     continuousValue: newContinuous,
                     penalty: newPenalty,
-                    lastUpdated: now.toISOString(),
+                    lastDecayed: now.toISOString(),
+                    // We don't update lastUpdated here because this is a secondary decay,
+                    // but we update lastDecayed to reset the time tax.
                 },
                 changed: true,
             };
@@ -427,10 +436,9 @@ export class RankEstimator {
             return current;
         }
 
-        const expDecay = floor + (current - floor) * Math.pow(0.5, daysPassed / 30);
-        const linDecay = current - (current - floor) * (daysPassed / 90);
-
-        const candidate = Math.min(expDecay, linDecay);
+        const dailyPenalty = 0.05;
+        const totalPenalty = dailyPenalty * daysPassed;
+        const candidate = current - totalPenalty;
 
         return Math.max(floor, candidate);
     }

@@ -141,7 +141,7 @@ export class AppBootstrap {
    */
   public async initialize(): Promise<void> {
     this._statusView.reportReady();
-    this._rankEstimator.applyDailyDecay();
+    this._tryApplyDailyDecay();
 
     await this._attemptInitialReconnection();
 
@@ -230,8 +230,28 @@ export class AppBootstrap {
     });
   }
 
+  private _tryApplyDailyDecay(): void {
+    const isRankedActive =
+      this._rankedSessionService.state.status === "ACTIVE" ||
+      this._rankedSessionService.state.status === "COMPLETED";
+
+    const isBenchmarkActive = this._sessionService.isSessionActive();
+
+    if (!isRankedActive && !isBenchmarkActive) {
+      this._rankEstimator.applyDailyDecay();
+    }
+  }
+
   private _setupActionListeners(): void {
     this._setupHeaderActions();
+
+    this._sessionService.onSessionUpdated((): void => {
+      this._tryApplyDailyDecay();
+    });
+
+    this._rankedSessionService.onStateChanged((): void => {
+      this._tryApplyDailyDecay();
+    });
 
     this._appStateService.onDifficultyChanged((): void => {
       this._benchmarkView.updateDifficulty(

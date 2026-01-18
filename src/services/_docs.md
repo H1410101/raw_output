@@ -17,6 +17,11 @@ Orchestrates the ingestion of CSV performance data from the local file system. I
 Manages the "Ranked Run" experience, which includes a guided sequence of scenarios and a timed session. It consumes data exclusively from the Ranked track of `SessionService`.
 - **Relies on**: `BenchmarkService`, `SessionService`, `RankEstimator`, `SessionSettingsService`
 
+### `RankEstimator`
+Calculates holographic rank estimates across scenarios and manages the "Rank Identity" state. It implements rank evolution logic (EMA) and daily rank penalties (0.05 RU/day).
+- **Relies on**: `BenchmarkService`
+- **Used by**: `RankedSessionService`, `AppBootstrap`
+
 ## Relationships
 
 ```mermaid
