@@ -189,7 +189,6 @@ export class BenchmarkScrollController {
     }
 
     const thumbRectangle: DOMRect = this._scrollThumb.getBoundingClientRect();
-    const hitboxExtension: number = thumbRectangle.height * 0.1;
 
     const isInsideHorizontally: boolean =
       event.clientX >= thumbRectangle.left &&
@@ -198,8 +197,8 @@ export class BenchmarkScrollController {
     this._hoverContainer.style.cursor = isInsideHorizontally ? "pointer" : "";
 
     const isInsideVertically: boolean =
-      event.clientY >= thumbRectangle.top - hitboxExtension &&
-      event.clientY <= thumbRectangle.bottom + hitboxExtension;
+      event.clientY >= thumbRectangle.top &&
+      event.clientY <= thumbRectangle.bottom;
 
     if (!isInsideHorizontally || !isInsideVertically) {
       return;
@@ -253,12 +252,29 @@ export class BenchmarkScrollController {
   }
 
   private _calculateHoverDelta(mouseY: number, thumbRect: DOMRect): number {
-    if (mouseY < thumbRect.top) {
-      return mouseY - thumbRect.top;
+    const rootStyles: CSSStyleDeclaration = getComputedStyle(
+      document.documentElement,
+    );
+    const remSizePixels: number = parseFloat(rootStyles.fontSize);
+    const marginSpacingMultiplier: number = parseFloat(
+      rootStyles.getPropertyValue("--margin-spacing-multiplier") || "1",
+    );
+
+    const cornerRadiusRems: number = 0.25;
+    const cornerRadiusPixels: number =
+      cornerRadiusRems * remSizePixels * marginSpacingMultiplier;
+
+    const zoneHeight: number = Math.min(
+      cornerRadiusPixels,
+      thumbRect.height * 0.4,
+    );
+
+    if (mouseY < thumbRect.top + zoneHeight) {
+      return mouseY - (thumbRect.top + zoneHeight);
     }
 
-    if (mouseY > thumbRect.bottom) {
-      return mouseY - thumbRect.bottom;
+    if (mouseY > thumbRect.bottom - zoneHeight) {
+      return mouseY - (thumbRect.bottom - zoneHeight);
     }
 
     return 0;
@@ -274,6 +290,7 @@ export class BenchmarkScrollController {
 
     const scrollUnitsPerPixel: number = totalScrollRange / availableTrackSpan;
     const oldScrollTop = this._scrollContainer.scrollTop;
+
     this._scrollContainer.scrollTop += pixelDelta * scrollUnitsPerPixel;
 
     if (

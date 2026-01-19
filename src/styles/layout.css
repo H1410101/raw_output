@@ -479,12 +479,16 @@ h1 {
     height: 2rem;
     background-color: var(--bg-color);
     border: 1px solid var(--glass-border);
-    border-radius: calc(1.5rem * var(--margin-spacing-multiplier));
+    border-radius: calc(0.25rem * var(--margin-spacing-multiplier));
     pointer-events: auto;
     cursor: pointer;
     user-select: none;
     z-index: 10;
-    transition: all 0.2s cubic-bezier(0.3, 0.85, 0.15, 1);
+    transition:
+        background-color 0.2s cubic-bezier(0.3, 0.85, 0.15, 1),
+        border-color 0.2s cubic-bezier(0.3, 0.85, 0.15, 1),
+        box-shadow 0.2s cubic-bezier(0.3, 0.85, 0.15, 1),
+        background-image 0.2s cubic-bezier(0.3, 0.85, 0.15, 1);
 }
 
 .custom-scroll-thumb:hover,
@@ -1536,7 +1540,11 @@ h1 {
     background-color: var(--bg-color);
     border: 1px solid var(--glass-border);
     border-radius: 0.25rem;
-    transition: all 0.2s cubic-bezier(0.3, 0.85, 0.15, 1);
+    transition:
+        background-color 0.2s cubic-bezier(0.3, 0.85, 0.15, 1),
+        border-color 0.2s cubic-bezier(0.3, 0.85, 0.15, 1),
+        box-shadow 0.2s cubic-bezier(0.3, 0.85, 0.15, 1),
+        background-image 0.2s cubic-bezier(0.3, 0.85, 0.15, 1);
 }
 
 .ranked-container::-webkit-scrollbar-thumb:hover,
