@@ -491,6 +491,40 @@ h1 {
         background-image 0.2s cubic-bezier(0.3, 0.85, 0.15, 1);
 }
 
+.grip-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: calc(0.075rem * var(--margin-spacing-multiplier));
+    pointer-events: none;
+}
+
+.thumb-grip {
+    background-color: var(--text-dim);
+    height: calc(0.1rem * var(--margin-spacing-multiplier));
+    border-radius: 1rem;
+    opacity: 1;
+    transition: opacity 0.2s cubic-bezier(0.3, 0.85, 0.15, 1);
+}
+
+.grip-0,
+.grip-2 {
+    width: calc(0.2rem * var(--margin-spacing-multiplier));
+}
+
+.grip-1 {
+    width: calc(0.3rem * var(--margin-spacing-multiplier));
+}
+
+.custom-scroll-thumb:hover .grip-container,
+.custom-scroll-thumb.dragging .grip-container {
+    opacity: 0;
+}
+
 .custom-scroll-thumb:hover,
 .custom-scroll-thumb.dragging {
     background-color: var(--glow-color);
