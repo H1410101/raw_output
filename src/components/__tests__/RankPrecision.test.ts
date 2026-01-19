@@ -102,18 +102,26 @@ function _resetEnvironment(): void {
 }
 
 function _configureMockEstimator(deps: RankedViewDependencies): void {
+    const now: string = new Date().toISOString();
+
     vi.mocked(deps.estimator.getRankEstimateMap).mockReturnValue({
         ["Scenario A"]: {
             continuousValue: 1.5,
             highestAchieved: 1.5,
-            lastUpdated: new Date().toISOString()
+            lastUpdated: now,
+            penalty: 0,
+            lastPlayed: now,
+            lastDecayed: now
         }
     });
 
     vi.mocked(deps.estimator.getScenarioEstimate).mockReturnValue({
         continuousValue: 1.5,
         highestAchieved: 1.5,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: now,
+        penalty: 0,
+        lastPlayed: now,
+        lastDecayed: now
     });
 
     vi.mocked(deps.estimator.calculateHolisticEstimateRank).mockReturnValue({
