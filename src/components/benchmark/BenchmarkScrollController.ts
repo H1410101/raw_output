@@ -118,6 +118,7 @@ export class BenchmarkScrollController {
     }
 
     this._isUserDragging = true;
+    this._scrollThumb.classList.add("dragging");
     this._updateScrollFromMousePosition(event.clientY);
 
     if (this._appStateService) {
@@ -136,6 +137,9 @@ export class BenchmarkScrollController {
   }
 
   private _handleDragEnd(): void {
+    if (this._isUserDragging) {
+      this._scrollThumb.classList.remove("dragging");
+    }
     this._isUserDragging = false;
   }
 
