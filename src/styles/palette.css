@@ -26,6 +26,17 @@
     --mask-white: #ffffff;
     --tactical-shadow-rgb: 0, 0, 0;
     --tactical-highlight-rgb: 255, 255, 255;
+    --black: #000000;
+    --black-rgb: 0, 0, 0;
+    --white: #ffffff;
+    --white-rgb: 255, 255, 255;
+
+    /* High-Fidelity Pill Assets */
+    --pill-base: #5ac1cf;
+    --pill-shadow: #004455;
+    --pill-shadow-rgb: 0, 68, 85;
+    --pill-shadow-inner-rgb: 0, 50, 70;
+    --pill-shadow-inner: #003246;
 }
 
 [data-theme="light"] {
@@ -55,6 +66,17 @@
     --highlight-bg-1-rgb: 148, 184, 143;
     --tactical-shadow-rgb: 0, 0, 0;
     --tactical-highlight-rgb: 255, 255, 255;
+    --black: #000000;
+    --black-rgb: 0, 0, 0;
+    --white: #ffffff;
+    --white-rgb: 255, 255, 255;
+
+    /* High-Fidelity Pill Assets (Adapted for light theme) */
+    --pill-base: #4f8e62;
+    --pill-shadow: #103a43;
+    --pill-shadow-rgb: 16, 58, 67;
+    --pill-shadow-inner-rgb: 6, 27, 57;
+    --pill-shadow-inner: #061b39;
 }
 
 :root {

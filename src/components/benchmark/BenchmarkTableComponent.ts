@@ -82,6 +82,16 @@ export class BenchmarkTableComponent {
     scrollArea.className = "benchmark-table";
     scrollThumb.className = "custom-scroll-thumb";
 
+    const gripContainer: HTMLDivElement = document.createElement("div");
+    gripContainer.className = "grip-container";
+
+    for (let i = 0; i < 3; i++) {
+      const grip: HTMLDivElement = document.createElement("div");
+      grip.className = `thumb-grip grip-${i}`;
+      gripContainer.appendChild(grip);
+    }
+    scrollThumb.appendChild(gripContainer);
+
     this._clearExistingRows();
     this._updateNameColumnWidth(scenarios);
     this._appendCategorizedContent(scrollArea, scenarios, highscores);
