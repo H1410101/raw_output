@@ -270,43 +270,15 @@ export class RankedView {
   }
 
   private _renderActiveState(state: RankedSessionState, parent: HTMLElement): void {
-    const isImproved = this._checkIfCurrentImproved();
-
     const container: HTMLDivElement = document.createElement("div");
     container.className = "ranked-container active";
 
-    container.innerHTML = this._renderMainContent(state, isImproved);
+    container.innerHTML = this._renderMainContent(state);
 
     parent.appendChild(container);
     this._attachActiveListeners(container);
   }
 
-
-  private _checkIfCurrentImproved(): boolean {
-    const current = this._deps.rankedSession.currentScenarioName;
-    if (!current) return false;
-
-    const estimate = this._deps.estimator.getScenarioEstimate(current);
-
-    return this._isImproved(estimate.continuousValue, current);
-  }
-
-  private _isImproved(estimateValue: number, currentScenario: string): boolean {
-    const allRuns = this._deps.session.getAllRankedSessionRuns();
-    const runs = allRuns
-      .filter((run) => run.scenarioName === currentScenario)
-      .map((run) => run.score);
-
-    if (runs.length === 0) return false;
-
-    const diff = this._deps.appState.getBenchmarkDifficulty();
-    const scenario = this._deps.benchmark.getScenarios(diff).find((scenarioRef) => scenarioRef.name === currentScenario);
-    if (!scenario) return false;
-
-    const effectiveScore = this._calculateEffectiveScore(runs);
-
-    return this._deps.estimator.getScenarioContinuousValue(effectiveScore, scenario) > estimateValue;
-  }
 
   private _calculateEffectiveScore(scores: number[]): number {
     if (scores.length < 3) return 0;
@@ -316,9 +288,7 @@ export class RankedView {
     return sorted[2];
   }
 
-
-
-  private _renderMainContent(state: RankedSessionState, isImproved: boolean): string {
+  private _renderMainContent(state: RankedSessionState): string {
     if (state.status === "COMPLETED") {
       return this._renderCompletedContent();
     }
@@ -327,26 +297,38 @@ export class RankedView {
       return this._renderSummaryContent();
     }
 
-    return this._renderScenarioContent(state, isImproved);
+    return this._renderScenarioContent(state);
   }
 
   private _renderSummaryContent(): string {
-    const estimate = this._calculateSessionAchievedRank();
-    const effectiveStats = this._calculateEffectiveStats();
-
     return `
-      <div class="ranked-result summary-view">
-          <h2 class="congrats">SESSION EXPIRED</h2>
-          <div class="summary-card">
-              <p class="summary-rank">FINAL RANK: <span class="accent">${estimate.rankName}</span></p>
-              <p class="summary-subtitle">Run Overview</p>
-              <div class="scenarios-list">
-                  ${effectiveStats.length > 0 ? effectiveStats.map(stat => `
-                      <div class="scenario-summary-item"><span class="scenario-name">${stat.name}</span><span class="scenario-score">${stat.score.toFixed(1)}</span><span class="scenario-rank">${stat.rank}</span></div>
-                  `).join('') : '<p class="no-scenarios">No scenarios played this session.</p>'}
+      <div class="summary-view">
+          <h2 style="margin-bottom: 2rem; color: var(--upper-band-3);">SESSION SUMMARY</h2>
+          <div class="scenarios-list">
+              ${this._renderSummaryList()}
+          </div>
+          <div style="display: flex; justify-content: center; margin-top: 3rem;">
+              <div class="difficulty-tabs">
+                  <button class="tab-button active" id="finish-ranked-btn">Back to hub</button>
               </div>
           </div>
-          <button class="next-btn luminous" id="finish-ranked-btn">BACK TO HUB</button>
+      </div>
+    `;
+  }
+
+  private _renderSummaryList(): string {
+    const effectiveStats = this._calculateEffectiveStats();
+    const estimate = this._calculateSessionAchievedRank();
+
+    return `
+      <div class="summary-card">
+          <p class="summary-rank">FINAL RANK: <span class="accent">${estimate.rankName}</span></p>
+          <p class="summary-subtitle">Run Overview</p>
+          <div class="scenarios-list">
+              ${effectiveStats.length > 0 ? effectiveStats.map(stat => `
+                  <div class="scenario-summary-item"><span class="scenario-name">${stat.name}</span><span class="scenario-score">${stat.score.toFixed(1)}</span><span class="scenario-rank">${stat.rank}</span></div>
+              `).join('') : '<p class="no-scenarios">No scenarios played this session.</p>'}
+          </div>
       </div>
     `;
   }
@@ -374,16 +356,19 @@ export class RankedView {
   }
 
   private _renderCompletedContent(): string {
-    const estimate = this._calculateSessionAchievedRank();
-
     return `
-      <div class="ranked-result">
-          <h2 class="congrats">RUN COMPLETE</h2>
-          <div class="summary-card">
-              <p class="summary-rank">ACHIEVED RANK: <span class="accent">${estimate.rankName}</span></p>
-              <p class="summary-subtitle">Session Performance</p>
+      <div class="ranked-result" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center;">
+          <h2 style="text-transform: none; margin: 0; color: var(--upper-band-3); font-weight: 700;">Daily Run Complete</h2>
+          <p style="color: var(--text-dim); line-height: 1.4; margin: 0;">End run,<br>or Keep Going?</p>
+          
+          <div style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; padding-bottom: 0.35rem;">
+              <button class="media-btn secondary destructive" id="end-ranked-btn" title="End Run">
+                  <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+              <button class="media-btn secondary" id="extend-ranked-btn" title="Keep Going">
+                  <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+              </button>
           </div>
-          <button class="next-btn luminous" id="extend-ranked-btn">CONTINUE TO INFINITE RUN</button>
       </div>
     `;
   }
@@ -502,7 +487,7 @@ export class RankedView {
 
 
 
-  private _renderScenarioContent(state: RankedSessionState, isImproved: boolean): string {
+  private _renderScenarioContent(state: RankedSessionState): string {
     const scenarioName = state.sequence[state.currentIndex];
 
     return `
@@ -512,11 +497,11 @@ export class RankedView {
       </div>
       
       ${this._renderRankTimeline(scenarioName)}
-      ${this._renderMediaControls(state, isImproved)}
+      ${this._renderMediaControls(state)}
     `;
   }
 
-  private _renderMediaControls(state: RankedSessionState, isImproved: boolean): string {
+  private _renderMediaControls(state: RankedSessionState): string {
     return `
       <div class="media-controls">
           <div class="controls-left">
@@ -531,7 +516,7 @@ export class RankedView {
           ${this._getPlayButtonHtml()}
 
           <div class="controls-right">
-              <button class="media-btn secondary ${isImproved ? "luminous" : "dull"}" id="next-ranked-btn">
+              <button class="media-btn secondary" id="next-ranked-btn">
                   <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
               </button>
               <button class="media-btn secondary destructive" id="end-ranked-btn">
