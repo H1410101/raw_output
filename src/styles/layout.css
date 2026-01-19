@@ -906,6 +906,12 @@ h1 {
     color: var(--accent-color);
 }
 
+.tab-button:active {
+    background: rgba(var(--lower-band-1-rgb), 0.1);
+    color: var(--accent-color);
+    transition: none;
+}
+
 .benchmark-header-controls {
     display: flex;
     justify-content: space-between;

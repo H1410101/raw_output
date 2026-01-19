@@ -99,6 +99,7 @@ export class AnalyticsPopupComponent {
         description.style.lineHeight = "1.6";
         description.style.fontSize = "0.95rem";
         description.style.marginBottom = "2rem";
+        description.style.padding = "0 1rem";
         description.style.whiteSpace = "pre-wrap";
 
         return description;
@@ -106,9 +107,10 @@ export class AnalyticsPopupComponent {
 
     private _createEnableButton(overlay: HTMLElement): HTMLElement {
         const button: HTMLButtonElement = document.createElement("button");
-        button.className = "action-btn-large";
+        button.className = "tab-button";
         button.textContent = "Enable";
-        button.style.width = "100%";
+        button.style.width = "fit-content";
+        button.style.padding = "0.6rem 2.5rem";
 
         button.addEventListener("click", (): void => {
             this._audioService?.playHeavy(0.4);
