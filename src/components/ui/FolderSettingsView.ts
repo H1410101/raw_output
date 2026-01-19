@@ -29,12 +29,6 @@ export interface FolderSettingsConfig {
 export class FolderSettingsView {
   private readonly _handlers: FolderActionHandlers;
 
-  /** The name of the currently linked folder, if any. */
-  private readonly _currentFolderName: string | null;
-
-  /** Whether the application has successfully parsed statistics. */
-  private readonly _hasStats: boolean;
-
   /** Whether the current folder selection is invalid. */
   private readonly _isInvalid: boolean;
 
@@ -51,8 +45,6 @@ export class FolderSettingsView {
    */
   public constructor(config: FolderSettingsConfig) {
     this._handlers = config.handlers;
-    this._currentFolderName = config.currentFolderName;
-    this._hasStats = config.hasStats ?? false;
     this._isInvalid = config.isInvalid ?? false;
     this._isValid = config.isValid ?? false;
   }

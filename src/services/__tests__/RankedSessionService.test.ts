@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, Mock } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi, Mock } from "vitest";
 import { RankedSessionService } from "../RankedSessionService";
 import { BenchmarkService } from "../BenchmarkService";
 import { SessionService } from "../SessionService";

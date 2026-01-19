@@ -84,6 +84,7 @@ export class RankTimelineComponent {
         this._renderTicks(track, minRU, maxRU, ruRange);
         this._renderAttempts(track, minRU, ruRange);
         this._renderMarkers(minRU, ruRange, track);
+        this._renderExpectedNotch(track, minRU, ruRange);
         this._renderProgressLine(track, minRU, ruRange);
 
         return this._container;

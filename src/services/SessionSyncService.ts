@@ -157,7 +157,7 @@ export class SessionSyncService {
         record: SessionRankRecord,
         allRankedRuns: { scenarioName: string; score: number }[],
         rankedStateToSync: RankedSessionState
-    ): object {
+    ): SessionSyncPayload["runs"][number] {
         const scenarioRuns = allRankedRuns
             .filter((run: { scenarioName: string }) => run.scenarioName === record.scenarioName)
             .map((run: { score: number }) => run.score)
@@ -181,7 +181,7 @@ export class SessionSyncService {
         record: SessionRankRecord,
         scenarioRuns: number[],
         rankedStateToSync: RankedSessionState
-    ): object {
+    ): Partial<SessionSyncPayload["runs"][number]> {
         const difficulty = rankedStateToSync.difficulty || "";
         const scenario = this._benchmarkService.getScenarios(difficulty)
             .find((item): boolean => item.name === record.scenarioName);
