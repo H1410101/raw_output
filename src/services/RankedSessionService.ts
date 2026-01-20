@@ -155,6 +155,7 @@ export class RankedSessionService {
     }
 
     /**
+    /**
      * Returns the elapsed time in seconds since the current scenario was entered.
      * 
      * @returns Seconds elapsed, or 0 if inactive.
@@ -178,6 +179,19 @@ export class RankedSessionService {
     }
 
     /**
+     * Returns whether the session is considered active (ACTIVE, COMPLETED, or SUMMARY).
+     * 
+     * @returns True if the session is active.
+     */
+    public isSessionActive(): boolean {
+        return (
+            this._status === "ACTIVE" ||
+            this._status === "COMPLETED" ||
+            this._status === "SUMMARY"
+        );
+    }
+
+    /**
      * Returns the remaining time in seconds for the current session.
      * 
      * @returns Seconds remaining, or 0 if inactive or expired.
@@ -195,10 +209,26 @@ export class RankedSessionService {
     }
 
     /**
-     * Starts a new ranked session for the given difficulty.
+     * Checks if the given timestamp corresponds to today's date.
      *
-     * @param difficulty - The difficulty tier to play.
+     * @param timestamp - The timestamp to check.
+     * @returns True if the timestamp is from today.
      */
+    private _isToday(timestamp: number | null): boolean {
+        if (!timestamp) {
+            return false;
+        }
+
+        const date = new Date(timestamp);
+        const now = new Date();
+
+        return (
+            date.getDate() === now.getDate() &&
+            date.getMonth() === now.getMonth() &&
+            date.getFullYear() === now.getFullYear()
+        );
+    }
+
     /**
      * Starts a new ranked session for the given difficulty.
      *
@@ -207,6 +237,14 @@ export class RankedSessionService {
     public startSession(difficulty: string): void {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
         if (scenarios.length === 0) {
+
+            return;
+        }
+
+        // If a session for this difficulty already exists from today, resume it.
+        if (this._difficulty === difficulty && this._isToday(this._rankedSessionId)) {
+            this._resumeExistingSession();
+
             return;
         }
 
@@ -231,6 +269,38 @@ export class RankedSessionService {
         this._accumulatedScenarioSeconds.clear();
         this._scenarioStartTime = new Date().toISOString();
 
+        this._saveToLocalStorage();
+        this._notifyListeners();
+    }
+
+    /**
+     * Resumes an existing session by jumping to the appropriate scenario.
+     */
+    private _resumeExistingSession(): void {
+        this._status = "ACTIVE";
+        this._startTime = new Date().toISOString();
+
+        // Find the index of the last scenario played in the current sequence.
+        let maxPlayedIndex = -1;
+        for (let i = 0; i < this._sequence.length; i++) {
+            if (this._playedScenarios.has(this._sequence[i])) {
+                maxPlayedIndex = i;
+            }
+        }
+
+        // Jump to the scenario after the last one played.
+        this._currentIndex = maxPlayedIndex + 1;
+
+        // If we've reached the end of the sequence, extend it or transition.
+        if (this._currentIndex >= this._sequence.length) {
+            if (this._initialGauntletComplete || this._currentIndex >= 3) {
+                this.extendSession();
+            } else {
+                this._status = "COMPLETED";
+            }
+        }
+
+        this._sessionService.startRankedSession(Date.now());
         this._saveToLocalStorage();
         this._notifyListeners();
     }
@@ -345,20 +415,12 @@ export class RankedSessionService {
      */
     public reset(): void {
         this._status = "IDLE";
-        this._sequence = [];
-        this._currentIndex = 0;
-        this._difficulty = null;
-        this._startTime = null;
-        this._rankedSessionId = null;
-        this._initialGauntletComplete = false;
-        this._playedScenarios.clear();
-        this._initialEstimates = {};
-        this._scenarioStartTime = null;
-        this._accumulatedScenarioSeconds.clear();
 
         this._sessionService.stopRankedSession();
 
-        localStorage.removeItem(this._storageKey);
+        // We preserve the sequence and other data to enable resumption if still today.
+        // If it's not today, the next startSession will naturally overwrite it.
+        this._saveToLocalStorage();
         this._notifyListeners();
     }
 

@@ -256,6 +256,7 @@ export class AppBootstrap {
 
     this._rankedSessionService.onStateChanged((): void => {
       this._tryApplyDailyDecay();
+      this._checkAnalyticsPrompt();
     });
 
     this._appStateService.onDifficultyChanged((): void => {
@@ -263,6 +264,10 @@ export class AppBootstrap {
         this._appStateService.getBenchmarkDifficulty(),
       );
       this._rankedView.refresh();
+    });
+
+    this._appStateService.onTabChanged((): void => {
+      this._checkAnalyticsPrompt();
     });
   }
 
@@ -439,8 +444,17 @@ export class AppBootstrap {
       return;
     }
 
+    const state = this._rankedSessionService.state;
+    const isPlaying = state.status === "ACTIVE" || state.status === "COMPLETED";
+    const isAtSummary = state.status === "SUMMARY";
+    const isOnRankedTab = this._appStateService.getActiveTabId() === "nav-ranked";
+
+    if (isPlaying || (isAtSummary && isOnRankedTab)) {
+      return;
+    }
+
     if (
-      !this._identityService.isAnalyticsEnabled() &&
+      this._identityService.canShowAnalyticsPrompt() &&
       this._directoryService.isStatsFolderSelected()
     ) {
       const popup: AnalyticsPopupComponent = new AnalyticsPopupComponent(
@@ -448,6 +462,7 @@ export class AppBootstrap {
         this._audioService,
       );
       popup.render();
+      this._identityService.recordAnalyticsPrompt();
       this._hasPromptedAnalytics = true;
     }
   }

@@ -7,7 +7,7 @@ This directory contains standalone UI components for the Raw Output application.
 The components in this directory follow a pattern where they are instantiated with required services and then rendered into the DOM.
 
 - `AboutPopupComponent`: Renders an informational popup about the application.
-- `AnalyticsPopupComponent`: Prompts the user for anonymous feedback consent.
+- `AnalyticsPopupComponent`: Prompts the user for score feedback consent.
 - `ApplicationStatusView`: Manages the application-wide status indicator (e.g., Connected, Scanning).
 - `FolderSettingsView`: A full-screen view for managing the Kovaak's stats folder link.
 - `HUDProgressBar`: A reusable progress bar for HUD elements.
