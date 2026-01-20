@@ -117,11 +117,6 @@ export class RankedView {
     this._container.classList.toggle("session-active", isSessionActive);
     document.body.classList.toggle("ranked-mode-active", isSessionActive);
 
-    if (isSessionActive) {
-      const glass: HTMLDivElement = document.createElement("div");
-      glass.className = "ranked-session-glass";
-      viewContainer.appendChild(glass);
-    }
 
     if (state.status === "IDLE") {
       this._renderIdle(viewContainer);

@@ -109,6 +109,8 @@ export class RankEstimator {
 
         return {
             ...stored,
+            continuousValue: Math.max(0, stored.continuousValue),
+            highestAchieved: Math.max(0, stored.highestAchieved),
             penalty: currentPenalty,
             lastPlayed: lastPlayedStr,
             lastDecayed: stored.lastDecayed || stored.lastUpdated || now.toISOString(),
@@ -430,7 +432,7 @@ export class RankEstimator {
      * @returns The newly calculated decayed rank value.
      */
     private static _calculateDecay(current: number, peak: number, daysPassed: number): number {
-        const floor = peak - 2 * RankEstimator._phi;
+        const floor = Math.max(0, peak - 2 * RankEstimator._phi);
 
         if (current <= floor) {
             return current;
