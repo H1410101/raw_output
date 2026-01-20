@@ -334,15 +334,6 @@ export class RankedView {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
 
-  private _calculateEffectiveScore(scores: number[]): number {
-    if (scores.length < 3) {
-      return 0;
-    }
-
-    const sorted = [...scores].sort((a, b) => b - a);
-
-    return sorted[2];
-  }
 
   private _renderMainContent(state: RankedSessionState): string {
     if (state.status === "COMPLETED") {
@@ -465,38 +456,6 @@ export class RankedView {
     `;
   }
 
-  private _calculateSessionAchievedRank(): EstimatedRank {
-    const state = this._deps.rankedSession.state;
-    const sequence = state.sequence;
-    const difficulty = this._deps.appState.getBenchmarkDifficulty();
-
-    if (sequence.length < 3) {
-      return this._deps.estimator.getEstimateForValue(0, difficulty);
-    }
-
-    const scenarioNames = [sequence[0], sequence[2]];
-    let totalRankValue = 0;
-    let count = 0;
-
-    const allRuns = this._deps.session.getAllRankedSessionRuns();
-    const scenarios = this._deps.benchmark.getScenarios(difficulty);
-
-    for (const name of scenarioNames) {
-      const runs = allRuns.filter((run) => run.scenarioName === name).map((run) => run.score);
-      const scenario = scenarios.find((ref) => ref.name === name);
-
-      if (runs.length > 0 && scenario) {
-        const effectiveScore = this._calculateEffectiveScore(runs);
-        const val = this._deps.estimator.getScenarioContinuousValue(effectiveScore, scenario);
-        totalRankValue += val;
-        count++;
-      }
-    }
-
-    const average = count > 0 ? totalRankValue / count : 0;
-
-    return this._deps.estimator.getEstimateForValue(average, difficulty);
-  }
 
   private _renderRankTimeline(scenarioName: string): string {
     const containerId: string = `rank-timeline-${scenarioName.replace(/\s+/g, "-")}`;

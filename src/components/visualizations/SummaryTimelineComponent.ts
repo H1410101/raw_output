@@ -1,5 +1,5 @@
 import { VisualSettings } from "../../services/VisualSettingsService";
-import { RankScaleMapper } from "./RankScaleMapper";
+
 
 export interface SummaryTimelineConfiguration {
     readonly scenarioName: string;
@@ -59,13 +59,7 @@ interface CollisionOptions {
 export class SummaryTimelineComponent {
     private readonly _container: HTMLElement;
     private readonly _config: SummaryTimelineConfiguration;
-    private readonly _mapper: RankScaleMapper;
     private _resizeObserver: ResizeObserver | null = null;
-
-    private _titleAnchor: HTMLElement | null = null;
-    private _deltaAnchor: HTMLElement | null = null;
-    private _oldAnchor: HTMLElement | null = null;
-    private _newAnchor: HTMLElement | null = null;
 
     private _titleLabel: HTMLElement | null = null;
     private _deltaLabel: HTMLElement | null = null;
@@ -87,8 +81,6 @@ export class SummaryTimelineComponent {
         this._container.className = "summary-timeline-component";
         this._container.style.width = "100%";
 
-        const thresholdValues = Object.values(config.thresholds).sort((a, b) => a - b);
-        this._mapper = new RankScaleMapper(thresholdValues, 100);
     }
 
     /**
@@ -105,10 +97,6 @@ export class SummaryTimelineComponent {
      */
     public render(): HTMLElement {
         this._container.innerHTML = "";
-        this._titleAnchor = null;
-        this._deltaAnchor = null;
-        this._oldAnchor = null;
-        this._newAnchor = null;
 
         this._titleLabel = null;
         this._deltaLabel = null;
@@ -157,7 +145,6 @@ export class SummaryTimelineComponent {
         anchor.className = "summary-timeline-label-anchor top old title-fixed anchor-center";
         anchor.style.left = "10%";
         parent.appendChild(anchor);
-        this._titleAnchor = anchor;
 
         const text = this._config.scenarioName;
         this._titleHitbox = this._createHitbox(anchor, text, "title");
@@ -175,7 +162,6 @@ export class SummaryTimelineComponent {
         anchor.className = "summary-timeline-label-anchor top new anchor-center";
         anchor.style.left = `${pct}%`;
         parent.appendChild(anchor);
-        this._deltaAnchor = anchor;
 
         const text = `+${this._config.gain}%`;
         this._deltaHitbox = this._createHitbox(anchor, text);
@@ -325,12 +311,10 @@ export class SummaryTimelineComponent {
         const label = this._createLabel(anchor, `summary-timeline-rank-label ${options.type}`, text);
 
         if (options.type === "old") {
-            this._oldAnchor = anchor;
             this._oldLabel = label;
             this._oldHitbox = hitbox;
             label.style.transform = "translateX(0%)";
         } else {
-            this._newAnchor = anchor;
             this._newLabel = label;
             this._newHitbox = hitbox;
             label.style.transform = "translateX(0%)";
