@@ -491,15 +491,16 @@ export class RankedView {
       return;
     }
 
-    const { estimate, achievedRU, bestRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
+    const { estimate, initialRU, achievedRU, bestRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
+    const targetRU = initialRU !== undefined && initialRU !== -1 ? initialRU : undefined;
 
     const timeline: RankTimelineComponent = new RankTimelineComponent({
       thresholds: scenario.thresholds,
       settings: this._deps.visualSettings.getSettings(),
-      targetRU: estimate.continuousValue !== -1 ? estimate.continuousValue : undefined,
+      targetRU,
       achievedRU,
       scrollAnchorRU: bestRU,
-      expectedRU: this._calculateExpectedRU(estimate.continuousValue, achievedRU),
+      expectedRU: this._calculateExpectedRU(estimate.continuousValue, targetRU ?? 0, achievedRU),
       attemptsRU
     });
 
@@ -511,8 +512,9 @@ export class RankedView {
   private _getScenarioPerformanceData(
     scenarioName: string,
     scenario: BenchmarkScenario
-  ): { estimate: ScenarioEstimate, achievedRU?: number, bestRU?: number, attemptsRU?: number[] } {
+  ): { estimate: ScenarioEstimate, initialRU?: number, achievedRU?: number, bestRU?: number, attemptsRU?: number[] } {
     const estimate = this._deps.estimator.getScenarioEstimate(scenarioName);
+    const initialRU = this._deps.rankedSession.state.initialEstimates[scenarioName];
     const record = this._deps.session.getRankedScenarioBest(scenarioName);
 
     const bestRU = record && record.bestScore > 0
@@ -530,15 +532,17 @@ export class RankedView {
       achievedRU = sorted[2];
     }
 
-    return { estimate, achievedRU, bestRU, attemptsRU };
+    return { estimate, initialRU, achievedRU, bestRU, attemptsRU };
   }
 
-  private _calculateExpectedRU(currentRU: number, achievedRU?: number): number | undefined {
+  private _calculateExpectedRU(currentRU: number, initialRU: number, achievedRU?: number): number | undefined {
     if (achievedRU === undefined) {
       return undefined;
     }
 
-    return RankEstimator.calculateEvolvedValue(currentRU, achievedRU);
+    const potentialRank = RankEstimator.calculateEvolvedValue(initialRU, achievedRU);
+
+    return Math.max(currentRU, potentialRank);
   }
 
   private _renderScenarioContent(state: RankedSessionState): string {

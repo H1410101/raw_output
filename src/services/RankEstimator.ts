@@ -186,12 +186,18 @@ export class RankEstimator {
      *
      * @param scenarioName - The scenario to update.
      * @param sessionRank - The continuous rank achieved in the current session.
+     * @param initialValue - The baseline rank to evolve from (optional).
      */
-    public evolveScenarioEstimate(scenarioName: string, sessionRank: number): void {
+    public evolveScenarioEstimate(scenarioName: string, sessionRank: number, initialValue?: number): void {
         const map: RankEstimateMap = this.getRankEstimateMap();
         const current: ScenarioEstimate = this.getScenarioEstimate(scenarioName);
 
-        const newValue = RankEstimator.calculateEvolvedValue(current.continuousValue, sessionRank);
+        const calculationBase = initialValue !== undefined ? initialValue : current.continuousValue;
+        const potentialNewValue = RankEstimator.calculateEvolvedValue(calculationBase, sessionRank);
+
+        // THE FIX: The new rank should be the simple max between the previous new rank (of a past session)
+        // and the current new rank (of this ranked session).
+        const newValue = Math.max(current.continuousValue, potentialNewValue);
 
         map[scenarioName] = {
             continuousValue: newValue,
