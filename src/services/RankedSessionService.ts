@@ -280,6 +280,7 @@ export class RankedSessionService {
         }
 
         if (this._difficulty && this._difficulty !== difficulty) {
+            this._snapshotScenarioTime();
             this._snapshotCurrentDifficultyState();
         }
 
@@ -330,6 +331,9 @@ export class RankedSessionService {
         this._startTime = new Date().toISOString();
 
         this._jumpToNextUnplayedScenario();
+        if (this._status === "ACTIVE") {
+            this._scenarioStartTime = new Date().toISOString();
+        }
 
         this._sessionService.startRankedSession(Date.now());
         this._saveToLocalStorage();

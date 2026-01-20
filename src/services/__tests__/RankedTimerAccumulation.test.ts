@@ -40,18 +40,24 @@ function createMocks(): MockServices {
     };
 }
 
-describe("Ranked Timer: Accumulation", (): void => {
-    let service: RankedSessionService;
-    beforeEach((): void => {
-        vi.useFakeTimers();
-        vi.setSystemTime(new Date("2026-01-20T10:00:00Z"));
-        const mocks = createMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
-    });
-    afterEach((): void => {
-        vi.useRealTimers();
-        localStorage.clear();
-    });
+let service: RankedSessionService;
+
+function setupService(): void {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-20T10:00:00Z"));
+    const mocks = createMocks();
+    service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+}
+
+function teardownService(): void {
+    vi.useRealTimers();
+    localStorage.clear();
+}
+
+describe("Ranked Timer Core", (): void => {
+    beforeEach(setupService);
+    afterEach(teardownService);
+
     it("should accumulate scenario time across multiple visits", (): void => {
         service.startSession("Gold");
         vi.advanceTimersByTime(30000);
@@ -63,20 +69,23 @@ describe("Ranked Timer: Accumulation", (): void => {
         service.retreat();
         expect(service.scenarioElapsedSeconds).toBe(30);
     });
+
+    it("should start scenario timer immediately upon resumption", (): void => {
+        service.startSession("Gold");
+        service.endSession();
+        service.reset();
+
+        // Resume session
+        service.startSession("Gold");
+        vi.advanceTimersByTime(15000);
+        expect(service.scenarioElapsedSeconds).toBe(15);
+    });
 });
 
-describe("Ranked Timer: Reset", (): void => {
-    let service: RankedSessionService;
-    beforeEach((): void => {
-        vi.useFakeTimers();
-        vi.setSystemTime(new Date("2026-01-20T10:00:00Z"));
-        const mocks = createMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
-    });
-    afterEach((): void => {
-        vi.useRealTimers();
-        localStorage.clear();
-    });
+describe("Ranked Timer Persistence", (): void => {
+    beforeEach(setupService);
+    afterEach(teardownService);
+
     it("should reset scenario timers between distinct runs", (): void => {
         service.startSession("Gold");
         vi.advanceTimersByTime(60000);
@@ -91,4 +100,3 @@ describe("Ranked Timer: Reset", (): void => {
         expect(service.scenarioElapsedSeconds).toBe(0);
     });
 });
-
