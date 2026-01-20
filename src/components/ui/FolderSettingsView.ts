@@ -92,7 +92,6 @@ export class FolderSettingsView {
     if (this._isInvalid) finalClass += " invalid-selection";
     else if (this._isValid) finalClass += " valid-selection";
     button.className = finalClass;
-    button.title = "Link Kovaak's Stats Folder";
     button.setAttribute("aria-label", "Link Kovaak's Stats Folder");
 
     button.innerHTML = `
