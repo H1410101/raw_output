@@ -19,6 +19,8 @@ export interface RankedSessionState {
     readonly rankedSessionId: number | null;
     readonly playedScenarios: string[];
     readonly initialEstimates: Record<string, number>;
+    readonly scenarioStartTime: string | null;
+    readonly accumulatedScenarioSeconds: Record<string, number>;
 }
 
 interface ScenarioMetric {
@@ -49,6 +51,8 @@ export class RankedSessionService {
     private _initialGauntletComplete: boolean = false;
     private _playedScenarios: Set<string> = new Set();
     private _initialEstimates: Record<string, number> = {};
+    private _scenarioStartTime: string | null = null;
+    private _accumulatedScenarioSeconds: Map<string, number> = new Map();
     private _tickerHandle: number | null = null;
 
     private readonly _onStateChanged: (() => void)[] = [];
@@ -98,6 +102,8 @@ export class RankedSessionService {
             rankedSessionId: this._rankedSessionId,
             playedScenarios: Array.from(this._playedScenarios),
             initialEstimates: { ...this._initialEstimates },
+            scenarioStartTime: this._scenarioStartTime,
+            accumulatedScenarioSeconds: Object.fromEntries(this._accumulatedScenarioSeconds),
         };
     }
 
@@ -146,6 +152,29 @@ export class RankedSessionService {
         const now: number = Date.now();
 
         return Math.floor((now - start) / 1000);
+    }
+
+    /**
+     * Returns the elapsed time in seconds since the current scenario was entered.
+     * 
+     * @returns Seconds elapsed, or 0 if inactive.
+     */
+    public get scenarioElapsedSeconds(): number {
+        if (this._status === "IDLE") {
+            return 0;
+        }
+
+        const currentScenario = this.currentScenarioName;
+        const accumulated = currentScenario ? (this._accumulatedScenarioSeconds.get(currentScenario) || 0) : 0;
+
+        if (!this._scenarioStartTime) {
+            return accumulated;
+        }
+
+        const start: number = new Date(this._scenarioStartTime).getTime();
+        const now: number = Date.now();
+
+        return accumulated + Math.floor((now - start) / 1000);
     }
 
     /**
@@ -199,6 +228,8 @@ export class RankedSessionService {
         this._sessionService.startRankedSession(Date.now());
         this._initialEstimates = {};
         this._recordInitialEstimates(batch);
+        this._accumulatedScenarioSeconds.clear();
+        this._scenarioStartTime = new Date().toISOString();
 
         this._saveToLocalStorage();
         this._notifyListeners();
@@ -212,7 +243,9 @@ export class RankedSessionService {
             return;
         }
 
+        this._snapshotScenarioTime();
         this._currentIndex--;
+        this._scenarioStartTime = new Date().toISOString();
         // If we were in COMPLETED, going back makes us ACTIVE
         this._status = "ACTIVE";
 
@@ -228,7 +261,9 @@ export class RankedSessionService {
             return;
         }
 
+        this._snapshotScenarioTime();
         this._currentIndex++;
+        this._scenarioStartTime = new Date().toISOString();
 
         // Gauntlet Logic:
         // 1. If we reach the end of the initial 3, set status to COMPLETED (Show summary).
@@ -265,6 +300,8 @@ export class RankedSessionService {
         this._status = "ACTIVE";
 
         this._recordInitialEstimates(batch);
+        this._snapshotScenarioTime();
+        this._scenarioStartTime = new Date().toISOString();
 
         this._saveToLocalStorage();
         this._notifyListeners();
@@ -279,6 +316,7 @@ export class RankedSessionService {
             return;
         }
 
+        this._snapshotScenarioTime();
         this._status = "SUMMARY";
 
         this._evolveRanksForPlayedScenarios();
@@ -315,6 +353,8 @@ export class RankedSessionService {
         this._initialGauntletComplete = false;
         this._playedScenarios.clear();
         this._initialEstimates = {};
+        this._scenarioStartTime = null;
+        this._accumulatedScenarioSeconds.clear();
 
         this._sessionService.stopRankedSession();
 
@@ -586,6 +626,8 @@ export class RankedSessionService {
             rankedSessionId: this._rankedSessionId,
             playedScenarios: Array.from(this._playedScenarios),
             initialEstimates: { ...this._initialEstimates },
+            scenarioStartTime: this._scenarioStartTime,
+            accumulatedScenarioSeconds: Object.fromEntries(this._accumulatedScenarioSeconds),
         };
 
         localStorage.setItem(this._storageKey, JSON.stringify(state));
@@ -610,6 +652,8 @@ export class RankedSessionService {
                 this._playedScenarios = new Set(state.playedScenarios);
             }
             this._initialEstimates = state.initialEstimates || {};
+            this._scenarioStartTime = state.scenarioStartTime || null;
+            this._accumulatedScenarioSeconds = new Map(Object.entries(state.accumulatedScenarioSeconds || {}));
         } catch {
             localStorage.removeItem(this._storageKey);
         }
@@ -625,5 +669,18 @@ export class RankedSessionService {
 
     private _notifyListeners(): void {
         this._onStateChanged.forEach((callback: () => void): void => callback());
+    }
+
+    private _snapshotScenarioTime(): void {
+        const current = this.currentScenarioName;
+        if (!current || !this._scenarioStartTime) return;
+
+        const start: number = new Date(this._scenarioStartTime).getTime();
+        const now: number = Date.now();
+        const elapsed = Math.floor((now - start) / 1000);
+
+        const existing = this._accumulatedScenarioSeconds.get(current) || 0;
+        this._accumulatedScenarioSeconds.set(current, existing + elapsed);
+        this._scenarioStartTime = null;
     }
 }

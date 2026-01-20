@@ -40,6 +40,7 @@ export class RankedView {
   private readonly _container: HTMLElement;
   private readonly _deps: RankedViewDependencies;
   private _folderSettingsView: FolderSettingsView | null = null;
+  private _hudInterval: number | null = null;
 
   /**
    * Initializes the view with its mount point.
@@ -103,6 +104,7 @@ export class RankedView {
 
     const state: RankedSessionState = this._deps.rankedSession.state;
 
+    this._stopHudTicking();
     this._container.innerHTML = "";
 
     const viewContainer: HTMLDivElement = document.createElement("div");
@@ -114,6 +116,12 @@ export class RankedView {
     const isSessionActive = state.status !== "IDLE";
     this._container.classList.toggle("session-active", isSessionActive);
     document.body.classList.toggle("ranked-mode-active", isSessionActive);
+
+    if (isSessionActive) {
+      const glass: HTMLDivElement = document.createElement("div");
+      glass.className = "ranked-session-glass";
+      viewContainer.appendChild(glass);
+    }
 
     if (state.status === "IDLE") {
       this._renderIdle(viewContainer);
@@ -198,7 +206,6 @@ export class RankedView {
     return container;
   }
 
-
   private _createDifficultyTabs(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "difficulty-tabs";
@@ -244,7 +251,6 @@ export class RankedView {
   }
 
   private _getIdleHtml(): string {
-
     return `
       <div class="ranked-info-top">
           <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
@@ -252,6 +258,7 @@ export class RankedView {
       </div>
       <div class="dot-cloud-container ranked-dot-cloud" style="visibility: hidden;"></div>
       <div class="media-controls">
+          <div class="hud-group left" style="visibility: hidden;"></div>
           <div class="controls-left" style="visibility: hidden;">
               <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
           </div>
@@ -265,6 +272,7 @@ export class RankedView {
           <div class="controls-right" style="visibility: hidden;">
               <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
           </div>
+          <div class="hud-group right" style="visibility: hidden;"></div>
       </div>
     `;
   }
@@ -276,12 +284,64 @@ export class RankedView {
     container.innerHTML = this._renderMainContent(state);
 
     parent.appendChild(container);
+
+    if (state.status === "ACTIVE") {
+      this._startHudTicking();
+    }
+
     this._attachActiveListeners(container);
   }
 
+  private _startHudTicking(): void {
+    this._updateHudStats();
+    this._hudInterval = window.setInterval(() => this._updateHudStats(), 1000);
+  }
+
+  private _stopHudTicking(): void {
+    if (this._hudInterval !== null) {
+      window.clearInterval(this._hudInterval);
+      this._hudInterval = null;
+    }
+  }
+
+
+  private _updateHudStats(): void {
+    const scenarioStats = document.getElementById("hud-scenario-stats");
+    const sessionStats = document.getElementById("hud-session-stats");
+
+    if (!scenarioStats || !sessionStats) {
+      return;
+    }
+
+    const state = this._deps.rankedSession.state;
+    const currentScenario = state.sequence[state.currentIndex];
+    const allRuns = this._deps.session.getAllRankedSessionRuns();
+
+    // Scenario Stats: Time | Attempts
+    const scenarioTime: number = this._deps.rankedSession.scenarioElapsedSeconds;
+    const scenarioAttempts: number = allRuns.filter(run => run.scenarioName === currentScenario).length;
+
+    scenarioStats.textContent = `${this._formatHudTime(scenarioTime)} | ${scenarioAttempts}`;
+
+    // Session Stats: Attempts | Time
+    const sessionStartTime: number | null = this._deps.session.rankedStartTime;
+    const sessionTime: number = sessionStartTime ? Math.floor((Date.now() - sessionStartTime) / 1000) : 0;
+    const sessionAttempts: number = allRuns.length;
+
+    sessionStats.textContent = `${sessionAttempts} | ${this._formatHudTime(sessionTime)}`;
+  }
+
+  private _formatHudTime(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  }
 
   private _calculateEffectiveScore(scores: number[]): number {
-    if (scores.length < 3) return 0;
+    if (scores.length < 3) {
+      return 0;
+    }
 
     const sorted = [...scores].sort((a, b) => b - a);
 
@@ -326,7 +386,11 @@ export class RankedView {
           <p class="summary-subtitle">Run Overview</p>
           <div class="scenarios-list">
               ${effectiveStats.length > 0 ? effectiveStats.map(stat => `
-                  <div class="scenario-summary-item"><span class="scenario-name">${stat.name}</span><span class="scenario-score">${stat.score.toFixed(1)}</span><span class="scenario-rank">${stat.rank}</span></div>
+                  <div class="scenario-summary-item">
+                    <span class="scenario-name">${stat.name}</span>
+                    <span class="scenario-score">${stat.score.toFixed(1)}</span>
+                    <span class="scenario-rank">${stat.rank}</span>
+                  </div>
               `).join('') : '<p class="no-scenarios">No scenarios played this session.</p>'}
           </div>
       </div>
@@ -379,11 +443,9 @@ export class RankedView {
     const difficulty = this._deps.appState.getBenchmarkDifficulty();
 
     if (sequence.length < 3) {
-      // Should not happen in COMPLETED state normally
       return this._deps.estimator.getEstimateForValue(0, difficulty);
     }
 
-    // 1st scenario (Strong) and 3rd scenario (Mid)
     const scenarioNames = [sequence[0], sequence[2]];
     let totalRankValue = 0;
     let count = 0;
@@ -392,10 +454,7 @@ export class RankedView {
     const scenarios = this._deps.benchmark.getScenarios(difficulty);
 
     for (const name of scenarioNames) {
-      const runs = allRuns
-        .filter((run) => run.scenarioName === name)
-        .map((run) => run.score);
-
+      const runs = allRuns.filter((run) => run.scenarioName === name).map((run) => run.score);
       const scenario = scenarios.find((ref) => ref.name === name);
 
       if (runs.length > 0 && scenario) {
@@ -421,19 +480,21 @@ export class RankedView {
     return `<div id="${containerId}" class="rank-timeline-container"></div>`;
   }
 
-  private _updateRankTimeline(
-    containerId: string,
-    scenarioName: string
-  ): void {
+  private _updateRankTimeline(containerId: string, scenarioName: string): void {
     const container: HTMLElement | null = document.getElementById(containerId);
-    if (!container) return;
+
+    if (!container) {
+      return;
+    }
 
     const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
     const scenario: BenchmarkScenario | undefined = this._deps.benchmark.getScenarios(difficulty).find(
       (scenarioReference: BenchmarkScenario): boolean => scenarioReference.name === scenarioName
     );
 
-    if (!scenario) return;
+    if (!scenario) {
+      return;
+    }
 
     const { estimate, achievedRU, bestRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
 
@@ -467,8 +528,8 @@ export class RankedView {
     const scenarioRuns = rankedRuns.filter(run => run.scenarioName === scenarioName);
     const attemptsRU = scenarioRuns.map(run => this._deps.estimator.getScenarioContinuousValue(run.score, scenario));
 
-    // Calculate achievedRU as the 3rd highest
     let achievedRU = undefined;
+
     if (attemptsRU.length >= 3) {
       const sorted = [...attemptsRU].sort((a, b) => b - a);
       achievedRU = sorted[2];
@@ -485,8 +546,6 @@ export class RankedView {
     return RankEstimator.calculateEvolvedValue(currentRU, achievedRU);
   }
 
-
-
   private _renderScenarioContent(state: RankedSessionState): string {
     const scenarioName = state.sequence[state.currentIndex];
 
@@ -502,8 +561,14 @@ export class RankedView {
   }
 
   private _renderMediaControls(state: RankedSessionState): string {
+    const isScenarioActive: boolean = state.status === "ACTIVE";
+
     return `
       <div class="media-controls">
+          <div class="hud-group left" id="hud-scenario-stats">
+              ${isScenarioActive ? this._getScenarioHudString(state) : ""}
+          </div>
+
           <div class="controls-left">
               <button class="media-btn secondary" id="ranked-help-btn" title="Ranked Mode Info">
                   <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
@@ -523,8 +588,30 @@ export class RankedView {
                   <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
               </button>
           </div>
+
+          <div class="hud-group right" id="hud-session-stats">
+              ${isScenarioActive ? this._getSessionHudString() : ""}
+          </div>
       </div>
     `;
+  }
+
+  private _getScenarioHudString(state: RankedSessionState): string {
+    const currentScenario = state.sequence[state.currentIndex];
+    const allRuns = this._deps.session.getAllRankedSessionRuns();
+    const scenarioTime: number = this._deps.rankedSession.scenarioElapsedSeconds;
+    const scenarioAttempts: number = allRuns.filter(run => run.scenarioName === currentScenario).length;
+
+    return `${this._formatHudTime(scenarioTime)} | ${scenarioAttempts}`;
+  }
+
+  private _getSessionHudString(): string {
+    const allRuns = this._deps.session.getAllRankedSessionRuns();
+    const sessionStartTime: number | null = this._deps.session.rankedStartTime;
+    const sessionTime: number = sessionStartTime ? Math.floor((Date.now() - sessionStartTime) / 1000) : 0;
+    const sessionAttempts: number = allRuns.length;
+
+    return `${sessionAttempts} | ${this._formatHudTime(sessionTime)}`;
   }
 
   private _getPlayButtonHtml(): string {
@@ -577,41 +664,18 @@ export class RankedView {
 
   private _updateDrainAnimation(container: HTMLElement): void {
     const water: HTMLElement | null = container.querySelector("#play-drain-water");
-    if (!water) return;
+    if (!water) {
+      return;
+    }
 
     const elapsed = this._deps.rankedSession.elapsedSeconds;
     const totalMinutes = this._deps.sessionSettings.getSettings().rankedIntervalMinutes;
     const totalSeconds = totalMinutes * 60;
 
-    // We animate the black rect from y=0 (obscuring nothing? Wait)
-    // Goal: "Cut-out initially filled" (VISIBLE Circle) -> "Unfill" (INVISIBLE Circle).
-    // White rect = Visible. Black rect = Invisible.
-    // Initially: Mask should be White.
-    // As time passes: Top becomes Black.
-    // So Black rect moves DOWN from TOP?
-
-    // Let's rely on translation.
-    // Black rect at y=-24 (Above). Moves to y=0?
-    // If Black rect is over the shape, it hides it.
-    // We want to HIDE the top part.
-    // So Black rect starts at y=-24 (Not covering).
-    // Ends at y=0 (Covering).
-    // Wait, if it covers from TOP, then as it moves DOWN, it covers more.
-
-    // Let's check: Water drained.
-    // Full Container (Visible).
-    // Level Drops. Top becomes Empty (Invisible).
-    // So yes, we need to hide the top part progressively.
-    // So a Masking Shape (Black) enters from the Top?
-
-    // Reset
     water.style.transition = "none";
     water.style.animation = `drain-vertical ${totalSeconds}s linear forwards`;
     water.style.animationDelay = `-${elapsed}s`;
   }
-
-
-
 
   private _launchScenario(scenarioName: string): void {
     const encodedName: string = encodeURIComponent(scenarioName);
@@ -633,15 +697,13 @@ export class RankedView {
       return true;
     }
 
-    const lastCheck: number =
-      await this._deps.history.getLastCheckTimestamp();
+    const lastCheck: number = await this._deps.history.getLastCheckTimestamp();
 
     return lastCheck === 0;
   }
 
   private async _renderFolderView(): Promise<void> {
-    const lastCheck: number =
-      await this._deps.history.getLastCheckTimestamp();
+    const lastCheck: number = await this._deps.history.getLastCheckTimestamp();
 
     this._container.innerHTML = "";
     this._folderSettingsView?.destroy();
@@ -688,11 +750,8 @@ export class RankedView {
   }
 
   private _updateHeaderButtonStates(isFolderActive: boolean): void {
-    const folderBtn: HTMLElement | null =
-      document.getElementById("header-folder-btn");
-    const settingsBtn: HTMLElement | null = document.getElementById(
-      "header-settings-btn",
-    );
+    const folderBtn: HTMLElement | null = document.getElementById("header-folder-btn");
+    const settingsBtn: HTMLElement | null = document.getElementById("header-settings-btn");
     const rankedNavBtn: HTMLElement | null = document.getElementById("nav-ranked");
 
     if (folderBtn) {
@@ -700,15 +759,11 @@ export class RankedView {
     }
 
     if (settingsBtn) {
-      settingsBtn.classList.toggle(
-        "active",
-        this._deps.appState.getIsSettingsMenuOpen(),
-      );
+      settingsBtn.classList.toggle("active", this._deps.appState.getIsSettingsMenuOpen());
     }
 
     if (rankedNavBtn) {
       const isRankedTabActive = this._deps.appState.getActiveTabId() === "nav-ranked";
-
       if (isRankedTabActive) {
         rankedNavBtn.classList.toggle("active", !isFolderActive);
       }
