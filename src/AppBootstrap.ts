@@ -454,7 +454,7 @@ export class AppBootstrap {
     }
 
     if (
-      !this._identityService.isAnalyticsEnabled() &&
+      this._identityService.canShowAnalyticsPrompt() &&
       this._directoryService.isStatsFolderSelected()
     ) {
       const popup: AnalyticsPopupComponent = new AnalyticsPopupComponent(
@@ -462,6 +462,7 @@ export class AppBootstrap {
         this._audioService,
       );
       popup.render();
+      this._identityService.recordAnalyticsPrompt();
       this._hasPromptedAnalytics = true;
     }
   }
