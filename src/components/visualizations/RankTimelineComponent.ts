@@ -11,6 +11,8 @@ export interface RankTimelineConfiguration {
     // How many RUs to show. Default to 3.5
     readonly rangeWindow?: number;
     readonly expectedRU?: number;
+    readonly targetLabel?: string;
+    readonly achievedLabel?: string;
 }
 
 interface MarkerRenderOptions {
@@ -156,7 +158,7 @@ export class RankTimelineComponent {
 
         const text = document.createElement("div");
         text.className = `timeline-marker-label label-target offscreen`;
-        text.innerText = "TARGET";
+        text.innerText = (this._config.targetLabel || "TARGET").toUpperCase();
         anchor.appendChild(text);
 
         this._targetAnchor = anchor;
@@ -176,14 +178,14 @@ export class RankTimelineComponent {
             parent,
             notchPercent: aPct,
             labelPercent: aPct,
-            label: "Achieved",
+            label: this._config.achievedLabel || "Achieved",
             type: "achieved"
         });
         this._renderMarker({
             parent,
             notchPercent: tPct,
             labelPercent: tPct,
-            label: "Target",
+            label: this._config.targetLabel || "Target",
             type: "target"
         });
     }
@@ -200,7 +202,7 @@ export class RankTimelineComponent {
                 parent,
                 notchPercent: aPct,
                 labelPercent: aPct,
-                label: "Achieved",
+                label: this._config.achievedLabel || "Achieved",
                 type: "achieved"
             });
         }
@@ -210,7 +212,7 @@ export class RankTimelineComponent {
                 parent,
                 notchPercent: tPct,
                 labelPercent: tPct,
-                label: "Target",
+                label: this._config.targetLabel || "Target",
                 type: "target"
             });
         }
@@ -349,7 +351,7 @@ export class RankTimelineComponent {
             parent: track,
             notchPercent: aPct,
             labelPercent: aPct,
-            label: "Achieved",
+            label: this._config.achievedLabel || "Achieved",
             type: "achieved"
         });
     }

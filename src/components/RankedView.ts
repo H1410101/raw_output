@@ -9,6 +9,7 @@ import { HistoryService } from "../services/HistoryService";
 import { VisualSettingsService } from "../services/VisualSettingsService";
 import { AudioService } from "../services/AudioService";
 import { RankTimelineComponent } from "./visualizations/RankTimelineComponent";
+import { SummaryTimelineComponent } from "./visualizations/SummaryTimelineComponent";
 import { FolderSettingsView, FolderActionHandlers } from "./ui/FolderSettingsView";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
@@ -361,63 +362,95 @@ export class RankedView {
   }
 
   private _renderSummaryContent(): string {
+    const summaryData = this._calculateSummaryData();
+
     return `
-      <div class="summary-view">
-          <h2 style="margin-bottom: 2rem; color: var(--upper-band-3);">SESSION SUMMARY</h2>
-          <div class="scenarios-list">
-              ${this._renderSummaryList()}
-          </div>
-          <div style="display: flex; justify-content: center; margin-top: 3rem;">
-              <div class="difficulty-tabs">
-                  <button class="tab-button active" id="finish-ranked-btn">Back to hub</button>
-              </div>
-          </div>
+      <div class="ranked-info-top">
+          <span class="now-playing">SUMMARY</span>
       </div>
-    `;
-  }
-
-  private _renderSummaryList(): string {
-    const effectiveStats = this._calculateEffectiveStats();
-    const estimate = this._calculateSessionAchievedRank();
-
-    return `
-      <div class="summary-card">
-          <p class="summary-rank">FINAL RANK: <span class="accent">${estimate.rankName}</span></p>
-          <p class="summary-subtitle">Run Overview</p>
-          <div class="scenarios-list">
-              ${effectiveStats.length > 0 ? effectiveStats.map(stat => `
-                  <div class="scenario-summary-item">
-                    <span class="scenario-name">${stat.name}</span>
-                    <span class="scenario-score">${stat.score.toFixed(1)}</span>
-                    <span class="scenario-rank">${stat.rank}</span>
+      <div class="summary-content-wrapper">
+          <div class="scenarios-list summary-scrollable">
+              ${summaryData.length > 0 ? summaryData.map(data => `
+                  <div class="scenario-summary-item summary-timeline-item">
+                    ${this._renderSummaryTimeline(data)}
                   </div>
-              `).join('') : '<p class="no-scenarios">No scenarios played this session.</p>'}
+              `).join('') : '<p class="no-scenarios">No rank gains this session.</p>'}
           </div>
+      </div>
+      <div class="media-controls">
+          <div class="hud-group left"></div>
+          <div class="controls-left"></div>
+          <div class="difficulty-tabs">
+              <button class="tab-button active" id="finish-ranked-btn">Back to hub</button>
+          </div>
+          <div class="controls-right"></div>
+          <div class="hud-group right"></div>
       </div>
     `;
   }
 
-  private _calculateEffectiveStats(): { name: string; score: number; rank: string }[] {
-    const bests = this._deps.session.getAllRankedScenarioBests();
-    const allRuns = this._deps.session.getAllRankedSessionRuns();
-    const diff = this._deps.appState.getBenchmarkDifficulty();
-    const scenarios = this._deps.benchmark.getScenarios(diff);
+  private _calculateSummaryData(): { name: string; oldRU: number; newRU: number; gain: number }[] {
+    const state = this._deps.rankedSession.state;
+    const initialEstimates = state.initialEstimates;
+    const results: { name: string; oldRU: number; newRU: number; gain: number }[] = [];
 
-    return bests.map(record => {
-      const runs = allRuns.filter((run) => run.scenarioName === record.scenarioName).map((run) => run.score);
-      const effectiveScore = this._calculateEffectiveScore(runs);
-      const scenario = scenarios.find((ref) => ref.name === record.scenarioName);
-      let rankName = record.rankResult.currentRank;
+    for (const scenarioName of state.playedScenarios) {
+      const oldRU = initialEstimates[scenarioName] ?? 0;
+      const currentEstimate = this._deps.estimator.getScenarioEstimate(scenarioName);
+      const newRU = currentEstimate.continuousValue;
 
-      if (scenario) {
-        const continuousValue = this._deps.estimator.getScenarioContinuousValue(effectiveScore, scenario);
-        const computedEstimate = this._deps.estimator.getEstimateForValue(continuousValue, diff);
-        rankName = computedEstimate.rankName;
+      if (newRU > oldRU + 0.001) {
+        results.push({
+          name: scenarioName,
+          oldRU,
+          newRU,
+          gain: Math.round((newRU - oldRU) * 100)
+        });
       }
+    }
 
-      return { name: record.scenarioName, score: effectiveScore, rank: rankName };
-    });
+    return results.sort((a, b) => b.gain - a.gain);
   }
+
+  private _renderSummaryTimeline(data: { name: string; oldRU: number; newRU: number; gain: number }): string {
+    const containerId: string = `rank-timeline-summary-${data.name.replace(/\s+/g, "-")}`;
+
+    setTimeout((): void => {
+      this._updateSummaryTimeline(containerId, data);
+    }, 0);
+
+    return `<div id="${containerId}"></div>`;
+  }
+
+  private _updateSummaryTimeline(containerId: string, data: { name: string; oldRU: number; newRU: number; gain: number }): void {
+    const container: HTMLElement | null = document.getElementById(containerId);
+    if (!container) return;
+
+    const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
+    const scenario = this._deps.benchmark.getScenarios(difficulty).find(scenarioItem => scenarioItem.name === data.name);
+    if (!scenario) return;
+
+    const oldEstimate = this._deps.estimator.getEstimateForValue(data.oldRU, difficulty);
+    const newEstimate = this._deps.estimator.getEstimateForValue(data.newRU, difficulty);
+
+    const timeline: SummaryTimelineComponent = new SummaryTimelineComponent({
+      scenarioName: data.name,
+      thresholds: scenario.thresholds,
+      settings: this._deps.visualSettings.getSettings(),
+      oldRU: data.oldRU,
+      newRU: data.newRU,
+      gain: data.gain,
+      oldRankName: oldEstimate.rankName,
+      newRankName: newEstimate.rankName,
+      oldProgress: oldEstimate.progressToNext,
+      newProgress: newEstimate.progressToNext
+    });
+
+    container.innerHTML = "";
+    container.appendChild(timeline.render());
+    timeline.resolveCollisions();
+  }
+
 
   private _renderCompletedContent(): string {
     return `

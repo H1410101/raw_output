@@ -1556,7 +1556,6 @@ h1 {
 }
 
 
-/* Ranked View Functional Styles */
 .ranked-container {
     display: flex;
     flex-direction: column;
@@ -1567,6 +1566,7 @@ h1 {
     background: transparent;
     border: none;
     position: relative;
+    width: 100%;
     min-height: 60%;
     height: auto;
     overflow: visible;
