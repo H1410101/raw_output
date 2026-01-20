@@ -465,11 +465,11 @@ export class RankedSessionService {
     }
 
     private _selectStrongScenario(metrics: ScenarioMetric[]): ScenarioMetric | null {
-        // Logic: Highest score for min(current_rank + distance_from_peak, top_rank) + distance_from_peak
+        // Logic: Select the scenario with the highest weight based on peak rank and distance from peak.
         // Disqualify if current_rank > peak (beyond rank)
 
         let bestMetric: ScenarioMetric | null = null;
-        let maxScore = -Infinity;
+        let maxWeight = -Infinity;
 
         for (const metric of metrics) {
             // "except if current_rank is a beyond rank (above peak), it is disqualified entirely"
@@ -477,16 +477,13 @@ export class RankedSessionService {
                 continue;
             }
 
-            // min(current + dist, peak) + dist
-            // since current + dist = peak, min(peak, peak) = peak.
-            // so score = peak + dist = peak + (peak - current) = 2*peak - current
             const dist = metric.peak - metric.current;
 
-            // Apply penalty: decrease rank estimate (effectively subtracts from score)
-            const score = metric.peak + dist - metric.penalty;
+            // Apply penalty: decrease selection priority (effectively subtracts from weight)
+            const weight = metric.peak + dist - metric.penalty;
 
-            if (score > maxScore) {
-                maxScore = score;
+            if (weight > maxWeight) {
+                maxWeight = weight;
                 bestMetric = metric;
             }
         }
@@ -495,24 +492,22 @@ export class RankedSessionService {
     }
 
     private _selectWeakScenario(metrics: ScenarioMetric[]): ScenarioMetric | null {
-        // Logic: Lowest score for max(current_rank - distance_from_peak, 0)
+        // Logic: Select the scenario with the lowest weight for current rank minus capacity gap.
 
         let bestMetric: ScenarioMetric | null = null;
-        let minScore = Infinity;
+        let minWeight = Infinity;
 
         for (const metric of metrics) {
             const dist = metric.peak - metric.current;
 
-            // max(current - dist, 0)
-            // Apply penalty: increase rank estimate (effectively adds to score)
-            const score = Math.max(metric.current - dist, 0) + metric.penalty;
+            // Apply penalty: increase weight (effectively reducing selection priority)
+            const weight = Math.max(metric.current - dist, 0) + metric.penalty;
 
-            if (score < minScore) {
-                minScore = score;
+            if (weight < minWeight) {
+                minWeight = weight;
                 bestMetric = metric;
-            } else if (score === minScore) {
-                // Tie-breaker: use larger gap (we want weak scenarios, often meaning high potential)
-                // or just alphabetical for determinism
+            } else if (weight === minWeight) {
+                // Tie-breaker: use alphabetical for determinism
                 if (bestMetric && metric.scenario.name.localeCompare(bestMetric.scenario.name) < 0) {
                     bestMetric = metric;
                 }
@@ -523,37 +518,27 @@ export class RankedSessionService {
     }
 
     private _selectMidScenario(metrics: ScenarioMetric[], chosen: ScenarioMetric[]): ScenarioMetric {
-        // Logic: Highest score for max(current_rank + distance_from_peak, top_rank) - current_rank - closeness_penalty
+        // Logic: Highest weight for gap between current and peak, adjusted for category diversity.
 
         let bestMetric: ScenarioMetric | null = null;
-        let maxScore = -Infinity;
+        let maxWeight = -Infinity;
 
         for (const metric of metrics) {
-            // max(current + dist, peak) = max(peak, peak) = peak
-
-            // score = peak - current - penalty
-            // penalty: same category 0.25, same subcategory 0.5 (cumulative per chosen scenario)
-
-            let penalty = 0;
+            let diversityPenalty = 0;
             for (const other of chosen) {
                 if (other.scenario.subcategory === metric.scenario.subcategory) {
-                    penalty += 0.5;
+                    diversityPenalty += 0.5;
                 }
-                // Assuming "Same Category" is an *additional* or *alternative* check?
-                // Usually subcategory implies category. Only adding if strictly same category?
-                // User said: "same category is 0.25, and the same subcategory is 0.5"
-                // I'll assume if subcategory matches, it's 0.5. If only category matches, 0.25.
                 else if (other.scenario.category === metric.scenario.category) {
-                    penalty += 0.25;
+                    diversityPenalty += 0.25;
                 }
             }
 
-            // Score = peak - current - penalty = gap - penalty
-            // also subtract the recently-played penalty to make it less likely
-            const score = (metric.peak - metric.current) - penalty - metric.penalty;
+            // Weight = gap - diversityPenalty - recentlyPlayedPenalty
+            const weight = (metric.peak - metric.current) - diversityPenalty - metric.penalty;
 
-            if (score > maxScore) {
-                maxScore = score;
+            if (weight > maxWeight) {
+                maxWeight = weight;
                 bestMetric = metric;
             }
         }
