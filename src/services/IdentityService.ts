@@ -31,9 +31,9 @@ export class IdentityService {
     }
 
     /**
-     * Returns whether the user has opted into anonymous analytics.
+     * Returns whether the user has opted into score feedback.
      *
-     * @returns True if analytics are enabled, false otherwise.
+     * @returns True if score feedback is enabled, false otherwise.
      */
     public isAnalyticsEnabled(): boolean {
         return this._isAnalyticsEnabled;

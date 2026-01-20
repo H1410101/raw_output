@@ -509,25 +509,35 @@ export class SettingsSectionRenderer {
   }
 
   /**
-   * Builds and appends the Anonymous Feedback settings section.
+   * Builds and appends the Score Feedback settings section.
    *
    * @param container - The element to append settings to.
    */
   public appendCloudflareSection(container: HTMLElement): void {
     container.appendChild(SettingsUiFactory.createGroupTitle("Anonymous Feedback"));
 
-    this._appendPrivacyToggles(container);
-    this._appendDeviceIdentity(container);
-    this._appendConnectivityTest(container);
+    this._appendScoreFeedbackGroup(container);
   }
 
-  private _appendPrivacyToggles(container: HTMLElement): void {
+  private _appendScoreFeedbackGroup(container: HTMLElement): void {
+    const feedbackToggle: HTMLElement = SettingsUiFactory.createToggle(
+      "Score Feedback",
+      this._identityService.isAnalyticsEnabled(),
+      (val: boolean): void => this._identityService.setAnalyticsConsent(val),
+    );
+
+    const subRowsContainer: HTMLDivElement = document.createElement("div");
+    subRowsContainer.className = "settings-sub-rows";
+
+    if (!this._identityService.isAnalyticsEnabled()) {
+      subRowsContainer.classList.add("hidden");
+    }
+
+    this._appendDeviceIdentity(subRowsContainer);
+    this._appendConnectivityTest(subRowsContainer);
+
     container.appendChild(
-      SettingsUiFactory.createToggle(
-        "Anonymous Analytics",
-        this._identityService.isAnalyticsEnabled(),
-        (val: boolean): void => this._identityService.setAnalyticsConsent(val),
-      ),
+      SettingsUiFactory.createSettingsGroup(feedbackToggle, subRowsContainer),
     );
   }
 
@@ -544,7 +554,7 @@ export class SettingsSectionRenderer {
   private _appendConnectivityTest(container: HTMLElement): void {
     container.appendChild(
       SettingsUiFactory.createActionButton(
-        "Check Connection to Server",
+        "Check Connection",
         "Run Handshake",
         async (statusElement: HTMLElement): Promise<void> => {
           this._executeHandshake(statusElement);

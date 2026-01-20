@@ -2,7 +2,7 @@ import { AudioService } from "../../services/AudioService";
 import { IdentityService } from "../../services/IdentityService";
 
 /**
- * Component that renders a popup asking for user consent to enable anonymous analytics.
+ * Component that renders a popup asking for user consent to enable score feedback.
  */
 export class AnalyticsPopupComponent {
     private readonly _identityService: IdentityService;
@@ -81,7 +81,7 @@ export class AnalyticsPopupComponent {
 
     private _createTitle(): HTMLElement {
         const title: HTMLHeadingElement = document.createElement("h2");
-        title.textContent = "Send Your Scores";
+        title.textContent = "Score Feedback";
         title.style.marginBottom = "1rem";
         title.style.background =
             "linear-gradient(135deg, var(--upper-band-1) 0%, var(--upper-band-3) 100%)";
