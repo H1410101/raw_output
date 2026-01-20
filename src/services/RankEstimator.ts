@@ -166,16 +166,8 @@ export class RankEstimator {
         // No matter whether you've played before, any highscore moves your rank to at least RU - 2.0.
         const anchorFloor = Math.max(0, sessionValue - 2.0);
 
-        let evolvedValue: number;
-
-        if (current < anchorFloor) {
-            // If this rule is invoked, other rank gains are invalidated.
-            // We jump straight to the anchor.
-            evolvedValue = anchorFloor;
-        } else {
-            // Otherwise, we use standard EMA with the new learning rate (0.5).
-            evolvedValue = current + RankEstimator._learningRate * (sessionValue - current);
-        }
+        const halfwayPoint = current + RankEstimator._learningRate * (sessionValue - current);
+        const evolvedValue = Math.max(halfwayPoint, anchorFloor);
 
         // Rank Units (RU) cannot be lost (cannot go below current value)
         return Math.max(current, evolvedValue);
