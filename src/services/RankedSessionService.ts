@@ -32,6 +32,24 @@ interface ScenarioMetric {
     penalty: number;
 }
 
+interface DifficultySessionState {
+    sequence: string[];
+    currentIndex: number;
+    initialGauntletComplete: boolean;
+    playedScenarios: string[];
+    initialEstimates: Record<string, number>;
+    accumulatedScenarioSeconds: Record<string, number>;
+}
+
+interface PersistentRankedState {
+    status: RankedSessionStatus;
+    difficulty: string | null;
+    startTime: string | null;
+    rankedSessionId: number | null;
+    scenarioStartTime: string | null;
+    difficultyStates: Record<string, DifficultySessionState>;
+}
+
 /**
  * Service managing deterministic "Ranked Runs" with guided progression.
  */
@@ -43,16 +61,21 @@ export class RankedSessionService {
     private readonly _storageKey: string = "ranked_session_state_v2";
 
     private _status: RankedSessionStatus = "IDLE";
-    private _sequence: string[] = [];
-    private _currentIndex: number = 0;
     private _difficulty: string | null = null;
     private _startTime: string | null = null;
     private _rankedSessionId: number | null = null;
+    private _scenarioStartTime: string | null = null;
+
+    // Per-difficulty state
+    private _sequence: string[] = [];
+    private _currentIndex: number = 0;
     private _initialGauntletComplete: boolean = false;
     private _playedScenarios: Set<string> = new Set();
     private _initialEstimates: Record<string, number> = {};
-    private _scenarioStartTime: string | null = null;
     private _accumulatedScenarioSeconds: Map<string, number> = new Map();
+
+    private _difficultyStates: Record<string, DifficultySessionState> = {};
+
     private _tickerHandle: number | null = null;
 
     private readonly _onStateChanged: (() => void)[] = [];
@@ -237,50 +260,95 @@ export class RankedSessionService {
     public startSession(difficulty: string): void {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
         if (scenarios.length === 0) {
-
             return;
         }
 
-        // If a session for this difficulty already exists from today, resume it.
-        if (this._difficulty === difficulty && this._isToday(this._rankedSessionId)) {
+        this._prepareSessionStart(difficulty);
+
+        if (this._difficultyStates[difficulty]) {
             this._resumeExistingSession();
 
             return;
         }
 
+        this._initializeNewSession(difficulty);
+    }
+
+    private _prepareSessionStart(difficulty: string): void {
+        const isToday = this._isToday(this._rankedSessionId);
+
+        if (!isToday) {
+            this._difficultyStates = {};
+            this._rankedSessionId = Date.now();
+        }
+
+        if (this._difficulty && this._difficulty !== difficulty) {
+            this._snapshotCurrentDifficultyState();
+        }
+
         this._difficulty = difficulty;
-        this._startTime = new Date().toISOString();
-        this._rankedSessionId = Date.now();
+    }
+
+    private _initializeNewSession(difficulty: string): void {
         this._status = "ACTIVE";
+        this._startTime = new Date().toISOString();
         this._currentIndex = 0;
         this._sequence = [];
         this._initialGauntletComplete = false;
         this._playedScenarios.clear();
+        this._initialEstimates = {};
+        this._accumulatedScenarioSeconds.clear();
 
-        // Generate Initial Batch (Strong-Weak-Mid)
         const batch = this._generateNextBatch(difficulty, []);
         this._sequence.push(...batch);
 
-        // Signal the start of an explicit ranked session with a timestamp floor.
-        // This ensures old runs from the global session are not carried over.
         this._sessionService.startRankedSession(Date.now());
-        this._initialEstimates = {};
         this._recordInitialEstimates(batch);
-        this._accumulatedScenarioSeconds.clear();
         this._scenarioStartTime = new Date().toISOString();
 
         this._saveToLocalStorage();
         this._notifyListeners();
     }
 
-    /**
-     * Resumes an existing session by jumping to the appropriate scenario.
-     */
+    private _snapshotCurrentDifficultyState(): void {
+        if (!this._difficulty) return;
+
+        this._difficultyStates[this._difficulty] = {
+            sequence: [...this._sequence],
+            currentIndex: this._currentIndex,
+            initialGauntletComplete: this._initialGauntletComplete,
+            playedScenarios: Array.from(this._playedScenarios),
+            initialEstimates: { ...this._initialEstimates },
+            accumulatedScenarioSeconds: Object.fromEntries(this._accumulatedScenarioSeconds),
+        };
+    }
+
     private _resumeExistingSession(): void {
+        if (!this._difficulty || !this._difficultyStates[this._difficulty]) {
+            return;
+        }
+
+        this._applyDifficultyStateSnapshot(this._difficultyStates[this._difficulty]);
         this._status = "ACTIVE";
         this._startTime = new Date().toISOString();
 
-        // Find the index of the last scenario played in the current sequence.
+        this._jumpToNextUnplayedScenario();
+
+        this._sessionService.startRankedSession(Date.now());
+        this._saveToLocalStorage();
+        this._notifyListeners();
+    }
+
+    private _applyDifficultyStateSnapshot(state: DifficultySessionState): void {
+        this._sequence = state.sequence;
+        this._currentIndex = state.currentIndex;
+        this._initialGauntletComplete = state.initialGauntletComplete;
+        this._playedScenarios = new Set(state.playedScenarios);
+        this._initialEstimates = state.initialEstimates;
+        this._accumulatedScenarioSeconds = new Map(Object.entries(state.accumulatedScenarioSeconds));
+    }
+
+    private _jumpToNextUnplayedScenario(): void {
         let maxPlayedIndex = -1;
         for (let i = 0; i < this._sequence.length; i++) {
             if (this._playedScenarios.has(this._sequence[i])) {
@@ -288,10 +356,8 @@ export class RankedSessionService {
             }
         }
 
-        // Jump to the scenario after the last one played.
         this._currentIndex = maxPlayedIndex + 1;
 
-        // If we've reached the end of the sequence, extend it or transition.
         if (this._currentIndex >= this._sequence.length) {
             if (this._initialGauntletComplete || this._currentIndex >= 3) {
                 this.extendSession();
@@ -299,10 +365,6 @@ export class RankedSessionService {
                 this._status = "COMPLETED";
             }
         }
-
-        this._sessionService.startRankedSession(Date.now());
-        this._saveToLocalStorage();
-        this._notifyListeners();
     }
 
     /**
@@ -649,7 +711,9 @@ export class RankedSessionService {
             const effectiveScore = sorted.length >= 3 ? sorted[2] : 0;
 
             const sessionValue = this._rankEstimator.getScenarioContinuousValue(effectiveScore, scenario);
-            this._rankEstimator.evolveScenarioEstimate(scenarioName, sessionValue);
+            const initialValue = this._initialEstimates[scenarioName];
+
+            this._rankEstimator.evolveScenarioEstimate(scenarioName, sessionValue, initialValue);
         });
     }
 
@@ -663,18 +727,15 @@ export class RankedSessionService {
     }
 
     private _saveToLocalStorage(): void {
-        const state: RankedSessionState = {
+        this._snapshotCurrentDifficultyState();
+
+        const state = {
             status: this._status,
-            sequence: this._sequence,
-            currentIndex: this._currentIndex,
             difficulty: this._difficulty,
             startTime: this._startTime,
-            initialGauntletComplete: this._initialGauntletComplete,
             rankedSessionId: this._rankedSessionId,
-            playedScenarios: Array.from(this._playedScenarios),
-            initialEstimates: { ...this._initialEstimates },
             scenarioStartTime: this._scenarioStartTime,
-            accumulatedScenarioSeconds: Object.fromEntries(this._accumulatedScenarioSeconds),
+            difficultyStates: this._difficultyStates,
         };
 
         localStorage.setItem(this._storageKey, JSON.stringify(state));
@@ -687,20 +748,23 @@ export class RankedSessionService {
         }
 
         try {
-            const state = JSON.parse(raw) as RankedSessionState;
+            const state = JSON.parse(raw) as PersistentRankedState;
             this._status = state.status;
-            this._sequence = state.sequence;
-            this._currentIndex = state.currentIndex;
             this._difficulty = state.difficulty;
             this._startTime = state.startTime;
-            this._initialGauntletComplete = state.initialGauntletComplete || false;
             this._rankedSessionId = state.rankedSessionId || null;
-            if (state.playedScenarios) {
-                this._playedScenarios = new Set(state.playedScenarios);
-            }
-            this._initialEstimates = state.initialEstimates || {};
             this._scenarioStartTime = state.scenarioStartTime || null;
-            this._accumulatedScenarioSeconds = new Map(Object.entries(state.accumulatedScenarioSeconds || {}));
+            this._difficultyStates = state.difficultyStates || {};
+
+            if (this._difficulty && this._difficultyStates[this._difficulty]) {
+                const difficultyState = this._difficultyStates[this._difficulty];
+                this._sequence = difficultyState.sequence || [];
+                this._currentIndex = difficultyState.currentIndex || 0;
+                this._initialGauntletComplete = difficultyState.initialGauntletComplete || false;
+                this._playedScenarios = new Set(difficultyState.playedScenarios || []);
+                this._initialEstimates = difficultyState.initialEstimates || {};
+                this._accumulatedScenarioSeconds = new Map(Object.entries(difficultyState.accumulatedScenarioSeconds || {}));
+            }
         } catch {
             localStorage.removeItem(this._storageKey);
         }

@@ -965,6 +965,10 @@ h1 {
     animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.settings-menu-container.visual-settings-container {
+    width: fit-content;
+}
+
 .settings-menu-container::before {
     content: "";
     position: absolute;

@@ -15,7 +15,7 @@ Orchestrates the ingestion of CSV performance data from the local file system. I
 
 ### `RankedSessionService`
 Manages the "Ranked Run" experience, which includes a guided sequence of scenarios and a timed session. It consumes data exclusively from the Ranked track of `SessionService`.
-- **Persistence**: Automatically persists session state (sequence and progress) to `localStorage`, allowing for same-day resumption and smart scenario jumping.
+- **Persistence**: Automatically persists session state per difficulty to `localStorage`. This allows for same-day resumption, switching between difficulties without losing progress, and maintaining consistent daily targets (initial ranks) for fair rank evolution scoring.
 - **Relies on**: `BenchmarkService`, `SessionService`, `RankEstimator`, `SessionSettingsService`
 
 ### `RankEstimator`
