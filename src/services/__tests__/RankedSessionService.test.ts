@@ -40,6 +40,39 @@ describe("RankedSessionService: Lifecycle", (): void => {
         _assertDiverseSequence(service.state.sequence);
     });
 });
+
+describe("RankedSessionService: Activity", (): void => {
+    let service: RankedSessionService;
+    let mocks: MockSet;
+
+    beforeEach((): void => {
+        mocks = _createMocks();
+        service = new RankedSessionService(
+            mocks.benchmark,
+            mocks.session,
+            mocks.estimator,
+            mocks.settings
+        );
+    });
+
+    it("should correctly report activity status", (): void => {
+        expect(service.isSessionActive()).toBe(false);
+
+        const scenarios = _createDiversePool();
+        (mocks.benchmark.getScenarios as Mock).mockReturnValue(scenarios);
+        _mockEstimates(mocks.estimator, _createDiverseEstimates());
+
+        service.startSession("Gold");
+        expect(service.isSessionActive()).toBe(true);
+
+        service.endSession();
+        expect(service.state.status).toBe("SUMMARY");
+        expect(service.isSessionActive()).toBe(true);
+
+        service.reset();
+        expect(service.isSessionActive()).toBe(false);
+    });
+});
 describe("RankedSessionService: Timer Expiry", (): void => {
     let service: RankedSessionService;
     let mocks: MockSet;

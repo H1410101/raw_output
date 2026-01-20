@@ -149,6 +149,19 @@ export class RankedSessionService {
     }
 
     /**
+     * Returns whether the session is considered active (ACTIVE, COMPLETED, or SUMMARY).
+     * 
+     * @returns True if the session is active.
+     */
+    public isSessionActive(): boolean {
+        return (
+            this._status === "ACTIVE" ||
+            this._status === "COMPLETED" ||
+            this._status === "SUMMARY"
+        );
+    }
+
+    /**
      * Returns the remaining time in seconds for the current session.
      * 
      * @returns Seconds remaining, or 0 if inactive or expired.

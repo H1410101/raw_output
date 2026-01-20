@@ -256,6 +256,7 @@ export class AppBootstrap {
 
     this._rankedSessionService.onStateChanged((): void => {
       this._tryApplyDailyDecay();
+      this._checkAnalyticsPrompt();
     });
 
     this._appStateService.onDifficultyChanged((): void => {
@@ -263,6 +264,10 @@ export class AppBootstrap {
         this._appStateService.getBenchmarkDifficulty(),
       );
       this._rankedView.refresh();
+    });
+
+    this._appStateService.onTabChanged((): void => {
+      this._checkAnalyticsPrompt();
     });
   }
 
@@ -436,6 +441,15 @@ export class AppBootstrap {
 
   private _checkAnalyticsPrompt(): void {
     if (this._hasPromptedAnalytics) {
+      return;
+    }
+
+    const state = this._rankedSessionService.state;
+    const isPlaying = state.status === "ACTIVE" || state.status === "COMPLETED";
+    const isAtSummary = state.status === "SUMMARY";
+    const isOnRankedTab = this._appStateService.getActiveTabId() === "nav-ranked";
+
+    if (isPlaying || (isAtSummary && isOnRankedTab)) {
       return;
     }
 
