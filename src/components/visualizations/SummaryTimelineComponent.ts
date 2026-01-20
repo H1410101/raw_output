@@ -160,11 +160,10 @@ export class SummaryTimelineComponent {
         this._titleAnchor = anchor;
 
         const text = this._config.scenarioName;
-        this._titleHitbox = this._createHitbox(anchor, text);
+        this._titleHitbox = this._createHitbox(anchor, text, "title");
         this._titleLabel = this._createLabel(anchor, "summary-timeline-title", text);
 
-        // Default: Left-aligned to 10% mark (grows right)
-        this._titleLabel.style.transform = "translateX(50%)";
+        this._titleLabel.style.transform = "translateX(0%)";
     }
 
     private _renderDelta(parent: HTMLElement, minRU: number, rankUnitsRange: number): void {
@@ -182,13 +181,12 @@ export class SummaryTimelineComponent {
         this._deltaHitbox = this._createHitbox(anchor, text);
         this._deltaLabel = this._createLabel(anchor, "summary-timeline-delta", text);
 
-        // Default: Right-aligned to notch (grows left)
-        this._deltaLabel.style.transform = "translateX(-50%)";
+        this._deltaLabel.style.transform = "translateX(0%)";
     }
 
-    private _createHitbox(parent: HTMLElement, text: string): HTMLElement {
+    private _createHitbox(parent: HTMLElement, text: string, className?: string): HTMLElement {
         const hitbox = document.createElement("div");
-        hitbox.className = "summary-timeline-hitbox";
+        hitbox.className = className ? `summary-timeline-hitbox ${className}` : "summary-timeline-hitbox";
         hitbox.innerText = text;
         parent.appendChild(hitbox);
 
@@ -330,14 +328,12 @@ export class SummaryTimelineComponent {
             this._oldAnchor = anchor;
             this._oldLabel = label;
             this._oldHitbox = hitbox;
-            // Default: Left-aligned to notch (grows right/towards center)
-            label.style.transform = "translateX(50%)";
+            label.style.transform = "translateX(0%)";
         } else {
             this._newAnchor = anchor;
             this._newLabel = label;
             this._newHitbox = hitbox;
-            // Default: Right-aligned to notch (grows left/towards center)
-            label.style.transform = "translateX(-50%)";
+            label.style.transform = "translateX(0%)";
         }
     }
 
@@ -370,23 +366,13 @@ export class SummaryTimelineComponent {
 
         const buffer = parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.5;
 
-        // Default Alignments (Growing towards each other)
-        let leftTransform = "translateX(50%)";
-        let rightTransform = "translateX(-50%)";
+        // Default Alignments (Centered)
+        let leftTransform = "translateX(0%)";
+        let rightTransform = "translateX(0%)";
 
         if (leftRect.right + buffer > rightRect.left) {
-            // Collision: Step away from each other (Switch to Centered)
-            leftTransform = "translateX(0%)";
-            rightTransform = "translateX(0%)";
-
-            // If still overlapping when centered, step all the way back
-            const centeredLeftRight = (leftRect.left + leftRect.right) / 2 + (leftRect.width / 2);
-            const centeredRightLeft = (rightRect.left + rightRect.right) / 2 - (rightRect.width / 2);
-
-            if (centeredLeftRight + buffer > centeredRightLeft) {
-                leftTransform = "translateX(-50%)";
-                rightTransform = "translateX(50%)";
-            }
+            leftTransform = "translateX(-50%)";
+            rightTransform = "translateX(50%)";
         }
 
         options.leftLabel.style.transform = leftTransform;

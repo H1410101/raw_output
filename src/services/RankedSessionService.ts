@@ -27,7 +27,6 @@ interface ScenarioMetric {
     scenario: BenchmarkScenario;
     current: number;
     peak: number;
-    // peak - current
     gap: number;
     penalty: number;
 }
@@ -66,7 +65,6 @@ export class RankedSessionService {
     private _rankedSessionId: number | null = null;
     private _scenarioStartTime: string | null = null;
 
-    // Per-difficulty state
     private _sequence: string[] = [];
     private _currentIndex: number = 0;
     private _initialGauntletComplete: boolean = false;
@@ -177,7 +175,6 @@ export class RankedSessionService {
         return Math.floor((now - start) / 1000);
     }
 
-    /**
     /**
      * Returns the elapsed time in seconds since the current scenario was entered.
      * 
@@ -397,9 +394,6 @@ export class RankedSessionService {
         this._currentIndex++;
         this._scenarioStartTime = new Date().toISOString();
 
-        // Gauntlet Logic:
-        // 1. If we reach the end of the initial 3, set status to COMPLETED (Show summary).
-        // 2. If the gate has been passed already, automatically extend for uninterrupted play.
         if (this._currentIndex >= this._sequence.length) {
             if (this._initialGauntletComplete) {
                 this.extendSession();
@@ -420,11 +414,8 @@ export class RankedSessionService {
             return;
         }
 
-        // Passing this point mark the gate as open
         this._initialGauntletComplete = true;
 
-        // Generate Next Batch, excluding recently played scenarios to avoid repetition
-        // We exclude the last 3 scenarios from the candidate pool efficiently
         const excludeList = this._sequence.slice(-3);
         const batch = this._generateNextBatch(this._difficulty, excludeList);
 
@@ -476,12 +467,18 @@ export class RankedSessionService {
      * Resets the ranked session state to idle.
      */
     public reset(): void {
+        const wasSessionConcluded: boolean = this._status === "SUMMARY";
         this._status = "IDLE";
 
         this._sessionService.stopRankedSession();
 
-        // We preserve the sequence and other data to enable resumption if still today.
-        // If it's not today, the next startSession will naturally overwrite it.
+        if (wasSessionConcluded) {
+            this._playedScenarios.clear();
+            this._accumulatedScenarioSeconds.clear();
+            this._currentIndex = 0;
+            this._scenarioStartTime = null;
+        }
+
         this._saveToLocalStorage();
         this._notifyListeners();
     }
@@ -536,30 +533,24 @@ export class RankedSessionService {
 
         let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool);
 
-        // 1. Select Strong Scenario
         const strongMetric: ScenarioMetric | null = this._selectStrongScenario(metrics);
         if (!strongMetric) {
             return this._getFallbackBatch(pool);
         }
         metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== strongMetric.scenario.name);
 
-        // 2. Select Weak Scenario
         const weakMetric: ScenarioMetric | null = this._selectWeakScenario(metrics);
         if (!weakMetric) {
-            // Should happen rarely given pool size, but fallback
             return [strongMetric.scenario.name, ...this._getFallbackBatch(pool.filter((scenario: BenchmarkScenario) => scenario.name !== strongMetric.scenario.name))];
         }
         metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== weakMetric.scenario.name);
 
-        // 3. Select Mid Scenario
-        // Mid selection depends on the other two for diversity penalty
         const midMetric: ScenarioMetric = this._selectMidScenario(metrics, [strongMetric, weakMetric]);
 
         return [strongMetric.scenario.name, weakMetric.scenario.name, midMetric.scenario.name];
     }
 
     private _getFallbackBatch(pool: BenchmarkScenario[]): string[] {
-        // Simple alpha sort fallback if logic fails or pool is too small
         return pool
             .sort((scenarioA: BenchmarkScenario, scenarioB: BenchmarkScenario) =>
                 scenarioA.name.localeCompare(scenarioB.name)
@@ -575,7 +566,6 @@ export class RankedSessionService {
             const peak: number = estimate.highestAchieved === -1 ? 0 : estimate.highestAchieved;
             const penalty: number = estimate.penalty || 0;
 
-            // "distance_from_peak" is naturally peak - current
             const gap = peak - current;
 
             return {
@@ -596,14 +586,12 @@ export class RankedSessionService {
         let maxWeight = -Infinity;
 
         for (const metric of metrics) {
-            // "except if current_rank is a beyond rank (above peak), it is disqualified entirely"
             if (metric.current > metric.peak) {
                 continue;
             }
 
             const dist = metric.peak - metric.current;
 
-            // Apply penalty: decrease selection priority (effectively subtracts from weight)
             const weight = metric.peak + dist - metric.penalty;
 
             if (weight > maxWeight) {
@@ -624,14 +612,12 @@ export class RankedSessionService {
         for (const metric of metrics) {
             const dist = metric.peak - metric.current;
 
-            // Apply penalty: increase weight (effectively reducing selection priority)
             const weight = Math.max(metric.current - dist, 0) + metric.penalty;
 
             if (weight < minWeight) {
                 minWeight = weight;
                 bestMetric = metric;
             } else if (weight === minWeight) {
-                // Tie-breaker: use alphabetical for determinism
                 if (bestMetric && metric.scenario.name.localeCompare(bestMetric.scenario.name) < 0) {
                     bestMetric = metric;
                 }
@@ -658,7 +644,6 @@ export class RankedSessionService {
                 }
             }
 
-            // Weight = gap - diversityPenalty - recentlyPlayedPenalty
             const weight = (metric.peak - metric.current) - diversityPenalty - metric.penalty;
 
             if (weight > maxWeight) {
@@ -676,7 +661,6 @@ export class RankedSessionService {
             if (updatedScenarioNames && updatedScenarioNames.length > 0) {
                 this._resetTimerOnScore();
 
-                // Track that these scenarios have been played in THIS active session
                 if (this._status === "ACTIVE") {
                     updatedScenarioNames.forEach(name => {
                         this._playedScenarios.add(name);
@@ -707,7 +691,6 @@ export class RankedSessionService {
             if (runs.length === 0) return;
 
             const sorted = runs.sort((a, b) => b - a);
-            // 3rd highest, or 0 if fewer than 3 runs (no rank gain)
             const effectiveScore = sorted.length >= 3 ? sorted[2] : 0;
 
             const sessionValue = this._rankEstimator.getScenarioContinuousValue(effectiveScore, scenario);

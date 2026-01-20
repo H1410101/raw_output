@@ -610,11 +610,19 @@
     white-space: nowrap;
     visibility: hidden;
     pointer-events: none;
-    /* Match label typography exactly for sizing */
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    transform: translateX(0);
+}
+
+.summary-timeline-label-anchor.top .summary-timeline-hitbox.title {
+    letter-spacing: 0.15em;
+}
+
+.summary-timeline-label-anchor.bottom .summary-timeline-hitbox {
+    margin-top: 1rem;
 }
 
 .summary-timeline-rank-label.old {
@@ -628,4 +636,5 @@
     margin-top: 3rem;
     color: var(--text-dim);
     font-size: 1.1rem;
+    text-align: center;
 }
