@@ -235,4 +235,58 @@ describe("RankTimelineComponent Logic", () => {
         expect(ranges.minRU).toBeCloseTo(4.0);
         expect(ranges.maxRU).toBeCloseTo(11.5);
     });
+
+    it("should spawn from targetRU if targetRU is within bounds on first render", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 10,
+            expectedRU: 12
+        };
+        const component = new RankTimelineComponent(config);
+
+        // Before rendering, manually confirm _currentMinRU is 0
+        expect((component as any)._currentMinRU).toBe(0);
+
+        // Render with paused = true to prevent immediate update to final position
+        const container = component.render(false, true);
+        const progressLine = container.querySelector(".timeline-progress-line") as HTMLElement;
+
+        // On first render, calculateViewBounds will return minRU = 7.25 (centered on 11)
+        // targetRU is 10. (10 - 7.25) = 2.75.
+        // targetViewPct = 2.75 / 7.5 = 36.6%. This is "within bounds".
+
+        // If FIXED, it should be targetRU * unitWidth = 10 * (100 / 7.5) = 133.33%.
+        // If NOT FIXED (using wrong _currentMinRU or broken math), it will likely be 0.
+
+        expect(parseFloat(progressLine.style.left)).toBeCloseTo(133.33, 1);
+    });
+
+    it("should spawn from left if targetRU is outside anchor width on first render", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 0,
+            expectedRU: 12
+        };
+        const component = new RankTimelineComponent(config);
+
+        // On first render:
+        // targetRU = 0. expectedRU = 12.
+        // highscore - target = 12 - 0 = 12. 0.6 * 7.5 = 4.5.
+        // 12 > 4.5 -> case 3.
+        // achievedRU is undefined. minRU = highscoreAt80 = 12 - 0.8 * 7.5 = 12 - 6 = 6.0.
+        // minRU = 6.0. Viewport [6.0, 13.5].
+
+        // targetRU is 0. targetViewPct = (0 - 6) / 7.5 = -80%.
+        // This is definitely outside 20-80%.
+
+        // So initialLeft should be viewportMinRU * unitWidth = 6.0 * (100 / 7.5) = 80%.
+
+        const container = component.render(false, true);
+        const progressLine = container.querySelector(".timeline-progress-line") as HTMLElement;
+
+        // Verify it spawns from the viewport left edge (80% in scroller-space)
+        expect(parseFloat(progressLine.style.left)).toBeCloseTo(80.0, 1);
+    });
 });

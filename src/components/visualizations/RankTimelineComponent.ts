@@ -131,6 +131,7 @@ export class RankTimelineComponent {
      */
     public play(): void {
         const wasPaused = this._pendingScrollOffset !== null;
+        const targetMinRU = wasPaused ? (this._pendingMinRU ?? this._currentMinRU) : this._currentMinRU;
 
         if (wasPaused) {
             this._scroller.classList.remove("no-transition");
@@ -140,7 +141,11 @@ export class RankTimelineComponent {
             this._pendingMinRU = null;
         }
 
-        this._renderProgressLine(false, false);
+        this._renderProgressLine({
+            immediate: false,
+            paused: false,
+            viewportMinRU: targetMinRU
+        });
 
         if (wasPaused) {
             this._startMarkerSync();
@@ -173,7 +178,11 @@ export class RankTimelineComponent {
         this._renderTicks();
         this._renderAttempts();
         this._renderMarkers();
-        this._renderProgressLine(immediate, paused);
+        this._renderProgressLine({
+            immediate,
+            paused,
+            viewportMinRU: minRU
+        });
 
         this._applyScroll(minRU, windowSize, immediate, paused);
         this._isInitialized = true;
@@ -364,7 +373,11 @@ export class RankTimelineComponent {
         });
     }
 
-    private _renderProgressLine(immediate: boolean, paused: boolean): void {
+    private _renderProgressLine(options: {
+        immediate: boolean;
+        paused: boolean;
+        viewportMinRU?: number;
+    }): void {
         const targetRU = this._config.targetRU;
         const expectedRU = this._config.expectedRU;
 
@@ -374,20 +387,43 @@ export class RankTimelineComponent {
             return;
         }
 
-        const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
-        const left = Math.min(targetRU, expectedRU) * unitWidth;
-        const width = Math.abs(targetRU - expectedRU) * unitWidth;
+        const effectiveMinRU = options.viewportMinRU ?? this._currentMinRU;
+        this._performProgressLineAnimate({
+            targetRU,
+            expectedRU,
+            immediate: options.immediate,
+            paused: options.paused,
+            effectiveMinRU
+        });
 
-        if (!this._hasPreviousProgress && !immediate) {
-            this._renderInitialProgress(targetRU * unitWidth, left, width, paused);
-        } else if (immediate) {
+        if (!options.paused) {
+            this._hasPreviousProgress = true;
+        }
+    }
+
+    private _performProgressLineAnimate(options: {
+        targetRU: number;
+        expectedRU: number;
+        immediate: boolean;
+        paused: boolean;
+        effectiveMinRU: number;
+    }): void {
+        const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
+        const left = Math.min(options.targetRU, options.expectedRU) * unitWidth;
+        const width = Math.abs(options.targetRU - options.expectedRU) * unitWidth;
+
+        if (!this._hasPreviousProgress && !options.immediate) {
+            this._renderInitialProgress({
+                targetRU: options.targetRU,
+                viewportMinRU: options.effectiveMinRU,
+                finalLeft: left,
+                finalWidth: width,
+                paused: options.paused
+            });
+        } else if (options.immediate) {
             this._renderImmediateProgress(left, width);
         } else {
             this._renderStandardProgress(left, width);
-        }
-
-        if (!paused) {
-            this._hasPreviousProgress = true;
         }
     }
 
@@ -396,15 +432,21 @@ export class RankTimelineComponent {
         this._hasPreviousProgress = false;
     }
 
-    private _renderInitialProgress(targetRU: number, finalLeft: number, finalWidth: number, paused: boolean): void {
+    private _renderInitialProgress(options: {
+        targetRU: number;
+        viewportMinRU: number;
+        finalLeft: number;
+        finalWidth: number;
+        paused: boolean;
+    }): void {
         const windowSize = this._config.rangeWindow ?? 7.5;
         const unitWidth = 100 / windowSize;
 
-        // Start from target if it is onscreen (0-100% relative to current view), or left edge (0%)
-        const targetViewPct = (targetRU - this._currentMinRU) * unitWidth;
-        const isOnscreen = targetViewPct >= 0 && targetViewPct <= 100;
+        // Start from target if it is within the 'anchor width' (20-80% of current view), or left edge
+        const targetViewPct = (options.targetRU - options.viewportMinRU) * unitWidth;
+        const isOnAnchorWidth = targetViewPct >= 20 && targetViewPct <= 80;
 
-        const initialLeft = isOnscreen ? targetRU * unitWidth : this._currentMinRU * unitWidth;
+        const initialLeft = isOnAnchorWidth ? options.targetRU * unitWidth : options.viewportMinRU * unitWidth;
 
         this._progressLine.style.transition = "none";
         this._progressLine.style.left = `${initialLeft}%`;
@@ -413,10 +455,10 @@ export class RankTimelineComponent {
 
         void this._progressLine.offsetHeight;
 
-        if (!paused) {
+        if (!options.paused) {
             this._progressLine.style.transition = "";
-            this._progressLine.style.left = `${finalLeft}%`;
-            this._progressLine.style.width = `${finalWidth}%`;
+            this._progressLine.style.left = `${options.finalLeft}%`;
+            this._progressLine.style.width = `${options.finalWidth}%`;
         }
     }
 
