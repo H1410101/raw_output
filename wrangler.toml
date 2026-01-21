@@ -7,5 +7,5 @@ ENVIRONMENT = "development"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "raw-output-db"
-database_id = "PASTE_YOUR_DATABASE_ID_HERE" # Need to create this via npx wrangler d1 create
+database_name = "raw-output
+database_id = "fdcbb9b8-dc7b-4837-ac0c-e57c46346c9b"
