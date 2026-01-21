@@ -322,7 +322,8 @@ export class FolderSettingsView {
 
     const setupInstruction: HTMLParagraphElement = document.createElement("p");
     setupInstruction.className = "setup-instruction";
-    setupInstruction.textContent = "To get started, link your Kovaak's Stats folder:";
+    setupInstruction.innerHTML =
+      "To get started, link your Kovaak's Stats folder: <br><code>&lt;steam library&gt;/steamapps/common/<br>FPSAimTrainer/FPSAimTrainer/stats</code>";
     topGroup.appendChild(setupInstruction);
 
     return topGroup;
@@ -337,22 +338,12 @@ export class FolderSettingsView {
     const bottomGroup: HTMLDivElement = document.createElement("div");
     bottomGroup.className = "intro-bottom-group";
 
-    bottomGroup.appendChild(this._createPathInstruction());
+    const note: HTMLParagraphElement = document.createElement("p");
+    note.className = "folder-restriction-note";
+    note.innerHTML =
+      "Note that browsers are banned from sensitive system files<br>(eg <code>C:/Program Files</code> and <code>C:/Program Files (x86)</code>),<br>so your steam library needs to be in a different location.";
+    bottomGroup.appendChild(note);
 
     return bottomGroup;
-  }
-
-  /**
-   * Creates the path instruction paragraph.
-   *
-   * @returns The path instruction element.
-   */
-  private _createPathInstruction(): HTMLElement {
-    const pathInstruction: HTMLParagraphElement = document.createElement("p");
-    pathInstruction.className = "path-instruction";
-    pathInstruction.innerHTML =
-      "This is located in<br><code>&lt;steam library&gt;/steamapps/common/</code><br><code>FPSAimTrainer/FPSAimTrainer/stats</code>.";
-
-    return pathInstruction;
   }
 }
