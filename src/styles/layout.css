@@ -1703,7 +1703,7 @@ h1 {
 .ranked-container {
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
     gap: calc(1rem * var(--vertical-spacing-multiplier));
     padding: 0;
@@ -1711,8 +1711,7 @@ h1 {
     border: none;
     position: relative;
     width: 100%;
-    min-height: 60%;
-    height: auto;
+    height: 60%;
     overflow: visible;
 }
 

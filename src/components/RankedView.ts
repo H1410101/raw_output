@@ -49,6 +49,7 @@ export class RankedView {
   private _lastStatus: RankedSessionState["status"] | null = null;
   private _lastScenarioName: string | null = null;
   private _summaryTimelines: SummaryTimelineComponent[] = [];
+  private readonly _pendingSummaryScenarios: Set<string> = new Set();
   private readonly _onBrowserFocusBound: () => void;
 
   /**
@@ -90,19 +91,99 @@ export class RankedView {
   }
 
   private _playSummaryAnimations(): void {
-    if (!document.hasFocus()) return;
+    if (!document.hasFocus() || this._lastStatus !== "SUMMARY") return;
 
-    let delay = 0;
-    this._summaryTimelines.forEach((timeline: SummaryTimelineComponent): void => {
-      if (!timeline.hasStarted()) {
-        setTimeout((): void => {
-          if (document.hasFocus()) {
-            timeline.play();
-          }
-        }, delay);
-        delay += 1000;
+    const list = this._container.querySelector(".scenarios-list") as HTMLElement;
+    if (!list) return;
+
+    const summaryData = this._calculateSummaryData();
+
+    summaryData.forEach((data, index): void => {
+      const slug = this._slugify(data.name);
+      const containerId = `rank-timeline-summary-${slug}`;
+      const itemId = `item-${slug}`;
+      const existingItem = list.querySelector(`#${CSS.escape(itemId)}`);
+
+      if (existingItem || this._pendingSummaryScenarios.has(data.name)) {
+        this._maybePlayExistingTimeline(data.name, index);
+
+        return;
       }
+
+      this._pendingSummaryScenarios.add(data.name);
+      setTimeout((): void => {
+        if (!document.hasFocus() || this._lastStatus !== "SUMMARY") {
+          this._pendingSummaryScenarios.delete(data.name);
+
+          return;
+        }
+
+        this._addSummaryItem(list, data, containerId, itemId);
+      }, index * 1000);
     });
+  }
+
+  private _slugify(text: string): string {
+    return text.replace(/\s+/g, "-").replace(/[^\w-]/g, "");
+  }
+
+  private _maybePlayExistingTimeline(scenarioName: string, index: number): void {
+    const summaryTimeline = this._summaryTimelines.find((timeline): boolean => timeline.scenarioName === scenarioName);
+
+    if (summaryTimeline && !summaryTimeline.hasStarted()) {
+      setTimeout((): void => {
+        if (document.hasFocus()) {
+          summaryTimeline.play();
+        }
+      }, index * 1000);
+    }
+  }
+
+  private _addSummaryItem(list: HTMLElement, data: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }, containerId: string, itemId: string): void {
+    const existing = list.querySelector(`#${CSS.escape(itemId)}`);
+
+    if (existing) {
+      this._pendingSummaryScenarios.delete(data.name);
+
+      return;
+    }
+
+    const item = document.createElement("div");
+
+    item.className = "scenario-summary-item summary-timeline-item entering";
+
+    item.setAttribute("id", itemId);
+
+    item.innerHTML = `<div id="${containerId}"></div>`;
+
+    list.appendChild(item);
+
+    // Force reflow to trigger transition
+    void item.offsetHeight;
+
+    requestAnimationFrame((): void => {
+      item.classList.remove("entering");
+      this._pendingSummaryScenarios.delete(data.name);
+
+      this._updateSummaryTimeline(containerId, data);
+
+      const timeline = this._summaryTimelines[this._summaryTimelines.length - 1];
+      if (timeline) {
+        timeline.play();
+      }
+
+      this._scrollToBottom(list);
+    });
+  }
+
+  private _scrollToBottom(list: HTMLElement): void {
+    const isScrollable = list.scrollHeight > list.clientHeight;
+    if (isScrollable) {
+      list.scrollTo({
+        top: list.scrollHeight,
+        behavior: "smooth"
+      });
+    }
   }
 
   /**
@@ -166,6 +247,7 @@ export class RankedView {
 
     this._summaryTimelines.forEach((timeline) => timeline.destroy());
     this._summaryTimelines = [];
+    this._pendingSummaryScenarios.clear();
 
     this._renderMainUI(state);
 
@@ -188,7 +270,7 @@ export class RankedView {
   }
 
   private _performQuickUpdate(scenarioName: string): void {
-    const containerId = `rank-timeline-${scenarioName.replace(/\s+/g, "-")}`;
+    const containerId = `rank-timeline-${this._slugify(scenarioName)}`;
 
     this._updateRankTimeline(containerId, scenarioName);
     this._updateHolisticRankUI();
@@ -520,11 +602,7 @@ export class RankedView {
       </div>
       <div class="summary-content-wrapper">
           <div class="scenarios-list summary-scrollable">
-              ${summaryData.length > 0 ? summaryData.map(data => `
-                  <div class="scenario-summary-item summary-timeline-item">
-                    ${this._renderSummaryTimeline(data)}
-                  </div>
-              `).join('') : '<p class="no-scenarios">No rank gains this session.</p>'}
+              ${summaryData.length === 0 ? '<p class="no-scenarios">No rank gains this session.</p>' : ""}
           </div>
       </div>
       <div class="media-controls">
@@ -546,23 +624,22 @@ export class RankedView {
     const results: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] = [];
 
     for (const scenarioName of state.playedScenarios) {
-      const attempts = allRuns.filter(run => run.scenarioName === scenarioName).length;
-      if (attempts === 0) continue;
-
       const oldRU = initialEstimates[scenarioName] ?? 0;
       const currentEstimate = this._deps.cosmeticOverride.isActiveFor(this._deps.appState.getBenchmarkDifficulty())
         ? this._deps.cosmeticOverride.getFakeEstimatedRank(this._deps.appState.getBenchmarkDifficulty())
         : this._deps.estimator.getScenarioEstimate(scenarioName);
       const newRU = currentEstimate.continuousValue;
 
-      if (newRU > oldRU + 0.001) {
+      const attemptsCount = allRuns.filter(run => run.scenarioName === scenarioName).length;
+
+      if (attemptsCount > 0 || state.status === "SUMMARY") {
         results.push({
           name: scenarioName,
           oldRU,
           newRU,
-          gain: Math.round((newRU - oldRU) * 100),
+          gain: Math.max(0, Math.round((newRU - oldRU) * 100)),
           time: state.accumulatedScenarioSeconds[scenarioName] ?? 0,
-          attempts
+          attempts: Math.max(attemptsCount, 1)
         });
       }
     }
@@ -570,15 +647,6 @@ export class RankedView {
     return results.sort((a, b) => b.gain - a.gain);
   }
 
-  private _renderSummaryTimeline(data: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }): string {
-    const containerId: string = `rank-timeline-summary-${data.name.replace(/\s+/g, "-")}`;
-
-    setTimeout((): void => {
-      this._updateSummaryTimeline(containerId, data);
-    }, 0);
-
-    return `<div id="${containerId}"></div>`;
-  }
 
   private _updateSummaryTimeline(containerId: string, data: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }): void {
     const container: HTMLElement | null = document.getElementById(containerId);
@@ -632,7 +700,7 @@ export class RankedView {
   }
 
   private _renderRankTimeline(scenarioName: string): string {
-    const containerId: string = `rank-timeline-${scenarioName.replace(/\s+/g, "-")}`;
+    const containerId: string = `rank-timeline-${this._slugify(scenarioName)}`;
 
     setTimeout((): void => {
       this._updateRankTimeline(containerId, scenarioName);

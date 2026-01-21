@@ -69,6 +69,14 @@ export class SummaryTimelineComponent {
     }
 
     /**
+     * Gets the scenario name for this timeline.
+     * @returns The scenario name.
+     */
+    public get scenarioName(): string {
+        return this._config.scenarioName;
+    }
+
+    /**
      * Cleans up resources.
      */
     public destroy(): void {
