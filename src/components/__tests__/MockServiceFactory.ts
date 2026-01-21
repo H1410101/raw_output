@@ -75,13 +75,20 @@ export class MockServiceFactory {
      */
     public static createAppStateMock(overrides: Record<string, unknown> = {}): AppStateService {
         return {
+            getActiveTabId: vi.fn().mockReturnValue("nav-benchmarks"),
+            setActiveTabId: vi.fn(),
+            onTabChanged: vi.fn(),
             getBenchmarkDifficulty: vi.fn().mockReturnValue("Advanced"),
-            getBenchmarkScrollTop: vi.fn().mockReturnValue(0),
             setBenchmarkDifficulty: vi.fn(),
-            getIsFolderViewOpen: vi.fn().mockReturnValue(false),
-            getIsSettingsMenuOpen: vi.fn().mockReturnValue(false),
-            getTheme: vi.fn().mockReturnValue("dark"),
             onDifficultyChanged: vi.fn(),
+            getIsSettingsMenuOpen: vi.fn().mockReturnValue(false),
+            setIsSettingsMenuOpen: vi.fn(),
+            getIsFolderViewOpen: vi.fn().mockReturnValue(false),
+            setIsFolderViewOpen: vi.fn(),
+            getBenchmarkScrollTop: vi.fn().mockReturnValue(0),
+            setBenchmarkScrollTop: vi.fn(),
+            getFocusedScenarioName: vi.fn().mockReturnValue(null),
+            setFocusedScenarioName: vi.fn(),
             ...overrides
         } as unknown as AppStateService;
     }

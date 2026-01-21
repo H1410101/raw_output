@@ -29,6 +29,15 @@ interface LaunchHoldState {
   onComplete: () => void;
 }
 
+interface SummaryItem {
+  name: string;
+  oldRU: number;
+  newRU: number;
+  gain: number;
+  time: number;
+  attempts: number;
+}
+
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
   readonly session: SessionService;
@@ -64,6 +73,7 @@ export class RankedView {
   private readonly _pendingSummaryScenarios: Set<string> = new Set();
   private readonly _onBrowserFocusBound: () => void;
   private _summaryTimeouts: number[] = [];
+  private _isProcessingSummaryQueue: boolean = false;
 
   /**
    * Initializes the view with its mount point.
@@ -107,47 +117,97 @@ export class RankedView {
         this._activeTimeline.play();
       }
       this._playSummaryAnimations();
+    } else {
+      this._clearSummaryTimeouts();
     }
   }
 
   private _playSummaryAnimations(): void {
     if (!this._isViewVisible() || !document.hasFocus() || this._lastStatus !== "SUMMARY") return;
+    if (this._isProcessingSummaryQueue) return;
+
+    this._isProcessingSummaryQueue = true;
+    this._processNextSummaryItem();
+  }
+
+  private _processNextSummaryItem(): void {
+    if (!this._isViewVisible() || !document.hasFocus() || this._lastStatus !== "SUMMARY") {
+      this._isProcessingSummaryQueue = false;
+
+      return;
+    }
 
     const list = this._container.querySelector(".scenarios-list") as HTMLElement;
-    if (!list) return;
+    if (!list) {
+      this._isProcessingSummaryQueue = false;
 
+      return;
+    }
+
+    const nextItem = this._findNextSummaryItem(list);
+
+    if (!nextItem) {
+      this._finishSummaryQueue();
+
+      return;
+    }
+
+    this._spawnSummaryItem(list, nextItem);
+  }
+
+  private _findNextSummaryItem(list: HTMLElement): SummaryItem | null {
     const summaryData = this._calculateSummaryData();
 
-    summaryData.forEach((data, index): void => {
-      const slug = this._slugify(data.name);
-      const containerId = `rank-timeline-summary-${slug}`;
-      const itemId = `item-${slug}`;
-      const existingItem = list.querySelector(`#${CSS.escape(itemId)}`);
+    return summaryData.find((data) => {
+      const itemId = `item-${this._slugify(data.name)}`;
 
-      if (existingItem || this._pendingSummaryScenarios.has(data.name)) {
-        this._maybePlayExistingTimeline(data.name, index);
+      const exists = !!list.querySelector(`#${CSS.escape(itemId)}`);
+      const isPending = this._pendingSummaryScenarios.has(data.name);
 
-        return;
+      return !exists && !isPending;
+    }) ?? null;
+  }
+
+  private _finishSummaryQueue(): void {
+    this._summaryTimelines.forEach((timeline) => {
+      if (!timeline.hasStarted()) {
+        timeline.play();
       }
-
-      this._pendingSummaryScenarios.add(data.name);
-      const timeoutId = window.setTimeout((): void => {
-        const indexInList = this._summaryTimeouts.indexOf(timeoutId);
-        if (indexInList !== -1) {
-          this._summaryTimeouts.splice(indexInList, 1);
-        }
-
-        if (!this._isViewVisible() || !document.hasFocus() || this._lastStatus !== "SUMMARY") {
-          this._pendingSummaryScenarios.delete(data.name);
-
-          return;
-        }
-
-        this._addSummaryItem(list, data, containerId, itemId);
-      }, index * 1000);
-
-      this._summaryTimeouts.push(timeoutId);
     });
+
+    this._isProcessingSummaryQueue = false;
+  }
+
+  private _spawnSummaryItem(list: HTMLElement, data: SummaryItem): void {
+    const slug = this._slugify(data.name);
+    const containerId = `rank-timeline-summary-${slug}`;
+    const itemId = `item-${slug}`;
+
+    this._pendingSummaryScenarios.add(data.name);
+
+    const timeoutId = window.setTimeout((): void => {
+      this._removeSummaryTimeout(timeoutId);
+      this._addSummaryItem(list, data, containerId, itemId);
+      this._scheduleNextSummaryItem();
+    }, 100);
+
+    this._summaryTimeouts.push(timeoutId);
+  }
+
+  private _scheduleNextSummaryItem(): void {
+    const nextTimeoutId = window.setTimeout(() => {
+      this._removeSummaryTimeout(nextTimeoutId);
+      this._processNextSummaryItem();
+    }, 1000);
+
+    this._summaryTimeouts.push(nextTimeoutId);
+  }
+
+  private _removeSummaryTimeout(timeoutId: number): void {
+    const index = this._summaryTimeouts.indexOf(timeoutId);
+    if (index !== -1) {
+      this._summaryTimeouts.splice(index, 1);
+    }
   }
 
   private _isViewVisible(): boolean {
@@ -158,24 +218,6 @@ export class RankedView {
     return text.replace(/\s+/g, "-").replace(/[^\w-]/g, "");
   }
 
-  private _maybePlayExistingTimeline(scenarioName: string, index: number): void {
-    const summaryTimeline = this._summaryTimelines.find((timeline): boolean => timeline.scenarioName === scenarioName);
-
-    if (summaryTimeline && !summaryTimeline.hasStarted()) {
-      const timeoutId = window.setTimeout((): void => {
-        const indexInList = this._summaryTimeouts.indexOf(timeoutId);
-        if (indexInList !== -1) {
-          this._summaryTimeouts.splice(indexInList, 1);
-        }
-
-        if (this._isViewVisible() && document.hasFocus()) {
-          summaryTimeline.play();
-        }
-      }, index * 1000);
-
-      this._summaryTimeouts.push(timeoutId);
-    }
-  }
 
   private _addSummaryItem(list: HTMLElement, data: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }, containerId: string, itemId: string): void {
     const existing = list.querySelector(`#${CSS.escape(itemId)}`);
@@ -235,6 +277,7 @@ export class RankedView {
   private _clearSummaryTimeouts(): void {
     this._summaryTimeouts.forEach((timeout): void => window.clearTimeout(timeout));
     this._summaryTimeouts = [];
+    this._isProcessingSummaryQueue = false;
   }
 
   /**
@@ -305,10 +348,7 @@ export class RankedView {
 
     if (state.status === "SUMMARY") {
       const timeoutId = window.setTimeout(() => {
-        const indexInList = this._summaryTimeouts.indexOf(timeoutId);
-        if (indexInList !== -1) {
-          this._summaryTimeouts.splice(indexInList, 1);
-        }
+        this._removeSummaryTimeout(timeoutId);
 
         this._playSummaryAnimations();
       }, 500);

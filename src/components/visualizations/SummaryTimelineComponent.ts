@@ -113,6 +113,7 @@ export class SummaryTimelineComponent {
 
         this._progressLine.style.left = `${left}%`;
         this._progressLine.style.width = `${width}%`;
+
         this._playTimeout = window.setTimeout((): void => {
             this._playTimeout = null;
             if (this._deltaLabel) {
