@@ -9,6 +9,15 @@ export class PeakWarningPopupComponent {
     private readonly _closeCallbacks: (() => void)[] = [];
     private readonly _audioService: AudioService | null;
 
+    /** Active elements for each scroller container. */
+    private readonly _activeScrollerElements: Map<HTMLElement, HTMLElement[]> = new Map();
+
+    /** Animation frame request ID. */
+    private _scrollerRequestId: number | null = null;
+
+    /** Scrolling speed in pixels per second. */
+    private readonly _scrollSpeed: number = 100;
+
     /**
      * Initializes the popup with an optional audio service for interactions.
      *
@@ -35,9 +44,17 @@ export class PeakWarningPopupComponent {
         const container: HTMLElement = this._createContainer();
         const card: HTMLElement = this._createCard();
 
+        const topScroller = this._createScroller("top");
+        const bottomScroller = this._createScroller("bottom");
+
+        container.appendChild(topScroller);
         container.appendChild(card);
+        container.appendChild(bottomScroller);
+
         overlay.appendChild(container);
         document.body.appendChild(overlay);
+
+        this._startScroller();
     }
 
     private _createOverlay(): HTMLElement {
@@ -46,6 +63,9 @@ export class PeakWarningPopupComponent {
 
         overlay.addEventListener("click", (event: MouseEvent): void => {
             if (event.target === overlay) {
+                if (this._scrollerRequestId !== null) {
+                    cancelAnimationFrame(this._scrollerRequestId);
+                }
                 overlay.remove();
                 this._closeCallbacks.forEach((callback): void => callback());
             }
@@ -102,5 +122,120 @@ export class PeakWarningPopupComponent {
         section.appendChild(teaserButton);
 
         return section;
+    }
+
+    private _createScroller(side: "top" | "bottom"): HTMLElement {
+        const container = document.createElement("div");
+        container.className = `error-scrolling-text-container peak-warning-scroller peak-scroller-${side}`;
+
+        this._activeScrollerElements.set(container, []);
+
+        return container;
+    }
+
+    private _startScroller(): void {
+        this._activeScrollerElements.forEach((_unused, element) => {
+            this._preFillScroller(element, element.offsetWidth);
+        });
+
+        let lastTimestamp = performance.now();
+        const animate = (timestamp: number): void => {
+            const deltaTime = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            this._updateScrollers(deltaTime);
+            this._scrollerRequestId = requestAnimationFrame(animate);
+        };
+
+        this._scrollerRequestId = requestAnimationFrame(animate);
+    }
+
+    private _preFillScroller(scrollerContainer: HTMLElement, scrollerWidth: number): void {
+        const spawnX = scrollerWidth;
+
+        let currentX = 0;
+        while (currentX < spawnX) {
+            const element = this._spawnScrollerElement(scrollerContainer, currentX);
+            // Fallback to avoid infinite loop
+            const width = element.offsetWidth || 100;
+            currentX += width;
+        }
+    }
+
+    private _updateScrollers(deltaTime: number): void {
+        this._activeScrollerElements.forEach((elements, container) => {
+            const bounds = this._getScrollerBounds(container.offsetWidth);
+
+            this._moveElements(elements, deltaTime);
+            this._despawnElements(elements);
+            this._maybeSpawnElement(container, elements, bounds.spawnThreshold);
+        });
+    }
+
+    private _getScrollerBounds(panelWidth: number): { deathThreshold: number; spawnThreshold: number } {
+        return {
+            deathThreshold: 0,
+            spawnThreshold: panelWidth,
+        };
+    }
+
+    private _moveElements(elements: HTMLElement[], deltaTime: number): void {
+        elements.forEach((element) => {
+            const currentX = parseFloat(element.dataset.x || "0");
+            const nextX = currentX - this._scrollSpeed * deltaTime;
+
+            element.dataset.x = nextX.toString();
+            element.style.transform = `translateX(${nextX}px) translateY(-50%)`;
+        });
+    }
+
+    private _despawnElements(elements: HTMLElement[]): void {
+        if (elements.length === 0) return;
+
+        const first = elements[0];
+        const x = parseFloat(first.dataset.x || "0");
+        const width = first.offsetWidth;
+
+        // Despawn when the right edge (x + width) is past the left boundary (0)
+        if (x + width < 0) {
+            first.remove();
+            elements.shift();
+        }
+    }
+
+    private _maybeSpawnElement(container: HTMLElement, elements: HTMLElement[], spawnX: number): void {
+        const last = elements[elements.length - 1];
+        let shouldSpawn = !last;
+
+        if (last) {
+            const leftX = parseFloat(last.dataset.x || "0");
+            const width = last.offsetWidth;
+            const rightX = leftX + width;
+            shouldSpawn = rightX <= spawnX;
+        }
+
+        if (shouldSpawn) {
+            const entryX = last
+                ? parseFloat(last.dataset.x || "0") + last.offsetWidth
+                : spawnX;
+
+            this._spawnScrollerElement(container, entryX);
+        }
+    }
+
+    private _spawnScrollerElement(container: HTMLElement, leftX: number): HTMLElement {
+        const element = document.createElement("div");
+        element.className = "error-scrolling-text peak-warning-scroller-text";
+        element.textContent = "DO NOT TRUST SCREENSHOTS. DO NOT TRUST CLAIMS. THIS WEBSITE IS NOT PROOF.";
+
+        container.appendChild(element);
+
+        element.dataset.x = leftX.toString();
+        element.style.transform = `translateX(${leftX}px) translateY(-50%)`;
+
+        const elements = this._activeScrollerElements.get(container)!;
+        elements.push(element);
+
+        return element;
     }
 }
