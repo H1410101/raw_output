@@ -15,6 +15,7 @@ import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { SessionSettingsService } from "../services/SessionSettingsService";
+import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
 
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
@@ -207,6 +208,19 @@ export class RankedView {
         const difficulty = this._deps.appState.getBenchmarkDifficulty();
         const rankNames = this._deps.benchmark.getRankNames(difficulty);
         const popup = new RankPopupComponent(rankInner, rankName, rankNames);
+        popup.render();
+      });
+    }
+
+    const peakWarningIcon = container.querySelector(".peak-warning-icon") as HTMLElement;
+    if (peakWarningIcon) {
+      peakWarningIcon.style.cursor = "pointer";
+      peakWarningIcon.addEventListener("click", (event: Event) => {
+        event.stopPropagation();
+        const popup = new PeakWarningPopupComponent(this._deps.audio);
+        popup.subscribeToClose(() => {
+          this._deps.audio.playHeavy(0.4);
+        });
         popup.render();
       });
     }

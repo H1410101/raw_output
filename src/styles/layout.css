@@ -969,6 +969,15 @@ h1 {
     width: fit-content;
 }
 
+.settings-menu-container.peak-warning-container {
+    width: 38rem;
+}
+
+.peak-warning-card {
+    text-align: center;
+    margin-right: 0 !important;
+}
+
 .settings-menu-container::before {
     content: "";
     position: absolute;

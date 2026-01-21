@@ -17,6 +17,7 @@ import { BenchmarkTableComponent } from "./benchmark/BenchmarkTableComponent";
 import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsController";
 import { FolderSettingsView, FolderActionHandlers } from "./ui/FolderSettingsView";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
+import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
 
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
@@ -592,7 +593,6 @@ export class BenchmarkView {
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
 
     const isPeak = this._benchmarkService.isPeak(difficulty);
-
     const peakIcon = this._getPeakIconHtml(isPeak);
 
     container.innerHTML = `
@@ -605,18 +605,35 @@ export class BenchmarkView {
         </div>
     `;
 
+    this._attachHolisticRankListeners(container, estimate.rankName);
+
+    return container;
+  }
+
+  private _attachHolisticRankListeners(container: HTMLElement, currentRankName: string): void {
     const rankInner = container.querySelector(".rank-text-inner") as HTMLElement;
     if (rankInner) {
       rankInner.style.cursor = "pointer";
       rankInner.addEventListener("click", (event: Event) => {
         event.stopPropagation();
         const rankNames = this._benchmarkService.getRankNames(this._activeDifficulty);
-        const popup = new RankPopupComponent(rankInner, estimate.rankName, rankNames);
+        const popup = new RankPopupComponent(rankInner, currentRankName, rankNames);
         popup.render();
       });
     }
 
-    return container;
+    const peakWarningIcon = container.querySelector(".peak-warning-icon") as HTMLElement;
+    if (peakWarningIcon) {
+      peakWarningIcon.style.cursor = "pointer";
+      peakWarningIcon.addEventListener("click", (event: Event) => {
+        event.stopPropagation();
+        const popup = new PeakWarningPopupComponent(this._audioService);
+        popup.subscribeToClose(() => {
+          this._audioService.playHeavy(0.4);
+        });
+        popup.render();
+      });
+    }
   }
 
   private _getPeakIconHtml(isPeak: boolean): string {
