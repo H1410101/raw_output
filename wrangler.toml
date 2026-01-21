@@ -7,5 +7,5 @@ ENVIRONMENT = "development"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "raw-output
+database_name = "raw-output"
 database_id = "fdcbb9b8-dc7b-4837-ac0c-e57c46346c9b"
