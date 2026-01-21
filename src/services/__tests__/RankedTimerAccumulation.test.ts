@@ -27,6 +27,8 @@ function createMocks(): MockServices {
             onSessionUpdated: vi.fn(),
             getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
             getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
+            getRankedScenarioBest: vi.fn().mockReturnValue({}),
+            setRankedPlaylist: vi.fn(),
         } as unknown as SessionService,
         estimator: {
             getScenarioEstimate: vi.fn().mockReturnValue({ continuousValue: 1.0, highestAchieved: 1.0 }),

@@ -348,7 +348,7 @@ export class RankedView {
   }
 
   private _renderSummaryContent(): string {
-    const summaryData = this._calculateSummaryData();
+    const summaryData: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] = this._calculateSummaryData();
 
     return `
       <div class="ranked-info-top">
@@ -375,12 +375,16 @@ export class RankedView {
     `;
   }
 
-  private _calculateSummaryData(): { name: string; oldRU: number; newRU: number; gain: number }[] {
+  private _calculateSummaryData(): { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] {
     const state = this._deps.rankedSession.state;
     const initialEstimates = state.initialEstimates;
-    const results: { name: string; oldRU: number; newRU: number; gain: number }[] = [];
+    const allRuns = this._deps.session.getAllRankedSessionRuns();
+    const results: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] = [];
 
     for (const scenarioName of state.playedScenarios) {
+      const attempts = allRuns.filter(run => run.scenarioName === scenarioName).length;
+      if (attempts === 0) continue;
+
       const oldRU = initialEstimates[scenarioName] ?? 0;
       const currentEstimate = this._deps.estimator.getScenarioEstimate(scenarioName);
       const newRU = currentEstimate.continuousValue;
@@ -390,7 +394,9 @@ export class RankedView {
           name: scenarioName,
           oldRU,
           newRU,
-          gain: Math.round((newRU - oldRU) * 100)
+          gain: Math.round((newRU - oldRU) * 100),
+          time: state.accumulatedScenarioSeconds[scenarioName] ?? 0,
+          attempts
         });
       }
     }
@@ -398,7 +404,7 @@ export class RankedView {
     return results.sort((a, b) => b.gain - a.gain);
   }
 
-  private _renderSummaryTimeline(data: { name: string; oldRU: number; newRU: number; gain: number }): string {
+  private _renderSummaryTimeline(data: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }): string {
     const containerId: string = `rank-timeline-summary-${data.name.replace(/\s+/g, "-")}`;
 
     setTimeout((): void => {
@@ -408,7 +414,7 @@ export class RankedView {
     return `<div id="${containerId}"></div>`;
   }
 
-  private _updateSummaryTimeline(containerId: string, data: { name: string; oldRU: number; newRU: number; gain: number }): void {
+  private _updateSummaryTimeline(containerId: string, data: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }): void {
     const container: HTMLElement | null = document.getElementById(containerId);
     if (!container) return;
 
@@ -429,7 +435,9 @@ export class RankedView {
       oldRankName: oldEstimate.rankName,
       newRankName: newEstimate.rankName,
       oldProgress: oldEstimate.progressToNext,
-      newProgress: newEstimate.progressToNext
+      newProgress: newEstimate.progressToNext,
+      totalSecondsSpent: data.time,
+      attempts: data.attempts
     });
 
     container.innerHTML = "";

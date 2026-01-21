@@ -301,6 +301,7 @@ export class RankedSessionService {
         this._sequence.push(...batch);
 
         this._sessionService.startRankedSession(Date.now());
+        this._sessionService.setRankedPlaylist(this._sequence);
         this._recordInitialEstimates(batch);
         this._scenarioStartTime = new Date().toISOString();
 
@@ -336,6 +337,7 @@ export class RankedSessionService {
         }
 
         this._sessionService.startRankedSession(Date.now());
+        this._sessionService.setRankedPlaylist(this._sequence);
         this._saveToLocalStorage();
         this._notifyListeners();
     }
@@ -426,6 +428,7 @@ export class RankedSessionService {
         this._sequence.push(...batch);
         this._status = "ACTIVE";
 
+        this._sessionService.setRankedPlaylist(this._sequence);
         this._recordInitialEstimates(batch);
         this._snapshotScenarioTime();
         this._scenarioStartTime = new Date().toISOString();
@@ -667,8 +670,12 @@ export class RankedSessionService {
 
                 if (this._status === "ACTIVE") {
                     updatedScenarioNames.forEach(name => {
-                        this._playedScenarios.add(name);
-                        this._rankEstimator.recordPlay(name);
+                        const isInSequence = this._sequence.includes(name);
+
+                        if (isInSequence) {
+                            this._playedScenarios.add(name);
+                            this._rankEstimator.recordPlay(name);
+                        }
                     });
                 }
             }
@@ -751,6 +758,7 @@ export class RankedSessionService {
                 this._playedScenarios = new Set(difficultyState.playedScenarios || []);
                 this._initialEstimates = difficultyState.initialEstimates || {};
                 this._accumulatedScenarioSeconds = new Map(Object.entries(difficultyState.accumulatedScenarioSeconds || {}));
+                this._sessionService.setRankedPlaylist(this._sequence);
             }
         } catch {
             localStorage.removeItem(this._storageKey);

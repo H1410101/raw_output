@@ -34,6 +34,7 @@ interface PersistedSessionState {
   rankedStartTime: number | null;
   rankedBestRanks: [string, SessionRankRecord][] | null;
   rankedAllRuns: { scenarioName: string; score: number; timestamp: number }[] | null;
+  rankedPlaylist: string[] | null;
 }
 
 /**
@@ -73,6 +74,8 @@ export class SessionService {
   private readonly _rankedBestRanks: Map<string, SessionRankRecord> = new Map();
 
   private readonly _rankedAllRuns: { scenarioName: string; score: number; timestamp: number }[] = [];
+
+  private _rankedPlaylist: Set<string> | null = null;
 
   private readonly _sessionUpdateListeners: SessionUpdateListener[] = [];
 
@@ -216,9 +219,12 @@ export class SessionService {
     },
     runTimestamp: number,
   ): void {
+    const isExplicitlyInPlaylist = !this._rankedPlaylist || this._rankedPlaylist.has(run.scenarioName);
+
     if (
       this._rankedStartTime !== null &&
-      runTimestamp >= this._rankedStartTime
+      runTimestamp >= this._rankedStartTime &&
+      isExplicitlyInPlaylist
     ) {
       this._processRankedRunData(run);
 
@@ -308,6 +314,17 @@ export class SessionService {
   public stopRankedSession(): void {
     this._rankedStartTime = null;
     this._isRanked = false;
+    this._rankedPlaylist = null;
+    this._saveToLocalStorage();
+  }
+
+  /**
+   * Sets the playlist of scenarios allowed in the ranked track.
+   * 
+   * @param names - The list of scenario names, or null to allow all benchmark scenarios.
+   */
+  public setRankedPlaylist(names: string[] | null): void {
+    this._rankedPlaylist = names ? new Set(names) : null;
     this._saveToLocalStorage();
   }
 
@@ -415,6 +432,7 @@ export class SessionService {
     if (!preserveRanked) {
       this._rankedBestRanks.clear();
       this._rankedAllRuns.length = 0;
+      this._rankedPlaylist = null;
     }
 
     this._clearExpirationTimer();
@@ -611,6 +629,7 @@ export class SessionService {
       rankedStartTime: this._rankedStartTime,
       rankedBestRanks: Array.from(this._rankedBestRanks.entries()),
       rankedAllRuns: [...this._rankedAllRuns],
+      rankedPlaylist: this._rankedPlaylist ? Array.from(this._rankedPlaylist) : null,
     };
 
     localStorage.setItem(this._storageKey, JSON.stringify(state));
@@ -641,6 +660,7 @@ export class SessionService {
       if (state.rankedAllRuns) {
         this._rankedAllRuns.push(...state.rankedAllRuns);
       }
+      this._rankedPlaylist = state.rankedPlaylist ? new Set(state.rankedPlaylist) : null;
 
       this._scheduleExpirationCheck();
     } catch {

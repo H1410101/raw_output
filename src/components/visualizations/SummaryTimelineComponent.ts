@@ -12,6 +12,8 @@ export interface SummaryTimelineConfiguration {
     readonly newRankName: string;
     readonly oldProgress: number;
     readonly newProgress: number;
+    readonly totalSecondsSpent: number;
+    readonly attempts: number;
 }
 
 interface TickRenderOptions {
@@ -120,6 +122,7 @@ export class SummaryTimelineComponent {
         this._renderProgress({ parent: track, minRU, rankUnitsRange });
 
         this._renderScenarioName(track);
+        this._renderScenarioStats(track);
         this._renderDelta(track, minRU, rankUnitsRange);
         this._renderRankLabels(track, minRU, rankUnitsRange);
 
@@ -142,7 +145,7 @@ export class SummaryTimelineComponent {
 
     private _renderScenarioName(parent: HTMLElement): void {
         const anchor = document.createElement("div");
-        anchor.className = "summary-timeline-label-anchor top old title-fixed anchor-center";
+        anchor.className = "summary-timeline-label-anchor top old title-fixed anchor-left";
         anchor.style.left = "10%";
         parent.appendChild(anchor);
 
@@ -151,6 +154,21 @@ export class SummaryTimelineComponent {
         this._titleLabel = this._createLabel(anchor, "summary-timeline-title", text);
 
         this._titleLabel.style.transform = "translateX(0%)";
+    }
+
+    private _renderScenarioStats(parent: HTMLElement): void {
+        const anchor = document.createElement("div");
+        anchor.className = "summary-timeline-label-anchor top right scenario-stats anchor-right";
+        // Symmetrical to scenario name at 10%
+        anchor.style.left = "90%";
+        parent.appendChild(anchor);
+
+        const mins = Math.floor(this._config.totalSecondsSpent / 60);
+        const secs = this._config.totalSecondsSpent % 60;
+        const timeStr = `${mins}:${secs.toString().padStart(2, "0")}`;
+
+        const text = `${timeStr} | ${this._config.attempts}`;
+        this._createLabel(anchor, "summary-timeline-stats", text);
     }
 
     private _renderDelta(parent: HTMLElement, minRU: number, rankUnitsRange: number): void {

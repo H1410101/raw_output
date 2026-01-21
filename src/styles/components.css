@@ -497,6 +497,19 @@
     transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.summary-timeline-stats {
+    position: relative;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--lower-band-1);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.5;
+    text-shadow: 0 0.125rem 0.25rem rgba(var(--surface-0-rgb), 0.5);
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .summary-timeline-axis {
     position: absolute;
     top: 50%;
