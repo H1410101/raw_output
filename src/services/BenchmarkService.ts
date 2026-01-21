@@ -4,6 +4,7 @@ import {
   getScenariosByDifficulty,
   getAvailableDifficulties,
   getRankNamesForDifficulty,
+  isPeakBenchmark,
   BenchmarkScenario,
 } from "../data/benchmarks";
 
@@ -48,5 +49,15 @@ export class BenchmarkService {
    */
   public getRankNames(difficulty: DifficultyTier): string[] {
     return getRankNamesForDifficulty(difficulty);
+  }
+
+  /**
+   * Checks if a difficulty tier is considered a Peak benchmark.
+   *
+   * @param difficulty - The difficulty tier to check.
+   * @returns True if it is a Peak benchmark.
+   */
+  public isPeak(difficulty: DifficultyTier): boolean {
+    return isPeakBenchmark(difficulty);
   }
 }
