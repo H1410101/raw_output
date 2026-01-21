@@ -128,12 +128,13 @@ describe("RankTimelineComponent Logic", () => {
         const markers = container.querySelectorAll(".timeline-marker");
         const anchors = container.querySelectorAll(".timeline-marker-anchor");
 
-        // Everything should be at 50%
-        expect((markers[0] as HTMLElement).style.left).toBe("50%");
-        expect((markers[1] as HTMLElement).style.left).toBe("50%");
+        // Position is now rankUnit * (100 / 7.5). 2 * 13.333 = 26.666...
+        expect(parseFloat((markers[0] as HTMLElement).style.left)).toBeCloseTo(26.66, 1);
+        expect(parseFloat((markers[1] as HTMLElement).style.left)).toBeCloseTo(26.66, 1);
 
-        expect((anchors[0] as HTMLElement).style.left).toBe("50%");
-        expect((anchors[1] as HTMLElement).style.left).toBe("50%");
+        expect(parseFloat((anchors[0] as HTMLElement).style.left)).toBeCloseTo(26.66, 1);
+        expect(parseFloat((anchors[1] as HTMLElement).style.left)).toBeCloseTo(26.66, 1);
+
     });
 
     it("should resolve collisions by shifting labels in the DOM", () => {
@@ -173,12 +174,13 @@ describe("RankTimelineComponent Logic", () => {
         const progressLine = container.querySelector(".timeline-progress-line") as HTMLElement;
         expect(progressLine).toBeTruthy();
 
-        // Window is 7.5, center is (2+4)/2 = 3. 
-        // MinRU = 3 - 3.75 = -0.75.
-        // tPct (target=2): (2 - (-0.75)) / 7.5 = 2.75 / 7.5 = 36.666...%
-        // ePct (expected=3): (3 - (-0.75)) / 7.5 = 3.75 / 7.5 = 50%
-        expect(parseFloat(progressLine.style.left)).toBeCloseTo(36.66, 1);
+        // Position is now relative to RU 0. 
+        // targetRU=2: 2 * (100 / 7.5) = 26.66%
+        // expectedRU=3: 3 * (100 / 7.5) = 40%
+        // width: 1 * (100 / 7.5) = 13.33%
+        expect(parseFloat(progressLine.style.left)).toBeCloseTo(26.66, 1);
         expect(parseFloat(progressLine.style.width)).toBeCloseTo(13.33, 1);
+
     });
 
     it("should render notches for all runs, highlighting top 3", () => {

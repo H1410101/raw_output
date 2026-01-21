@@ -28,6 +28,15 @@ interface MarkerRenderOptions {
  */
 export class RankTimelineComponent {
     private readonly _container: HTMLElement;
+    private readonly _viewport: HTMLElement;
+    private readonly _scroller: HTMLElement;
+
+    // Persistent layers to enable animations
+    private readonly _ticksLayer: HTMLElement;
+    private readonly _attemptsLayer: HTMLElement;
+    private readonly _progressLine: HTMLElement;
+    private readonly _markersLayer: HTMLElement;
+
     private _config: RankTimelineConfiguration;
     private _mapper: RankScaleMapper;
 
@@ -36,121 +45,173 @@ export class RankTimelineComponent {
     private _targetLabel: HTMLElement | null = null;
     private _achievedLabel: HTMLElement | null = null;
 
+    private _isInitialized: boolean = false;
+    private _hasPreviousProgress: boolean = false;
+
     /**
      * Initializes the timeline.
      * @param config - The initial configuration.
      */
     public constructor(config: RankTimelineConfiguration) {
         this._config = config;
+
         this._container = document.createElement("div");
         this._container.className = "rank-timeline-container";
 
-        const thresholdValues = Object.values(config.thresholds).sort((a, b) => a - b);
-        // Standard interval
+        this._viewport = document.createElement("div");
+        this._viewport.className = "timeline-viewport";
+        this._container.appendChild(this._viewport);
+
+        this._scroller = document.createElement("div");
+        this._scroller.className = "timeline-scroller";
+        this._viewport.appendChild(this._scroller);
+
+        // Initialize persistent layers
+        const axis = document.createElement("div");
+        axis.className = "timeline-axis";
+        this._scroller.appendChild(axis);
+
+        this._ticksLayer = document.createElement("div");
+        this._ticksLayer.className = "timeline-ticks-layer";
+        this._scroller.appendChild(this._ticksLayer);
+
+        this._attemptsLayer = document.createElement("div");
+        this._attemptsLayer.className = "timeline-attempts-layer";
+        this._scroller.appendChild(this._attemptsLayer);
+
+        this._progressLine = document.createElement("div");
+        this._progressLine.className = "timeline-progress-line";
+
+        // Start hidden
+        this._progressLine.style.opacity = "0";
+        this._scroller.appendChild(this._progressLine);
+
+        this._markersLayer = document.createElement("div");
+        this._markersLayer.className = "timeline-markers-layer";
+        this._scroller.appendChild(this._markersLayer);
+
+        const thresholdValues = Object.values(config.thresholds).sort((a: number, b: number) => a - b);
         this._mapper = new RankScaleMapper(thresholdValues, 100);
     }
 
     /**
-     * Updates the timeline configuration.
-     * @param config - The new configuration.
-     */
-    public update(config: RankTimelineConfiguration): void {
-        this._config = config;
-
-        const thresholdValues = Object.values(config.thresholds).sort((a, b) => a - b);
-        this._mapper = new RankScaleMapper(thresholdValues, 100);
-
-        this.render();
-    }
-
-    /**
-     * Renders the component.
+     * Gets the main container element.
      * @returns The container element.
      */
-    public render(): HTMLElement {
-        this._container.innerHTML = "";
+    public getContainer(): HTMLElement {
+        return this._container;
+    }
+
+    /**
+     * Updates the timeline configuration and triggers a scroll animation.
+     * @param config - The new configuration.
+     * @param immediate - If true, jumps to the new position without animation.
+     */
+    public update(config: RankTimelineConfiguration, immediate: boolean = false): void {
+        this._config = config;
+
+        const thresholdValues = Object.values(config.thresholds).sort((a: number, b: number) => a - b);
+        this._mapper = new RankScaleMapper(thresholdValues, 100);
+
+        this.render(immediate);
+    }
+
+    /**
+     * Renders the component contents and updates the scroll position.
+     * @param immediate - If true, jumps to the new position without animation.
+     * @returns The container element.
+     */
+    public render(immediate: boolean = false): HTMLElement {
+        // Clear non-persistent layers
+        this._ticksLayer.innerHTML = "";
+        this._attemptsLayer.innerHTML = "";
+        this._markersLayer.innerHTML = "";
+
+        const offscreenTargetAnchors = this._container.querySelectorAll(".timeline-marker-anchor.offscreen");
+        offscreenTargetAnchors.forEach(a => a.remove());
+
         this._targetAnchor = null;
         this._achievedAnchor = null;
         this._targetLabel = null;
         this._achievedLabel = null;
 
-        // Create track for masked content (axis, ticks, labels)
-        const track = document.createElement("div");
-        track.className = "timeline-track";
-        this._container.appendChild(track);
+        const { minRU } = this._calculateViewBounds();
+        const windowSize = this._config.rangeWindow ?? 7.5;
 
-        const { minRU, maxRU } = this._calculateViewBounds();
-        const ruRange = maxRU - minRU;
+        this._renderTicks();
+        this._renderAttempts();
+        this._renderMarkers(minRU, windowSize);
+        this._renderProgressLine(immediate);
 
-        this._renderAxis(track);
-        this._renderTicks(track, minRU, maxRU, ruRange);
-        this._renderAttempts(track, minRU, ruRange);
-        this._renderMarkers(minRU, ruRange, track);
-        this._renderProgressLine(track, minRU, ruRange);
+        this._applyScroll(minRU, windowSize, immediate);
+        this._isInitialized = true;
 
         return this._container;
     }
 
-    private _renderAxis(parent: HTMLElement): void {
-        const axis = document.createElement("div");
-        axis.className = "timeline-axis";
-        parent.appendChild(axis);
-    }
-
-    private _renderTicks(parent: HTMLElement, minRU: number, maxRU: number, range: number): void {
-        const startRU = Math.ceil(minRU - 0.5);
-        const endRU = Math.floor(maxRU + 0.5);
-
+    private _renderTicks(): void {
         const rankNames = Object.keys(this._config.thresholds).sort(
             (a, b) => this._config.thresholds[a] - this._config.thresholds[b]
         );
 
-        const bounds = { min: minRU, range };
-
-        for (let i = startRU; i <= endRU; i++) {
+        for (let i = -5; i <= 25; i++) {
             const matchingRank = rankNames.find((name: string) => {
                 const score = this._config.thresholds[name];
                 const rankUnit = this._mapper.calculateRankUnit(score);
 
-                // Float tolerance
                 return Math.abs(rankUnit - i) < 0.001;
             });
 
-            this._renderRankTick(parent, i, matchingRank || "", bounds);
+            this._renderRankTick(i, matchingRank || "");
         }
     }
 
-    private _renderMarkers(minRU: number, range: number, track: HTMLElement): void {
+    private _renderRankTick(rankUnit: number, label: string): void {
+        const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
+        const leftPercent = rankUnit * unitWidth;
+
+        const tick = document.createElement("div");
+        tick.className = "timeline-tick";
+        if (!label) {
+            tick.classList.add("minor");
+        }
+        tick.style.left = `${leftPercent}%`;
+        this._ticksLayer.appendChild(tick);
+
+        if (label) {
+            const text = document.createElement("div");
+            text.className = "timeline-tick-label";
+            text.innerText = label;
+            text.style.left = `${leftPercent}%`;
+            this._ticksLayer.appendChild(text);
+        }
+    }
+
+    private _renderMarkers(minRU: number, windowSize: number): void {
         const targetRU = this._config.targetRU;
         const achievedRU = this._config.achievedRU;
 
-        if (this._isTargetOffscreen(minRU, range)) {
+        if (this._isTargetOffscreen(minRU, windowSize)) {
             this._renderOffscreenTarget();
-            this._renderAchievedInOffscreenMode(track, minRU, range);
+            this._renderAchievedInOffscreenMode();
 
             return;
         }
 
-        const bounds = { min: minRU, range: range };
-
         if (targetRU !== undefined && targetRU !== null && achievedRU !== undefined) {
-            this._renderOverlappingMarkers(track, bounds, targetRU, achievedRU);
+            this._renderOverlappingMarkers(targetRU, achievedRU);
         } else {
-            this._renderSingleMarkers(track, bounds, targetRU, achievedRU);
+            this._renderSingleMarkers(targetRU, achievedRU);
         }
     }
 
     private _renderOffscreenTarget(): void {
         const leftPercent = 25;
-        // Snapped to 25% (mid-fade)
-
-        // Render Label - Goes to main container (unmasked)
         const anchor = document.createElement("div");
         anchor.className = "timeline-marker-anchor anchor-target offscreen";
         anchor.style.left = `${leftPercent}%`;
         this._container.appendChild(anchor);
 
-        // Render Caret within anchor
         const caret = document.createElement("div");
         caret.className = "timeline-caret offscreen";
         anchor.appendChild(caret);
@@ -164,80 +225,45 @@ export class RankTimelineComponent {
         this._targetLabel = text;
     }
 
-    private _renderOverlappingMarkers(
-        parent: HTMLElement,
-        bounds: { min: number; range: number },
-        target: number,
-        achieved: number
-    ): void {
-        const tPct = ((target - bounds.min) / bounds.range) * 100;
-        const aPct = ((achieved - bounds.min) / bounds.range) * 100;
-
+    private _renderOverlappingMarkers(target: number, achieved: number): void {
+        const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
         this._renderMarker({
-            parent,
-            notchPercent: aPct,
-            labelPercent: aPct,
+            parent: this._markersLayer,
+            notchPercent: achieved * unitWidth,
+            labelPercent: achieved * unitWidth,
             label: this._config.achievedLabel || "Achieved",
             type: "achieved"
         });
         this._renderMarker({
-            parent,
-            notchPercent: tPct,
-            labelPercent: tPct,
+            parent: this._markersLayer,
+            notchPercent: target * unitWidth,
+            labelPercent: target * unitWidth,
             label: this._config.targetLabel || "Target",
             type: "target"
         });
     }
 
-    private _renderSingleMarkers(
-        parent: HTMLElement,
-        bounds: { min: number; range: number },
-        target?: number,
-        achieved?: number
-    ): void {
+    private _renderSingleMarkers(target?: number, achieved?: number): void {
+        const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
+
         if (achieved !== undefined) {
-            const aPct = ((achieved - bounds.min) / bounds.range) * 100;
             this._renderMarker({
-                parent,
-                notchPercent: aPct,
-                labelPercent: aPct,
+                parent: this._markersLayer,
+                notchPercent: achieved * unitWidth,
+                labelPercent: achieved * unitWidth,
                 label: this._config.achievedLabel || "Achieved",
                 type: "achieved"
             });
         }
         if (target !== undefined && target !== null) {
-            const tPct = ((target - bounds.min) / bounds.range) * 100;
             this._renderMarker({
-                parent,
-                notchPercent: tPct,
-                labelPercent: tPct,
+                parent: this._markersLayer,
+                notchPercent: target * unitWidth,
+                labelPercent: target * unitWidth,
                 label: this._config.targetLabel || "Target",
                 type: "target"
             });
         }
-    }
-
-    private _renderRankTick(
-        parent: HTMLElement,
-        rankUnit: number,
-        label: string,
-        bounds: { min: number; range: number }
-    ): void {
-        const leftPercent = ((rankUnit - bounds.min) / bounds.range) * 100;
-
-        const tick = document.createElement("div");
-        tick.className = "timeline-tick";
-        if (!label) {
-            tick.classList.add("minor");
-        }
-        tick.style.left = `${leftPercent}%`;
-        parent.appendChild(tick);
-
-        const text = document.createElement("div");
-        text.className = "timeline-tick-label";
-        text.innerText = label;
-        text.style.left = `${leftPercent}%`;
-        parent.appendChild(text);
     }
 
     private _renderMarker(options: MarkerRenderOptions): void {
@@ -265,184 +291,176 @@ export class RankTimelineComponent {
         }
     }
 
-    /**
-     * Resolves collisions between the Target and Achieved markers.
-     * This must be called after the component is added to the DOM.
-     */
-    public resolveCollisions(): void {
-        const hasRequiredElements = this._targetAnchor && this._achievedAnchor &&
-            this._targetLabel && this._achievedLabel;
-        if (!hasRequiredElements) return;
-
-        const targetRect: DOMRect = this._targetAnchor!.getBoundingClientRect();
-        const achievedRect: DOMRect = this._achievedAnchor!.getBoundingClientRect();
-
-        const buffer: number = this._getCollisionBuffer();
-        if (!this._detectOverlap(targetRect, achievedRect, buffer)) return;
-
-        const { finalTargetCenter, finalAchievedCenter, currentTargetCenter, currentAchievedCenter } =
-            this._calculateResolutionPositions(targetRect, achievedRect);
-
-        this._targetLabel!.style.transform = `translateX(${finalTargetCenter - currentTargetCenter}px)`;
-        this._achievedLabel!.style.transform = `translateX(${finalAchievedCenter - currentAchievedCenter}px)`;
-    }
-
-    private _getCollisionBuffer(): number {
-        const rootFontSize: number = parseFloat(getComputedStyle(document.documentElement).fontSize);
-
-        return 0.5 * rootFontSize;
-    }
-
-    private _detectOverlap(targetRect: DOMRect, achievedRect: DOMRect, buffer: number): boolean {
-        return targetRect.left < achievedRect.right + buffer &&
-            targetRect.right > achievedRect.left - buffer;
-    }
-
-    private _calculateResolutionPositions(
-        targetRect: DOMRect,
-        achievedRect: DOMRect
-    ): {
-        finalTargetCenter: number,
-        finalAchievedCenter: number,
-        currentTargetCenter: number,
-        currentAchievedCenter: number
-    } {
-        const currentTargetCenter = targetRect.left + (targetRect.width / 2);
-        const currentAchievedCenter = achievedRect.left + (achievedRect.width / 2);
-
-        let finalTargetCenter: number;
-        let finalAchievedCenter: number;
-
-        if (currentTargetCenter <= currentAchievedCenter) {
-            // Target is on the left: attach its right edge to its notch (half width displacement)
-            finalTargetCenter = currentTargetCenter - (targetRect.width / 2);
-            // Achieved is on the right: attach its left edge to its notch (half width displacement)
-            finalAchievedCenter = currentAchievedCenter + (achievedRect.width / 2);
-        } else {
-            // Achieved is on the left: attach its right edge to its notch (half width displacement)
-            finalAchievedCenter = currentAchievedCenter - (achievedRect.width / 2);
-            // Target is on the right: attach its left edge to its notch (half width displacement)
-            finalTargetCenter = currentTargetCenter + (targetRect.width / 2);
-        }
-
-        return { finalTargetCenter, finalAchievedCenter, currentTargetCenter, currentAchievedCenter };
-    }
-
-    private _isTargetOffscreen(minRU: number, range: number): boolean {
-        const targetRU = this._config.targetRU;
-        if (targetRU === undefined) return false;
-
-        const tPct = ((targetRU - minRU) / range) * 100;
-
-        return tPct < 25;
-    }
-
-    private _renderAchievedInOffscreenMode(
-        track: HTMLElement,
-        minRU: number,
-        range: number
-    ): void {
+    private _renderAchievedInOffscreenMode(): void {
         const achievedRU = this._config.achievedRU;
         if (achievedRU === undefined) return;
 
-        const aPct = ((achievedRU - minRU) / range) * 100;
+        const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
         this._renderMarker({
-            parent: track,
-            notchPercent: aPct,
-            labelPercent: aPct,
+            parent: this._markersLayer,
+            notchPercent: achievedRU * unitWidth,
+            labelPercent: achievedRU * unitWidth,
             label: this._config.achievedLabel || "Achieved",
             type: "achieved"
         });
     }
 
-    private _renderAttempts(parent: HTMLElement, minRU: number, range: number): void {
+    private _renderAttempts(): void {
         const attempts = this._config.attemptsRU;
         if (!attempts || attempts.length === 0) return;
 
+        const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
         const opacity = (this._config.settings.dotOpacity ?? 40) / 100;
-
-        // Find the score threshold for the top 3 runs
-        const sorted = [...attempts].sort((a, b) => b - a);
+        const sorted = [...attempts].sort((a: number, b: number) => b - a);
         const top3Threshold = sorted.length >= 3 ? sorted[2] : (sorted[sorted.length - 1] ?? -Infinity);
 
-        attempts.forEach(rankUnit => {
-            const leftPercent = ((rankUnit - minRU) / range) * 100;
-            if (leftPercent < 0 || leftPercent > 100) return;
-
+        attempts.forEach((rankUnit: number) => {
             const isTop3 = rankUnit >= top3Threshold;
-            this._renderAttemptNotch(parent, leftPercent, isTop3, opacity);
+            const notch = document.createElement("div");
+            notch.className = "timeline-marker marker-attempt";
+            if (!isTop3) notch.classList.add("secondary");
+            notch.style.left = `${rankUnit * unitWidth}%`;
+            notch.style.opacity = opacity.toString();
+            this._attemptsLayer.appendChild(notch);
         });
     }
 
-    private _renderAttemptNotch(parent: HTMLElement, percent: number, isTop3: boolean, opacity: number): void {
-        const notch = document.createElement("div");
-        notch.className = "timeline-marker marker-attempt";
+    private _renderProgressLine(immediate: boolean): void {
+        const targetRU = this._config.targetRU;
+        const expectedRU = this._config.expectedRU;
 
-        if (!isTop3) {
-            notch.classList.add("secondary");
+        if (targetRU === undefined || targetRU === null || expectedRU === undefined || expectedRU === null) {
+            this._hideProgressLine();
+
+            return;
         }
 
-        notch.style.left = `${percent}%`;
-        notch.style.opacity = opacity.toString();
-        parent.appendChild(notch);
+        const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
+        const left = Math.min(targetRU, expectedRU) * unitWidth;
+        const width = Math.abs(targetRU - expectedRU) * unitWidth;
+
+        if (!this._hasPreviousProgress && !immediate) {
+            this._renderInitialProgress(targetRU * unitWidth, left, width);
+        } else if (immediate) {
+            this._renderImmediateProgress(left, width);
+        } else {
+            this._renderStandardProgress(left, width);
+        }
+
+        this._hasPreviousProgress = true;
+    }
+
+    private _hideProgressLine(): void {
+        this._progressLine.style.opacity = "0";
+        this._hasPreviousProgress = false;
+    }
+
+    private _renderInitialProgress(targetPct: number, finalLeft: number, finalWidth: number): void {
+        this._progressLine.style.transition = "none";
+        this._progressLine.style.left = `${targetPct}%`;
+        this._progressLine.style.width = "0%";
+        this._progressLine.style.opacity = "1";
+
+        void this._progressLine.offsetHeight;
+
+        this._progressLine.style.transition = "";
+        this._progressLine.style.left = `${finalLeft}%`;
+        this._progressLine.style.width = `${finalWidth}%`;
+    }
+
+    private _renderImmediateProgress(left: number, width: number): void {
+        this._progressLine.style.transition = "none";
+        this._progressLine.style.left = `${left}%`;
+        this._progressLine.style.width = `${width}%`;
+        this._progressLine.style.opacity = "1";
+
+        void this._progressLine.offsetHeight;
+        this._progressLine.style.transition = "";
+    }
+
+    private _renderStandardProgress(left: number, width: number): void {
+        this._progressLine.style.left = `${left}%`;
+        this._progressLine.style.width = `${width}%`;
+        this._progressLine.style.opacity = "1";
+    }
+
+    private _applyScroll(minRU: number, windowSize: number, immediate: boolean): void {
+        const unitWidth = 100 / windowSize;
+        const offsetPercent = -minRU * unitWidth;
+
+        if (immediate || !this._isInitialized) {
+            this._scroller.classList.add("no-transition");
+            this._scroller.style.transform = `translateX(${offsetPercent}%)`;
+            // Force reflow
+            void this._scroller.offsetHeight;
+            this._scroller.classList.remove("no-transition");
+        } else {
+            this._scroller.style.transform = `translateX(${offsetPercent}%)`;
+        }
+    }
+
+    /**
+     * Resolves visual collisions between markers.
+     */
+    public resolveCollisions(): void {
+        const hasRequiredElements = this._targetAnchor && this._achievedAnchor &&
+            this._targetLabel && this._achievedLabel;
+
+        if (!hasRequiredElements) return;
+
+        const targetRect: DOMRect = this._targetAnchor!.getBoundingClientRect();
+        const achievedRect: DOMRect = this._achievedAnchor!.getBoundingClientRect();
+        const buffer: number = 0.5 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+        if (targetRect.left < achievedRect.right + buffer && targetRect.right > achievedRect.left - buffer) {
+            this._adjustOverlappingLabels(targetRect, achievedRect);
+        }
+    }
+
+    private _adjustOverlappingLabels(targetRect: DOMRect, achievedRect: DOMRect): void {
+        const currentTargetCenter = targetRect.left + (targetRect.width / 2);
+        const currentAchievedCenter = achievedRect.left + (achievedRect.width / 2);
+        let finalTargetCenter;
+        let finalAchievedCenter;
+
+        if (currentTargetCenter <= currentAchievedCenter) {
+            finalTargetCenter = currentTargetCenter - (targetRect.width / 2);
+            finalAchievedCenter = currentAchievedCenter + (achievedRect.width / 2);
+        } else {
+            finalAchievedCenter = currentAchievedCenter - (achievedRect.width / 2);
+            finalTargetCenter = currentTargetCenter + (targetRect.width / 2);
+        }
+
+        this._targetLabel!.style.transform = `translateX(${finalTargetCenter - currentTargetCenter}px)`;
+        this._achievedLabel!.style.transform = `translateX(${finalAchievedCenter - currentAchievedCenter}px)`;
     }
 
     private _calculateViewBounds(): { minRU: number; maxRU: number } {
         const target = this._config.targetRU ?? 0;
         const achieved = this._config.scrollAnchorRU ?? this._config.achievedRU;
-
         let center = target;
-        if (achieved !== undefined) {
-            center = (target + achieved) / 2;
-        }
-        // Show 7.5 ranks as requested (3 ranks fit in 40% of screen)
-        const windowSize = this._config.rangeWindow ?? 7.5;
 
-        // Default layout: centered
+        if (achieved !== undefined) center = (target + achieved) / 2;
+
+        const windowSize = this._config.rangeWindow ?? 7.5;
         let minRU = center - (windowSize / 2);
 
-        // Clamp logic: If achieved goes past 70% of the view, freeze it there.
-        // We want (achieved - minRU) / windowSize <= 0.7
-        // => achieved - minRU <= 0.7 * windowSize
-        // => minRU >= achieved - 0.7 * windowSize
         if (achieved !== undefined) {
             const constraint = achieved - (0.7 * windowSize);
 
-            if (minRU < constraint) {
-                minRU = constraint;
-            }
+            if (minRU < constraint) minRU = constraint;
         }
 
-        return {
-            minRU: minRU,
-            maxRU: minRU + windowSize
-        };
+        return { minRU, maxRU: minRU + windowSize };
     }
 
-
-    private _renderProgressLine(parent: HTMLElement, minRU: number, range: number): void {
+    private _isTargetOffscreen(minRU: number, range: number): boolean {
         const targetRU = this._config.targetRU;
-        const expectedRU = this._config.expectedRU;
 
-        if (targetRU === undefined || targetRU === null || expectedRU === undefined || expectedRU === null) {
-            return;
-        }
+        if (targetRU === undefined) return false;
 
         const tPct = ((targetRU - minRU) / range) * 100;
-        const ePct = ((expectedRU - minRU) / range) * 100;
 
-        const left = Math.min(tPct, ePct);
-        const right = Math.max(tPct, ePct);
-        const width = right - left;
-
-        if (right < 0 || left > 100 || width <= 0.001) {
-            return;
-        }
-
-        const line = document.createElement("div");
-        line.className = "timeline-progress-line";
-        line.style.left = `${left}%`;
-        line.style.width = `${width}%`;
-        parent.appendChild(line);
+        return tPct < 25;
     }
 }

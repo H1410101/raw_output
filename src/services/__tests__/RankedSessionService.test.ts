@@ -116,8 +116,11 @@ describe("RankedSessionService: Timer Reset", (): void => {
         _setupStandardSession(service, mocks);
         const initialStartTime: string | null = service.state.startTime;
 
-        // Ensure at least 1ms passes
-        await new Promise((resolve): void => { setTimeout(resolve, 1); });
+        // Mock a new run that is newer than initialStartTime
+        const runTimestamp = Date.now() + 5000;
+        (mocks.session.getAllRankedSessionRuns as Mock).mockReturnValue([
+            { scenarioName: "someScenario", score: 100, timestamp: runTimestamp }
+        ]);
 
         const onSessionUpdated: Mock = mocks.session.onSessionUpdated as Mock;
         const onSessionUpdatedCallback: SessionUpdateListener = onSessionUpdated.mock.calls[0][0] as SessionUpdateListener;
@@ -125,6 +128,7 @@ describe("RankedSessionService: Timer Reset", (): void => {
 
         const newStartTime: string | null = service.state.startTime;
         expect(newStartTime).not.toBe(initialStartTime);
+        expect(newStartTime).toBe(new Date(runTimestamp).toISOString());
     });
 });
 

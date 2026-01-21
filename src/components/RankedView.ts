@@ -1,14 +1,13 @@
-import { RankedSessionService, RankedSessionState } from "../services/RankedSessionService";
+import { RankedSessionService, RankedSessionState, RankedSessionStatus } from "../services/RankedSessionService";
 import { SessionService } from "../services/SessionService";
 import { BenchmarkService } from "../services/BenchmarkService";
 import { RankEstimator, EstimatedRank, ScenarioEstimate } from "../services/RankEstimator";
 import { BenchmarkScenario } from "../data/benchmarks";
-
 import { AppStateService } from "../services/AppStateService";
 import { HistoryService } from "../services/HistoryService";
 import { VisualSettingsService } from "../services/VisualSettingsService";
 import { AudioService } from "../services/AudioService";
-import { RankTimelineComponent } from "./visualizations/RankTimelineComponent";
+import { RankTimelineComponent, RankTimelineConfiguration } from "./visualizations/RankTimelineComponent";
 import { SummaryTimelineComponent } from "./visualizations/SummaryTimelineComponent";
 import { FolderSettingsView, FolderActionHandlers } from "./ui/FolderSettingsView";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
@@ -42,6 +41,10 @@ export class RankedView {
   private readonly _deps: RankedViewDependencies;
   private _folderSettingsView: FolderSettingsView | null = null;
   private _hudInterval: number | null = null;
+  private _activeTimeline: RankTimelineComponent | null = null;
+  private _activeTimelineScenario: string | null = null;
+  private _lastStatus: RankedSessionState["status"] | null = null;
+  private _lastScenarioName: string | null = null;
 
   /**
    * Initializes the view with its mount point.
@@ -96,7 +99,6 @@ export class RankedView {
    * Renders the current state of the Ranked view.
    */
   public async render(): Promise<void> {
-    // Check if we should show the folder settings view instead of the ranked view
     if (await this._shouldShowFolderSettings()) {
       await this._renderFolderView();
 
@@ -104,10 +106,49 @@ export class RankedView {
     }
 
     const state: RankedSessionState = this._deps.rankedSession.state;
+    const scenarioName = this._getActiveScenarioName(state);
 
+    if (this._shouldPerformQuickUpdate(state, scenarioName)) {
+      this._performQuickUpdate(scenarioName!);
+
+      return;
+    }
+
+    this._updateLastKnownState(state.status, scenarioName);
     this._stopHudTicking();
     this._container.innerHTML = "";
 
+    this._renderMainUI(state);
+  }
+
+  private _getActiveScenarioName(state: RankedSessionState): string | null {
+    return (state.status === "ACTIVE" || state.status === "SUMMARY")
+      ? state.sequence[state.currentIndex]
+      : null;
+  }
+
+  private _shouldPerformQuickUpdate(state: RankedSessionState, scenarioName: string | null): boolean {
+    const statusChanged = this._lastStatus !== state.status;
+    const scenarioChanged = this._lastScenarioName !== scenarioName;
+
+    return !statusChanged && !scenarioChanged && state.status === "ACTIVE";
+  }
+
+  private _performQuickUpdate(scenarioName: string): void {
+    const containerId = `rank-timeline-${scenarioName.replace(/\s+/g, "-")}`;
+
+    this._updateRankTimeline(containerId, scenarioName);
+    this._updateHolisticRankUI();
+    this._updateHudStats();
+    this._updateDrainAnimation(this._container);
+  }
+
+  private _updateLastKnownState(status: RankedSessionStatus, scenarioName: string | null): void {
+    this._lastStatus = status;
+    this._lastScenarioName = scenarioName;
+  }
+
+  private _renderMainUI(state: RankedSessionState): void {
     const viewContainer: HTMLDivElement = document.createElement("div");
     viewContainer.className = "benchmark-view-container";
 
@@ -118,14 +159,13 @@ export class RankedView {
     this._container.classList.toggle("session-active", isSessionActive);
     document.body.classList.toggle("ranked-mode-active", isSessionActive);
 
+    this._container.appendChild(viewContainer);
 
     if (state.status === "IDLE") {
       this._renderIdle(viewContainer);
     } else {
       this._renderActiveState(state, viewContainer);
     }
-
-    this._container.appendChild(viewContainer);
   }
 
   /**
@@ -150,8 +190,6 @@ export class RankedView {
   }
 
   private _handleSessionUpdate(): void {
-    // We simply refresh the view when the session updates.
-    // Rank evolution is now deferred to RankedSessionService.endSession().
     this.refresh();
   }
 
@@ -174,6 +212,21 @@ export class RankedView {
   private _createHolisticRankUI(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "holistic-rank-container";
+    container.setAttribute("id", "holistic-rank-ui");
+
+    this._fillHolisticRankUI(container);
+
+    return container;
+  }
+
+  private _updateHolisticRankUI(): void {
+    const container = document.getElementById("holistic-rank-ui");
+    if (container) {
+      this._fillHolisticRankUI(container);
+    }
+  }
+
+  private _fillHolisticRankUI(container: HTMLElement): void {
     const estimate = this._calculateHolisticEstimateRank();
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
@@ -198,8 +251,6 @@ export class RankedView {
         popup.render();
       });
     }
-
-    return container;
   }
 
   private _createDifficultyTabs(): HTMLElement {
@@ -300,7 +351,6 @@ export class RankedView {
     }
   }
 
-
   private _updateHudStats(): void {
     const scenarioStats = document.getElementById("hud-scenario-stats");
     const sessionStats = document.getElementById("hud-session-stats");
@@ -313,13 +363,11 @@ export class RankedView {
     const currentScenario = state.sequence[state.currentIndex];
     const allRuns = this._deps.session.getAllRankedSessionRuns();
 
-    // Scenario Stats: Time | Attempts
     const scenarioTime: number = this._deps.rankedSession.scenarioElapsedSeconds;
     const scenarioAttempts: number = allRuns.filter(run => run.scenarioName === currentScenario).length;
 
     scenarioStats.textContent = `${this._formatHudTime(scenarioTime)} | ${scenarioAttempts}`;
 
-    // Session Stats: Attempts | Time
     const sessionStartTime: number | null = this._deps.session.rankedStartTime;
     const sessionTime: number = sessionStartTime ? Math.floor((Date.now() - sessionStartTime) / 1000) : 0;
     const sessionAttempts: number = allRuns.length;
@@ -333,7 +381,6 @@ export class RankedView {
 
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
-
 
   private _renderMainContent(state: RankedSessionState): string {
     if (state.status === "COMPLETED") {
@@ -437,7 +484,6 @@ export class RankedView {
     timeline.resolveCollisions();
   }
 
-
   private _renderCompletedContent(): string {
     return `
       <div class="ranked-result" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center;">
@@ -455,7 +501,6 @@ export class RankedView {
       </div>
     `;
   }
-
 
   private _renderRankTimeline(scenarioName: string): string {
     const containerId: string = `rank-timeline-${scenarioName.replace(/\s+/g, "-")}`;
@@ -483,10 +528,23 @@ export class RankedView {
       return;
     }
 
+    const config = this._prepareTimelineConfig(scenarioName, scenario);
+    const isSameScenario = this._activeTimelineScenario === scenarioName;
+
+    if (this._activeTimeline && isSameScenario) {
+      this._updateExistingTimeline(container, config);
+    } else {
+      this._createNewTimeline(container, config, scenarioName);
+    }
+
+    this._activeTimeline!.resolveCollisions();
+  }
+
+  private _prepareTimelineConfig(scenarioName: string, scenario: BenchmarkScenario): RankTimelineConfiguration {
     const { estimate, initialRU, achievedRU, bestRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
     const targetRU = initialRU !== undefined && initialRU !== -1 ? initialRU : undefined;
 
-    const timeline: RankTimelineComponent = new RankTimelineComponent({
+    return {
       thresholds: scenario.thresholds,
       settings: this._deps.visualSettings.getSettings(),
       targetRU,
@@ -494,11 +552,29 @@ export class RankedView {
       scrollAnchorRU: bestRU,
       expectedRU: this._calculateExpectedRU(estimate.continuousValue, targetRU ?? 0, achievedRU),
       attemptsRU
-    });
+    };
+  }
 
+  private _updateExistingTimeline(container: HTMLElement, config: RankTimelineConfiguration): void {
+    const timelineContainer = this._activeTimeline!.getContainer();
+
+    if (container.firstChild !== timelineContainer) {
+      container.innerHTML = "";
+      container.appendChild(timelineContainer);
+    }
+
+    this._activeTimeline!.update(config);
+  }
+
+  private _createNewTimeline(container: HTMLElement, config: RankTimelineConfiguration, scenarioName: string): void {
+    this._activeTimeline = new RankTimelineComponent(config);
+    this._activeTimelineScenario = scenarioName;
+
+    this._activeTimeline.render(true);
+
+    const timelineContainer = this._activeTimeline.getContainer();
     container.innerHTML = "";
-    container.appendChild(timeline.render());
-    timeline.resolveCollisions();
+    container.appendChild(timelineContainer);
   }
 
   private _getScenarioPerformanceData(
@@ -653,8 +729,15 @@ export class RankedView {
     this._updateDrainAnimation(container);
   }
 
+  /**
+   * Synchronizes the play button's circular drain animation with the backend session timer.
+   *
+   * @param container - The parent container containing the water element.
+   * @private
+   */
   private _updateDrainAnimation(container: HTMLElement): void {
     const water: HTMLElement | null = container.querySelector("#play-drain-water");
+
     if (!water) {
       return;
     }
@@ -663,9 +746,26 @@ export class RankedView {
     const totalMinutes = this._deps.sessionSettings.getSettings().rankedIntervalMinutes;
     const totalSeconds = totalMinutes * 60;
 
-    water.style.transition = "none";
-    water.style.animation = `drain-vertical ${totalSeconds}s linear forwards`;
-    water.style.animationDelay = `-${elapsed}s`;
+    water.style.animationName = "none";
+    water.style.transform = "translateY(-100%)";
+
+    window.requestAnimationFrame((): void => {
+      window.requestAnimationFrame((): void => {
+        this._applyDrainStyles(water, totalSeconds, elapsed);
+      });
+    });
+  }
+
+  private _applyDrainStyles(water: HTMLElement, duration: number, delay: number): void {
+    if (!water.parentElement) {
+      return;
+    }
+
+    water.style.animationName = "drain-vertical";
+    water.style.animationDuration = `${duration}s`;
+    water.style.animationTimingFunction = "linear";
+    water.style.animationFillMode = "forwards";
+    water.style.animationDelay = `-${delay}s`;
   }
 
   private _launchScenario(scenarioName: string): void {

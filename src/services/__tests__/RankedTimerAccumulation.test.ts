@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi, Mock } from "vitest";
 import { RankedSessionService } from "../RankedSessionService";
 import { BenchmarkService } from "../BenchmarkService";
 import { SessionService } from "../SessionService";
@@ -78,6 +78,12 @@ describe("Ranked Timer: Reset", (): void => {
         localStorage.clear();
     });
     it("should reset scenario timers between distinct runs", (): void => {
+        const mocks = createMocks();
+        const runData = [{ scenarioName: "Scenario A", score: 100, timestamp: Date.now() + 1000 }];
+        (mocks.session.getAllRankedSessionRuns as Mock).mockReturnValue(runData);
+
+        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+
         service.startSession("Gold");
         vi.advanceTimersByTime(60000);
         service.advance();

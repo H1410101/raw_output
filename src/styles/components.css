@@ -245,7 +245,7 @@
     background: transparent;
 }
 
-.timeline-track {
+.timeline-viewport {
     position: absolute;
     top: 0;
     left: 0;
@@ -256,13 +256,21 @@
     -webkit-mask-image: linear-gradient(to right, transparent 20%, black 30%, black 70%, transparent 80%);
 }
 
+.timeline-scroller {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transition: transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .timeline-axis {
     position: absolute;
     top: 50%;
-    left: 0;
-    right: 0;
+    left: -1000%;
+    right: -1000%;
     height: 1px;
-    /* user requested same thickness as notches. notches are 1px wide. */
     background-color: var(--text-default);
     opacity: 0.5;
     transform: translateY(-50%);
@@ -327,6 +335,9 @@
     transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+
+
+
 .marker-target {
     background-color: var(--upper-band-2);
     box-shadow: none;
@@ -367,6 +378,12 @@
     transform: translateY(-50%);
     z-index: 2;
     border-radius: 1px;
+    transition: left 2s cubic-bezier(0.22, 1, 0.36, 1), width 2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.timeline-scroller.no-transition,
+.timeline-scroller.no-transition .timeline-progress-line {
+    transition: none !important;
 }
 
 .timeline-caret {

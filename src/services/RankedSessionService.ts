@@ -307,6 +307,29 @@ export class RankedSessionService {
         this._notifyListeners();
     }
 
+    private _resumeExistingSession(): void {
+        const state = this._difficultyStates[this._difficulty!];
+        if (!state) return;
+
+        this._applyDifficultyStateSnapshot(state);
+        this._status = "ACTIVE";
+
+        this._ensureStartTimePreserved();
+
+        this._jumpToNextUnplayedScenario();
+
+        this._sessionService.startRankedSession(Date.now());
+        this._saveToLocalStorage();
+        this._notifyListeners();
+    }
+
+    private _ensureStartTimePreserved(): void {
+        const isToday = this._isToday(this._startTime ? new Date(this._startTime).getTime() : null);
+        if (!this._startTime || !isToday || this.remainingSeconds <= 0) {
+            this._startTime = new Date().toISOString();
+        }
+    }
+
     private _snapshotCurrentDifficultyState(): void {
         if (!this._difficulty) return;
 
@@ -318,22 +341,6 @@ export class RankedSessionService {
             initialEstimates: { ...this._initialEstimates },
             accumulatedScenarioSeconds: Object.fromEntries(this._accumulatedScenarioSeconds),
         };
-    }
-
-    private _resumeExistingSession(): void {
-        if (!this._difficulty || !this._difficultyStates[this._difficulty]) {
-            return;
-        }
-
-        this._applyDifficultyStateSnapshot(this._difficultyStates[this._difficulty]);
-        this._status = "ACTIVE";
-        this._startTime = new Date().toISOString();
-
-        this._jumpToNextUnplayedScenario();
-
-        this._sessionService.startRankedSession(Date.now());
-        this._saveToLocalStorage();
-        this._notifyListeners();
     }
 
     private _applyDifficultyStateSnapshot(state: DifficultySessionState): void {
@@ -705,8 +712,19 @@ export class RankedSessionService {
             return;
         }
 
-        this._startTime = new Date().toISOString();
-        this._saveToLocalStorage();
+        const allRuns = this._sessionService.getAllRankedSessionRuns();
+        if (allRuns.length === 0) return;
+
+        // Extract the latest timestamp, treating missing timestamps as 0
+        const latestTimestamp = Math.max(...allRuns.map(run => run.timestamp || 0));
+        if (latestTimestamp === 0) return;
+
+        const latestTime = new Date(latestTimestamp).toISOString();
+
+        if (!this._startTime || latestTime > this._startTime) {
+            this._startTime = latestTime;
+            this._saveToLocalStorage();
+        }
     }
 
     private _saveToLocalStorage(): void {
