@@ -63,6 +63,7 @@ export class RankedView {
   private _summaryTimelines: SummaryTimelineComponent[] = [];
   private readonly _pendingSummaryScenarios: Set<string> = new Set();
   private readonly _onBrowserFocusBound: () => void;
+  private _summaryTimeouts: number[] = [];
 
   /**
    * Initializes the view with its mount point.
@@ -80,6 +81,12 @@ export class RankedView {
     window.addEventListener("focus", this._onBrowserFocusBound);
     // Also update indicator on blur
     window.addEventListener("blur", this._onBrowserFocusBound);
+
+    this._deps.appState.onTabChanged((): void => {
+      if (this._deps.appState.getActiveTabId() !== "nav-ranked") {
+        this._clearSummaryTimeouts();
+      }
+    });
   }
 
   /**
@@ -89,6 +96,7 @@ export class RankedView {
     window.removeEventListener("focus", this._onBrowserFocusBound);
     window.removeEventListener("blur", this._onBrowserFocusBound);
     this._stopHudTicking();
+    this._clearSummaryTimeouts();
   }
 
   private _onBrowserFocus(): void {
@@ -103,7 +111,7 @@ export class RankedView {
   }
 
   private _playSummaryAnimations(): void {
-    if (!document.hasFocus() || this._lastStatus !== "SUMMARY") return;
+    if (!this._isViewVisible() || !document.hasFocus() || this._lastStatus !== "SUMMARY") return;
 
     const list = this._container.querySelector(".scenarios-list") as HTMLElement;
     if (!list) return;
@@ -123,8 +131,13 @@ export class RankedView {
       }
 
       this._pendingSummaryScenarios.add(data.name);
-      setTimeout((): void => {
-        if (!document.hasFocus() || this._lastStatus !== "SUMMARY") {
+      const timeoutId = window.setTimeout((): void => {
+        const indexInList = this._summaryTimeouts.indexOf(timeoutId);
+        if (indexInList !== -1) {
+          this._summaryTimeouts.splice(indexInList, 1);
+        }
+
+        if (!this._isViewVisible() || !document.hasFocus() || this._lastStatus !== "SUMMARY") {
           this._pendingSummaryScenarios.delete(data.name);
 
           return;
@@ -132,7 +145,13 @@ export class RankedView {
 
         this._addSummaryItem(list, data, containerId, itemId);
       }, index * 1000);
+
+      this._summaryTimeouts.push(timeoutId);
     });
+  }
+
+  private _isViewVisible(): boolean {
+    return this._deps.appState.getActiveTabId() === "nav-ranked";
   }
 
   private _slugify(text: string): string {
@@ -143,11 +162,18 @@ export class RankedView {
     const summaryTimeline = this._summaryTimelines.find((timeline): boolean => timeline.scenarioName === scenarioName);
 
     if (summaryTimeline && !summaryTimeline.hasStarted()) {
-      setTimeout((): void => {
-        if (document.hasFocus()) {
+      const timeoutId = window.setTimeout((): void => {
+        const indexInList = this._summaryTimeouts.indexOf(timeoutId);
+        if (indexInList !== -1) {
+          this._summaryTimeouts.splice(indexInList, 1);
+        }
+
+        if (this._isViewVisible() && document.hasFocus()) {
           summaryTimeline.play();
         }
       }, index * 1000);
+
+      this._summaryTimeouts.push(timeoutId);
     }
   }
 
@@ -176,6 +202,12 @@ export class RankedView {
     void item.offsetHeight;
 
     requestAnimationFrame((): void => {
+      if (this._lastStatus !== "SUMMARY" || !list.contains(item)) {
+        this._pendingSummaryScenarios.delete(data.name);
+
+        return;
+      }
+
       item.classList.remove("entering");
       this._pendingSummaryScenarios.delete(data.name);
 
@@ -198,6 +230,11 @@ export class RankedView {
         behavior: "smooth"
       });
     }
+  }
+
+  private _clearSummaryTimeouts(): void {
+    this._summaryTimeouts.forEach((timeout): void => window.clearTimeout(timeout));
+    this._summaryTimeouts = [];
   }
 
   /**
@@ -257,6 +294,7 @@ export class RankedView {
 
     this._updateLastKnownState(state.status, scenarioName);
     this._stopHudTicking();
+    this._clearSummaryTimeouts();
     this._container.innerHTML = "";
 
     this._summaryTimelines.forEach((timeline) => timeline.destroy());
@@ -266,7 +304,16 @@ export class RankedView {
     this._renderMainUI(state);
 
     if (state.status === "SUMMARY") {
-      setTimeout(() => this._playSummaryAnimations(), 500);
+      const timeoutId = window.setTimeout(() => {
+        const indexInList = this._summaryTimeouts.indexOf(timeoutId);
+        if (indexInList !== -1) {
+          this._summaryTimeouts.splice(indexInList, 1);
+        }
+
+        this._playSummaryAnimations();
+      }, 500);
+
+      this._summaryTimeouts.push(timeoutId);
     }
   }
 
@@ -721,9 +768,16 @@ export class RankedView {
   private _renderRankTimeline(scenarioName: string): string {
     const containerId: string = `rank-timeline-${this._slugify(scenarioName)}`;
 
-    setTimeout((): void => {
+    const timeoutId = window.setTimeout((): void => {
+      const indexInList = this._summaryTimeouts.indexOf(timeoutId);
+      if (indexInList !== -1) {
+        this._summaryTimeouts.splice(indexInList, 1);
+      }
+
       this._updateRankTimeline(containerId, scenarioName);
     }, 0);
+
+    this._summaryTimeouts.push(timeoutId);
 
     return `<div id="${containerId}" class="rank-timeline-container"></div>`;
   }

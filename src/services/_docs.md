@@ -23,6 +23,11 @@ Calculates holographic rank estimates across scenarios and manages the "Rank Ide
 - **Relies on**: `BenchmarkService`
 - **Used by**: `RankedSessionService`, `AppBootstrap`
 
+### `VisualSettingsService`
+Manages and persists visual preferences and display settings. It orchestrates theme transitions and synchronizes browser UI elements (e.g., `theme-color`) with the current application palette.
+- **Relies on**: `ScalingService`
+- **Used by**: `AppBootstrap`, `AudioService`, and most UI components.
+
 ## Relationships
 
 ```mermaid
@@ -30,8 +35,9 @@ graph TD
     RunIngestionService -->|updates runs| SessionService
     SessionService -->|Global Track| BenchmarkView
     SessionService -->|Ranked Track| RankedView
-    RankedSessionService -->|subscribes to| SessionService
     SessionService -->|notifies| RankedSessionService
+    VisualSettingsService -->|orchestrates| UIComponents
+    VisualSettingsService -->|manages| BrowserUI
 ```
 
 The `RankedSessionService` listens for updates from the `SessionService`. When new scores are recorded, the `RankedSessionService` resets its internal run timer. It ensures that the `RankedView` only shows improvements made within the context of an active ranked run.

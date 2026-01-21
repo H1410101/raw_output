@@ -115,6 +115,32 @@ export class VisualSettingsService {
     apply("--dot-cloud-width-multiplier", settings.dotCloudWidth);
     apply("--vis-rank-font-multiplier", settings.visRankFontSize);
     root.style.setProperty("--master-volume", (settings.audioVolume / 100).toString());
+    this._syncThemeColorMeta();
+  }
+
+  private _syncThemeColorMeta(): void {
+    const rootStyle: CSSStyleDeclaration = getComputedStyle(document.documentElement);
+    const backgroundColor: string = rootStyle.getPropertyValue("--background-1").trim();
+
+    if (!backgroundColor) {
+      return;
+    }
+
+    this._updateMetaTag("theme-color", backgroundColor);
+  }
+
+  private _updateMetaTag(name: string, content: string): void {
+    let meta: HTMLMetaElement | null = document.querySelector(
+      `meta[name="${name}"]`,
+    ) as HTMLMetaElement | null;
+
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = name;
+      document.head.appendChild(meta);
+    }
+
+    meta.content = content;
   }
 
   private _loadFromStorage(): VisualSettings {

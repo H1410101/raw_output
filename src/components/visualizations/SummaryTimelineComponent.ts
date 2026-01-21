@@ -38,6 +38,7 @@ export class SummaryTimelineComponent {
     private _hasStarted: boolean = false;
     private _isDeltaAnimating: boolean = false;
     private _pendingEndScroll: number | null = null;
+    private _playTimeout: number | null = null;
 
     private _titleLabel: HTMLElement | null = null;
     private _deltaLabel: HTMLElement | null = null;
@@ -82,6 +83,10 @@ export class SummaryTimelineComponent {
     public destroy(): void {
         this._resizeObserver?.disconnect();
         this._resizeObserver = null;
+        if (this._playTimeout !== null) {
+            window.clearTimeout(this._playTimeout);
+            this._playTimeout = null;
+        }
     }
 
     /**
@@ -108,8 +113,8 @@ export class SummaryTimelineComponent {
 
         this._progressLine.style.left = `${left}%`;
         this._progressLine.style.width = `${width}%`;
-
-        setTimeout((): void => {
+        this._playTimeout = window.setTimeout((): void => {
+            this._playTimeout = null;
             if (this._deltaLabel) {
                 this._isDeltaAnimating = true;
                 this._deltaLabel.style.transition = "opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)";
