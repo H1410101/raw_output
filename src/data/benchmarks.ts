@@ -1,3 +1,5 @@
+const PEAK_BENCHMARKS: Set<string> = new Set();
+
 const benchmarkFiles: Record<string, string> = import.meta.glob(
   "../../benchmarks/*.csv",
   {
@@ -150,13 +152,21 @@ function _extractRawFileName(filePath: string): string {
 function _extractTierNameFromFilePath(filePath: string): string | null {
   const fileName: string = _extractRawFileName(filePath).replace(".csv", "");
 
-  const match: RegExpMatchArray | null = fileName.match(/^\d+\s+(.+)$/);
+  // Match number prefix, optional '!' indicating peak, then the rest
+  const match: RegExpMatchArray | null = fileName.match(/^(\d+)(!?)\s+(.+)$/);
 
   if (!match) {
     return null;
   }
 
-  return match[1];
+  const isPeak = match[2] === "!";
+  const tierName = match[3];
+
+  if (isPeak) {
+    PEAK_BENCHMARKS.add(tierName);
+  }
+
+  return tierName;
 }
 
 /**
@@ -221,4 +231,14 @@ export const getDifficulty = (scenarioName: string): DifficultyTier | null => {
   }
 
   return null;
+};
+
+/**
+ * Checks if a difficulty tier is marked as a Peak benchmark.
+ *
+ * @param difficulty - The difficulty tier to check.
+ * @returns True if the benchmark is a Peak benchmark.
+ */
+export const isPeakBenchmark = (difficulty: DifficultyTier): boolean => {
+  return PEAK_BENCHMARKS.has(difficulty);
 };

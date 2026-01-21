@@ -164,7 +164,10 @@ function _createMocks(): MockSet {
     localStorage.clear();
 
     return {
-        benchmark: { getScenarios: vi.fn() } as unknown as BenchmarkService,
+        benchmark: {
+            getScenarios: vi.fn(),
+            getDifficulty: vi.fn().mockReturnValue("Gold"),
+        } as unknown as BenchmarkService,
         session: {
             setIsRanked: vi.fn(),
             onSessionUpdated: vi.fn(),
@@ -174,6 +177,8 @@ function _createMocks(): MockSet {
             getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
             getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
             getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
+            getRankedScenarioBest: vi.fn().mockReturnValue({}),
+            setRankedPlaylist: vi.fn(),
         } as unknown as SessionService,
         estimator: { getScenarioEstimate: vi.fn(), recordPlay: vi.fn() } as unknown as RankEstimator,
         settings: {

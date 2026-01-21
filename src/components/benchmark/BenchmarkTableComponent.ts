@@ -12,6 +12,7 @@ import { ScenarioNameWidthManager } from "./ScenarioNameWidthManager";
 import { AudioService } from "../../services/AudioService";
 import { SCALING_FACTORS } from "../../services/ScalingService";
 import { RankEstimator } from "../../services/RankEstimator";
+import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
 
 /**
  * Collection of services and settings required for BenchmarkTableComponent.
@@ -25,6 +26,7 @@ export interface BenchmarkTableDependencies {
   readonly audioService: AudioService;
   readonly focusService: FocusManagementService;
   readonly rankEstimator: RankEstimator;
+  readonly cosmeticOverride: CosmeticOverrideService;
 }
 
 /**
@@ -56,6 +58,7 @@ export class BenchmarkTableComponent {
       audioService: dependencies.audioService,
       visualSettings: dependencies.visualSettings,
       rankEstimator: dependencies.rankEstimator,
+      cosmeticOverride: dependencies.cosmeticOverride,
     });
     this._nameWidthManager = new ScenarioNameWidthManager();
   }

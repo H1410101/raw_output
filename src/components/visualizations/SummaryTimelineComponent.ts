@@ -12,6 +12,8 @@ export interface SummaryTimelineConfiguration {
     readonly newRankName: string;
     readonly oldProgress: number;
     readonly newProgress: number;
+    readonly totalSecondsSpent: number;
+    readonly attempts: number;
 }
 
 interface CollisionOptions {
@@ -131,6 +133,7 @@ export class SummaryTimelineComponent {
         this._renderScrollerContents(renderMinRU, unitWidth, startMinRU, endMinRU);
         this._renderContainerContents();
 
+
         this._setupScrollerInitialState(renderMinRU, startMinRU, endMinRU, unitWidth);
         this._setupResizeObserver();
 
@@ -164,6 +167,7 @@ export class SummaryTimelineComponent {
 
     private _renderContainerContents(): void {
         this._renderScenarioName();
+        this._renderScenarioStats();
     }
 
     private _setupScrollerInitialState(renderMinRU: number, startMinRU: number, endMinRU: number, unitWidth: number): void {
@@ -217,8 +221,23 @@ export class SummaryTimelineComponent {
         this._titleLabel.style.transform = "none";
     }
 
+    private _renderScenarioStats(): void {
+        const anchor = document.createElement("div");
+        anchor.className = "summary-timeline-label-anchor top old title-fixed anchor-right";
+        anchor.style.right = "1.5rem";
+        this._container.appendChild(anchor);
+
+        const mins = Math.floor(this._config.totalSecondsSpent / 60);
+        const secs = this._config.totalSecondsSpent % 60;
+        const timeStr = `${mins}:${secs.toString().padStart(2, "0")}`;
+
+        const text = `${timeStr} | ${this._config.attempts}`;
+        this._createLabel(anchor, "summary-timeline-stats", text);
+    }
+
     private _renderDelta(parent: HTMLElement, minRU: number, unitWidth: number): void {
         const pct = (this._config.newRU - minRU) * unitWidth;
+
 
         const anchor = document.createElement("div");
         anchor.className = "summary-timeline-label-anchor top new anchor-center";

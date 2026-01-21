@@ -14,12 +14,15 @@ import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { SessionSettingsService } from "../services/SessionSettingsService";
+import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
+import { CosmeticOverrideService } from "../services/CosmeticOverrideService";
 
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
   readonly session: SessionService;
   readonly benchmark: BenchmarkService;
   readonly estimator: RankEstimator;
+  readonly cosmeticOverride: CosmeticOverrideService;
   readonly appState: AppStateService;
   readonly history: HistoryService;
   readonly visualSettings: VisualSettingsService;
@@ -296,19 +299,31 @@ export class RankedView {
   }
 
   private _fillHolisticRankUI(container: HTMLElement): void {
-    const estimate = this._calculateHolisticEstimateRank();
+    const difficulty = this._deps.appState.getBenchmarkDifficulty();
+    const estimate = this._deps.cosmeticOverride.isActiveFor(difficulty)
+      ? this._deps.cosmeticOverride.getFakeEstimatedRank(difficulty)
+      : this._calculateHolisticEstimateRank();
+
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
 
+    const isPeak = this._deps.benchmark.isPeak(difficulty);
+    const peakIcon = this._getPeakIconHtml(isPeak);
+
     container.innerHTML = `
         <div class="badge-content">
-            <span class="${rankClass}">
+            <span class="${rankClass}" style="display: inline-flex; justify-content: flex-end; align-items: center; gap: 0.5rem;">
+                ${peakIcon}
                 <span class="rank-text-inner">${estimate.rankName}</span>
             </span>
             <span class="rank-progress">${estimate.continuousValue === 0 ? "" : `+${estimate.progressToNext}%`}</span>
         </div>
     `;
 
+    this._attachRankPopupListener(container, estimate.rankName);
+  }
+
+  private _attachRankPopupListener(container: HTMLElement, rankName: string): void {
     const rankInner = container.querySelector(".rank-text-inner") as HTMLElement;
     if (rankInner) {
       rankInner.style.cursor = "pointer";
@@ -316,11 +331,40 @@ export class RankedView {
         event.stopPropagation();
         const difficulty = this._deps.appState.getBenchmarkDifficulty();
         const rankNames = this._deps.benchmark.getRankNames(difficulty);
-        const popup = new RankPopupComponent(rankInner, estimate.rankName, rankNames);
+        const popup = new RankPopupComponent(rankInner, rankName, rankNames);
+        popup.render();
+      });
+    }
+
+    const peakWarningIcon = container.querySelector(".peak-warning-icon") as HTMLElement;
+    if (peakWarningIcon) {
+      peakWarningIcon.style.cursor = "pointer";
+      peakWarningIcon.addEventListener("click", (event: Event) => {
+        event.stopPropagation();
+        const popup = new PeakWarningPopupComponent(this._deps.audio, this._deps.cosmeticOverride);
+        popup.subscribeToClose(() => {
+          this._deps.audio.playHeavy(0.4);
+        });
         popup.render();
       });
     }
   }
+
+  private _getPeakIconHtml(isPeak: boolean): string {
+    if (!isPeak) {
+      return "";
+    }
+
+    return `
+      <span class="peak-warning-icon" style="display: flex; align-items: center; color: var(--lower-band-3);">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+           <line x1="12" y1="9" x2="12" y2="13"></line>
+           <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+      </span>`;
+  }
+
 
   private _createDifficultyTabs(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
@@ -468,7 +512,7 @@ export class RankedView {
   }
 
   private _renderSummaryContent(): string {
-    const summaryData = this._calculateSummaryData();
+    const summaryData: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] = this._calculateSummaryData();
 
     return `
       <div class="ranked-info-top">
@@ -495,14 +539,20 @@ export class RankedView {
     `;
   }
 
-  private _calculateSummaryData(): { name: string; oldRU: number; newRU: number; gain: number }[] {
+  private _calculateSummaryData(): { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] {
     const state = this._deps.rankedSession.state;
     const initialEstimates = state.initialEstimates;
-    const results: { name: string; oldRU: number; newRU: number; gain: number }[] = [];
+    const allRuns = this._deps.session.getAllRankedSessionRuns();
+    const results: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] = [];
 
     for (const scenarioName of state.playedScenarios) {
+      const attempts = allRuns.filter(run => run.scenarioName === scenarioName).length;
+      if (attempts === 0) continue;
+
       const oldRU = initialEstimates[scenarioName] ?? 0;
-      const currentEstimate = this._deps.estimator.getScenarioEstimate(scenarioName);
+      const currentEstimate = this._deps.cosmeticOverride.isActiveFor(this._deps.appState.getBenchmarkDifficulty())
+        ? this._deps.cosmeticOverride.getFakeEstimatedRank(this._deps.appState.getBenchmarkDifficulty())
+        : this._deps.estimator.getScenarioEstimate(scenarioName);
       const newRU = currentEstimate.continuousValue;
 
       if (newRU > oldRU + 0.001) {
@@ -510,7 +560,9 @@ export class RankedView {
           name: scenarioName,
           oldRU,
           newRU,
-          gain: Math.round((newRU - oldRU) * 100)
+          gain: Math.round((newRU - oldRU) * 100),
+          time: state.accumulatedScenarioSeconds[scenarioName] ?? 0,
+          attempts
         });
       }
     }
@@ -518,7 +570,7 @@ export class RankedView {
     return results.sort((a, b) => b.gain - a.gain);
   }
 
-  private _renderSummaryTimeline(data: { name: string; oldRU: number; newRU: number; gain: number }): string {
+  private _renderSummaryTimeline(data: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }): string {
     const containerId: string = `rank-timeline-summary-${data.name.replace(/\s+/g, "-")}`;
 
     setTimeout((): void => {
@@ -528,7 +580,7 @@ export class RankedView {
     return `<div id="${containerId}"></div>`;
   }
 
-  private _updateSummaryTimeline(containerId: string, data: { name: string; oldRU: number; newRU: number; gain: number }): void {
+  private _updateSummaryTimeline(containerId: string, data: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }): void {
     const container: HTMLElement | null = document.getElementById(containerId);
     if (!container) return;
 
@@ -549,7 +601,9 @@ export class RankedView {
       oldRankName: oldEstimate.rankName,
       newRankName: newEstimate.rankName,
       oldProgress: oldEstimate.progressToNext,
-      newProgress: newEstimate.progressToNext
+      newProgress: newEstimate.progressToNext,
+      totalSecondsSpent: data.time,
+      attempts: data.attempts
     });
 
     container.innerHTML = "";

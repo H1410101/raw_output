@@ -73,21 +73,37 @@ describe("RankedSessionService: Persistence Behavior", (): void => {
     });
 });
 
+function _createBenchmarkMock(): BenchmarkService {
+    return {
+        getScenarios: vi.fn(),
+        getRankNames: vi.fn(),
+        getDifficulty: vi.fn().mockImplementation((name: string) => {
+            return (name.includes("Gold") || name === "Scen1") ? "Gold" : "Silver";
+        }),
+    } as unknown as BenchmarkService;
+}
+
+function _createSessionMock(): SessionService {
+    return {
+        setIsRanked: vi.fn(),
+        onSessionUpdated: vi.fn(),
+        resetSession: vi.fn(),
+        startRankedSession: vi.fn(),
+        stopRankedSession: vi.fn(),
+        getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
+        getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
+        getRankedScenarioBest: vi.fn().mockReturnValue({}),
+        setRankedPlaylist: vi.fn(),
+    } as unknown as SessionService;
+}
+
 function _setupMocks(): MockSet {
     vi.clearAllMocks();
     localStorage.clear();
 
     return {
-        benchmark: { getScenarios: vi.fn(), getRankNames: vi.fn() } as unknown as BenchmarkService,
-        session: {
-            setIsRanked: vi.fn(),
-            onSessionUpdated: vi.fn(),
-            resetSession: vi.fn(),
-            startRankedSession: vi.fn(),
-            stopRankedSession: vi.fn(),
-            getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
-            getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
-        } as unknown as SessionService,
+        benchmark: _createBenchmarkMock(),
+        session: _createSessionMock(),
         estimator: {
             getScenarioEstimate: vi.fn(),
             recordPlay: vi.fn(),

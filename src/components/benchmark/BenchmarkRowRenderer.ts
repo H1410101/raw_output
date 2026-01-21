@@ -1,10 +1,11 @@
-import { BenchmarkScenario } from "../../data/benchmarks";
+import { BenchmarkScenario, DifficultyTier } from "../../data/benchmarks";
 import { HistoryService } from "../../services/HistoryService";
 import { RankService } from "../../services/RankService";
 import { SessionService } from "../../services/SessionService";
 import { VisualSettings } from "../../services/VisualSettingsService";
 import { AudioService } from "../../services/AudioService";
-import { RankEstimator } from "../../services/RankEstimator";
+import { RankEstimator, EstimatedRank } from "../../services/RankEstimator";
+import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
 import { DotCloudComponent } from "../visualizations/DotCloudComponent";
 import { ScoreEntry } from "../visualizations/ScoreProcessor";
 
@@ -18,6 +19,7 @@ export interface BenchmarkRowDependencies {
   readonly audioService: AudioService;
   readonly visualSettings: VisualSettings;
   readonly rankEstimator: RankEstimator;
+  readonly cosmeticOverride: CosmeticOverrideService;
 }
 
 /**
@@ -29,8 +31,9 @@ export class BenchmarkRowRenderer {
   private readonly _sessionService: SessionService;
   private readonly _audioService: AudioService;
   private readonly _rankEstimator: RankEstimator;
+  private readonly _cosmeticOverrideService: CosmeticOverrideService;
   private _visualSettings: VisualSettings;
-  private _currentDifficulty: string = "Advanced";
+  private _currentDifficulty: DifficultyTier = "Advanced";
   private readonly _dotCloudRegistry: Map<string, DotCloudComponent> =
     new Map();
   private _loadCounter: number = 0;
@@ -47,6 +50,7 @@ export class BenchmarkRowRenderer {
     this._audioService = dependencies.audioService;
     this._visualSettings = dependencies.visualSettings;
     this._rankEstimator = dependencies.rankEstimator;
+    this._cosmeticOverrideService = dependencies.cosmeticOverride;
   }
 
   /**
@@ -60,7 +64,7 @@ export class BenchmarkRowRenderer {
   public renderRow(
     scenario: BenchmarkScenario,
     highscore: number,
-    difficulty: string = "Advanced",
+    difficulty: DifficultyTier = "Advanced",
   ): HTMLElement {
     this._currentDifficulty = difficulty;
     const rowElement: HTMLElement = this._createRowContainer(scenario);
@@ -114,7 +118,7 @@ export class BenchmarkRowRenderer {
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
     highscore: number,
-    difficulty: string = "Advanced",
+    difficulty: DifficultyTier = "Advanced",
   ): void {
     this._currentDifficulty = difficulty;
     if (this._visualSettings.showRanks) {
@@ -237,8 +241,9 @@ export class BenchmarkRowRenderer {
     }
 
     const isSessionActive: boolean = this._sessionService.isSessionActive();
+    const isOverrideActive = this._cosmeticOverrideService.isActiveFor(this._currentDifficulty);
     sessionBadge.style.visibility =
-      bestScore === 0 || !isSessionActive ? "hidden" : "visible";
+      (bestScore === 0 || !isSessionActive) && !isOverrideActive ? "hidden" : "visible";
   }
 
   /**
@@ -253,18 +258,25 @@ export class BenchmarkRowRenderer {
   ): void {
     const rankEstimateBadge: HTMLElement | null =
       rowElement.querySelector(".rank-estimate-badge .badge-content");
+
     if (rankEstimateBadge) {
-      const rankEstimate = this._rankEstimator.getScenarioEstimate(scenario.name);
-      const difficultyEstimate = this._rankEstimator.getEstimateForValue(
-        rankEstimate.continuousValue,
-        this._currentDifficulty,
-      );
+      let estimate: EstimatedRank;
+
+      if (this._cosmeticOverrideService.isActiveFor(this._currentDifficulty)) {
+        estimate = this._cosmeticOverrideService.getFakeEstimatedRank(this._currentDifficulty);
+      } else {
+        const scenarioEstimate = this._rankEstimator.getScenarioEstimate(scenario.name);
+        estimate = this._rankEstimator.getEstimateForValue(
+          scenarioEstimate.continuousValue,
+          this._currentDifficulty,
+        );
+      }
 
       this._fillRankEstimateBadgeContent(
         rankEstimateBadge,
-        difficultyEstimate.rankName,
-        difficultyEstimate.progressToNext,
-        difficultyEstimate.continuousValue,
+        estimate.rankName,
+        estimate.progressToNext,
+        estimate.continuousValue,
       );
     }
   }
@@ -466,7 +478,8 @@ export class BenchmarkRowRenderer {
     );
 
     const isSessionActive: boolean = this._sessionService.isSessionActive();
-    if (bestScore === 0 || !isSessionActive) {
+    const isOverrideActive = this._cosmeticOverrideService.isActiveFor(this._currentDifficulty);
+    if ((bestScore === 0 || !isSessionActive) && !isOverrideActive) {
       badgeElement.style.visibility = "hidden";
     }
 
@@ -488,8 +501,17 @@ export class BenchmarkRowRenderer {
     const badgeContent: HTMLDivElement = document.createElement("div");
     badgeContent.className = "badge-content";
 
-    const rankEstimate = this._rankEstimator.getScenarioEstimate(scenario.name);
-    const estimate = this._rankEstimator.getEstimateForValue(rankEstimate.continuousValue, this._currentDifficulty);
+    let estimate: EstimatedRank;
+
+    if (this._cosmeticOverrideService.isActiveFor(this._currentDifficulty)) {
+      estimate = this._cosmeticOverrideService.getFakeEstimatedRank(this._currentDifficulty);
+    } else {
+      const scenarioEstimate = this._rankEstimator.getScenarioEstimate(scenario.name);
+      estimate = this._rankEstimator.getEstimateForValue(
+        scenarioEstimate.continuousValue,
+        this._currentDifficulty,
+      );
+    }
 
     this._fillRankEstimateBadgeContent(badgeContent, estimate.rankName, estimate.progressToNext, estimate.continuousValue);
     badgeContainer.appendChild(badgeContent);
@@ -557,7 +579,9 @@ export class BenchmarkRowRenderer {
     scenario: BenchmarkScenario,
     score: number,
   ): void {
-    if (score === 0) {
+    const isOverrideActive = this._cosmeticOverrideService.isActiveFor(this._currentDifficulty);
+
+    if (score === 0 && !isOverrideActive) {
       container.innerHTML = `
         <span class="rank-name unranked-text">Unranked</span>
         <span class="rank-progress"></span>
@@ -566,7 +590,10 @@ export class BenchmarkRowRenderer {
       return;
     }
 
-    const calculatedRank = this._rankService.calculateRank(score, scenario);
+    const calculatedRank = this._cosmeticOverrideService.isActiveFor(this._currentDifficulty)
+      ? this._cosmeticOverrideService.getFakeRankResult(this._currentDifficulty)
+      : this._rankService.calculateRank(score, scenario);
+
     const isUnranked: boolean = calculatedRank.currentRank === "Unranked";
     const rankClass: string = isUnranked
       ? "rank-name unranked-text"
