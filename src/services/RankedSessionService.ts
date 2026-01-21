@@ -314,7 +314,7 @@ export class RankedSessionService {
         this._applyDifficultyStateSnapshot(state);
         this._status = "ACTIVE";
 
-        this._ensureStartTimePreserved();
+        this._startTime = new Date().toISOString();
 
         this._jumpToNextUnplayedScenario();
 
@@ -323,12 +323,6 @@ export class RankedSessionService {
         this._notifyListeners();
     }
 
-    private _ensureStartTimePreserved(): void {
-        const isToday = this._isToday(this._startTime ? new Date(this._startTime).getTime() : null);
-        if (!this._startTime || !isToday || this.remainingSeconds <= 0) {
-            this._startTime = new Date().toISOString();
-        }
-    }
 
     private _snapshotCurrentDifficultyState(): void {
         if (!this._difficulty) return;
@@ -461,6 +455,17 @@ export class RankedSessionService {
      * Checks if the session timer has expired and transitions to summary if so.
      */
     public checkExpiration(): void {
+        const isToday = this._isToday(this._rankedSessionId);
+
+        if (!isToday && !this.isSessionActive()) {
+            this._difficultyStates = {};
+            this._rankedSessionId = null;
+            this._saveToLocalStorage();
+            this._notifyListeners();
+
+            return;
+        }
+
         if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
             return;
         }
@@ -477,24 +482,21 @@ export class RankedSessionService {
         const wasSessionConcluded: boolean = this._status === "SUMMARY";
 
         if (this._difficulty) {
+            if (wasSessionConcluded) {
+                this._playedScenarios.clear();
+                this._accumulatedScenarioSeconds.clear();
+                this._currentIndex = 0;
+                this._scenarioStartTime = null;
+                this._initialGauntletComplete = false;
+            }
             this._snapshotCurrentDifficultyState();
         }
 
-        const currentDifficulty = this._difficulty;
 
         this._status = "IDLE";
         this._difficulty = null;
 
         this._sessionService.stopRankedSession();
-
-        if (wasSessionConcluded && currentDifficulty) {
-            this._playedScenarios.clear();
-            this._accumulatedScenarioSeconds.clear();
-            this._currentIndex = 0;
-            this._scenarioStartTime = null;
-
-            delete this._difficultyStates[currentDifficulty];
-        }
 
         this._saveToLocalStorage();
         this._notifyListeners();

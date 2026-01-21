@@ -5,9 +5,13 @@ This directory contains specialized UI components for data visualization, specif
 ## Components
 
 ### `RankTimelineComponent`
-A visualization of where a score or set of scores sits on a rank timeline. It shows historical "Achieved" marks, "Target" marks, and individual attempts as a cloud of dots.
-- **Inputs**: `RankTimelineConfiguration` (thresholds, achieved/target/attempts RU, visual settings)
-- **Features**: Collision resolution for overlapping labels, view window clamping, and offscreen target indicators.
+A visualization of where a score or set of scores sits on a rank timeline. It shows historical "Achieved" marks, "Target" marks, and individual attempts.
+- **Inputs**: `RankTimelineConfiguration` (thresholds, achieved/target/expected/attempts RU, visual settings)
+- **Features**: 
+    - **60% Window**: A clearly visible central area (20-80% of width) for focus.
+    - **Dynamic Scroll Algorithm**: Symmetrical centering for target/highscore, or edge-alignment fallbacks.
+    - **Dynamic Carets**: Labelled notches automatically transition to caret versions when outside the active Window, even during animations.
+    - **Collision Resolution**: Shifting overlapping labels to ensure readability.
 
 ### `DotCloudComponent`
 A complex visualization of many score attempts over time or across scenarios. It uses canvas-based rendering for performance.

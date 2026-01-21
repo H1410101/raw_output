@@ -14,37 +14,6 @@ export interface SummaryTimelineConfiguration {
     readonly newProgress: number;
 }
 
-interface TickRenderOptions {
-    readonly parent: HTMLElement;
-    readonly minRU: number;
-    readonly maxRU: number;
-    readonly rankUnitsRange: number;
-}
-
-interface ProgressRenderOptions {
-    readonly parent: HTMLElement;
-    readonly minRU: number;
-    readonly rankUnitsRange: number;
-}
-
-interface NotchRenderOptions {
-    readonly parent: HTMLElement;
-    readonly rankUnits: number;
-    readonly minRU: number;
-    readonly rankUnitsRange: number;
-    readonly type: "old" | "new";
-}
-
-interface LabelRenderOptions {
-    readonly parent: HTMLElement;
-    readonly rankUnits: number;
-    readonly rankName: string;
-    readonly progress: number;
-    readonly minRU: number;
-    readonly rankUnitsRange: number;
-    readonly type: "old" | "new";
-}
-
 interface CollisionOptions {
     readonly leftHitbox: HTMLElement | null;
     readonly rightHitbox: HTMLElement | null;
@@ -59,7 +28,14 @@ interface CollisionOptions {
 export class SummaryTimelineComponent {
     private readonly _container: HTMLElement;
     private readonly _config: SummaryTimelineConfiguration;
+
+    private _scroller: HTMLElement | null = null;
+    private _progressLine: HTMLElement | null = null;
+
     private _resizeObserver: ResizeObserver | null = null;
+    private _hasStarted: boolean = false;
+    private _isDeltaAnimating: boolean = false;
+    private _pendingEndScroll: number | null = null;
 
     private _titleLabel: HTMLElement | null = null;
     private _deltaLabel: HTMLElement | null = null;
@@ -80,7 +56,14 @@ export class SummaryTimelineComponent {
         this._container = document.createElement("div");
         this._container.className = "summary-timeline-component";
         this._container.style.width = "100%";
+    }
 
+    /**
+     * Returns true if the animation has started.
+     * @returns True if started.
+     */
+    public hasStarted(): boolean {
+        return this._hasStarted;
     }
 
     /**
@@ -92,40 +75,121 @@ export class SummaryTimelineComponent {
     }
 
     /**
-     * Renders the summary timeline.
+     * Triggers the animation.
+     */
+    public play(): void {
+        if (this._hasStarted || !this._scroller || !this._progressLine) return;
+        this._hasStarted = true;
+
+        if (this._pendingEndScroll !== null) {
+            this._scroller.style.transform = `translateX(${this._pendingEndScroll}%)`;
+            this._pendingEndScroll = null;
+        }
+
+        const { startMinRU, endMinRU, windowSize } = this._calculateAnimationBounds();
+        const renderMinRU = Math.min(startMinRU, endMinRU);
+        const unitWidth = 100 / windowSize;
+
+        const oldPct = (this._config.oldRU - renderMinRU) * unitWidth;
+        const newPct = (this._config.newRU - renderMinRU) * unitWidth;
+
+        const left = Math.min(oldPct, newPct);
+        const width = Math.abs(oldPct - newPct);
+
+        this._progressLine.style.left = `${left}%`;
+        this._progressLine.style.width = `${width}%`;
+
+        setTimeout((): void => {
+            if (this._deltaLabel) {
+                this._isDeltaAnimating = true;
+                this._deltaLabel.style.transition = "opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)";
+                this._deltaLabel.style.opacity = "0.8";
+                this.resolveCollisions();
+            }
+        }, 1500);
+    }
+
+    /**
+     * Renders the summary timeline in its initial state.
      * @returns The container element.
      */
     public render(): HTMLElement {
-        this._container.innerHTML = "";
+        this._resetLabelsAndHitboxes();
 
-        this._titleLabel = null;
-        this._deltaLabel = null;
-        this._oldLabel = null;
-        this._newLabel = null;
-
-        this._titleHitbox = null;
-        this._deltaHitbox = null;
-        this._oldHitbox = null;
-        this._newHitbox = null;
-
-        const { minRU, maxRU } = this._calculateViewBounds();
-        const rankUnitsRange = maxRU - minRU;
+        const { startMinRU, endMinRU, windowSize } = this._calculateAnimationBounds();
+        const unitWidth = 100 / windowSize;
+        const renderMinRU = Math.min(startMinRU, endMinRU);
 
         const track = document.createElement("div");
         track.className = "summary-timeline-track";
         this._container.appendChild(track);
 
-        this._renderAxis(track);
-        this._renderTicks({ parent: track, minRU, maxRU, rankUnitsRange });
-        this._renderProgress({ parent: track, minRU, rankUnitsRange });
+        this._scroller = document.createElement("div");
+        this._scroller.className = "summary-timeline-scroller";
+        track.appendChild(this._scroller);
 
-        this._renderScenarioName(track);
-        this._renderDelta(track, minRU, rankUnitsRange);
-        this._renderRankLabels(track, minRU, rankUnitsRange);
+        this._renderScrollerContents(renderMinRU, unitWidth, startMinRU, endMinRU);
+        this._renderContainerContents();
 
+        this._setupScrollerInitialState(renderMinRU, startMinRU, endMinRU, unitWidth);
         this._setupResizeObserver();
 
         return this._container;
+    }
+
+    private _resetLabelsAndHitboxes(): void {
+        this._container.innerHTML = "";
+        this._titleLabel = null;
+        this._deltaLabel = null;
+        this._oldLabel = null;
+        this._newLabel = null;
+        this._titleHitbox = null;
+        this._deltaHitbox = null;
+        this._oldHitbox = null;
+        this._newHitbox = null;
+    }
+
+    private _renderScrollerContents(renderMinRU: number, unitWidth: number, startMinRU: number, endMinRU: number): void {
+        if (!this._scroller) return;
+
+        const windowSize = 2.5;
+        const renderMaxRU = Math.max(startMinRU + windowSize, endMinRU + windowSize);
+
+        this._renderAxis(this._scroller);
+        this._renderTicks({ parent: this._scroller, minRU: renderMinRU, maxRU: renderMaxRU, rankUnitsRange: windowSize, unitWidth });
+        this._renderInitialProgress(this._scroller, renderMinRU, unitWidth);
+        this._renderDelta(this._scroller, renderMinRU, unitWidth);
+        this._renderRankLabels(this._scroller, renderMinRU, unitWidth);
+    }
+
+    private _renderContainerContents(): void {
+        this._renderScenarioName();
+    }
+
+    private _setupScrollerInitialState(renderMinRU: number, startMinRU: number, endMinRU: number, unitWidth: number): void {
+        if (!this._scroller) return;
+
+        const initialOffset = (renderMinRU - startMinRU) * unitWidth;
+        this._scroller.style.transition = "none";
+        this._scroller.style.transform = `translateX(${initialOffset}%)`;
+        void this._scroller.offsetHeight;
+        this._scroller.style.transition = "";
+
+        this._pendingEndScroll = (renderMinRU - endMinRU) * unitWidth;
+    }
+
+    private _renderInitialProgress(parent: HTMLElement, minRU: number, unitWidth: number): void {
+        const oldPct = (this._config.oldRU - minRU) * unitWidth;
+
+        this._progressLine = document.createElement("div");
+        this._progressLine.className = "summary-timeline-progress";
+        this._progressLine.style.transition = "none";
+        this._progressLine.style.left = `${oldPct}%`;
+        this._progressLine.style.width = "0%";
+        parent.appendChild(this._progressLine);
+
+        void this._progressLine.offsetHeight;
+        this._progressLine.style.transition = "";
     }
 
     private _setupResizeObserver(): void {
@@ -140,23 +204,21 @@ export class SummaryTimelineComponent {
         this._resizeObserver.observe(this._container);
     }
 
-    private _renderScenarioName(parent: HTMLElement): void {
-        const anchor = document.createElement("div");
-        anchor.className = "summary-timeline-label-anchor top old title-fixed anchor-center";
-        anchor.style.left = "10%";
-        parent.appendChild(anchor);
+    private _renderScenarioName(): void {
+        const containerAnchor = document.createElement("div");
+        containerAnchor.className = "summary-timeline-label-anchor top old title-fixed anchor-left";
+        containerAnchor.style.left = "1.5rem";
+        this._container.appendChild(containerAnchor);
 
         const text = this._config.scenarioName;
-        this._titleHitbox = this._createHitbox(anchor, text, "title");
-        this._titleLabel = this._createLabel(anchor, "summary-timeline-title", text);
+        this._titleHitbox = this._createHitbox(containerAnchor, text, "title");
+        this._titleLabel = this._createLabel(containerAnchor, "summary-timeline-title", text);
 
-        this._titleLabel.style.transform = "translateX(0%)";
+        this._titleLabel.style.transform = "none";
     }
 
-    private _renderDelta(parent: HTMLElement, minRU: number, rankUnitsRange: number): void {
-        const pct = ((this._config.newRU - minRU) / rankUnitsRange) * 100;
-
-        if (pct < 0 || pct > 100) return;
+    private _renderDelta(parent: HTMLElement, minRU: number, unitWidth: number): void {
+        const pct = (this._config.newRU - minRU) * unitWidth;
 
         const anchor = document.createElement("div");
         anchor.className = "summary-timeline-label-anchor top new anchor-center";
@@ -167,7 +229,8 @@ export class SummaryTimelineComponent {
         this._deltaHitbox = this._createHitbox(anchor, text);
         this._deltaLabel = this._createLabel(anchor, "summary-timeline-delta", text);
 
-        this._deltaLabel.style.transform = "translateX(0%)";
+        this._deltaLabel.style.opacity = "0";
+        this._deltaLabel.style.transform = "translateX(-1.5rem)";
     }
 
     private _createHitbox(parent: HTMLElement, text: string, className?: string): HTMLElement {
@@ -179,13 +242,6 @@ export class SummaryTimelineComponent {
         return hitbox;
     }
 
-    /**
-     * Creates a text label element.
-     * @param parent - The parent element to append to.
-     * @param className - The class to apply.
-     * @param text - The text content.
-     * @returns The label element.
-     */
     private _createLabel(parent: HTMLElement, className: string, text: string): HTMLElement {
         const label = document.createElement("div");
         label.className = className;
@@ -195,28 +251,20 @@ export class SummaryTimelineComponent {
         return label;
     }
 
-    /**
-     * Renders the timeline axis.
-     * @param parent - The parent element to append to.
-     */
     private _renderAxis(parent: HTMLElement): void {
         const axis = document.createElement("div");
         axis.className = "summary-timeline-axis";
+        axis.style.left = "-500%";
+        axis.style.right = "-500%";
         parent.appendChild(axis);
     }
 
-    /**
-     * Renders rank unit ticks.
-     * @param options - The render options.
-     */
-    private _renderTicks(options: TickRenderOptions): void {
+    private _renderTicks(options: { parent: HTMLElement, minRU: number, maxRU: number, rankUnitsRange: number, unitWidth: number }): void {
         const startRU = Math.ceil(options.minRU - 0.5);
         const endRU = Math.floor(options.maxRU + 0.5);
 
         for (let i = startRU; i <= endRU; i++) {
-            const leftPercent = ((i - options.minRU) / options.rankUnitsRange) * 100;
-
-            if (leftPercent < 0 || leftPercent > 100) continue;
+            const leftPercent = (i - options.minRU) * options.unitWidth;
 
             const tick = document.createElement("div");
             tick.className = "summary-timeline-tick";
@@ -225,36 +273,9 @@ export class SummaryTimelineComponent {
         }
     }
 
-    /**
-     * Renders rank unit progress.
-     * @param options - The render options.
-     */
-    private _renderProgress(options: ProgressRenderOptions): void {
-        const oldPct = ((this._config.oldRU - options.minRU) / options.rankUnitsRange) * 100;
-        const newPct = ((this._config.newRU - options.minRU) / options.rankUnitsRange) * 100;
-
-        const left = Math.min(oldPct, newPct);
-        const right = Math.max(oldPct, newPct);
-        const width = right - left;
-
-        if (width > 0) {
-            const progressLine = document.createElement("div");
-            progressLine.className = "summary-timeline-progress";
-            progressLine.style.left = `${left}%`;
-            progressLine.style.width = `${width}%`;
-            options.parent.appendChild(progressLine);
-        }
-    }
-
-    /**
-     * Renders all rank labels.
-     * @param parent - The parent element to append to.
-     * @param minRU - The minimum rank unit.
-     * @param rankUnitsRange - The rank unit range.
-     */
-    private _renderRankLabels(parent: HTMLElement, minRU: number, rankUnitsRange: number): void {
-        this._renderMarkerNotch({ parent, rankUnits: this._config.oldRU, minRU, rankUnitsRange, type: "old" });
-        this._renderMarkerNotch({ parent, rankUnits: this._config.newRU, minRU, rankUnitsRange, type: "new" });
+    private _renderRankLabels(parent: HTMLElement, minRU: number, unitWidth: number): void {
+        this._renderMarkerNotch({ parent, rankUnits: this._config.oldRU, minRU, unitWidth, type: "old" });
+        this._renderMarkerNotch({ parent, rankUnits: this._config.newRU, minRU, unitWidth, type: "new" });
 
         this._renderRankLabel({
             parent,
@@ -262,7 +283,7 @@ export class SummaryTimelineComponent {
             rankName: this._config.oldRankName,
             progress: this._config.oldProgress,
             minRU,
-            rankUnitsRange,
+            unitWidth,
             type: "old"
         });
 
@@ -272,19 +293,13 @@ export class SummaryTimelineComponent {
             rankName: this._config.newRankName,
             progress: this._config.newProgress,
             minRU,
-            rankUnitsRange,
+            unitWidth,
             type: "new"
         });
     }
 
-    /**
-     * Renders a marker notch.
-     * @param options - The render options.
-     */
-    private _renderMarkerNotch(options: NotchRenderOptions): void {
-        const pct = ((options.rankUnits - options.minRU) / options.rankUnitsRange) * 100;
-
-        if (pct < 0 || pct > 100) return;
+    private _renderMarkerNotch(options: { parent: HTMLElement, rankUnits: number, minRU: number, unitWidth: number, type: "old" | "new" }): void {
+        const pct = (options.rankUnits - options.minRU) * options.unitWidth;
 
         const notch = document.createElement("div");
         notch.className = `summary-timeline-marker-notch ${options.type}`;
@@ -292,14 +307,8 @@ export class SummaryTimelineComponent {
         options.parent.appendChild(notch);
     }
 
-    /**
-     * Renders a rank label.
-     * @param options - The render options.
-     */
-    private _renderRankLabel(options: LabelRenderOptions): void {
-        const pct = ((options.rankUnits - options.minRU) / options.rankUnitsRange) * 100;
-
-        if (pct < 0 || pct > 100) return;
+    private _renderRankLabel(options: { parent: HTMLElement, rankUnits: number, rankName: string, progress: number, minRU: number, unitWidth: number, type: "old" | "new" }): void {
+        const pct = (options.rankUnits - options.minRU) * options.unitWidth;
 
         const anchor = document.createElement("div");
         anchor.className = `summary-timeline-label-anchor bottom ${options.type} anchor-center`;
@@ -313,12 +322,11 @@ export class SummaryTimelineComponent {
         if (options.type === "old") {
             this._oldLabel = label;
             this._oldHitbox = hitbox;
-            label.style.transform = "translateX(0%)";
         } else {
             this._newLabel = label;
             this._newHitbox = hitbox;
-            label.style.transform = "translateX(0%)";
         }
+        label.style.transform = "translateX(0%)";
     }
 
     /**
@@ -350,26 +358,39 @@ export class SummaryTimelineComponent {
 
         const buffer = parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.5;
 
-        // Default Alignments (Centered)
-        let leftTransform = "translateX(0%)";
+        // Default Alignments 
+        let leftTransform = options.leftLabel === this._titleLabel ? "none" : "translateX(0%)";
         let rightTransform = "translateX(0%)";
 
         if (leftRect.right + buffer > rightRect.left) {
-            leftTransform = "translateX(-50%)";
-            rightTransform = "translateX(50%)";
+            if (options.leftLabel === this._titleLabel) {
+                const shift = leftRect.right + buffer - rightRect.left;
+                rightTransform = `translateX(${shift}px)`;
+            } else {
+                leftTransform = "translateX(-50%)";
+                rightTransform = "translateX(50%)";
+            }
         }
 
         options.leftLabel.style.transform = leftTransform;
-        options.rightLabel.style.transform = rightTransform;
+
+        if (options.rightLabel !== this._deltaLabel || this._isDeltaAnimating) {
+            options.rightLabel.style.transform = rightTransform;
+        }
     }
 
-    /**
-     * Calculates the view bounds for the timeline.
-     * @returns The min and max rank units to display.
-     */
-    private _calculateViewBounds(): { minRU: number; maxRU: number } {
-        const center = (this._config.oldRU + this._config.newRU) / 2;
+    private _calculateAnimationBounds(): { startMinRU: number, endMinRU: number, windowSize: number } {
         const windowSize = 2.5;
+        const startMinRU = this._config.oldRU - (windowSize / 2);
+
+        const { minRU: endMinRU } = this._getFinalViewBounds();
+
+        return { startMinRU, endMinRU, windowSize };
+    }
+
+    private _getFinalViewBounds(): { minRU: number; windowSize: number } {
+        const windowSize = 2.5;
+        const center = (this._config.oldRU + this._config.newRU) / 2;
 
         let minRU = center - (windowSize / 2);
         const constraint = this._config.newRU - (0.8 * windowSize);
@@ -378,9 +399,6 @@ export class SummaryTimelineComponent {
             minRU = constraint;
         }
 
-        return {
-            minRU,
-            maxRU: minRU + windowSize
-        };
+        return { minRU, windowSize };
     }
 }

@@ -45,6 +45,7 @@ export class RankedView {
   private _activeTimelineScenario: string | null = null;
   private _lastStatus: RankedSessionState["status"] | null = null;
   private _lastScenarioName: string | null = null;
+  private _summaryTimelines: SummaryTimelineComponent[] = [];
   private readonly _onBrowserFocusBound: () => void;
 
   /**
@@ -77,10 +78,28 @@ export class RankedView {
   private _onBrowserFocus(): void {
     this._updateAnimationIndicator();
 
-    // If we regained focus, play any pending animations
-    if (document.hasFocus() && this._activeTimeline) {
-      this._activeTimeline.play();
+    if (document.hasFocus()) {
+      if (this._activeTimeline) {
+        this._activeTimeline.play();
+      }
+      this._playSummaryAnimations();
     }
+  }
+
+  private _playSummaryAnimations(): void {
+    if (!document.hasFocus()) return;
+
+    let delay = 0;
+    this._summaryTimelines.forEach((timeline: SummaryTimelineComponent): void => {
+      if (!timeline.hasStarted()) {
+        setTimeout((): void => {
+          if (document.hasFocus()) {
+            timeline.play();
+          }
+        }, delay);
+        delay += 1000;
+      }
+    });
   }
 
   /**
@@ -142,7 +161,14 @@ export class RankedView {
     this._stopHudTicking();
     this._container.innerHTML = "";
 
+    this._summaryTimelines.forEach((timeline) => timeline.destroy());
+    this._summaryTimelines = [];
+
     this._renderMainUI(state);
+
+    if (state.status === "SUMMARY") {
+      setTimeout(() => this._playSummaryAnimations(), 500);
+    }
   }
 
   private _getActiveScenarioName(state: RankedSessionState): string | null {
@@ -529,6 +555,8 @@ export class RankedView {
     container.innerHTML = "";
     container.appendChild(timeline.render());
     timeline.resolveCollisions();
+
+    this._summaryTimelines.push(timeline);
   }
 
   private _renderCompletedContent(): string {

@@ -252,8 +252,8 @@
     width: 100%;
     height: 100%;
     /* Fade from 30%->20% and 70%->80% */
-    mask-image: linear-gradient(to right, transparent 20%, black 30%, black 70%, transparent 80%);
-    -webkit-mask-image: linear-gradient(to right, transparent 20%, black 30%, black 70%, transparent 80%);
+    mask-image: linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%);
 }
 
 .timeline-scroller {
@@ -404,10 +404,19 @@
     position: static;
     width: 0.5rem;
     height: 0.5rem;
-    margin-right: 0.3rem;
+    margin-right: 0.35rem;
     margin-bottom: 0;
     transform: rotate(-45deg);
-    border-color: var(--lower-band-1);
+    border-left: 0.125rem solid var(--lower-band-1);
+    border-top: 0.125rem solid var(--lower-band-1);
+}
+
+.timeline-caret.caret-achieved {
+    border-color: var(--accent-color);
+}
+
+.timeline-caret.caret-expected {
+    border-color: var(--lower-band-2);
 }
 
 .timeline-marker-label.offscreen {
@@ -415,6 +424,11 @@
     transform: none;
     text-align: left;
     margin-left: 0;
+    line-height: 1;
+}
+
+.timeline-marker-label.label-achieved.offscreen {
+    color: var(--accent-color);
 }
 
 /* Summary View */
@@ -467,6 +481,7 @@
     display: flex;
     align-items: center;
     justify-content: stretch;
+    overflow: visible;
 }
 
 .summary-timeline-item>div {
@@ -497,8 +512,18 @@
     position: relative;
     width: 100%;
     height: 100%;
+    overflow: hidden;
     mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
     -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
+}
+
+.summary-timeline-scroller {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transition: transform 2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .summary-timeline-title {
@@ -512,6 +537,11 @@
     opacity: 0.8;
     text-shadow: 0 0.125rem 0.25rem rgba(var(--surface-0-rgb), 0.5);
     transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Ensure the components can overflow horizontally into the list padding */
+.summary-timeline-component {
+    overflow: visible !important;
 }
 
 .summary-timeline-axis {
@@ -543,6 +573,7 @@
     transform: translateY(-50%);
     z-index: 2;
     box-shadow: 0 0 0.625rem rgba(var(--accent-color-rgb), 0.3);
+    transition: left 2s cubic-bezier(0.22, 1, 0.36, 1), width 2s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .summary-timeline-delta {
@@ -636,6 +667,8 @@
 
 .summary-timeline-label-anchor.top .summary-timeline-hitbox.title {
     letter-spacing: 0.15em;
+    margin-left: 0;
+    transform: none;
 }
 
 .summary-timeline-label-anchor.bottom .summary-timeline-hitbox {
