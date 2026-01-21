@@ -47,6 +47,7 @@ export class RankTimelineComponent {
 
     private _isInitialized: boolean = false;
     private _hasPreviousProgress: boolean = false;
+    private _pendingScrollOffset: number | null = null;
 
     /**
      * Initializes the timeline.
@@ -106,22 +107,37 @@ export class RankTimelineComponent {
      * Updates the timeline configuration and triggers a scroll animation.
      * @param config - The new configuration.
      * @param immediate - If true, jumps to the new position without animation.
+     * @param paused - If true, renders the initial state but waits for play() to animate.
      */
-    public update(config: RankTimelineConfiguration, immediate: boolean = false): void {
+    public update(config: RankTimelineConfiguration, immediate: boolean = false, paused: boolean = false): void {
         this._config = config;
 
         const thresholdValues = Object.values(config.thresholds).sort((a: number, b: number) => a - b);
         this._mapper = new RankScaleMapper(thresholdValues, 100);
 
-        this.render(immediate);
+        this.render(immediate, paused);
+    }
+
+    /**
+     * triggers any pending animations.
+     */
+    public play(): void {
+        if (this._pendingScrollOffset !== null) {
+            this._scroller.classList.remove("no-transition");
+            this._scroller.style.transform = `translateX(${this._pendingScrollOffset}%)`;
+            this._pendingScrollOffset = null;
+        }
+
+        this._renderProgressLine(false, false);
     }
 
     /**
      * Renders the component contents and updates the scroll position.
      * @param immediate - If true, jumps to the new position without animation.
+     * @param paused - If true, renders the initial state but waits for play() to animate.
      * @returns The container element.
      */
-    public render(immediate: boolean = false): HTMLElement {
+    public render(immediate: boolean = false, paused: boolean = false): HTMLElement {
         // Clear non-persistent layers
         this._ticksLayer.innerHTML = "";
         this._attemptsLayer.innerHTML = "";
@@ -141,9 +157,9 @@ export class RankTimelineComponent {
         this._renderTicks();
         this._renderAttempts();
         this._renderMarkers(minRU, windowSize);
-        this._renderProgressLine(immediate);
+        this._renderProgressLine(immediate, paused);
 
-        this._applyScroll(minRU, windowSize, immediate);
+        this._applyScroll(minRU, windowSize, immediate, paused);
         this._isInitialized = true;
 
         return this._container;
@@ -293,6 +309,7 @@ export class RankTimelineComponent {
 
     private _renderAchievedInOffscreenMode(): void {
         const achievedRU = this._config.achievedRU;
+
         if (achievedRU === undefined) return;
 
         const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
@@ -325,7 +342,7 @@ export class RankTimelineComponent {
         });
     }
 
-    private _renderProgressLine(immediate: boolean): void {
+    private _renderProgressLine(immediate: boolean, paused: boolean): void {
         const targetRU = this._config.targetRU;
         const expectedRU = this._config.expectedRU;
 
@@ -340,14 +357,16 @@ export class RankTimelineComponent {
         const width = Math.abs(targetRU - expectedRU) * unitWidth;
 
         if (!this._hasPreviousProgress && !immediate) {
-            this._renderInitialProgress(targetRU * unitWidth, left, width);
+            this._renderInitialProgress(targetRU * unitWidth, left, width, paused);
         } else if (immediate) {
             this._renderImmediateProgress(left, width);
         } else {
             this._renderStandardProgress(left, width);
         }
 
-        this._hasPreviousProgress = true;
+        if (!paused) {
+            this._hasPreviousProgress = true;
+        }
     }
 
     private _hideProgressLine(): void {
@@ -355,7 +374,7 @@ export class RankTimelineComponent {
         this._hasPreviousProgress = false;
     }
 
-    private _renderInitialProgress(targetPct: number, finalLeft: number, finalWidth: number): void {
+    private _renderInitialProgress(targetPct: number, finalLeft: number, finalWidth: number, paused: boolean): void {
         this._progressLine.style.transition = "none";
         this._progressLine.style.left = `${targetPct}%`;
         this._progressLine.style.width = "0%";
@@ -363,9 +382,11 @@ export class RankTimelineComponent {
 
         void this._progressLine.offsetHeight;
 
-        this._progressLine.style.transition = "";
-        this._progressLine.style.left = `${finalLeft}%`;
-        this._progressLine.style.width = `${finalWidth}%`;
+        if (!paused) {
+            this._progressLine.style.transition = "";
+            this._progressLine.style.left = `${finalLeft}%`;
+            this._progressLine.style.width = `${finalWidth}%`;
+        }
     }
 
     private _renderImmediateProgress(left: number, width: number): void {
@@ -384,9 +405,17 @@ export class RankTimelineComponent {
         this._progressLine.style.opacity = "1";
     }
 
-    private _applyScroll(minRU: number, windowSize: number, immediate: boolean): void {
+    private _applyScroll(minRU: number, windowSize: number, immediate: boolean, paused: boolean): void {
         const unitWidth = 100 / windowSize;
         const offsetPercent = -minRU * unitWidth;
+
+        if (paused && this._isInitialized) {
+            this._pendingScrollOffset = offsetPercent;
+
+            return;
+        }
+
+        this._pendingScrollOffset = null;
 
         if (immediate || !this._isInitialized) {
             this._scroller.classList.add("no-transition");

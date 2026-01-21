@@ -60,6 +60,21 @@ export class SettingsSectionRenderer {
     this._appendDotCloudToggle(container, settings);
     this._appendRankToggles(container, settings);
     this._appendIntervalsGroup(container, settings);
+    this._appendAnimationFocusToggle(container, settings);
+  }
+
+  private _appendAnimationFocusToggle(
+    container: HTMLElement,
+    settings: VisualSettings,
+  ): void {
+    container.appendChild(
+      SettingsUiFactory.createToggle(
+        "Play animations when unfocused",
+        settings.playAnimationsUnfocused,
+        (val: boolean): void =>
+          this._visualSettingsService.updateSetting("playAnimationsUnfocused", val),
+      ),
+    );
   }
 
   private _appendDotCloudToggle(

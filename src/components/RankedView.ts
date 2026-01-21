@@ -45,6 +45,7 @@ export class RankedView {
   private _activeTimelineScenario: string | null = null;
   private _lastStatus: RankedSessionState["status"] | null = null;
   private _lastScenarioName: string | null = null;
+  private readonly _onBrowserFocusBound: () => void;
 
   /**
    * Initializes the view with its mount point.
@@ -57,6 +58,29 @@ export class RankedView {
     this._deps = deps;
 
     this._setupListeners();
+
+    this._onBrowserFocusBound = this._onBrowserFocus.bind(this);
+    window.addEventListener("focus", this._onBrowserFocusBound);
+    // Also update indicator on blur
+    window.addEventListener("blur", this._onBrowserFocusBound);
+  }
+
+  /**
+   * Cleans up resources and listeners.
+   */
+  public destroy(): void {
+    window.removeEventListener("focus", this._onBrowserFocusBound);
+    window.removeEventListener("blur", this._onBrowserFocusBound);
+    this._stopHudTicking();
+  }
+
+  private _onBrowserFocus(): void {
+    this._updateAnimationIndicator();
+
+    // If we regained focus, play any pending animations
+    if (document.hasFocus() && this._activeTimeline) {
+      this._activeTimeline.play();
+    }
   }
 
   /**
@@ -141,7 +165,24 @@ export class RankedView {
     this._updateHolisticRankUI();
     this._updateHudStats();
     this._updateDrainAnimation(this._container);
+    this._updateAnimationIndicator();
   }
+
+  private _updateAnimationIndicator(): void {
+    const indicator = this._container.querySelector(".now-playing") as HTMLElement;
+    if (!indicator) return;
+
+    const shouldPlay = this._shouldPlayAnimations();
+    this._container.classList.toggle("animate-on-focus", shouldPlay);
+  }
+
+  private _shouldPlayAnimations(): boolean {
+    const settings = this._deps.visualSettings.getSettings();
+    const isFocused = document.hasFocus();
+
+    return isFocused || settings.playAnimationsUnfocused;
+  }
+
 
   private _updateLastKnownState(status: RankedSessionStatus, scenarioName: string | null): void {
     this._lastStatus = status;
@@ -166,6 +207,8 @@ export class RankedView {
     } else {
       this._renderActiveState(state, viewContainer);
     }
+
+    this._updateAnimationIndicator();
   }
 
   /**
@@ -341,7 +384,11 @@ export class RankedView {
 
   private _startHudTicking(): void {
     this._updateHudStats();
-    this._hudInterval = window.setInterval(() => this._updateHudStats(), 1000);
+    this._updateAnimationIndicator();
+    this._hudInterval = window.setInterval(() => {
+      this._updateHudStats();
+      this._updateAnimationIndicator();
+    }, 1000);
   }
 
   private _stopHudTicking(): void {
@@ -530,11 +577,14 @@ export class RankedView {
 
     const config = this._prepareTimelineConfig(scenarioName, scenario);
     const isSameScenario = this._activeTimelineScenario === scenarioName;
+    const shouldPlay = this._shouldPlayAnimations();
+    const paused = !shouldPlay;
+    const immediate = false;
 
     if (this._activeTimeline && isSameScenario) {
-      this._updateExistingTimeline(container, config);
+      this._updateExistingTimeline(container, config, immediate, paused);
     } else {
-      this._createNewTimeline(container, config, scenarioName);
+      this._createNewTimeline(container, config, scenarioName, { immediate, paused });
     }
 
     this._activeTimeline!.resolveCollisions();
@@ -555,7 +605,7 @@ export class RankedView {
     };
   }
 
-  private _updateExistingTimeline(container: HTMLElement, config: RankTimelineConfiguration): void {
+  private _updateExistingTimeline(container: HTMLElement, config: RankTimelineConfiguration, immediate: boolean, paused: boolean): void {
     const timelineContainer = this._activeTimeline!.getContainer();
 
     if (container.firstChild !== timelineContainer) {
@@ -563,14 +613,19 @@ export class RankedView {
       container.appendChild(timelineContainer);
     }
 
-    this._activeTimeline!.update(config);
+    this._activeTimeline!.update(config, immediate, paused);
   }
 
-  private _createNewTimeline(container: HTMLElement, config: RankTimelineConfiguration, scenarioName: string): void {
+  private _createNewTimeline(
+    container: HTMLElement,
+    config: RankTimelineConfiguration,
+    scenarioName: string,
+    options: { immediate: boolean; paused: boolean }
+  ): void {
     this._activeTimeline = new RankTimelineComponent(config);
     this._activeTimelineScenario = scenarioName;
 
-    this._activeTimeline.render(true);
+    this._activeTimeline.render(options.immediate, options.paused);
 
     const timelineContainer = this._activeTimeline.getContainer();
     container.innerHTML = "";

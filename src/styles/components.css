@@ -655,3 +655,7 @@
     font-size: 1.1rem;
     text-align: center;
 }
+
+.no-transition {
+    transition: none !important;
+}

@@ -28,6 +28,7 @@ export interface VisualSettings {
   showRanks: boolean;
   audioVolume: number;
   showIntervalsSettings: boolean;
+  playAnimationsUnfocused: boolean;
 }
 
 /**
@@ -158,6 +159,7 @@ export class VisualSettingsService {
       showRankEstimate: true, showRanks: true,
       audioVolume: 80,
       showIntervalsSettings: true,
+      playAnimationsUnfocused: false,
     };
   }
 
