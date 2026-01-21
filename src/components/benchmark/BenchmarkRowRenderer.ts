@@ -614,7 +614,6 @@ export class BenchmarkRowRenderer {
   private _createPlayButton(scenarioName: string): HTMLElement {
     const playButton: HTMLButtonElement = document.createElement("button");
     playButton.className = "play-scenario-button";
-    playButton.title = `Launch ${scenarioName} `;
 
     playButton.appendChild(this._createLaunchSocket());
     playButton.appendChild(this._createLaunchTriangle());

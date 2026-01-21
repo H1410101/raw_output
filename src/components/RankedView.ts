@@ -17,6 +17,18 @@ import { SessionSettingsService } from "../services/SessionSettingsService";
 import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
 import { CosmeticOverrideService } from "../services/CosmeticOverrideService";
 
+interface LaunchHoldState {
+  progress: number;
+  holdInterval: number | null;
+  regenInterval: number | null;
+  fadeTimeout: number | null;
+  button: HTMLElement;
+  progressBar: HTMLElement;
+  scenarioName: string | null;
+  tickCount: number;
+  onComplete: () => void;
+}
+
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
   readonly session: SessionService;
@@ -489,9 +501,12 @@ export class RankedView {
     parent.appendChild(container);
 
     const startBtn: HTMLButtonElement | null = container.querySelector("#start-ranked-btn");
-    startBtn?.addEventListener("click", (): void => {
-      this._deps.rankedSession.startSession(difficulty);
-    });
+    if (startBtn) {
+      const progressBar = startBtn.querySelector(".launch-progress-bar") as HTMLElement;
+      this._setupHoldInteractions(startBtn, progressBar, null, () => {
+        this._deps.rankedSession.startSession(difficulty);
+      });
+    }
   }
 
   private _getIdleHtml(): string {
@@ -507,11 +522,12 @@ export class RankedView {
               <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
           </div>
           <button class="media-btn primary" id="start-ranked-btn">
-              <svg viewBox="0 0 24 24">
-                  <g transform="matrix(0.6 0 0 0.6 4.8 4.8)">
-                      <path d="M8 5v14l11-7z"/>
-                  </g>
-              </svg>
+              <div class="launch-socket"></div>
+              <div class="launch-triangle"></div>
+              <div class="launch-dot"></div>
+              <div class="launch-progress-container">
+                  <div class="launch-progress-bar"></div>
+              </div>
           </button>
           <div class="controls-right" style="visibility: hidden;">
               <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
@@ -520,6 +536,7 @@ export class RankedView {
       </div>
     `;
   }
+
 
   private _renderActiveState(state: RankedSessionState, parent: HTMLElement): void {
     const container: HTMLDivElement = document.createElement("div");
@@ -690,10 +707,10 @@ export class RankedView {
           <p style="color: var(--text-dim); line-height: 1.4; margin: 0;">End run,<br>or Keep Going?</p>
           
           <div style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; padding-bottom: 0.35rem;">
-              <button class="media-btn secondary destructive" id="end-ranked-btn" title="End Run">
+              <button class="media-btn secondary destructive" id="end-ranked-btn">
                   <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
               </button>
-              <button class="media-btn secondary" id="extend-ranked-btn" title="Keep Going">
+              <button class="media-btn secondary" id="extend-ranked-btn">
                   <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
               </button>
           </div>
@@ -844,7 +861,7 @@ export class RankedView {
           </div>
 
           <div class="controls-left">
-              <button class="media-btn secondary" id="ranked-help-btn" title="Ranked Mode Info">
+              <button class="media-btn secondary" id="ranked-help-btn">
                   <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
               </button>
               <button class="media-btn secondary" id="ranked-back-btn" ${state.currentIndex === 0 ? "disabled" : ""}>
@@ -890,19 +907,18 @@ export class RankedView {
 
   private _getPlayButtonHtml(): string {
     return `
-      <button class="media-btn primary" id="ranked-play-now">
-          <svg viewBox="0 0 24 24">
-              <mask id="play-drain-mask">
-                  <rect x="0" y="0" width="24" height="24" fill="black" />
-                  <rect id="play-drain-water" x="0" y="0" width="24" height="24" fill="white" />
-              </mask>
-              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none" mask="url(#play-drain-mask)" />
-              <g transform="matrix(0.6 0 0 0.6 4.8 4.8)">
-                  <path d="M8 5v14l11-7z"/>
-              </g>
-          </svg>
-      </button>
-    `;
+    <button class="media-btn primary" id="ranked-play-now">
+        <div class="launch-timer-fill-container">
+            <div class="launch-timer-fill" id="play-drain-water"></div>
+        </div>
+        <div class="launch-socket"></div>
+        <div class="launch-triangle"></div>
+        <div class="launch-dot"></div>
+        <div class="launch-progress-container">
+            <div class="launch-progress-bar"></div>
+        </div>
+    </button>
+  `;
   }
 
   private _attachActiveListeners(container: HTMLElement): void {
@@ -919,10 +935,13 @@ export class RankedView {
     finishBtn?.addEventListener("click", () => this._deps.rankedSession.reset());
 
     const playNowBtn: HTMLButtonElement | null = container.querySelector("#ranked-play-now");
-    playNowBtn?.addEventListener("click", () => {
+    if (playNowBtn) {
+      const progressBar = playNowBtn.querySelector(".launch-progress-bar") as HTMLElement;
       const scenarioName = this._deps.rankedSession.state.sequence[this._deps.rankedSession.state.currentIndex];
-      this._launchScenario(scenarioName);
-    });
+      this._setupHoldInteractions(playNowBtn, progressBar, scenarioName, () => {
+        this._launchScenario(scenarioName);
+      });
+    }
 
     const backBtn: HTMLButtonElement | null = container.querySelector("#ranked-back-btn");
     backBtn?.addEventListener("click", () => this._deps.rankedSession.retreat());
@@ -963,16 +982,214 @@ export class RankedView {
     });
   }
 
+  /**
+   * Applies CSS animation styles to the timer filling element.
+   *
+   * @param water - The water element to animate.
+   * @param duration - The total duration of the session in seconds.
+   * @param delay - The elapsed seconds to offset the animation by.
+   */
   private _applyDrainStyles(water: HTMLElement, duration: number, delay: number): void {
     if (!water.parentElement) {
       return;
     }
 
-    water.style.animationName = "drain-vertical";
+    water.style.animationName = "fill-vertical";
     water.style.animationDuration = `${duration}s`;
     water.style.animationTimingFunction = "linear";
     water.style.animationFillMode = "forwards";
     water.style.animationDelay = `-${delay}s`;
+  }
+
+  /**
+   * Initializes hold-to-launch logic for a button.
+   *
+   * @param button - The button element.
+   * @param progressBar - The progress bar element.
+   * @param scenarioName - The name of the scenario to launch, or null if not applicable.
+   * @param onComplete - Callback to execute when hold is finished.
+   */
+  private _setupHoldInteractions(
+    button: HTMLElement,
+    progressBar: HTMLElement,
+    scenarioName: string | null,
+    onComplete: () => void
+  ): void {
+    const state = this._createHoldState(button, progressBar, scenarioName, onComplete);
+
+    this._attachHoldListeners(button, state);
+  }
+
+  private _createHoldState(
+    button: HTMLElement,
+    progressBar: HTMLElement,
+    scenarioName: string | null,
+    onComplete: () => void
+  ): LaunchHoldState {
+    return {
+      progress: 100,
+      holdInterval: null,
+      regenInterval: null,
+      fadeTimeout: null,
+      button,
+      progressBar,
+      scenarioName,
+      tickCount: 0,
+      onComplete
+    };
+  }
+
+  private _attachHoldListeners(button: HTMLElement, state: LaunchHoldState): void {
+    button.addEventListener("mousedown", (event: MouseEvent): void => {
+      this._startHold(event, state);
+    });
+
+    const onRelease = (event: MouseEvent): void => {
+      this._stopHold(event, state);
+    };
+
+    button.addEventListener("mouseup", onRelease);
+    button.addEventListener("mouseleave", onRelease);
+    button.addEventListener("click", (event: MouseEvent): void => {
+      event.stopPropagation();
+    });
+  }
+
+  private static readonly _holdDuration: number = 600;
+  private static readonly _tickRate: number = 20;
+  private static readonly _depleteStep: number = 100 / (RankedView._holdDuration / RankedView._tickRate);
+  private static readonly _regenStep: number = RankedView._depleteStep * 2;
+
+  private _startHold(event: MouseEvent, state: LaunchHoldState): void {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    this._clearHoldTimers(state);
+
+    state.button.classList.add("holding");
+    state.holdInterval = window.setInterval((): void => {
+      this._tickHold(state);
+    }, RankedView._tickRate);
+  }
+
+  private _tickHold(state: LaunchHoldState): void {
+    state.progress -= RankedView._depleteStep;
+
+    if (state.progress <= 0) {
+      state.progress = 0;
+      this._finishHold(state);
+    }
+
+    this._playHoldSoundIfNecessary(state);
+    this._updateHoldVisuals(state);
+  }
+
+  private _playHoldSoundIfNecessary(state: LaunchHoldState): void {
+    if (state.progress <= 0) return;
+    if (state.tickCount % 2 === 0) {
+      this._deps.audio.playLight(0.7);
+    }
+    state.tickCount++;
+  }
+
+  private _stopHold(event: MouseEvent, state: LaunchHoldState): void {
+    if (state.holdInterval === null) return;
+    event.stopPropagation();
+    clearInterval(state.holdInterval);
+    state.holdInterval = null;
+
+    if (state.progress < 100) {
+      state.tickCount = 0;
+      this._startRegen(state);
+    } else {
+      state.button.classList.remove("holding");
+      this._updateHoldVisuals(state, true);
+    }
+  }
+
+  private _startRegen(state: LaunchHoldState): void {
+    if (state.regenInterval !== null) return;
+    state.regenInterval = window.setInterval((): void => {
+      this._tickRegen(state);
+    }, RankedView._tickRate);
+  }
+
+  private _tickRegen(state: LaunchHoldState): void {
+    state.progress += RankedView._regenStep;
+    if (state.progress >= 100) {
+      this._completeRegen(state);
+    }
+    this._updateHoldVisuals(state);
+  }
+
+  private _completeRegen(state: LaunchHoldState): void {
+    state.progress = 100;
+    if (state.regenInterval !== null) {
+      clearInterval(state.regenInterval);
+      state.regenInterval = null;
+    }
+    state.button.classList.remove("holding");
+    this._scheduleFade(state);
+  }
+
+  private _finishHold(state: LaunchHoldState): void {
+    const wasDepleted = state.progress <= 0;
+    this._clearHoldTimers(state);
+    state.button.classList.remove("holding");
+    state.button.classList.add("highlighted");
+
+    if (wasDepleted) {
+      this._deps.audio.playHeavy(1.0);
+      state.onComplete();
+    }
+
+    window.setTimeout((): void => {
+      state.button.classList.remove("highlighted");
+      if (!state.button.classList.contains("holding")) {
+        state.progress = 100;
+        this._updateHoldVisuals(state);
+        this._scheduleFade(state);
+      }
+    }, 1000);
+  }
+
+  private _updateHoldVisuals(state: LaunchHoldState, forceImmediateFade: boolean = false): void {
+    const scale: number = state.progress / 100;
+    state.progressBar.style.transform = `scaleX(${scale})`;
+
+    if (state.progress < 100) {
+      this._cancelFade(state);
+      state.button.classList.add("not-full");
+    } else if (forceImmediateFade) {
+      this._cancelFade(state);
+      state.button.classList.remove("not-full");
+    }
+  }
+
+  private _scheduleFade(state: LaunchHoldState): void {
+    this._cancelFade(state);
+    state.fadeTimeout = window.setTimeout((): void => {
+      state.button.classList.remove("not-full");
+      state.fadeTimeout = null;
+    }, 300);
+  }
+
+  private _cancelFade(state: LaunchHoldState): void {
+    if (state.fadeTimeout !== null) {
+      clearTimeout(state.fadeTimeout);
+      state.fadeTimeout = null;
+    }
+  }
+
+  private _clearHoldTimers(state: LaunchHoldState): void {
+    this._cancelFade(state);
+    if (state.holdInterval !== null) {
+      clearInterval(state.holdInterval);
+      state.holdInterval = null;
+    }
+    if (state.regenInterval !== null) {
+      clearInterval(state.regenInterval);
+      state.regenInterval = null;
+    }
   }
 
   private _launchScenario(scenarioName: string): void {
