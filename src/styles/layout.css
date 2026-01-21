@@ -1454,6 +1454,7 @@ h1 {
     font-size: 1.15rem;
     color: var(--lower-band-1);
     margin: 0;
+    line-height: 1.6;
 }
 
 .central-folder-icon-wrapper {
@@ -1683,13 +1684,14 @@ h1 {
 }
 
 
-.path-instruction {
+.folder-restriction-note {
     color: var(--text-dim);
     line-height: 1.6;
     margin: 0;
 }
 
-.path-instruction code {
+.setup-instruction code,
+.folder-restriction-note code {
     background: rgba(var(--lower-band-1-rgb), 0.1);
     padding: 0.2rem 0.5rem;
     border-radius: 0.4rem;
