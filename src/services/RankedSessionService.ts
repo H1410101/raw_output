@@ -475,15 +475,25 @@ export class RankedSessionService {
      */
     public reset(): void {
         const wasSessionConcluded: boolean = this._status === "SUMMARY";
+
+        if (this._difficulty) {
+            this._snapshotCurrentDifficultyState();
+        }
+
+        const currentDifficulty = this._difficulty;
+
         this._status = "IDLE";
+        this._difficulty = null;
 
         this._sessionService.stopRankedSession();
 
-        if (wasSessionConcluded) {
+        if (wasSessionConcluded && currentDifficulty) {
             this._playedScenarios.clear();
             this._accumulatedScenarioSeconds.clear();
             this._currentIndex = 0;
             this._scenarioStartTime = null;
+
+            delete this._difficultyStates[currentDifficulty];
         }
 
         this._saveToLocalStorage();
