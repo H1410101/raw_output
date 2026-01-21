@@ -976,6 +976,8 @@ h1 {
 .peak-warning-card {
     text-align: center;
     margin-right: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
 }
 
 
@@ -1610,7 +1612,9 @@ h1 {
     width: calc(100% - calc(4rem * var(--margin-spacing-multiplier))) !important;
     left: calc(2rem * var(--margin-spacing-multiplier)) !important;
     transform: none !important;
-    height: 1.8rem !important;
+    height: auto !important;
+    min-height: 1.8rem !important;
+    margin: calc(1rem * var(--margin-spacing-multiplier)) 0 !important;
     flex-shrink: 0 !important;
     z-index: 10 !important;
     mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%) !important;
@@ -1618,12 +1622,10 @@ h1 {
 }
 
 .peak-scroller-top {
-    border-bottom: 1px solid var(--glass-border) !important;
     background: rgba(var(--status-error-rgb), 0.03) !important;
 }
 
 .peak-scroller-bottom {
-    border-top: 1px solid var(--glass-border) !important;
     background: rgba(var(--status-error-rgb), 0.03) !important;
 }
 
