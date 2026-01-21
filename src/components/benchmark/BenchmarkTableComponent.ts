@@ -11,6 +11,7 @@ import { BenchmarkLabelPositioner } from "./BenchmarkLabelPositioner";
 import { ScenarioNameWidthManager } from "./ScenarioNameWidthManager";
 import { AudioService } from "../../services/AudioService";
 import { SCALING_FACTORS } from "../../services/ScalingService";
+import { RankEstimator } from "../../services/RankEstimator";
 
 /**
  * Collection of services and settings required for BenchmarkTableComponent.
@@ -23,6 +24,7 @@ export interface BenchmarkTableDependencies {
   readonly visualSettings: VisualSettings;
   readonly audioService: AudioService;
   readonly focusService: FocusManagementService;
+  readonly rankEstimator: RankEstimator;
 }
 
 /**
@@ -36,6 +38,7 @@ export class BenchmarkTableComponent {
   private _labelPositioner: BenchmarkLabelPositioner | null = null;
   private readonly _nameWidthManager: ScenarioNameWidthManager;
   private readonly _audioService: AudioService;
+  private _difficulty: string = "Advanced";
 
   /**
    * Initializes the table component with required services and settings.
@@ -52,6 +55,7 @@ export class BenchmarkTableComponent {
       sessionService: dependencies.sessionService,
       audioService: dependencies.audioService,
       visualSettings: dependencies.visualSettings,
+      rankEstimator: dependencies.rankEstimator,
     });
     this._nameWidthManager = new ScenarioNameWidthManager();
   }
@@ -61,12 +65,15 @@ export class BenchmarkTableComponent {
    *
    * @param scenarios - The list of scenarios to display.
    * @param highscores - A map of all-time highscores.
+   * @param difficulty
    * @returns The root container of the table.
    */
   public render(
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
+    difficulty: string = "Advanced",
   ): HTMLElement {
+    this._difficulty = difficulty;
     const tableContainer: HTMLDivElement = document.createElement("div");
     const scrollArea: HTMLDivElement = document.createElement("div");
     const scrollThumb: HTMLDivElement = document.createElement("div");
@@ -75,11 +82,20 @@ export class BenchmarkTableComponent {
     scrollArea.className = "benchmark-table";
     scrollThumb.className = "custom-scroll-thumb";
 
+    const gripContainer: HTMLDivElement = document.createElement("div");
+    gripContainer.className = "grip-container";
+
+    for (let i = 0; i < 3; i++) {
+      const grip: HTMLDivElement = document.createElement("div");
+      grip.className = `thumb-grip grip-${i}`;
+      gripContainer.appendChild(grip);
+    }
+    scrollThumb.appendChild(gripContainer);
+
     this._clearExistingRows();
     this._updateNameColumnWidth(scenarios);
     this._appendCategorizedContent(scrollArea, scenarios, highscores);
     this._initializeControllers(tableContainer, scrollArea, scrollThumb);
-    this._restoreScrollPosition(scrollArea);
 
     tableContainer.appendChild(scrollArea);
     tableContainer.appendChild(scrollThumb);
@@ -112,8 +128,10 @@ export class BenchmarkTableComponent {
   public updateVisualSettings(settings: VisualSettings): boolean {
     const structuralChange: boolean =
       this._visualSettings.showDotCloud !== settings.showDotCloud ||
+      this._visualSettings.showRanks !== settings.showRanks ||
       this._visualSettings.showSessionBest !== settings.showSessionBest ||
       this._visualSettings.showAllTimeBest !== settings.showAllTimeBest ||
+      this._visualSettings.showRankEstimate !== settings.showRankEstimate ||
       this._visualSettings.scenarioFontSize !== settings.scenarioFontSize ||
       this._visualSettings.uiScaling !== settings.uiScaling ||
       this._visualSettings.categorySpacing !== settings.categorySpacing;
@@ -140,7 +158,7 @@ export class BenchmarkTableComponent {
   ): void {
     const row: HTMLElement | undefined = this._rowElements.get(scenario.name);
     if (row) {
-      this._rowRenderer.updateRow(row, scenario, highscore);
+      this._rowRenderer.updateRow(row, scenario, highscore, this._difficulty);
     }
   }
 
@@ -195,14 +213,6 @@ export class BenchmarkTableComponent {
     controller.initialize();
     this._labelPositioner = new BenchmarkLabelPositioner(scrollArea);
     this._labelPositioner.initialize();
-  }
-
-  private _restoreScrollPosition(scrollArea: HTMLElement): void {
-    const savedScrollTop: number =
-      this._appStateService.getBenchmarkScrollTop();
-    requestAnimationFrame((): void => {
-      scrollArea.scrollTop = savedScrollTop;
-    });
   }
 
   private _appendCategorizedContent(
@@ -318,7 +328,7 @@ export class BenchmarkTableComponent {
   ): void {
     scenarios.forEach((scenario: BenchmarkScenario): void => {
       const score: number = highscores[scenario.name] || 0;
-      const row: HTMLElement = this._rowRenderer.renderRow(scenario, score);
+      const row: HTMLElement = this._rowRenderer.renderRow(scenario, score, this._difficulty);
 
       this._rowElements.set(scenario.name, row);
       container.appendChild(row);
@@ -335,12 +345,18 @@ export class BenchmarkTableComponent {
       header.appendChild(this._createSpacer("header-dot-spacer"));
     }
 
-    if (this._visualSettings.showAllTimeBest) {
-      header.appendChild(this._createColumnHeader("All-time"));
-    }
+    if (this._visualSettings.showRanks) {
+      if (this._visualSettings.showAllTimeBest) {
+        header.appendChild(this._createColumnHeader("All-time"));
+      }
 
-    if (this._visualSettings.showSessionBest) {
-      header.appendChild(this._createColumnHeader("Session"));
+      if (this._visualSettings.showSessionBest) {
+        header.appendChild(this._createColumnHeader("Session"));
+      }
+
+      if (this._visualSettings.showRankEstimate) {
+        header.appendChild(this._createColumnHeader("Rank"));
+      }
     }
 
     header.appendChild(this._createSpacer("header-action-spacer"));

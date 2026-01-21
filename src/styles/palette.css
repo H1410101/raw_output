@@ -26,6 +26,17 @@
     --mask-white: #ffffff;
     --tactical-shadow-rgb: 0, 0, 0;
     --tactical-highlight-rgb: 255, 255, 255;
+    --black: #000000;
+    --black-rgb: 0, 0, 0;
+    --white: #ffffff;
+    --white-rgb: 255, 255, 255;
+
+    /* High-Fidelity Pill Assets */
+    --pill-base: #5ac1cf;
+    --pill-shadow: #004455;
+    --pill-shadow-rgb: 0, 68, 85;
+    --pill-shadow-inner-rgb: 0, 50, 70;
+    --pill-shadow-inner: #003246;
 }
 
 [data-theme="light"] {
@@ -55,6 +66,17 @@
     --highlight-bg-1-rgb: 148, 184, 143;
     --tactical-shadow-rgb: 0, 0, 0;
     --tactical-highlight-rgb: 255, 255, 255;
+    --black: #000000;
+    --black-rgb: 0, 0, 0;
+    --white: #ffffff;
+    --white-rgb: 255, 255, 255;
+
+    /* High-Fidelity Pill Assets (Adapted for light theme) */
+    --pill-base: #4f8e62;
+    --pill-shadow: #103a43;
+    --pill-shadow-rgb: 16, 58, 67;
+    --pill-shadow-inner-rgb: 6, 27, 57;
+    --pill-shadow-inner: #061b39;
 }
 
 :root {
@@ -83,20 +105,19 @@
     /* Sizing & Proportions */
     --ui-scale: 1;
     --vertical-spacing-multiplier: 1;
+    --margin-spacing-multiplier: 1;
+    --category-spacing-multiplier: 1;
     --scenario-font-multiplier: 1;
     --rank-font-multiplier: 1;
     --launch-button-multiplier: 1;
     --header-font-multiplier: 1;
     --label-font-multiplier: 1;
     --dot-cloud-multiplier: 1;
+    --dot-cloud-width-multiplier: 1;
 
     /* Visualization Semantic Tokens */
     --vis-label-color: var(--lower-band-1);
     --vis-dot-rgb: var(--lower-band-2-rgb);
     --vis-highlight-rgb: var(--lower-band-3-rgb);
     --vis-latest-rgb: var(--lower-band-3-rgb);
-
-    /* Scenario Typography */
-    --scenario-name-weight: 500;
-    --scenario-name-family: "Nunito", sans-serif;
 }

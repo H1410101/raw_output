@@ -24,7 +24,10 @@ export interface VisualSettings {
   dotJitterIntensity: ScalingLevel;
   showRankNotches: boolean;
   highlightLatestRun: boolean;
+  showRankEstimate: boolean;
+  showRanks: boolean;
   audioVolume: number;
+  showIntervalsSettings: boolean;
 }
 
 /**
@@ -133,7 +136,7 @@ export class VisualSettingsService {
     return {
       theme: "dark",
       showDotCloud: true,
-      dotOpacity: 40,
+      dotOpacity: 50,
       scalingMode: "Aligned",
       dotSize: "Normal",
       visDotSize: "Normal",
@@ -149,12 +152,12 @@ export class VisualSettingsService {
       dotCloudSize: "Normal",
       dotCloudWidth: "Normal",
       visRankFontSize: "Normal",
-      showSessionBest: true,
-      showAllTimeBest: true,
+      showSessionBest: true, showAllTimeBest: true,
       dotJitterIntensity: "Normal",
-      showRankNotches: true,
-      highlightLatestRun: true,
+      showRankNotches: true, highlightLatestRun: true,
+      showRankEstimate: true, showRanks: true,
       audioVolume: 80,
+      showIntervalsSettings: true,
     };
   }
 

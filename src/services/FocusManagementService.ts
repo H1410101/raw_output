@@ -3,7 +3,7 @@ import { AppStateService } from "./AppStateService";
 /**
  * Represents the reason why a specific scenario was focused.
  */
-export type FocusReason = "NEW_SCORE";
+export type FocusReason = "NEW_SCORE" | "RANKED_SESSION";
 
 /**
  * State representing the currently focused scenario and the reason for it.

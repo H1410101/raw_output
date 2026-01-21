@@ -8,7 +8,13 @@ export default defineConfig({
       enabled: true,
       provider: playwright(),
       instances: [
-        { browser: 'chromium', headless: true },
+        {
+          browser: 'chromium',
+          headless: true,
+          context: {
+            viewport: { width: 1920, height: 2400 },
+          }
+        },
       ],
     },
     setupFiles: ['./src/test/setup.ts'],

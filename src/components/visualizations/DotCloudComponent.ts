@@ -16,6 +16,20 @@ export interface DotCloudConfiguration {
   readonly settings: VisualSettings;
   readonly isLatestInSession: boolean;
   readonly rankInterval?: number;
+  readonly targetRU?: number;
+  readonly achievedRU?: number;
+}
+
+/**
+ * Payload for updating the component's data model.
+ */
+export interface UpdateDataOptions {
+  readonly entries: ScoreEntry[];
+  readonly thresholds: Record<string, number>;
+  readonly isLatestInSession: boolean;
+  readonly rankInterval?: number;
+  readonly targetRU?: number;
+  readonly achievedRU?: number;
 }
 
 /**
@@ -32,6 +46,8 @@ export class DotCloudComponent {
   private _settings: VisualSettings;
   private _mapper: RankScaleMapper;
   private _isLatestInSession: boolean;
+  private _targetRU?: number;
+  private _achievedRU?: number;
 
   private _canvasWidth: number = 0;
   private _canvasHeight: number = 0;
@@ -53,6 +69,8 @@ export class DotCloudComponent {
     this._rankThresholds = configuration.thresholds;
     this._settings = configuration.settings;
     this._isLatestInSession = configuration.isLatestInSession;
+    this._targetRU = configuration.targetRU;
+    this._achievedRU = configuration.achievedRU;
 
     this._recentEntries = ScoreProcessor.processTemporalScores(
       configuration.entries,
@@ -91,26 +109,20 @@ export class DotCloudComponent {
   /**
    * Updates the score data and rank thresholds, recalculating scales if necessary.
    *
-   * @param entries - New set of score entries.
-   * @param thresholds - Updated rank thresholds.
-   * @param isLatestInSession - Whether the most recent run is from the active session.
-   * @param rankInterval - Optional rank interval for scaling.
+   * @param options - The updated data and configuration options.
    */
-  public updateData(
-    entries: ScoreEntry[],
-    thresholds: Record<string, number>,
-    isLatestInSession: boolean,
-    rankInterval?: number,
-  ): void {
-    this._recentEntries = ScoreProcessor.processTemporalScores(entries);
-    this._rankThresholds = thresholds;
-    this._isLatestInSession = isLatestInSession;
+  public updateData(options: UpdateDataOptions): void {
+    this._recentEntries = ScoreProcessor.processTemporalScores(options.entries);
+    this._rankThresholds = options.thresholds;
+    this._isLatestInSession = options.isLatestInSession;
+    this._targetRU = options.targetRU;
+    this._achievedRU = options.achievedRU;
 
-    const thresholdValues: number[] = Object.values(thresholds).sort(
+    const thresholdValues: number[] = Object.values(options.thresholds).sort(
       (a: number, b: number) => a - b,
     );
 
-    this._mapper = new RankScaleMapper(thresholdValues, rankInterval ?? 100);
+    this._mapper = new RankScaleMapper(thresholdValues, options.rankInterval ?? 100);
 
     this._handleDataUpdateSideEffects();
   }
@@ -129,10 +141,8 @@ export class DotCloudComponent {
 
     this._syncContainerDimensions();
 
-    if (this._recentEntries.length > 0) {
-      this._setupVisualLayers();
-      this._performRenderCycle();
-    }
+    this._setupVisualLayers();
+    this._performRenderCycle();
 
     return this._container!;
   }
@@ -172,7 +182,7 @@ export class DotCloudComponent {
   private _handleDataUpdateSideEffects(): void {
     if (this._canvas) {
       this._rebuildRenderer();
-    } else if (this._container && this._recentEntries.length > 0) {
+    } else if (this._container) {
       this._setupVisualLayers();
     }
 
@@ -350,6 +360,8 @@ export class DotCloudComponent {
       bounds: this._calculateDynamicBounds(width),
       isLatestFromSession: this._isLatestInSession,
       settings: this._settings,
+      targetRU: this._targetRU,
+      achievedRU: this._achievedRU,
       dimensions: {
         width,
         height: this._canvasHeight,
@@ -367,27 +379,29 @@ export class DotCloudComponent {
       (entry: ScoreEntry): number => entry.score,
     );
 
-    const minRUScore: number = this._mapper.calculateRankUnit(
-      Math.min(...scores),
-    );
-    const maxRUScore: number = this._mapper.calculateRankUnit(
-      Math.max(...scores),
-    );
-
-    if (this._settings.scalingMode === "Aligned") {
-      return this._calculateExceededAlignedBounds(
-        minRUScore,
-        maxRUScore,
-        width,
-      );
+    if (scores.length === 0) {
+      return this._calculateEmptyScoresBounds();
     }
 
-    const indices: number[] = this._mapper.identifyRelevantThresholds(
-      minRUScore,
-      maxRUScore,
-    );
+    const minRU: number = this._mapper.calculateRankUnit(Math.min(...scores));
+    const maxRU: number = this._mapper.calculateRankUnit(Math.max(...scores));
 
-    return this._mapper.calculateViewBounds(minRUScore, maxRUScore, indices);
+    if (this._settings.scalingMode === "Aligned") {
+      return this._calculateExceededAlignedBounds(minRU, maxRU, width);
+    }
+
+    const indices: number[] = this._mapper.identifyRelevantThresholds(minRU, maxRU);
+
+    return this._mapper.calculateViewBounds(minRU, maxRU, indices);
+  }
+
+  private _calculateEmptyScoresBounds(): { minRU: number; maxRU: number } {
+    const target: number = this._targetRU ?? this._achievedRU ?? 0;
+
+    return {
+      minRU: Math.floor(Math.max(0, target - 0.5)),
+      maxRU: Math.ceil(target + 0.5),
+    };
   }
 
   private _calculateExceededAlignedBounds(
@@ -396,8 +410,8 @@ export class DotCloudComponent {
     width: number,
   ): { minRU: number; maxRU: number } {
     const highestRankIndex: number = this._mapper.getHighestRankIndex();
-
-    if (maxRUScore <= highestRankIndex || width <= this._dotRadius * 2) {
+    const highestRU: number = highestRankIndex + 1;
+    if (maxRUScore <= highestRU || width <= this._dotRadius * 2) {
       return this._mapper.calculateAlignedBounds(minRUScore, maxRUScore);
     }
 

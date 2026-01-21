@@ -29,6 +29,11 @@ interface PersistedSessionState {
   isRanked: boolean;
   bestRanks: [string, SessionRankRecord][] | null;
   bestPerDifficulty: [string, RankResult][] | null;
+  allRuns: { scenarioName: string; score: number; timestamp: number }[] | null;
+  // Ranked track persistence
+  rankedStartTime: number | null;
+  rankedBestRanks: [string, SessionRankRecord][] | null;
+  rankedAllRuns: { scenarioName: string; score: number; timestamp: number }[] | null;
 }
 
 /**
@@ -60,6 +65,14 @@ export class SessionService {
 
   private readonly _sessionBestPerDifficulty: Map<string, RankResult> =
     new Map();
+
+  private readonly _allRuns: { scenarioName: string; score: number; timestamp: number }[] = [];
+
+  private _rankedStartTime: number | null = null;
+
+  private readonly _rankedBestRanks: Map<string, SessionRankRecord> = new Map();
+
+  private readonly _rankedAllRuns: { scenarioName: string; score: number; timestamp: number }[] = [];
 
   private readonly _sessionUpdateListeners: SessionUpdateListener[] = [];
 
@@ -140,15 +153,7 @@ export class SessionService {
     const updatedScenarioNames: string[] = [];
 
     runs.forEach((run): void => {
-      this._startNewSessionIfExpired(run.timestamp.getTime());
-
-      this._updateLastRunTimestamp(run.timestamp.getTime());
-
-      this._processRunData(run);
-
-      if (run.scenario) {
-        updatedScenarioNames.push(run.scenarioName);
-      }
+      this._processSingleRun(run, updatedScenarioNames);
     });
 
     this._scheduleExpirationCheck();
@@ -157,6 +162,72 @@ export class SessionService {
 
     this._saveToLocalStorage();
     this._notifySessionUpdate(uniqueUpdatedNames);
+  }
+
+  private _processSingleRun(
+    run: {
+      scenarioName: string;
+      score: number;
+      scenario: BenchmarkScenario | null;
+      difficulty: string | null;
+      timestamp: Date;
+    },
+    updatedScenarioNames: string[],
+  ): void {
+    const runTimestamp = run.timestamp.getTime();
+
+    this._updateSessionState(runTimestamp);
+
+    this._processRunData(run);
+
+    this._recordRun(run, runTimestamp);
+
+    this._routeToRankedTrack(run, runTimestamp);
+
+    if (run.scenario) {
+      updatedScenarioNames.push(run.scenarioName);
+    }
+  }
+
+  private _updateSessionState(runTimestamp: number): void {
+    this._startNewSessionIfExpired(runTimestamp);
+
+    this._updateLastRunTimestamp(runTimestamp);
+  }
+
+  private _recordRun(
+    run: { scenarioName: string; score: number },
+    timestamp: number,
+  ): void {
+    this._allRuns.push({
+      scenarioName: run.scenarioName,
+      score: run.score,
+      timestamp,
+    });
+  }
+
+  private _routeToRankedTrack(
+    run: {
+      scenarioName: string;
+      score: number;
+      scenario: BenchmarkScenario | null;
+      difficulty: string | null;
+      timestamp: Date;
+    },
+    runTimestamp: number,
+  ): void {
+    if (
+      this._rankedStartTime !== null &&
+      runTimestamp >= this._rankedStartTime
+    ) {
+      this._processRankedRunData(run);
+
+      this._rankedAllRuns.push({
+        scenarioName: run.scenarioName,
+        score: run.score,
+        timestamp: runTimestamp,
+      });
+    }
   }
 
   /**
@@ -191,6 +262,15 @@ export class SessionService {
   }
 
   /**
+   * Returns the timestamp when the current ranked session started.
+   *
+   * @returns The ranked start timestamp or null.
+   */
+  public get rankedStartTime(): number | null {
+    return this._rankedStartTime;
+  }
+
+  /**
    * Returns the unique identifier for the current session.
    *
    * @returns The session ID or null if no session is active.
@@ -206,6 +286,29 @@ export class SessionService {
    */
   public get isRanked(): boolean {
     return this._isRanked;
+  }
+
+  /**
+   * Signals the start of an explicit ranked session.
+   *
+   * @param startTime - The timestamp when the ranked session officially began.
+   */
+  public startRankedSession(startTime: number): void {
+    // Round down to the nearest second to avoid sub-second rejection of CSV files
+    this._rankedStartTime = Math.floor(startTime / 1000) * 1000;
+    this._rankedBestRanks.clear();
+    this._rankedAllRuns.length = 0;
+    this._isRanked = true;
+    this._saveToLocalStorage();
+  }
+
+  /**
+   * Signals the end of a ranked session.
+   */
+  public stopRankedSession(): void {
+    this._rankedStartTime = null;
+    this._isRanked = false;
+    this._saveToLocalStorage();
   }
 
   /**
@@ -228,6 +331,53 @@ export class SessionService {
   }
 
   /**
+   * Returns all runs recorded in the current session.
+   *
+   * @returns An array of run data.
+   */
+  public getAllSessionRuns(): {
+    scenarioName: string;
+    score: number;
+    timestamp: number;
+  }[] {
+    return [...this._allRuns];
+  }
+
+  /**
+   * Retrieves the best score and rank achieved for a scenario in the current RANKED track.
+   *
+   * @param scenarioName - The name of the scenario.
+   * @returns The rank record or null if not played this ranked session.
+   */
+  public getRankedScenarioBest(
+    scenarioName: string,
+  ): SessionRankRecord | null {
+    return this._rankedBestRanks.get(scenarioName) || null;
+  }
+
+  /**
+   * Returns all best scenario records recorded in the current RANKED track.
+   *
+   * @returns An array of session rank records.
+   */
+  public getAllRankedScenarioBests(): SessionRankRecord[] {
+    return Array.from(this._rankedBestRanks.values());
+  }
+
+  /**
+   * Returns all runs recorded in the current RANKED track.
+   *
+   * @returns An array of run data.
+   */
+  public getAllRankedSessionRuns(): {
+    scenarioName: string;
+    score: number;
+    timestamp: number;
+  }[] {
+    return [...this._rankedAllRuns];
+  }
+
+  /**
    * Determines if a session is currently considered active based on the timeout.
    *
    * @param currentTimestamp - Optional timestamp to check against.
@@ -247,8 +397,9 @@ export class SessionService {
    * Clears all session data and resets the active state.
    *
    * @param silent - If true, listeners will not be notified of the reset.
+   * @param preserveRanked - If true, the ranked track data will not be cleared.
    */
-  public resetSession(silent: boolean = false): void {
+  public resetSession(silent: boolean = false, preserveRanked: boolean = false): void {
     this._sessionBestRanks.clear();
 
     this._sessionBestPerDifficulty.clear();
@@ -259,7 +410,12 @@ export class SessionService {
 
     this._sessionId = null;
 
-    this._isRanked = false;
+    this._allRuns.length = 0;
+
+    if (!preserveRanked) {
+      this._rankedBestRanks.clear();
+      this._rankedAllRuns.length = 0;
+    }
 
     this._clearExpirationTimer();
 
@@ -291,7 +447,9 @@ export class SessionService {
     const isBeyondTimeout: boolean = elapsed > this._sessionTimeoutMilliseconds;
 
     if (this._lastRunTimestamp !== null && isBeyondTimeout) {
-      this.resetSession();
+      const isPartofActiveRankedSession = this._isRanked && currentTimestamp >= (this._rankedStartTime ?? 0);
+
+      this.resetSession(false, isPartofActiveRankedSession);
     }
 
     if (this._sessionStartTimestamp === null) {
@@ -314,7 +472,8 @@ export class SessionService {
       return;
     }
 
-    const rankResult: RankResult = this._updateScenarioSessionBest(
+    const rankResult: RankResult = this._updateTrackBest(
+      this._sessionBestRanks,
       run.scenarioName,
       run.score,
       run.scenario,
@@ -323,6 +482,24 @@ export class SessionService {
     if (run.difficulty) {
       this._updateDifficultySessionBest(run.difficulty, rankResult);
     }
+  }
+
+  private _processRankedRunData(run: {
+    scenarioName: string;
+    score: number;
+    scenario: BenchmarkScenario | null;
+    difficulty: string | null;
+  }): void {
+    if (!run.scenario) {
+      return;
+    }
+
+    this._updateTrackBest(
+      this._rankedBestRanks,
+      run.scenarioName,
+      run.score,
+      run.scenario,
+    );
   }
 
   private _scheduleExpirationCheck(): void {
@@ -368,22 +545,24 @@ export class SessionService {
     );
   }
 
-  private _updateScenarioSessionBest(
+  private _updateTrackBest(
+    track: Map<string, SessionRankRecord>,
     scenarioName: string,
     score: number,
     scenario: BenchmarkScenario,
   ): RankResult {
     const currentBest: SessionRankRecord | undefined =
-      this._sessionBestRanks.get(scenarioName);
+      track.get(scenarioName);
 
     if (!currentBest || score > currentBest.bestScore) {
-      return this._setNewScenarioSessionBest(scenarioName, score, scenario);
+      return this._setNewTrackBest(track, scenarioName, score, scenario);
     }
 
     return currentBest.rankResult;
   }
 
-  private _setNewScenarioSessionBest(
+  private _setNewTrackBest(
+    track: Map<string, SessionRankRecord>,
     scenarioName: string,
     score: number,
     scenario: BenchmarkScenario,
@@ -393,7 +572,7 @@ export class SessionService {
       scenario,
     );
 
-    this._sessionBestRanks.set(scenarioName, {
+    track.set(scenarioName, {
       scenarioName,
       bestScore: score,
       rankResult,
@@ -428,6 +607,10 @@ export class SessionService {
       isRanked: this._isRanked,
       bestRanks: Array.from(this._sessionBestRanks.entries()),
       bestPerDifficulty: Array.from(this._sessionBestPerDifficulty.entries()),
+      allRuns: [...this._allRuns],
+      rankedStartTime: this._rankedStartTime,
+      rankedBestRanks: Array.from(this._rankedBestRanks.entries()),
+      rankedAllRuns: [...this._rankedAllRuns],
     };
 
     localStorage.setItem(this._storageKey, JSON.stringify(state));
@@ -446,23 +629,43 @@ export class SessionService {
       this._lastRunTimestamp = state.lastRunTimestamp;
       this._isRanked = state.isRanked || false;
 
-      if (state.bestRanks) {
-        state.bestRanks.forEach(([key, value]: [string, SessionRankRecord]) => {
-          this._sessionBestRanks.set(key, value);
-        });
+      this._loadBestRanks(this._sessionBestRanks, state.bestRanks);
+      this._loadDifficultyBests(state.bestPerDifficulty);
+
+      if (state.allRuns) {
+        this._allRuns.push(...state.allRuns);
       }
 
-      if (state.bestPerDifficulty) {
-        state.bestPerDifficulty.forEach(
-          ([key, value]: [string, RankResult]) => {
-            this._sessionBestPerDifficulty.set(key, value);
-          },
-        );
+      this._rankedStartTime = state.rankedStartTime || null;
+      this._loadBestRanks(this._rankedBestRanks, state.rankedBestRanks);
+      if (state.rankedAllRuns) {
+        this._rankedAllRuns.push(...state.rankedAllRuns);
       }
 
       this._scheduleExpirationCheck();
     } catch {
       localStorage.removeItem(this._storageKey);
     }
+  }
+
+  private _loadBestRanks(
+    targetMap: Map<string, SessionRankRecord>,
+    bestRanks: [string, SessionRankRecord][] | null,
+  ): void {
+    if (!bestRanks) return;
+
+    bestRanks.forEach(([key, value]: [string, SessionRankRecord]) => {
+      targetMap.set(key, value);
+    });
+  }
+
+  private _loadDifficultyBests(
+    bestPerDifficulty: [string, RankResult][] | null,
+  ): void {
+    if (!bestPerDifficulty) return;
+
+    bestPerDifficulty.forEach(([key, value]: [string, RankResult]) => {
+      this._sessionBestPerDifficulty.set(key, value);
+    });
   }
 }

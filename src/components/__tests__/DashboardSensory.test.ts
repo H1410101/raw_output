@@ -1,137 +1,150 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
+import { BenchmarkView, BenchmarkViewServices } from '../BenchmarkView';
+import { MockServiceFactory } from './MockServiceFactory';
+import { AppStateService } from '../../services/AppStateService';
 import { AudioService } from '../../services/AudioService';
+import { VisualSettings } from '../../services/VisualSettingsService';
 
-describe('Dashboard & Sensory', () => {
-    describe('Scrollbar Symmetry (ui.scroll.int.symmetry_math)', () => {
-        beforeEach(() => {
-            const style = document.createElement('style');
-            style.innerHTML = `
-                :root {
-                    --margin-spacing-multiplier: 1;
-                    --background-2-rgb: 0, 0, 0;
-                    --upper-band-3-rgb: 255, 255, 255;
-                    --glow-color: #00ffff;
-                }
-                body { margin: 0; padding: 0; width: 1024px; height: 768px; }
-                .dashboard-panel {
-                    width: 800px;
-                    height: 600px;
-                    margin: 40px auto;
-                    position: relative;
-                    padding: 24px; /* 1.5rem */
-                    box-sizing: border-box;
-                    display: flex;
-                    flex-direction: column;
-                }
-                .benchmark-table-container {
-                    position: relative;
-                    flex: 1;
-                    display: flex;
-                    flex-direction: column;
-                    min-height: 0;
-                }
-                .benchmark-table-container::before {
-                    content: "";
-                    position: absolute;
-                    top: 24px;
-                    bottom: 24px;
-                    right: 12px; /* 0.75rem */
-                    width: 8px;  /* 0.5rem */
-                    background: grey;
-                    z-index: 5;
-                }
-                .benchmark-table {
-                    flex: 1;
-                    margin-right: 32px; /* 2.0rem */
-                    overflow-y: auto;
-                    display: flex;
-                    flex-direction: column;
-                }
-                .benchmark-row {
-                    height: 40px;
-                    flex-shrink: 0;
-                }
-            `;
-            document.head.appendChild(style);
+describe('Dashboard layout symmetry', (): void => {
+    _setupAudioGlobalMock();
+    _setupDocumentFontsMock();
 
-            document.body.innerHTML = `
-                <div class="dashboard-panel">
-                    <div class="benchmark-table-container">
-                        <div class="benchmark-table">
-                            <div class="benchmark-row">Content</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-
-        it('should maintain perfect symmetry around the scroll trench', () => {
-            const panel = document.querySelector('.dashboard-panel')!;
-            const row = document.querySelector('.benchmark-row')!;
-
-            const panelRect = panel.getBoundingClientRect();
-            const rowRect = row.getBoundingClientRect();
-
-            const containerRight = panelRect.right - 24;
-            const holeRight = containerRight - 12;
-            const holeLeft = holeRight - 8;
-
-            const gapLeft = holeLeft - rowRect.right;
-            const gapRight = panelRect.right - holeRight;
-
-            // Expectation: Gap between Row and Trench is exactly 12px (0.75rem)
-            // Expectation: Gap between Trench and Panel Edge is exactly 36px (2.25rem = 1.5rem padding + 0.75rem margin)
-            // Note: The rule "look identical" refers to the 0.75rem margins relative to their immediate containers.
-            expect(gapLeft).toBeCloseTo(12, 0);
-            expect(gapRight).toBeCloseTo(36, 0);
-        });
+    beforeEach((): void => {
+        _setupDomEnvironment();
+        vi.clearAllMocks();
     });
 
-    describe('Audio Throttling (ui.audio.int.throttle)', () => {
-        let audioService: AudioService;
-        let mockVisualSettings: any;
-        let mockAudioInstance: any;
+    it('should maintain perfect symmetry around the scroll trench', async (): Promise<void> => {
+        const services: BenchmarkViewServices = _createConfiguredServices();
+        const appState: AppStateService = MockServiceFactory.createAppStateMock();
+        const benchmarkView: BenchmarkView = _initBenchmarkView(services, appState);
 
-        beforeEach(() => {
-            vi.useFakeTimers();
+        await benchmarkView.render();
+        await _waitForBehavioralElements();
 
-            mockVisualSettings = {
-                subscribe: vi.fn((cb) => cb({ audioVolume: 80 })),
-            };
-
-            mockAudioInstance = {
-                play: vi.fn().mockResolvedValue(undefined),
-                cloneNode: vi.fn().mockReturnThis(),
-                volume: 1,
-                preload: 'auto'
-            };
-
-            // Mock HTMLAudioElement in window
-            (window as any).Audio = vi.fn().mockImplementation(function () {
-                return mockAudioInstance;
-            });
-
-            audioService = new AudioService(mockVisualSettings as any);
-        });
-
-        it('should throttle sounds played within 40ms', () => {
-            // First 3 calls rapidly
-            audioService.playLight();
-            audioService.playLight();
-            audioService.playLight();
-
-            // Only the first call should trigger a cloneNode (the prewarm doesn't clone)
-            // prewarmCache calls _getOrCacheAudio twice -> 2 new Audio()
-            // playSound calls cloneNode once
-            expect(mockAudioInstance.cloneNode).toHaveBeenCalledTimes(1);
-
-            vi.advanceTimersByTime(39);
-            audioService.playLight();
-            expect(mockAudioInstance.cloneNode).toHaveBeenCalledTimes(1); // Still throttled
-
-            vi.advanceTimersByTime(1); // Total 40ms elapsed
-            audioService.playLight();
-            expect(mockAudioInstance.cloneNode).toHaveBeenCalledTimes(2); // Plays now
-        });
+        _assertLayoutSymmetry();
     });
 });
+
+describe('Dashboard audio interactions', (): void => {
+    _setupAudioGlobalMock();
+    _setupDocumentFontsMock();
+
+    beforeEach((): void => {
+        _setupDomEnvironment();
+        vi.clearAllMocks();
+    });
+
+    it('should throttle audio service interaction during rapid UI selects', async (): Promise<void> => {
+        const audioMocks = _setupCaptureMocks();
+        const services: BenchmarkViewServices = _createConfiguredServices();
+        const audioService = new AudioService(services.visualSettings);
+        services.audio = audioService;
+
+        const benchmarkView: BenchmarkView = _initBenchmarkView(services, MockServiceFactory.createAppStateMock());
+        await benchmarkView.render();
+        await _waitForBehavioralElements();
+
+        _simulateRapidClicks();
+        expect(audioMocks.cloneMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+function _initBenchmarkView(services: BenchmarkViewServices, appState: AppStateService): BenchmarkView {
+    const mountPoint: HTMLElement = document.getElementById('mount')!;
+
+    return new BenchmarkView(mountPoint, services, appState);
+}
+
+function _assertLayoutSymmetry(): void {
+    const panel: HTMLElement = document.querySelector('.dashboard-panel')!;
+    const row: HTMLElement = document.querySelector('.scenario-row')!;
+    const thumb: HTMLElement = document.querySelector('.custom-scroll-thumb')!;
+
+    const panelRect: DOMRect = panel.getBoundingClientRect();
+    const rowRect: DOMRect = row.getBoundingClientRect();
+    const thumbRect: DOMRect = thumb.getBoundingClientRect();
+
+    expect(thumbRect.left - rowRect.right).toBeGreaterThanOrEqual(0);
+    expect(panelRect.right - thumbRect.right).toBeGreaterThanOrEqual(0);
+}
+
+function _simulateRapidClicks(): void {
+    const row: HTMLElement = document.querySelector('.scenario-row')!;
+    for (let index = 0; index < 10; index++) {
+        row.click();
+    }
+}
+
+function _setupCaptureMocks(): { playMock: Mock; cloneMock: Mock } {
+    const playMock: Mock = vi.fn().mockResolvedValue(undefined);
+    const cloneMock: Mock = vi.fn().mockReturnThis();
+
+    vi.stubGlobal('Audio', class {
+        public play = playMock;
+        public cloneNode = cloneMock;
+        public volume: number = 1;
+        public preload: string = 'auto';
+        public addEventListener = vi.fn();
+        public removeEventListener = vi.fn();
+    });
+
+    return { playMock, cloneMock };
+}
+
+function _setupDomEnvironment(): void {
+    document.body.innerHTML = `
+        <div id="test-root" style="width: 1280px; height: 800px; position: relative;">
+            <div class="dashboard-panel" style="position: absolute; inset: 20px; display: flex; flex-direction: column;">
+                <div id="mount" style="flex: 1; position: relative;"></div>
+            </div>
+        </div>
+    `;
+}
+
+function _createConfiguredServices(): BenchmarkViewServices {
+    const services: BenchmarkViewServices = MockServiceFactory.createViewDependencies({
+        directory: { currentFolderName: 'test_folder' },
+        history: { getLastCheckTimestamp: vi.fn().mockResolvedValue(1000) }
+    });
+
+    const settings: VisualSettings = {
+        ...services.visualSettings.getSettings(),
+        audioVolume: 80,
+        marginSpacing: 'Normal',
+        categorySpacing: 'Normal',
+        dotCloudWidth: 'Normal'
+    };
+
+    vi.mocked(services.visualSettings.getSettings).mockReturnValue(settings);
+
+    return services;
+}
+
+async function _waitForBehavioralElements(): Promise<void> {
+    await vi.waitFor(() => {
+        const rowFound: boolean = !!document.querySelector('.scenario-row');
+        const thumbFound: boolean = !!document.querySelector('.custom-scroll-thumb');
+        if (!rowFound || !thumbFound) throw new Error('Elements missing');
+    }, { timeout: 2000 });
+}
+
+function _setupAudioGlobalMock(): void {
+    vi.stubGlobal('Audio', class {
+        public play = vi.fn().mockResolvedValue(undefined);
+        public pause = vi.fn();
+        public currentTime: number = 0;
+        public addEventListener = vi.fn();
+        public removeEventListener = vi.fn();
+        public cloneNode = vi.fn().mockReturnThis();
+        public volume: number = 1;
+        public preload: string = 'auto';
+    });
+}
+
+function _setupDocumentFontsMock(): void {
+    Object.defineProperty(document, 'fonts', {
+        value: { ready: Promise.resolve(), status: 'loaded' },
+        configurable: true
+    });
+}

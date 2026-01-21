@@ -33,6 +33,8 @@ export class AppStateService {
     this._state = this._loadFromStorage();
   }
 
+  private readonly _tabListeners: (() => void)[] = [];
+
   /**
    * Retrieves the ID of the last active navigation tab.
    *
@@ -51,7 +53,23 @@ export class AppStateService {
     this._state.activeTabId = tabId;
 
     this._saveToStorage();
+    this._notifyTabListeners();
   }
+
+  /**
+   * Subscribes to changes in the active navigation tab.
+   *
+   * @param callback - The function to call when the tab changes.
+   */
+  public onTabChanged(callback: () => void): void {
+    this._tabListeners.push(callback);
+  }
+
+  private _notifyTabListeners(): void {
+    this._tabListeners.forEach((callback: () => void): void => callback());
+  }
+
+  private readonly _difficultyListeners: (() => void)[] = [];
 
   /**
    * Retrieves the last selected benchmark difficulty.
@@ -63,7 +81,7 @@ export class AppStateService {
   }
 
   /**
-   * Persists the selected benchmark difficulty.
+   * Persists the selected benchmark difficulty and notifies listeners.
    *
    * @param difficulty - The difficulty tier to save.
    */
@@ -71,6 +89,20 @@ export class AppStateService {
     this._state.benchmarkDifficulty = difficulty;
 
     this._saveToStorage();
+    this._notifyDifficultyListeners();
+  }
+
+  /**
+   * Subscribes to changes in the benchmark difficulty.
+   *
+   * @param callback - The function to call when difficulty changes.
+   */
+  public onDifficultyChanged(callback: () => void): void {
+    this._difficultyListeners.push(callback);
+  }
+
+  private _notifyDifficultyListeners(): void {
+    this._difficultyListeners.forEach((callback: () => void): void => callback());
   }
 
   /**

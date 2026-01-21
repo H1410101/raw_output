@@ -337,7 +337,8 @@ export class SettingsUiFactory {
   ): { target: HTMLElement; index: number } {
     const parent = track.parentElement;
     const isSlider = parent?.classList.contains("dot-slider-container");
-    const hasExternalNotch = isSlider && !track.querySelector(".slider-notch");
+    const hasExternalNotch =
+      isSlider && parent?.querySelector(".slider-notch") !== null;
 
     if (hasExternalNotch && parent) {
       return { target: parent, index: newIndex + 1 };
@@ -648,7 +649,7 @@ export class SettingsUiFactory {
     const delay = distance * 0.03;
 
     item.style.transition =
-      "background 0.2s ease, box-shadow 0.2s ease, height 0.2s ease, border-radius 0.2s ease, transform 0.2s ease";
+      "background 0.2s ease, height 0.2s ease, border-radius 0.2s ease, transform 0.2s ease";
     item.style.transitionDelay = `${delay}s`;
   }
 

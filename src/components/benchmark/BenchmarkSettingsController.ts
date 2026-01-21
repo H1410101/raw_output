@@ -114,7 +114,7 @@ export class BenchmarkSettingsController {
 
   private _createMenuContainer(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
-    container.className = "settings-menu-container";
+    container.className = "settings-menu-container visual-settings-container";
 
     return container;
   }

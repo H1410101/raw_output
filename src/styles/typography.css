@@ -1,0 +1,379 @@
+@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500&family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
+
+/* Base Typography */
+html {
+    font-size: calc(clamp(1rem, 1vw + 0.75rem, 1.5rem) * var(--ui-scale));
+}
+
+body {
+    font-family: "Nunito", sans-serif;
+    font-weight: 300;
+}
+
+:root {
+    --scenario-name-weight: 600;
+    --scenario-name-family: "Nunito", sans-serif;
+}
+
+/* Global Font Helper Classes */
+.m-plus-rounded-1c-medium {
+    font-family: "M PLUS Rounded 1c", sans-serif;
+    font-weight: 500;
+    font-style: normal;
+}
+
+/* App Title and Headers */
+.title-ripple {
+    line-height: 1.2;
+    font-family: "Nunito", sans-serif;
+    font-size: calc(1.75rem * var(--label-font-multiplier));
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-shadow: calc(0.15rem * var(--label-font-multiplier)) calc(0.15rem * var(--label-font-multiplier)) calc(0.1rem * var(--label-font-multiplier)) var(--upper-band-2);
+}
+
+h1 {
+    font-size: calc(1.75rem * var(--label-font-multiplier));
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+/* Navigation */
+.nav-item {
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.tab-button {
+    font-family: "Nunito", sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+/* Buttons and Actions */
+.settings-action-btn {
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.action-status-text {
+    font-family: "Nunito", sans-serif;
+    font-weight: 600;
+}
+
+.action-btn-large {
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 0.05rem;
+}
+
+.secondary-btn {
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+}
+
+.next-btn {
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.bonus-btn {
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05rem;
+}
+
+/* Table Headers and Vertical Text */
+.column-header {
+    font-size: calc(0.65rem * var(--header-font-multiplier));
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+}
+
+.column-header span {
+    text-align: center;
+}
+
+.subcategory-header .column-header:last-of-type {
+    font-size: calc(0.8rem * var(--header-font-multiplier));
+}
+
+.vertical-text {
+    text-transform: none;
+    letter-spacing: 0.1em;
+    font-size: calc(0.9rem * var(--label-font-multiplier));
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.category-label .vertical-text {
+    font-size: calc(1.1rem * var(--label-font-multiplier));
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.subcategory-label .vertical-text {
+    font-size: calc(0.9rem * var(--label-font-multiplier));
+    text-transform: lowercase;
+    font-weight: 600;
+}
+
+.subcategory-label .vertical-text::first-letter {
+    text-transform: uppercase;
+}
+
+/* Scenario and Ranks */
+.scenario-name {
+    font-size: calc(0.8rem * var(--scenario-font-multiplier));
+    font-weight: var(--scenario-name-weight);
+    font-family: var(--scenario-name-family);
+}
+
+.rank-badge-container {
+    font-weight: 400;
+    text-transform: uppercase;
+}
+
+.rank-name {
+    font-size: calc(0.9rem * var(--rank-font-multiplier));
+    font-weight: 700;
+    text-align: right;
+}
+
+.rank-progress {
+    font-size: calc(0.65rem * var(--rank-font-multiplier));
+    font-weight: 400;
+    text-align: left;
+}
+
+.rank-name.unranked-text,
+.unranked-text {
+    font-size: calc(0.9rem * var(--rank-font-multiplier));
+    font-weight: 600 !important;
+}
+
+.run-score {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.run-tag {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+/* Popups and Overlays */
+.rank-popup-rank-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.settings-menu-card h2 {
+    font-size: calc(1.25rem * var(--label-font-multiplier));
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.settings-group-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-weight: 800;
+}
+
+.setting-item label {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* About Section */
+.about-section p {
+    font-size: calc(0.9rem * var(--scenario-font-multiplier));
+    line-height: 1.5;
+}
+
+.about-section h3 {
+    font-size: calc(0.85rem * var(--label-font-multiplier));
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+}
+
+.about-quote {
+    font-style: italic;
+}
+
+.about-quote p {
+    font-size: calc(0.85rem * var(--scenario-font-multiplier)) !important;
+    line-height: 1.6 !important;
+}
+
+.about-link-button {
+    text-align: center;
+    font-size: calc(0.9rem * var(--scenario-font-multiplier));
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1.8rem;
+    white-space: nowrap;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Folder Settings */
+.folder-status-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: -0.02em;
+}
+
+.connected-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.folder-name-highlight {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.folder-action-item {
+    font-family: "Nunito", sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* Introduction */
+.app-introduction {
+    line-height: 1.8;
+}
+
+.app-introduction h2 {
+    font-size: calc(2rem * var(--label-font-multiplier));
+    letter-spacing: -0.04em;
+    font-weight: 800;
+}
+
+.app-introduction p {
+    font-size: calc(0.9rem * var(--scenario-font-multiplier));
+}
+
+.app-introduction code {
+    font-family: var(--font-mono, monospace);
+}
+
+/* Ranked Stats */
+.ranked-header h2 {
+    font-size: calc(1.5rem * var(--label-font-multiplier));
+    letter-spacing: -0.02em;
+}
+
+.ranked-header .subtitle {
+    font-size: 0.9rem;
+}
+
+.stat-item .label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.15rem;
+    line-height: 1;
+}
+
+.stat-item .value {
+    font-size: calc(1.1rem * var(--label-font-multiplier));
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.ranked-scenario-name {
+    font-size: calc(1.4rem * var(--label-font-multiplier));
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.now-playing {
+    font-size: 0.65rem;
+    font-weight: 900;
+    letter-spacing: 0.4rem;
+    text-transform: uppercase;
+}
+
+.instruction {
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+.ranked-info-card h3 {
+    font-size: 1.1rem;
+}
+
+.ranked-info-card p {
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.ranked-info-card p.minor {
+    font-size: 0.75rem;
+}
+
+/* HUD Specifics */
+.hud-label,
+.stat-item .label {
+    font-size: calc(0.65rem * var(--header-font-multiplier));
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.hud-value,
+.stat-item .value {
+    font-size: calc(1.2rem * var(--label-font-multiplier));
+    font-weight: 800;
+    font-family: "M PLUS Rounded 1c", sans-serif;
+}
+
+.stat-item .label {
+    line-height: 1;
+}
+
+.stat-item .value {
+    line-height: 1;
+    text-shadow: none;
+}
+
+.stat-item .rank-name {
+    font-size: calc(0.9rem * var(--label-font-multiplier));
+    font-weight: 700;
+    line-height: 1;
+}
+
+.stat-item .rank-name.unranked-text,
+.stat-item .rank-progress.unranked-text {
+    font-weight: 600 !important;
+}
+
+.stat-item .rank-progress {
+    font-size: calc(0.65rem * var(--label-font-multiplier));
+    font-weight: 400;
+    line-height: 1;
+}
+
+/* Dot Cloud Labels */
+.dot-cloud-container {
+    --vis-label-weight: 400;
+    --vis-label-family: "Nunito", sans-serif;
+}

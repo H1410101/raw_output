@@ -58,8 +58,8 @@ export class SettingsSectionRenderer {
     container.appendChild(SettingsUiFactory.createGroupTitle("Elements"));
 
     this._appendDotCloudToggle(container, settings);
-    this._appendSessionToggles(container, settings);
-    container.appendChild(this._createSessionIntervalSlider());
+    this._appendRankToggles(container, settings);
+    this._appendIntervalsGroup(container, settings);
   }
 
   private _appendDotCloudToggle(
@@ -85,7 +85,33 @@ export class SettingsSectionRenderer {
     );
   }
 
-  private _appendSessionToggles(
+
+  private _appendRankToggles(
+    container: HTMLElement,
+    settings: VisualSettings,
+  ): void {
+    const showRanksToggle: HTMLElement = SettingsUiFactory.createToggle(
+      "Show Ranks",
+      settings.showRanks,
+      (val: boolean): void =>
+        this._visualSettingsService.updateSetting("showRanks", val),
+    );
+
+    const subRowsContainer: HTMLDivElement = document.createElement("div");
+    subRowsContainer.className = "settings-sub-rows";
+
+    if (!settings.showRanks) {
+      subRowsContainer.classList.add("hidden");
+    }
+
+    this._appendIndividualRankToggles(subRowsContainer, settings);
+
+    container.appendChild(
+      SettingsUiFactory.createSettingsGroup(showRanksToggle, subRowsContainer),
+    );
+  }
+
+  private _appendIndividualRankToggles(
     container: HTMLElement,
     settings: VisualSettings,
   ): void {
@@ -104,6 +130,15 @@ export class SettingsSectionRenderer {
         settings.showAllTimeBest,
         (val: boolean): void =>
           this._visualSettingsService.updateSetting("showAllTimeBest", val),
+      ),
+    );
+
+    container.appendChild(
+      SettingsUiFactory.createToggle(
+        "Show Rank Estimate",
+        settings.showRankEstimate,
+        (val: boolean): void =>
+          this._visualSettingsService.updateSetting("showRankEstimate", val),
       ),
     );
   }
@@ -208,6 +243,32 @@ export class SettingsSectionRenderer {
     );
   }
 
+  private _appendIntervalsGroup(
+    container: HTMLElement,
+    settings: VisualSettings,
+  ): void {
+    const intervalsToggle: HTMLElement = SettingsUiFactory.createToggle(
+      "Intervals",
+      settings.showIntervalsSettings,
+      (val: boolean): void =>
+        this._visualSettingsService.updateSetting("showIntervalsSettings", val),
+    );
+
+    const subRowsContainer: HTMLDivElement = document.createElement("div");
+    subRowsContainer.className = "settings-sub-rows";
+
+    if (!settings.showIntervalsSettings) {
+      subRowsContainer.classList.add("hidden");
+    }
+
+    subRowsContainer.appendChild(this._createSessionIntervalSlider());
+    subRowsContainer.appendChild(this._createRankedIntervalSlider());
+
+    container.appendChild(
+      SettingsUiFactory.createSettingsGroup(intervalsToggle, subRowsContainer),
+    );
+  }
+
   private _createSessionIntervalSlider(): HTMLElement {
     const sessionSettings = this._sessionSettingsService.getSettings();
     const options: number[] = [1, 5, 10, 15, 30, 45, 60, 90, 120];
@@ -220,6 +281,23 @@ export class SettingsSectionRenderer {
       onChange: (val: number): void =>
         this._sessionSettingsService.updateSetting(
           "sessionTimeoutMinutes",
+          val,
+        ),
+    });
+  }
+
+  private _createRankedIntervalSlider(): HTMLElement {
+    const sessionSettings = this._sessionSettingsService.getSettings();
+    const options: number[] = [1, 5, 10, 15, 30, 45, 60, 90, 120];
+
+    return SettingsUiFactory.createSlider({
+      label: "Ranked Interval",
+      value: sessionSettings.rankedIntervalMinutes,
+      options,
+      unit: " min",
+      onChange: (val: number): void =>
+        this._sessionSettingsService.updateSetting(
+          "rankedIntervalMinutes",
           val,
         ),
     });
@@ -431,25 +509,35 @@ export class SettingsSectionRenderer {
   }
 
   /**
-   * Builds and appends the Cloudflare connectivity settings section.
+   * Builds and appends the Score Feedback settings section.
    *
    * @param container - The element to append settings to.
    */
   public appendCloudflareSection(container: HTMLElement): void {
-    container.appendChild(SettingsUiFactory.createGroupTitle("Cloudflare Edge"));
+    container.appendChild(SettingsUiFactory.createGroupTitle("Anonymous Feedback"));
 
-    this._appendPrivacyToggles(container);
-    this._appendDeviceIdentity(container);
-    this._appendConnectivityTest(container);
+    this._appendScoreFeedbackGroup(container);
   }
 
-  private _appendPrivacyToggles(container: HTMLElement): void {
+  private _appendScoreFeedbackGroup(container: HTMLElement): void {
+    const feedbackToggle: HTMLElement = SettingsUiFactory.createToggle(
+      "Score Feedback",
+      this._identityService.isAnalyticsEnabled(),
+      (val: boolean): void => this._identityService.setAnalyticsConsent(val),
+    );
+
+    const subRowsContainer: HTMLDivElement = document.createElement("div");
+    subRowsContainer.className = "settings-sub-rows";
+
+    if (!this._identityService.isAnalyticsEnabled()) {
+      subRowsContainer.classList.add("hidden");
+    }
+
+    this._appendDeviceIdentity(subRowsContainer);
+    this._appendConnectivityTest(subRowsContainer);
+
     container.appendChild(
-      SettingsUiFactory.createToggle(
-        "Anonymous Analytics",
-        this._identityService.isAnalyticsEnabled(),
-        (val: boolean): void => this._identityService.setAnalyticsConsent(val),
-      ),
+      SettingsUiFactory.createSettingsGroup(feedbackToggle, subRowsContainer),
     );
   }
 
@@ -466,7 +554,7 @@ export class SettingsSectionRenderer {
   private _appendConnectivityTest(container: HTMLElement): void {
     container.appendChild(
       SettingsUiFactory.createActionButton(
-        "Connectivity Test",
+        "Check Connection",
         "Run Handshake",
         async (statusElement: HTMLElement): Promise<void> => {
           this._executeHandshake(statusElement);

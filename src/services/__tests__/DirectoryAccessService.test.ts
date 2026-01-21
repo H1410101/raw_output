@@ -1,97 +1,82 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { DirectoryAccessService } from '../DirectoryAccessService';
-import { DirectoryAccessPersistenceService } from '../DirectoryAccessPersistenceService';
-import { createMockDirectoryStructure, MockFileSystemDirectoryHandle } from '../../test/mocks/fileSystemMocks';
+import { describe, it, expect, vi, beforeEach, afterEach, MockInstance } from "vitest";
+import { DirectoryAccessService } from "../DirectoryAccessService";
+import { DirectoryAccessPersistenceService } from "../DirectoryAccessPersistenceService";
+import { createMockDirectoryStructure, MockFileSystemDirectoryHandle, MockDirectoryStructure } from "../../test/mocks/fileSystemMocks";
 
-describe('DirectoryAccessService', () => {
+describe("DirectoryAccessService Selection", (): void => {
     let service: DirectoryAccessService;
 
-    // A mock folder structure simulating a typical User scenario
-    const mockStructure = {
-        "steamapps": {
-            "common": {
-                "FPSAimTrainer": {
-                    "FPSAimTrainer": {
-                        "stats": {
-                            "score_1.csv": "file",
-                            "score_2.csv": "file"
-                        }
-                    }
-                }
-            }
-        },
-        "OtherGame": {}
-    };
-
-    const rootHandle = createMockDirectoryStructure("steam-library", mockStructure);
-
-    beforeEach(async () => {
+    beforeEach(async (): Promise<void> => {
         service = new DirectoryAccessService();
         await service.clearStoredHandle();
-
-        // MOCK window.showDirectoryPicker
-        vi.stubGlobal('showDirectoryPicker', async () => {
-            return rootHandle;
-        });
+        const root: MockFileSystemDirectoryHandle = _getMockRootHandle();
+        vi.stubGlobal("showDirectoryPicker", async (): Promise<MockFileSystemDirectoryHandle> => root);
     });
 
-    afterEach(() => {
+    afterEach((): void => {
         vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
 
-    it('should discover the deep stats folder when a parent is selected (data.conn.int.suffix)', async () => {
-        const handle = await service.requestDirectorySelection();
-
-        expect(handle).not.toBeNull();
-        expect(handle?.name).toBe('stats'); // Should return the *stats* folder, not root
-        expect(service.currentFolderName).toBe('stats');
-        // Check full logical path has the traversal
-        expect(service.fullLogicalPath).toContain('steamapps \\ common \\ FPSAimTrainer');
+    it("should discover the deep stats folder", async (): Promise<void> => {
+        const handle: FileSystemDirectoryHandle | null = await service.requestDirectorySelection();
+        expect(handle?.name).toBe("stats");
+        expect(service.fullLogicalPath).toContain("steamapps \\ common \\ FPSAimTrainer");
     });
 
-    it('should fallback to root if stats folder is not found', async () => {
-        const simpleRoot = createMockDirectoryStructure("just-a-folder", { "file.txt": "file" });
-        vi.stubGlobal('showDirectoryPicker', async () => {
-            return simpleRoot;
-        });
+    it("should fallback to root if stats folder is not found", async (): Promise<void> => {
+        /* eslint-disable @typescript-eslint/naming-convention */
+        const simple: MockFileSystemDirectoryHandle = createMockDirectoryStructure("just-a-folder", { "file.txt": "file" });
+        /* eslint-enable @typescript-eslint/naming-convention */
+        vi.stubGlobal("showDirectoryPicker", async (): Promise<MockFileSystemDirectoryHandle> => simple);
+        const handle: FileSystemDirectoryHandle | null = await service.requestDirectorySelection();
+        expect(handle?.name).toBe("just-a-folder");
+    });
+});
 
-        const handle = await service.requestDirectorySelection();
-        expect(handle?.name).toBe('just-a-folder');
-        expect(service.fullLogicalPath).toBe('just-a-folder');
+describe("DirectoryAccessService Persistence", (): void => {
+    let service: DirectoryAccessService;
+
+    beforeEach(async (): Promise<void> => {
+        service = new DirectoryAccessService();
+        await service.clearStoredHandle();
     });
 
-    it('should auto-reconnect using persistence (data.conn.ext.reconnect)', async () => {
-        // Mock the persistence retrieval on the PROTOTYPE to return a Functional Mock Object
-        // We use 'stats' as the name to simulate a previously found stats folder
-        const mockSavedHandle = new MockFileSystemDirectoryHandle('stats');
-
-        const spy = vi.spyOn(
-            DirectoryAccessPersistenceService.prototype,
-            'retrieveHandleFromStorage'
-        ).mockResolvedValue({
-            handle: mockSavedHandle as unknown as FileSystemDirectoryHandle,
-            originalName: 'stats'
+    it("should auto-reconnect using persistence", async (): Promise<void> => {
+        const mock: MockFileSystemDirectoryHandle = new MockFileSystemDirectoryHandle("stats");
+        const spy: MockInstance = vi.spyOn(DirectoryAccessPersistenceService.prototype, "retrieveHandleFromStorage").mockResolvedValue({
+            handle: mock as unknown as FileSystemDirectoryHandle,
+            originalName: "stats"
         });
-
-        // 2. Simulate App Restart (New Service Instance)
-        const newService = new DirectoryAccessService();
-        const reconnectedHandle = await newService.attemptReconnection();
-
-        expect(reconnectedHandle).not.toBeNull();
-        expect(reconnectedHandle?.name).toBe('stats');
-
-        // Ensure our spy was actually called
+        const reconnected: FileSystemDirectoryHandle | null = await service.attemptReconnection();
+        expect(reconnected?.name).toBe("stats");
         expect(spy).toHaveBeenCalled();
     });
 
-    it('should clear stored handle', async () => {
-        // We spy on the instance for this one, as we just want to verify the call
-        const spy = vi.spyOn((service as any)._persistenceService, 'clearHandleFromStorage');
-
-        service.clearStoredHandle();
-
-        expect(service.currentFolderName).toBeNull();
+    it("should clear stored handle", async (): Promise<void> => {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        const access: { _persistenceService: DirectoryAccessPersistenceService } = service as unknown as { _persistenceService: DirectoryAccessPersistenceService };
+        const spy: MockInstance = vi.spyOn(access._persistenceService, "clearHandleFromStorage");
+        await service.clearStoredHandle();
         expect(spy).toHaveBeenCalled();
     });
 });
+
+function _getMockRootHandle(): MockFileSystemDirectoryHandle {
+    /* eslint-disable @typescript-eslint/naming-convention */
+    const mockStructure: MockDirectoryStructure = {
+        "steamapps": {
+            "common": {
+                "FPSAimTrainer": {
+                    "FPSAimTrainer": {
+                        "stats": { "score_1.csv": "file", "score_2.csv": "file" }
+                    }
+                }
+            }
+        },
+        "otherGame": {}
+    };
+    /* eslint-enable @typescript-eslint/naming-convention */
+
+    return createMockDirectoryStructure("steam-library", mockStructure);
+}

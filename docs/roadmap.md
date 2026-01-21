@@ -168,16 +168,39 @@
 
 ## Phase 4: Ranked Runs
 
-### Checkpoint 4.1: Ranked Session Layout
-### Checkpoint 4.2: Scenario Selection Logic
-### Checkpoint 4.3: Target Bar Component
-### Checkpoint 4.4: HUD Integration
-### Checkpoint 4.5: Visual System Unification & Theme
-### Checkpoint 4.6: Scenario Transitions
-### Checkpoint 4.7: Live Feedback Loop
-### Checkpoint 4.8: Rank Estimator
+### Checkpoint 4.1: Ranked Session State & Structure (Done)
+- **Deliverable**: Core `RankedSessionService`, One-time Gauntlet, Cyclic Scenarios, and UI State.
+- **Commit Goal**: v4.1 tag establishes the backend and basic UI for ranked runs.
+
+### Checkpoint 4.2: HUD & Progress Visualization (Done)
+- **Deliverable**: HUD Timer, Progress Bar, and Daily Rank Decay Logic.
+### Checkpoint 4.3: Rank Estimator & Prediction Math (Done)
+### Checkpoint 4.4: Ranked UI Zen & Symmetry (Done)
+- **Deliverable**: Pixel-perfect centering, icon-based controls, and layout stability.
+<<<<<<< HEAD
+### Checkpoint 4.5: Target RU & Session Visuals (Done)
+- **Deliverable**: RU amount targets, session-only dot clouds with target notches, and standardized rank displays.
+- **Commit Goal**: v4.5 tag implements precision performance visualization in the Ranked HUD.
+### Checkpoint 4.6: HUD Integration & Live Feedback
+### Checkpoint 4.6: Scenario Transitions & Flow
+### Checkpoint 4.6: Target Bar & HUD Visuals
+### Checkpoint 4.7: Audio Feedback
+### Checkpoint 4.8: Visual System Unification & Theme
+### Checkpoint 4.9: Infinite Progression
+### Checkpoint 4.10: Final Polish & Verification
+=======
+### Checkpoint 4.5: HUD Integration & Live Feedback
+### Checkpoint 4.6: Rank Settings & Terminology Unification (Done)
+- **Deliverable**: Grouped rank settings, "Rank Estimate" rename, and core logic refactoring.
+- **Commit Goal**: v4.6 tag ensures visual consistency and unified terminology across all views.
+
+### Checkpoint 4.7: Scenario Transitions & Flow
+### Checkpoint 4.8: Target Bar & HUD Visuals
 ### Checkpoint 4.9: Audio Feedback
-### Checkpoint 4.10: Infinite Progression
+### Checkpoint 4.10: Visual System Unification & Theme
+### Checkpoint 4.11: Infinite Progression
+### Checkpoint 4.12: Final Polish & Verification
+>>>>>>> ranked-runs-1
 
 ## Phase 5: Focus-Based Dynamics
 

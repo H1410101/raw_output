@@ -1,4 +1,6 @@
 import { VisualSettingsService } from "./VisualSettingsService";
+import soundLight from "../assets/sounds/rxSound11.ogg";
+import soundHeavy from "../assets/sounds/kick-deep.ogg";
 
 /**
  * Service for managing audio playback and volume control.
@@ -11,8 +13,8 @@ export class AudioService {
     private readonly _audioCache: Map<string, HTMLAudioElement> = new Map();
     private readonly _lastPlayTimeMap: Map<string, number> = new Map();
 
-    private static readonly _soundLight = "sounds/rxSound11.ogg";
-    private static readonly _soundHeavy = "sounds/kick-deep.ogg";
+    private static readonly _soundLight = soundLight;
+    private static readonly _soundHeavy = soundHeavy;
 
     /**
      * Initializes the service with visual settings for volume control.

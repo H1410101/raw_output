@@ -3,6 +3,7 @@ import { HistoryService } from "../services/HistoryService";
 import { RankService } from "../services/RankService";
 import { SessionService } from "../services/SessionService";
 import { AppStateService } from "../services/AppStateService";
+import { RankEstimator } from "../services/RankEstimator";
 import {
   VisualSettingsService,
   VisualSettings,
@@ -14,8 +15,9 @@ import {
 } from "../services/FocusManagementService";
 import { BenchmarkTableComponent } from "./benchmark/BenchmarkTableComponent";
 import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsController";
-import { FolderSettingsView } from "./ui/FolderSettingsView";
+import { FolderSettingsView, FolderActionHandlers } from "./ui/FolderSettingsView";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
+
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 import { AudioService } from "../services/AudioService";
@@ -42,6 +44,7 @@ export interface BenchmarkViewServices {
     onForceScan: () => Promise<void>;
     onUnlinkFolder: () => void;
   };
+  rankEstimator: RankEstimator;
 }
 
 /**
@@ -70,6 +73,7 @@ export class BenchmarkView {
   private readonly _audioService: AudioService;
   private readonly _cloudflareService: CloudflareService;
   private readonly _identityService: IdentityService;
+  private readonly _rankEstimator: RankEstimator;
 
   private readonly _settingsController: BenchmarkSettingsController;
 
@@ -82,8 +86,6 @@ export class BenchmarkView {
   private _tableComponent: BenchmarkTableComponent | null = null;
 
   private _folderSettingsView: FolderSettingsView | null = null;
-
-  private _rankPopup: RankPopupComponent | null = null;
 
   private _activeDifficulty: DifficultyTier;
 
@@ -123,6 +125,7 @@ export class BenchmarkView {
     this._sessionSettingsService = services.sessionSettings;
     this._cloudflareService = services.cloudflare;
     this._identityService = services.identity;
+    this._rankEstimator = services.rankEstimator;
 
     this._activeDifficulty = this._determineInitialDifficulty();
     this._settingsController = this._initSettingsController();
@@ -142,6 +145,20 @@ export class BenchmarkView {
    */
   public refresh(): void {
     this._refreshIfVisible();
+  }
+
+  /**
+   * Updates the active difficulty of the view.
+   *
+   * @param difficulty - The new difficulty tier.
+   */
+  public updateDifficulty(difficulty: DifficultyTier): void {
+    if (this._activeDifficulty === difficulty) {
+      return;
+    }
+
+    this._activeDifficulty = difficulty;
+    this.refresh();
   }
 
   /**
@@ -180,11 +197,11 @@ export class BenchmarkView {
       return false;
     }
 
-    const isFolderLinked: boolean = !!this._directoryService.currentFolderName;
+    const isStatsFolder: boolean = this._directoryService.isStatsFolderSelected();
     const lastCheck: number =
       await this._historyService.getLastCheckTimestamp();
 
-    if (isFolderLinked && lastCheck > 0) {
+    if (isStatsFolder && lastCheck > 0) {
       await this._dismissFolderView();
 
       return true;
@@ -256,8 +273,6 @@ export class BenchmarkView {
 
     this._folderSettingsView?.destroy();
 
-    this._rankPopup?.destroy();
-
     window.removeEventListener("resize", this._handleWindowResize);
   }
 
@@ -324,6 +339,10 @@ export class BenchmarkView {
         this._refreshIfVisible();
       }
     });
+
+    this._rankEstimator.onEstimateUpdated((scenarioName: string): void => {
+      this._updateSingleScenario(scenarioName);
+    });
   }
 
   private _subscribeToFocusUpdates(): void {
@@ -346,21 +365,25 @@ export class BenchmarkView {
     });
   }
 
-  private _applyActiveFocus(): void {
+  private _applyActiveFocus(): boolean {
     const focusState: FocusState | null = this._focusService.getFocusState();
 
     if (focusState && this._tableComponent) {
-      this._tableComponent.focusScenario(focusState.scenarioName, "auto");
+      this._tableComponent.focusScenario(focusState.scenarioName, "smooth");
 
       this._focusService.clearFocus();
+
+      return true;
     }
+
+    return false;
   }
 
   private async _shouldShowFolderSettings(): Promise<boolean> {
-    const isFolderLinked: boolean = !!this._directoryService.currentFolderName;
+    const isStatsFolder: boolean = this._directoryService.isStatsFolderSelected();
     const isManualOpen: boolean = this._appStateService.getIsFolderViewOpen();
 
-    if (!isFolderLinked || isManualOpen) {
+    if (!isStatsFolder || isManualOpen) {
       return true;
     }
 
@@ -371,7 +394,24 @@ export class BenchmarkView {
   }
 
   private _renderFolderSettings(lastCheck: number): void {
-    const handlers = {
+    const handlers = this._createFolderViewHandlers();
+
+    const isInvalid = !!this._directoryService.originalSelectionName && !this._directoryService.isStatsFolderSelected();
+    const isValid = this._directoryService.isStatsFolderSelected();
+
+    this._folderSettingsView = new FolderSettingsView({
+      handlers,
+      currentFolderName: this._directoryService.originalSelectionName,
+      hasStats: lastCheck > 0,
+      isInvalid,
+      isValid,
+    });
+
+    this._mountPoint.appendChild(this._folderSettingsView.render());
+  }
+
+  private _createFolderViewHandlers(): FolderActionHandlers {
+    return {
       onLinkFolder: async (): Promise<void> => {
         await this._folderActions.onLinkFolder();
         await this._dismissFolderView();
@@ -385,14 +425,6 @@ export class BenchmarkView {
         await this._dismissFolderView();
       },
     };
-
-    this._folderSettingsView = new FolderSettingsView(
-      handlers,
-      this._directoryService.originalSelectionName,
-      lastCheck > 0,
-    );
-
-    this._mountPoint.appendChild(this._folderSettingsView.render());
   }
 
   private _updateHeaderButtonStates(isFolderActive: boolean): void {
@@ -433,8 +465,8 @@ export class BenchmarkView {
       this._createViewContainer(scenarios, highscores),
     );
 
-    this._applyActiveFocus();
     this._restoreScrollPosition();
+    this._applyActiveFocus();
   }
 
   private _restoreScrollPosition(): void {
@@ -538,9 +570,48 @@ export class BenchmarkView {
 
     header.style.justifyContent = "center";
 
-    header.appendChild(this._createDifficultyTabs());
+    const aligner: HTMLDivElement = document.createElement("div");
+    aligner.className = "header-aligner";
+
+    aligner.appendChild(this._createDifficultyTabs());
+    aligner.appendChild(this._createHolisticRankUI());
+
+    header.appendChild(aligner);
 
     return header;
+  }
+
+  private _createHolisticRankUI(): HTMLElement {
+    const container: HTMLDivElement = document.createElement("div");
+    container.className = "holistic-rank-container";
+
+    const difficulty = this._activeDifficulty;
+    const estimate = this._rankEstimator.calculateHolisticEstimateRank(difficulty);
+
+    const isUnranked = estimate.rankName === "Unranked";
+    const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
+
+    container.innerHTML = `
+        <div class="badge-content">
+            <span class="${rankClass}">
+                <span class="rank-text-inner">${estimate.rankName}</span>
+            </span>
+            <span class="rank-progress">${estimate.continuousValue === 0 ? "" : `+${estimate.progressToNext}%`}</span>
+        </div>
+    `;
+
+    const rankInner = container.querySelector(".rank-text-inner") as HTMLElement;
+    if (rankInner) {
+      rankInner.style.cursor = "pointer";
+      rankInner.addEventListener("click", (event: Event) => {
+        event.stopPropagation();
+        const rankNames = this._benchmarkService.getRankNames(this._activeDifficulty);
+        const popup = new RankPopupComponent(rankInner, estimate.rankName, rankNames);
+        popup.render();
+      });
+    }
+
+    return container;
   }
 
   private _createDifficultyTabs(): HTMLElement {
@@ -568,23 +639,10 @@ export class BenchmarkView {
     label.textContent = difficulty;
     tab.appendChild(label);
 
-    if (isActive) {
-      const caret: HTMLElement = this._createCaretElement();
 
-      caret.addEventListener("mouseenter", (event: MouseEvent): void => {
-        const fromElement: Node | null = event.relatedTarget as Node;
-        if (fromElement && tab.contains(fromElement)) {
-          this._showRankPopup(tab);
-        }
-      });
-
-      tab.appendChild(caret);
-    }
 
     tab.addEventListener("click", (): void => {
-      if (isActive) {
-        this._showRankPopup(tab);
-      } else {
+      if (!isActive) {
         this._handleDifficultyChange(difficulty);
       }
     });
@@ -592,37 +650,7 @@ export class BenchmarkView {
     return tab;
   }
 
-  private _createCaretElement(): HTMLElement {
-    const caret: HTMLDivElement = document.createElement("div");
-    caret.className = "difficulty-caret";
 
-    caret.innerHTML = `
-      <svg viewBox="0 0 24 24">
-        <path d="M7 10l5 5 5-5" />
-      </svg>
-    `;
-
-    return caret;
-  }
-
-  private _showRankPopup(anchor: HTMLElement): void {
-    if (this._rankPopup) {
-      this._rankPopup.destroy();
-    }
-
-    this._rankPopup = new RankPopupComponent({
-      difficulty: this._activeDifficulty,
-      scenarios: this._benchmarkService.getScenarios(this._activeDifficulty),
-      rankNames: this._benchmarkService.getRankNames(this._activeDifficulty),
-      anchorElement: anchor,
-      onDismiss: (): void => {
-        this._rankPopup?.destroy();
-        this._rankPopup = null;
-      },
-    });
-
-    this._rankPopup.render();
-  }
 
   private async _handleDifficultyChange(
     difficulty: DifficultyTier,
@@ -646,8 +674,9 @@ export class BenchmarkView {
       visualSettings: this._visualSettingsService.getSettings(),
       audioService: this._audioService,
       focusService: this._focusService,
+      rankEstimator: this._rankEstimator,
     });
 
-    return this._tableComponent.render(scenarios, highscores);
+    return this._tableComponent.render(scenarios, highscores, this._activeDifficulty);
   }
 }

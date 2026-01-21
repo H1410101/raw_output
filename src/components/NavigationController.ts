@@ -1,5 +1,8 @@
 import { AppStateService } from "../services/AppStateService";
 import { BenchmarkView } from "./BenchmarkView";
+import { RankedView } from "./RankedView";
+import { RankedSessionService } from "../services/RankedSessionService";
+import { FocusManagementService } from "../services/FocusManagementService";
 
 /**
  * Interface for navigation trigger elements.
@@ -29,6 +32,12 @@ export interface NavDependencies {
   readonly benchmarkView: BenchmarkView;
   /** Service for managing application state. */
   readonly appStateService: AppStateService;
+  /** Service for ranked session lifecycle. */
+  readonly rankedSession: RankedSessionService;
+  /** The ranked view component. */
+  readonly rankedView: RankedView;
+  /** Service for managing the focused scenario. */
+  readonly focusService: FocusManagementService;
 }
 
 /**
@@ -46,6 +55,9 @@ export class NavigationController {
   private readonly _benchmarkView: BenchmarkView;
 
   private readonly _appStateService: AppStateService;
+  private readonly _rankedSession: RankedSessionService;
+  private readonly _rankedView: RankedView;
+  private readonly _focusService: FocusManagementService;
 
   /**
    * Initializes the controller with grouped navigation elements and dependencies.
@@ -68,6 +80,13 @@ export class NavigationController {
     this._benchmarkView = dependencies.benchmarkView;
 
     this._appStateService = dependencies.appStateService;
+    this._rankedSession = dependencies.rankedSession;
+    this._rankedView = dependencies.rankedView;
+    this._focusService = dependencies.focusService;
+
+    this._rankedSession.onStateChanged((): void => {
+      this._updateButtonStates();
+    });
   }
 
   /**
@@ -90,9 +109,13 @@ export class NavigationController {
   }
 
   private _restoreInitialTab(): void {
-    this._updateVisibleView(this._viewBenchmarks);
+    const activeTabId = this._appStateService.getActiveTabId();
 
-    this._appStateService.setActiveTabId("nav-benchmarks");
+    if (activeTabId === "nav-ranked") {
+      this._updateVisibleView(this._viewRanked);
+    } else {
+      this._updateVisibleView(this._viewBenchmarks);
+    }
   }
 
   private async _switchToBenchmarks(): Promise<void> {
@@ -102,12 +125,24 @@ export class NavigationController {
     const wasFolderDismissed: boolean =
       await this._benchmarkView.tryReturnToTable();
 
+    this._appStateService.setActiveTabId("nav-benchmarks");
+
     this._updateVisibleView(this._viewBenchmarks);
 
-    this._appStateService.setActiveTabId("nav-benchmarks");
+    if (!isAlreadyActive || wasFolderDismissed) {
+      this._highlightCurrentRankedScenario();
+    }
 
     if (!isAlreadyActive && !wasFolderDismissed) {
       await this._benchmarkView.render();
+    }
+  }
+
+  private _highlightCurrentRankedScenario(): void {
+    const currentScenario: string | null = this._rankedSession.currentScenarioName;
+
+    if (currentScenario) {
+      this._focusService.focusScenario(currentScenario, "RANKED_SESSION");
     }
   }
 
@@ -116,13 +151,17 @@ export class NavigationController {
       this._appStateService.getActiveTabId() === "nav-ranked";
 
     if (isAlreadyActive) {
+      await this._rankedView.tryReturnToTable();
+
       return;
     }
 
     await this._benchmarkView.tryReturnToTable();
 
-    this._updateVisibleView(this._viewRanked);
     this._appStateService.setActiveTabId("nav-ranked");
+
+    await this._rankedView.render();
+    this._updateVisibleView(this._viewRanked);
   }
 
   private _updateVisibleView(visibleView: HTMLElement): void {
@@ -130,6 +169,11 @@ export class NavigationController {
     this._viewRanked.classList.add("hidden-view");
 
     visibleView.classList.remove("hidden-view");
+
+    document.body.classList.toggle(
+      "on-ranked-view",
+      visibleView === this._viewRanked,
+    );
 
     this._updateButtonStates();
   }
@@ -142,5 +186,8 @@ export class NavigationController {
       activeTabId === "nav-benchmarks",
     );
     this._navRanked.classList.toggle("active", activeTabId === "nav-ranked");
+
+    const isSessionActive: boolean = this._rankedSession.state.status !== "IDLE";
+    this._navRanked.classList.toggle("ranked-active", isSessionActive);
   }
 }

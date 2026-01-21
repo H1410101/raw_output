@@ -19,48 +19,54 @@ import { VisualSettingsService } from "./services/VisualSettingsService";
 import { AudioService } from "./services/AudioService";
 import { CloudflareService } from "./services/CloudflareService";
 import { IdentityService } from "./services/IdentityService";
-import { SessionPulseService } from "./services/SessionPulseService";
+import { SessionSyncService } from "./services/SessionSyncService";
+import { RankedSessionService } from "./services/RankedSessionService";
+import { RankEstimator } from "./services/RankEstimator";
 import { SettingsUiFactory } from "./components/ui/SettingsUiFactory";
+import { AnalyticsPopupComponent } from "./components/ui/AnalyticsPopupComponent";
 
 /**
  * Orchestrate service instantiation and dependency wiring.
  */
 export class AppBootstrap {
-  private readonly _directoryService: DirectoryAccessService;
+  private _directoryService!: DirectoryAccessService;
 
-  private readonly _csvService: KovaaksCsvParsingService;
+  private _csvService!: KovaaksCsvParsingService;
 
-  private readonly _monitoringService: DirectoryMonitoringService;
+  private _monitoringService!: DirectoryMonitoringService;
 
-  private readonly _benchmarkService: BenchmarkService;
+  private _benchmarkService!: BenchmarkService;
 
-  private readonly _historyService: HistoryService;
+  private _historyService!: HistoryService;
 
-  private readonly _rankService: RankService;
+  private _rankService!: RankService;
 
-  private readonly _appStateService: AppStateService;
+  private _appStateService!: AppStateService;
 
-  private readonly _sessionSettingsService: SessionSettingsService;
+  private _sessionSettingsService!: SessionSettingsService;
 
-  private readonly _sessionService: SessionService;
+  private _sessionService!: SessionService;
 
-  private readonly _ingestionService: RunIngestionService;
+  private _ingestionService!: RunIngestionService;
 
-  private readonly _focusService: FocusManagementService;
+  private _focusService!: FocusManagementService;
 
-  private readonly _statusView: ApplicationStatusView;
+  private _statusView!: ApplicationStatusView;
 
-  private readonly _benchmarkView: BenchmarkView;
-  private readonly _rankedView: RankedView;
+  private _benchmarkView!: BenchmarkView;
+  private _rankedView!: RankedView;
 
-  private readonly _navigationController: NavigationController;
+  private _navigationController!: NavigationController;
 
-  private readonly _visualSettingsService: VisualSettingsService;
+  private _visualSettingsService!: VisualSettingsService;
 
-  private readonly _audioService: AudioService;
-  private readonly _cloudflareService: CloudflareService;
-  private readonly _identityService: IdentityService;
-  private readonly _sessionPulseService: SessionPulseService;
+  private _audioService!: AudioService;
+  private _cloudflareService!: CloudflareService;
+  private _identityService!: IdentityService;
+  private _rankedSessionService!: RankedSessionService;
+  private _rankEstimator!: RankEstimator;
+
+  private _hasPromptedAnalytics: boolean = false;
 
   /**
    * Initializes the application's core logic and UI components.
@@ -97,11 +103,25 @@ export class AppBootstrap {
       this._sessionSettingsService,
     );
 
-    this._sessionPulseService = new SessionPulseService(
-      this._sessionService,
-      this._identityService,
-      this._cloudflareService,
+    this._rankEstimator = new RankEstimator(
+      this._benchmarkService,
     );
+
+    this._rankedSessionService = new RankedSessionService(
+      this._benchmarkService,
+      this._sessionService,
+      this._rankEstimator,
+      this._sessionSettingsService,
+    );
+
+    new SessionSyncService({
+      sessionService: this._sessionService,
+      rankedSessionService: this._rankedSessionService,
+      identityService: this._identityService,
+      cloudflareService: this._cloudflareService,
+      rankEstimator: this._rankEstimator,
+      benchmarkService: this._benchmarkService,
+    });
 
     this._ingestionService = new RunIngestionService({
       directoryService: this._directoryService,
@@ -124,6 +144,7 @@ export class AppBootstrap {
    */
   public async initialize(): Promise<void> {
     this._statusView.reportReady();
+    this._tryApplyDailyDecay();
 
     await this._attemptInitialReconnection();
 
@@ -136,6 +157,8 @@ export class AppBootstrap {
 
     this._setupActionListeners();
     this._setupGlobalButtonSounds();
+
+    this._checkAnalyticsPrompt();
   }
 
   private _createStatusView(): ApplicationStatusView {
@@ -160,6 +183,7 @@ export class AppBootstrap {
         audio: this._audioService,
         cloudflare: this._cloudflareService,
         identity: this._identityService,
+        rankEstimator: this._rankEstimator,
         folderActions: {
           onLinkFolder: (): Promise<void> =>
             this._handleManualFolderSelection(),
@@ -184,16 +208,67 @@ export class AppBootstrap {
       {
         benchmarkView: this._benchmarkView,
         appStateService: this._appStateService,
+        rankedSession: this._rankedSessionService,
+        rankedView: this._rankedView,
+        focusService: this._focusService,
       },
     );
   }
 
   private _createRankedView(): RankedView {
-    return new RankedView(this._getRequiredElement("view-ranked"));
+    return new RankedView(this._getRequiredElement("view-ranked"), {
+      rankedSession: this._rankedSessionService,
+      session: this._sessionService,
+      benchmark: this._benchmarkService,
+      estimator: this._rankEstimator,
+      appState: this._appStateService,
+      history: this._historyService,
+      visualSettings: this._visualSettingsService,
+      sessionSettings: this._sessionSettingsService,
+      audio: this._audioService,
+      directory: this._directoryService,
+      folderActions: {
+        onLinkFolder: (): Promise<void> => this._handleManualFolderSelection(),
+        onForceScan: (): Promise<void> => this._handleManualImport(),
+        onUnlinkFolder: (): void => this._handleFolderRemoval(),
+      },
+    });
+  }
+
+  private _tryApplyDailyDecay(): void {
+    const isRankedActive =
+      this._rankedSessionService.state.status === "ACTIVE" ||
+      this._rankedSessionService.state.status === "COMPLETED";
+
+    const isBenchmarkActive = this._sessionService.isSessionActive();
+
+    if (!isRankedActive && !isBenchmarkActive) {
+      this._rankEstimator.applyDailyDecay();
+    }
   }
 
   private _setupActionListeners(): void {
     this._setupHeaderActions();
+
+    this._sessionService.onSessionUpdated((): void => {
+      this._tryApplyDailyDecay();
+    });
+
+    this._rankedSessionService.onStateChanged((): void => {
+      this._tryApplyDailyDecay();
+      this._checkAnalyticsPrompt();
+    });
+
+    this._appStateService.onDifficultyChanged((): void => {
+      this._benchmarkView.updateDifficulty(
+        this._appStateService.getBenchmarkDifficulty(),
+      );
+      this._rankedView.refresh();
+    });
+
+    this._appStateService.onTabChanged((): void => {
+      this._checkAnalyticsPrompt();
+    });
   }
 
   private _setupHeaderActions(): void {
@@ -218,7 +293,11 @@ export class AppBootstrap {
     folderBtn.addEventListener("click", (): void => {
       this._animateButton(folderBtn);
 
-      this._benchmarkView.toggleFolderView();
+      if (this._appStateService.getActiveTabId() === "nav-ranked") {
+        this._rankedView.toggleFolderView();
+      } else {
+        this._benchmarkView.toggleFolderView();
+      }
     });
 
     const aboutBtn = this._getRequiredElement("header-about-btn");
@@ -267,6 +346,8 @@ export class AppBootstrap {
       await this._synchronizeAndMonitor(handle);
 
       this._benchmarkView.refresh();
+
+      this._checkAnalyticsPrompt();
     }
   }
 
@@ -356,5 +437,33 @@ export class AppBootstrap {
     }
 
     return element;
+  }
+
+  private _checkAnalyticsPrompt(): void {
+    if (this._hasPromptedAnalytics) {
+      return;
+    }
+
+    const state = this._rankedSessionService.state;
+    const isPlaying = state.status === "ACTIVE" || state.status === "COMPLETED";
+    const isAtSummary = state.status === "SUMMARY";
+    const isOnRankedTab = this._appStateService.getActiveTabId() === "nav-ranked";
+
+    if (isPlaying || (isAtSummary && isOnRankedTab)) {
+      return;
+    }
+
+    if (
+      this._identityService.canShowAnalyticsPrompt() &&
+      this._directoryService.isStatsFolderSelected()
+    ) {
+      const popup: AnalyticsPopupComponent = new AnalyticsPopupComponent(
+        this._identityService,
+        this._audioService,
+      );
+      popup.render();
+      this._identityService.recordAnalyticsPrompt();
+      this._hasPromptedAnalytics = true;
+    }
   }
 }
