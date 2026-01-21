@@ -1067,7 +1067,7 @@ export class RankedView {
     const totalSeconds = totalMinutes * 60;
 
     water.style.animationName = "none";
-    water.style.transform = "translateY(-100%)";
+    water.style.transform = "translateY(0%)";
 
     window.requestAnimationFrame((): void => {
       window.requestAnimationFrame((): void => {

@@ -94,6 +94,7 @@
     --bg-color: var(--background-1);
     --panel-bg: var(--background-2);
     --accent-color: var(--upper-band-3);
+    --accent-color-rgb: var(--upper-band-3-rgb);
     --text-main: var(--upper-band-1);
     --text-default: var(--lower-band-3);
     --text-dim: var(--lower-band-1);

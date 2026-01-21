@@ -1402,7 +1402,6 @@ h1 {
     border-color: transparent transparent transparent var(--accent-color);
     opacity: 1;
     transform: scale(1.1);
-    filter: drop-shadow(0 0 2px var(--accent-color));
 }
 
 .play-scenario-button.highlighted .launch-dot {
