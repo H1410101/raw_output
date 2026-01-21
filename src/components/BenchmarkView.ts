@@ -24,6 +24,7 @@ import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 import { AudioService } from "../services/AudioService";
 import { CloudflareService } from "../services/CloudflareService";
 import { IdentityService } from "../services/IdentityService";
+import { CosmeticOverrideService } from "../services/CosmeticOverrideService";
 
 /**
  * Core services required by the BenchmarkView.
@@ -46,6 +47,7 @@ export interface BenchmarkViewServices {
     onUnlinkFolder: () => void;
   };
   rankEstimator: RankEstimator;
+  cosmeticOverride: CosmeticOverrideService;
 }
 
 /**
@@ -75,6 +77,7 @@ export class BenchmarkView {
   private readonly _cloudflareService: CloudflareService;
   private readonly _identityService: IdentityService;
   private readonly _rankEstimator: RankEstimator;
+  private readonly _cosmeticOverrideService: CosmeticOverrideService;
 
   private readonly _settingsController: BenchmarkSettingsController;
 
@@ -127,6 +130,7 @@ export class BenchmarkView {
     this._cloudflareService = services.cloudflare;
     this._identityService = services.identity;
     this._rankEstimator = services.rankEstimator;
+    this._cosmeticOverrideService = services.cosmeticOverride;
 
     this._activeDifficulty = this._determineInitialDifficulty();
     this._settingsController = this._initSettingsController();
@@ -505,6 +509,8 @@ export class BenchmarkView {
       audioService: this._audioService,
       cloudflareService: this._cloudflareService,
       identityService: this._identityService,
+      rankEstimator: this._rankEstimator,
+      cosmeticOverride: this._cosmeticOverrideService,
     });
   }
 
@@ -587,7 +593,9 @@ export class BenchmarkView {
     container.className = "holistic-rank-container";
 
     const difficulty = this._activeDifficulty;
-    const estimate = this._rankEstimator.calculateHolisticEstimateRank(difficulty);
+    const estimate = this._cosmeticOverrideService.isActiveFor(difficulty)
+      ? this._cosmeticOverrideService.getFakeEstimatedRank(difficulty)
+      : this._rankEstimator.calculateHolisticEstimateRank(difficulty);
 
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
@@ -627,7 +635,7 @@ export class BenchmarkView {
       peakWarningIcon.style.cursor = "pointer";
       peakWarningIcon.addEventListener("click", (event: Event) => {
         event.stopPropagation();
-        const popup = new PeakWarningPopupComponent(this._audioService);
+        const popup = new PeakWarningPopupComponent(this._audioService, this._cosmeticOverrideService);
         popup.subscribeToClose(() => {
           this._audioService.playHeavy(0.4);
         });
@@ -712,6 +720,7 @@ export class BenchmarkView {
       audioService: this._audioService,
       focusService: this._focusService,
       rankEstimator: this._rankEstimator,
+      cosmeticOverride: this._cosmeticOverrideService,
     });
 
     return this._tableComponent.render(scenarios, highscores, this._activeDifficulty);

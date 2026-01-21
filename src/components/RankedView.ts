@@ -16,12 +16,14 @@ import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { SessionSettingsService } from "../services/SessionSettingsService";
 import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
+import { CosmeticOverrideService } from "../services/CosmeticOverrideService";
 
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
   readonly session: SessionService;
   readonly benchmark: BenchmarkService;
   readonly estimator: RankEstimator;
+  readonly cosmeticOverride: CosmeticOverrideService;
   readonly appState: AppStateService;
   readonly history: HistoryService;
   readonly visualSettings: VisualSettingsService;
@@ -175,13 +177,16 @@ export class RankedView {
   private _createHolisticRankUI(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "holistic-rank-container";
-    const estimate = this._calculateHolisticEstimateRank();
+
+    const difficulty = this._deps.appState.getBenchmarkDifficulty();
+    const estimate = this._deps.cosmeticOverride.isActiveFor(difficulty)
+      ? this._deps.cosmeticOverride.getFakeEstimatedRank(difficulty)
+      : this._calculateHolisticEstimateRank();
+
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
 
-    const difficulty = this._deps.appState.getBenchmarkDifficulty();
     const isPeak = this._deps.benchmark.isPeak(difficulty);
-
     const peakIcon = this._getPeakIconHtml(isPeak);
 
     container.innerHTML = `
@@ -217,7 +222,7 @@ export class RankedView {
       peakWarningIcon.style.cursor = "pointer";
       peakWarningIcon.addEventListener("click", (event: Event) => {
         event.stopPropagation();
-        const popup = new PeakWarningPopupComponent(this._deps.audio);
+        const popup = new PeakWarningPopupComponent(this._deps.audio, this._deps.cosmeticOverride);
         popup.subscribeToClose(() => {
           this._deps.audio.playHeavy(0.4);
         });
@@ -425,7 +430,9 @@ export class RankedView {
       if (attempts === 0) continue;
 
       const oldRU = initialEstimates[scenarioName] ?? 0;
-      const currentEstimate = this._deps.estimator.getScenarioEstimate(scenarioName);
+      const currentEstimate = this._deps.cosmeticOverride.isActiveFor(this._deps.appState.getBenchmarkDifficulty())
+        ? this._deps.cosmeticOverride.getFakeEstimatedRank(this._deps.appState.getBenchmarkDifficulty())
+        : this._deps.estimator.getScenarioEstimate(scenarioName);
       const newRU = currentEstimate.continuousValue;
 
       if (newRU > oldRU + 0.001) {

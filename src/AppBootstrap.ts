@@ -24,6 +24,7 @@ import { RankedSessionService } from "./services/RankedSessionService";
 import { RankEstimator } from "./services/RankEstimator";
 import { SettingsUiFactory } from "./components/ui/SettingsUiFactory";
 import { AnalyticsPopupComponent } from "./components/ui/AnalyticsPopupComponent";
+import { CosmeticOverrideService } from "./services/CosmeticOverrideService";
 
 /**
  * Orchestrate service instantiation and dependency wiring.
@@ -65,6 +66,7 @@ export class AppBootstrap {
   private _identityService!: IdentityService;
   private _rankedSessionService!: RankedSessionService;
   private _rankEstimator!: RankEstimator;
+  private _cosmeticOverrideService!: CosmeticOverrideService;
 
   private _hasPromptedAnalytics: boolean = false;
 
@@ -98,14 +100,17 @@ export class AppBootstrap {
   }
 
   private _initCoordinationServices(): void {
+    this._initRankingCore();
+    this._initDataPipelines();
+  }
+
+  private _initRankingCore(): void {
     this._sessionService = new SessionService(
       this._rankService,
       this._sessionSettingsService,
     );
 
-    this._rankEstimator = new RankEstimator(
-      this._benchmarkService,
-    );
+    this._rankEstimator = new RankEstimator(this._benchmarkService);
 
     this._rankedSessionService = new RankedSessionService(
       this._benchmarkService,
@@ -114,6 +119,13 @@ export class AppBootstrap {
       this._sessionSettingsService,
     );
 
+    this._cosmeticOverrideService = new CosmeticOverrideService(
+      this._appStateService,
+      this._benchmarkService,
+    );
+  }
+
+  private _initDataPipelines(): void {
     new SessionSyncService({
       sessionService: this._sessionService,
       rankedSessionService: this._rankedSessionService,
@@ -184,6 +196,7 @@ export class AppBootstrap {
         cloudflare: this._cloudflareService,
         identity: this._identityService,
         rankEstimator: this._rankEstimator,
+        cosmeticOverride: this._cosmeticOverrideService,
         folderActions: {
           onLinkFolder: (): Promise<void> =>
             this._handleManualFolderSelection(),
@@ -221,6 +234,7 @@ export class AppBootstrap {
       session: this._sessionService,
       benchmark: this._benchmarkService,
       estimator: this._rankEstimator,
+      cosmeticOverride: this._cosmeticOverrideService,
       appState: this._appStateService,
       history: this._historyService,
       visualSettings: this._visualSettingsService,
@@ -268,6 +282,11 @@ export class AppBootstrap {
 
     this._appStateService.onTabChanged((): void => {
       this._checkAnalyticsPrompt();
+    });
+
+    this._cosmeticOverrideService.onStateChanged((): void => {
+      this._benchmarkView.refresh();
+      this._rankedView.refresh();
     });
   }
 

@@ -1,4 +1,5 @@
 import { AudioService } from "../../services/AudioService";
+import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
 
 /**
  * Component that renders a warning popup about peak benchmark difficulties and proof standards.
@@ -8,6 +9,7 @@ import { AudioService } from "../../services/AudioService";
 export class PeakWarningPopupComponent {
     private readonly _closeCallbacks: (() => void)[] = [];
     private readonly _audioService: AudioService | null;
+    private readonly _cosmeticOverrideService: CosmeticOverrideService;
 
     /** Active elements for each scroller container. */
     private readonly _activeScrollerElements: Map<HTMLElement, HTMLElement[]> = new Map();
@@ -19,12 +21,14 @@ export class PeakWarningPopupComponent {
     private readonly _scrollSpeed: number = 100;
 
     /**
-     * Initializes the popup with an optional audio service for interactions.
+     * Initializes the popup with required dependencies.
      *
      * @param audioService - Service for playing interaction sounds.
+     * @param cosmeticOverrideService - Service for managing cosmetic overrides.
      */
-    public constructor(audioService: AudioService | null = null) {
+    public constructor(audioService: AudioService | null, cosmeticOverrideService: CosmeticOverrideService) {
         this._audioService = audioService;
+        this._cosmeticOverrideService = cosmeticOverrideService;
     }
 
     /**
@@ -81,6 +85,17 @@ export class PeakWarningPopupComponent {
         return container;
     }
 
+    private _close(): void {
+        const overlay = document.querySelector(".settings-overlay");
+        if (overlay) {
+            if (this._scrollerRequestId !== null) {
+                cancelAnimationFrame(this._scrollerRequestId);
+            }
+            overlay.remove();
+            this._closeCallbacks.forEach((callback): void => callback());
+        }
+    }
+
     private _createCard(): HTMLElement {
         const card: HTMLDivElement = document.createElement("div");
         card.className = "settings-menu-card peak-warning-card";
@@ -96,32 +111,47 @@ export class PeakWarningPopupComponent {
         section.className = "about-section";
         section.style.alignItems = "center";
 
+        this._appendWarningParagraphs(section);
+        section.appendChild(this._createBeBetterButton());
+
+        return section;
+    }
+
+    private _appendWarningParagraphs(container: HTMLElement): void {
         const introParagraph: HTMLParagraphElement = document.createElement("p");
         introParagraph.style.fontWeight = "600";
         introParagraph.style.color = "var(--upper-band-3)";
         introParagraph.innerHTML = "Being WOOL in just one scenario is usually top 1.5k in the world.<br>Being LINEN puts you well above top 1k.";
-        section.appendChild(introParagraph);
+        container.appendChild(introParagraph);
 
         const proofStandardsParagraph: HTMLParagraphElement = document.createElement("p");
         proofStandardsParagraph.style.fontWeight = "700";
         proofStandardsParagraph.style.color = "var(--lower-band-3)";
         proofStandardsParagraph.innerHTML = "As of writing, the aim community<br>DOES NOT HAVE SUFFICIENTLY HIGH PROOF STANDARDS.";
-        section.appendChild(proofStandardsParagraph);
+        container.appendChild(proofStandardsParagraph);
 
         const transparencyParagraph: HTMLParagraphElement = document.createElement("p");
         transparencyParagraph.textContent = "Raw Output is a website that reads files from your computer. This can be easily cheated. I faked files while making this website for the sake of development.";
-        section.appendChild(transparencyParagraph);
+        container.appendChild(transparencyParagraph);
+    }
 
-        const teaserButton: HTMLButtonElement = document.createElement("button");
-        teaserButton.className = "about-link-button";
-        teaserButton.style.marginTop = "0";
-        teaserButton.style.height = "auto";
-        teaserButton.style.padding = "0.75rem 1.5rem";
-        teaserButton.style.lineHeight = "1.2";
-        teaserButton.innerHTML = "BE BETTER THAN EVERYONE ELSE<br>(for a while)";
-        section.appendChild(teaserButton);
+    private _createBeBetterButton(): HTMLElement {
+        const button: HTMLButtonElement = document.createElement("button");
+        button.className = "about-link-button";
+        button.style.marginTop = "0";
+        button.style.height = "auto";
+        button.style.padding = "0.75rem 1.5rem";
+        button.style.lineHeight = "1.2";
+        button.innerHTML = "BE BETTER THAN EVERYONE ELSE<br>(for a while)";
+        button.addEventListener("click", () => {
+            if (this._audioService) {
+                this._audioService.playHeavy(0.4);
+            }
+            this._cosmeticOverrideService.activate();
+            this._close();
+        });
 
-        return section;
+        return button;
     }
 
     private _createScroller(side: "top" | "bottom"): HTMLElement {

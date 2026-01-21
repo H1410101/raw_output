@@ -16,6 +16,7 @@ import { FocusManagementService } from "../../services/FocusManagementService";
 import { AudioService } from "../../services/AudioService";
 import { CloudflareService } from "../../services/CloudflareService";
 import { IdentityService } from "../../services/IdentityService";
+import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
 
 
 /**
@@ -38,7 +39,8 @@ export class MockServiceFactory {
             ...this._createStateServices(overrides),
             ...this._createInfrastructureServices(overrides),
             rankEstimator: estimator,
-            estimator: estimator
+            estimator: estimator,
+            cosmeticOverride: this._createCosmeticOverride(overrides.cosmeticOverride as Record<string, unknown>)
         } as unknown as BenchmarkViewServices;
     }
 
@@ -260,5 +262,17 @@ export class MockServiceFactory {
             onUnlinkFolder: vi.fn(),
             ...overrides
         } as { onLinkFolder: () => Promise<void>, onForceScan: () => Promise<void>, onUnlinkFolder: () => void };
+    }
+
+    private static _createCosmeticOverride(overrides: Record<string, unknown> = {}): CosmeticOverrideService {
+        return {
+            isActiveFor: vi.fn().mockReturnValue(false),
+            getFakeEstimatedRank: vi.fn().mockReturnValue({ rankName: "Bronze", progressToNext: 0, continuousValue: 0 }),
+            getFakeRankResult: vi.fn().mockReturnValue({ currentRank: "Bronze", progressPercentage: 0 }),
+            onStateChanged: vi.fn(),
+            activate: vi.fn(),
+            deactivate: vi.fn(),
+            ...overrides
+        } as unknown as CosmeticOverrideService;
     }
 }

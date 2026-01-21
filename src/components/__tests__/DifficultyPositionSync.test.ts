@@ -24,7 +24,7 @@ test("difficultyTabsMaintainPixelPerfectSynchronizationAcrossViewTransitions", a
 
     const rankedTabCoordinates: DOMRect = await _captureRankedDifficultyBounds(
         dashboardContainer,
-        mockServices
+        (mockServices as unknown) as RankedViewDependencies
     );
 
     expect(rankedTabCoordinates.top).toBe(benchmarkTabCoordinates.top);
@@ -51,7 +51,7 @@ async function _captureBenchmarkDifficultyBounds(
 
 async function _captureRankedDifficultyBounds(
     host: HTMLElement,
-    services: BenchmarkViewServices
+    services: RankedViewDependencies
 ): Promise<DOMRect> {
     host.innerHTML = "";
 
