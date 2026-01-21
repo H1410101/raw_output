@@ -94,7 +94,7 @@ export class AnalyticsPopupComponent {
     private _createDescription(): HTMLElement {
         const description: HTMLParagraphElement = document.createElement("p");
         description.textContent =
-            "Sending your scores to Raw Output allows me to balance rank difficulties, develop modifications to benchmarks, and more. I would really appreciate it!\nOnly score data is sent.";
+            "Sending your scores to Raw Output allows me to balance rank difficulties, develop modifications to benchmarks, and more. I would really appreciate it!\nOnly the score number is sent.";
         description.style.color = "var(--text-dim)";
         description.style.lineHeight = "1.6";
         description.style.fontSize = "0.95rem";

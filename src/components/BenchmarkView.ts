@@ -17,12 +17,14 @@ import { BenchmarkTableComponent } from "./benchmark/BenchmarkTableComponent";
 import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsController";
 import { FolderSettingsView, FolderActionHandlers } from "./ui/FolderSettingsView";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
+import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
 
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 import { AudioService } from "../services/AudioService";
 import { CloudflareService } from "../services/CloudflareService";
 import { IdentityService } from "../services/IdentityService";
+import { CosmeticOverrideService } from "../services/CosmeticOverrideService";
 
 /**
  * Core services required by the BenchmarkView.
@@ -45,6 +47,7 @@ export interface BenchmarkViewServices {
     onUnlinkFolder: () => void;
   };
   rankEstimator: RankEstimator;
+  cosmeticOverride: CosmeticOverrideService;
 }
 
 /**
@@ -74,6 +77,7 @@ export class BenchmarkView {
   private readonly _cloudflareService: CloudflareService;
   private readonly _identityService: IdentityService;
   private readonly _rankEstimator: RankEstimator;
+  private readonly _cosmeticOverrideService: CosmeticOverrideService;
 
   private readonly _settingsController: BenchmarkSettingsController;
 
@@ -126,6 +130,7 @@ export class BenchmarkView {
     this._cloudflareService = services.cloudflare;
     this._identityService = services.identity;
     this._rankEstimator = services.rankEstimator;
+    this._cosmeticOverrideService = services.cosmeticOverride;
 
     this._activeDifficulty = this._determineInitialDifficulty();
     this._settingsController = this._initSettingsController();
@@ -504,6 +509,8 @@ export class BenchmarkView {
       audioService: this._audioService,
       cloudflareService: this._cloudflareService,
       identityService: this._identityService,
+      rankEstimator: this._rankEstimator,
+      cosmeticOverride: this._cosmeticOverrideService,
     });
   }
 
@@ -586,32 +593,70 @@ export class BenchmarkView {
     container.className = "holistic-rank-container";
 
     const difficulty = this._activeDifficulty;
-    const estimate = this._rankEstimator.calculateHolisticEstimateRank(difficulty);
+    const estimate = this._cosmeticOverrideService.isActiveFor(difficulty)
+      ? this._cosmeticOverrideService.getFakeEstimatedRank(difficulty)
+      : this._rankEstimator.calculateHolisticEstimateRank(difficulty);
 
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
 
+    const isPeak = this._benchmarkService.isPeak(difficulty);
+    const peakIcon = this._getPeakIconHtml(isPeak);
+
     container.innerHTML = `
         <div class="badge-content">
-            <span class="${rankClass}">
+            <span class="${rankClass}" style="display: inline-flex; justify-content: flex-end; align-items: center; gap: 0.5rem;">
+                ${peakIcon}
                 <span class="rank-text-inner">${estimate.rankName}</span>
             </span>
             <span class="rank-progress">${estimate.continuousValue === 0 ? "" : `+${estimate.progressToNext}%`}</span>
         </div>
     `;
 
+    this._attachHolisticRankListeners(container, estimate.rankName);
+
+    return container;
+  }
+
+  private _attachHolisticRankListeners(container: HTMLElement, currentRankName: string): void {
     const rankInner = container.querySelector(".rank-text-inner") as HTMLElement;
     if (rankInner) {
       rankInner.style.cursor = "pointer";
       rankInner.addEventListener("click", (event: Event) => {
         event.stopPropagation();
         const rankNames = this._benchmarkService.getRankNames(this._activeDifficulty);
-        const popup = new RankPopupComponent(rankInner, estimate.rankName, rankNames);
+        const popup = new RankPopupComponent(rankInner, currentRankName, rankNames);
         popup.render();
       });
     }
 
-    return container;
+    const peakWarningIcon = container.querySelector(".peak-warning-icon") as HTMLElement;
+    if (peakWarningIcon) {
+      peakWarningIcon.style.cursor = "pointer";
+      peakWarningIcon.addEventListener("click", (event: Event) => {
+        event.stopPropagation();
+        const popup = new PeakWarningPopupComponent(this._audioService, this._cosmeticOverrideService);
+        popup.subscribeToClose(() => {
+          this._audioService.playHeavy(0.4);
+        });
+        popup.render();
+      });
+    }
+  }
+
+  private _getPeakIconHtml(isPeak: boolean): string {
+    if (!isPeak) {
+      return "";
+    }
+
+    return `
+      <span class="peak-warning-icon" style="display: flex; align-items: center; color: var(--lower-band-3);">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+           <line x1="12" y1="9" x2="12" y2="13"></line>
+           <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+      </span>`;
   }
 
   private _createDifficultyTabs(): HTMLElement {
@@ -675,6 +720,7 @@ export class BenchmarkView {
       audioService: this._audioService,
       focusService: this._focusService,
       rankEstimator: this._rankEstimator,
+      cosmeticOverride: this._cosmeticOverrideService,
     });
 
     return this._tableComponent.render(scenarios, highscores, this._activeDifficulty);

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi, Mock } from "vitest";
 import { RankedSessionService } from "../RankedSessionService";
 import { BenchmarkService } from "../BenchmarkService";
 import { SessionService } from "../SessionService";
@@ -27,6 +27,8 @@ function createMocks(): MockServices {
             onSessionUpdated: vi.fn(),
             getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
             getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
+            getRankedScenarioBest: vi.fn().mockReturnValue({}),
+            setRankedPlaylist: vi.fn(),
         } as unknown as SessionService,
         estimator: {
             getScenarioEstimate: vi.fn().mockReturnValue({ continuousValue: 1.0, highestAchieved: 1.0 }),
@@ -40,18 +42,24 @@ function createMocks(): MockServices {
     };
 }
 
-describe("Ranked Timer: Accumulation", (): void => {
-    let service: RankedSessionService;
-    beforeEach((): void => {
-        vi.useFakeTimers();
-        vi.setSystemTime(new Date("2026-01-20T10:00:00Z"));
-        const mocks = createMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
-    });
-    afterEach((): void => {
-        vi.useRealTimers();
-        localStorage.clear();
-    });
+let service: RankedSessionService;
+
+function setupService(): void {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-20T10:00:00Z"));
+    const mocks = createMocks();
+    service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+}
+
+function teardownService(): void {
+    vi.useRealTimers();
+    localStorage.clear();
+}
+
+describe("Ranked Timer Core", (): void => {
+    beforeEach(setupService);
+    afterEach(teardownService);
+
     it("should accumulate scenario time across multiple visits", (): void => {
         service.startSession("Gold");
         vi.advanceTimersByTime(30000);
@@ -63,21 +71,30 @@ describe("Ranked Timer: Accumulation", (): void => {
         service.retreat();
         expect(service.scenarioElapsedSeconds).toBe(30);
     });
+
+    it("should start scenario timer immediately upon resumption", (): void => {
+        service.startSession("Gold");
+        service.endSession();
+        service.reset();
+
+        // Resume session
+        service.startSession("Gold");
+        vi.advanceTimersByTime(15000);
+        expect(service.scenarioElapsedSeconds).toBe(15);
+    });
 });
 
-describe("Ranked Timer: Reset", (): void => {
-    let service: RankedSessionService;
-    beforeEach((): void => {
-        vi.useFakeTimers();
-        vi.setSystemTime(new Date("2026-01-20T10:00:00Z"));
-        const mocks = createMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
-    });
-    afterEach((): void => {
-        vi.useRealTimers();
-        localStorage.clear();
-    });
+describe("Ranked Timer Persistence", (): void => {
+    beforeEach(setupService);
+    afterEach(teardownService);
+
     it("should reset scenario timers between distinct runs", (): void => {
+        const mocks = createMocks();
+        const runData = [{ scenarioName: "Scenario A", score: 100, timestamp: Date.now() + 1000 }];
+        (mocks.session.getAllRankedSessionRuns as Mock).mockReturnValue(runData);
+
+        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+
         service.startSession("Gold");
         vi.advanceTimersByTime(60000);
         service.advance();
@@ -91,4 +108,3 @@ describe("Ranked Timer: Reset", (): void => {
         expect(service.scenarioElapsedSeconds).toBe(0);
     });
 });
-

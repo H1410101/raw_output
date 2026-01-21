@@ -969,6 +969,18 @@ h1 {
     width: fit-content;
 }
 
+.settings-menu-container.peak-warning-container {
+    width: 38rem;
+}
+
+.peak-warning-card {
+    text-align: center;
+    margin-right: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+
 .settings-menu-container::before {
     content: "";
     position: absolute;
@@ -996,6 +1008,8 @@ h1 {
     flex-direction: column;
     gap: calc(1.25rem * var(--margin-spacing-multiplier));
     scrollbar-width: none;
+    flex: 1;
+    min-height: 0;
 }
 
 .settings-menu-card::-webkit-scrollbar {
@@ -1388,7 +1402,6 @@ h1 {
     border-color: transparent transparent transparent var(--accent-color);
     opacity: 1;
     transform: scale(1.1);
-    filter: drop-shadow(0 0 2px var(--accent-color));
 }
 
 .play-scenario-button.highlighted .launch-dot {
@@ -1593,6 +1606,42 @@ h1 {
     will-change: transform;
 }
 
+.peak-warning-scroller {
+    position: relative !important;
+    width: calc(100% - calc(4rem * var(--margin-spacing-multiplier))) !important;
+    left: calc(2rem * var(--margin-spacing-multiplier)) !important;
+    transform: none !important;
+    height: auto !important;
+    min-height: 1.8rem !important;
+    margin: calc(1rem * var(--margin-spacing-multiplier)) 0 !important;
+    flex-shrink: 0 !important;
+    z-index: 10 !important;
+    mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%) !important;
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%) !important;
+}
+
+.peak-scroller-top {
+    background: rgba(var(--status-error-rgb), 0.03) !important;
+}
+
+.peak-scroller-bottom {
+    background: rgba(var(--status-error-rgb), 0.03) !important;
+}
+
+.peak-warning-scroller-text {
+    position: absolute !important;
+    left: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%);
+    font-size: calc(0.8rem * var(--label-font-multiplier)) !important;
+    font-weight: 700 !important;
+    opacity: 0.8 !important;
+    color: var(--status-error) !important;
+    white-space: nowrap !important;
+    letter-spacing: normal !important;
+    will-change: transform;
+}
+
 @keyframes error-scroll {
     from {
         transform: translateX(0);
@@ -1653,7 +1702,7 @@ h1 {
 .ranked-container {
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
     gap: calc(1rem * var(--vertical-spacing-multiplier));
     padding: 0;
@@ -1661,8 +1710,7 @@ h1 {
     border: none;
     position: relative;
     width: 100%;
-    min-height: 60%;
-    height: auto;
+    height: 60%;
     overflow: visible;
 }
 

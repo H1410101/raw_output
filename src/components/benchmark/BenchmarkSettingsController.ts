@@ -15,6 +15,8 @@ import { CloudflareService } from "../../services/CloudflareService";
 import { IdentityService } from "../../services/IdentityService";
 import { SettingsSectionRenderer } from "./SettingsSectionRenderer";
 import { BenchmarkScrollController } from "./BenchmarkScrollController";
+import { RankEstimator } from "../../services/RankEstimator";
+import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
 
 /**
  * Configuration dependencies for BenchmarkSettingsController.
@@ -27,6 +29,8 @@ export interface BenchmarkSettingsDependencies {
   readonly audioService: AudioService;
   readonly cloudflareService: CloudflareService;
   readonly identityService: IdentityService;
+  readonly rankEstimator: RankEstimator;
+  readonly cosmeticOverride: CosmeticOverrideService;
 }
 
 /**

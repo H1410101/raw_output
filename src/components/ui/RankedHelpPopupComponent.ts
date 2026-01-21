@@ -137,9 +137,10 @@ export class RankedHelpPopupComponent {
     private _createMechanicsList(): HTMLElement {
         const list: HTMLUListElement = this._createDefaultList();
 
-        list.appendChild(this._createListItem("Click the play button on a blank ranked screen to start a ranked session"));
-        list.appendChild(this._createListItem("When in a session, click the play button again to launch the scenario into Kovaak's."));
-        list.appendChild(this._createListItem("After playing, your scores should appear on the timeline."));
+        list.appendChild(this._createListItem("Defeat the target dot on a blank ranked screen to start a ranked session"));
+        list.appendChild(this._createListItem("When in a session, defeat the target dot again to launch the scenario into Kovaak's."));
+        list.appendChild(this._createListItem("After playing, your scores should appear on the timeline, along with notches marking your top 3 runs"));
+        list.appendChild(this._createListItem("When you get three runs above the score target, you'll start to gain rank! This is visualized as a brighter horizontal line."));
         list.appendChild(this._createListItem("Navigate between scenarios in the playlist with the previous and next buttons."));
 
         return list;
@@ -163,7 +164,8 @@ export class RankedHelpPopupComponent {
 
         list.appendChild(this._createListItem("The next button brightens when you gain any rank rating. You are encouraged to try to achieve this, but note that the dimmed next button is functional anyway."));
         list.appendChild(this._createListItem("As of writing, Kovaak's does not handle launching scenarios robustly. Know that Kovaak's sometimes freezes and leaks memory when launching, but also note that I can't really do much about this. I recommend not spam-clicking the launch button, and ending task in task manager if Kovaak's is unresponsive."));
-        list.appendChild(this._createListItem("Your new rank is halfway from your current rank to your third highest score in the session, to prevent fluke runs and make you prove your rank."));
+        list.appendChild(this._createListItem("Your new rank is halfway from your current rank to your achieved score, which is your third highest score of the session. This prevents fluke runs and makes you prove your rank. Alternatively, if your achieved score is very high, the new rank is at most two ranks below that."));
+        list.appendChild(this._createListItem("After the first ranked session of the day, subsequent sessions share the same playlist, and score targets. Your new rank for the day is the best new rank from any single session; so spamming a greater number of sessions won't help you gain rank faster."));
         list.appendChild(this._createListItem("Rank rating decreases by a bit each day, but this should not be terribly notable unless you take a long hiatus. This is intentional; the rank attempts to reflect your actual skill level, and gaining initial ranks is always fast regardless."));
 
         return list;

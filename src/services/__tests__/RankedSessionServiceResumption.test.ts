@@ -13,19 +13,33 @@ interface MockSet {
     settings: SessionSettingsService;
 }
 
+function _createBenchmarkMock(): BenchmarkService {
+    return {
+        getScenarios: vi.fn(),
+        getRankNames: vi.fn().mockReturnValue([]),
+        getDifficulty: vi.fn().mockImplementation((name: string) => (name.includes("scen") ? "Gold" : "Platinum")),
+    } as unknown as BenchmarkService;
+}
+
+function _createSessionMock(): SessionService {
+    return {
+        onSessionUpdated: vi.fn(),
+        startRankedSession: vi.fn(),
+        stopRankedSession: vi.fn(),
+        getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
+        getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
+        getRankedScenarioBest: vi.fn().mockReturnValue({}),
+        setRankedPlaylist: vi.fn(),
+    } as unknown as SessionService;
+}
+
 function _createResumptionMocks(): MockSet {
     vi.clearAllMocks();
     localStorage.clear();
 
     return {
-        benchmark: { getScenarios: vi.fn(), getRankNames: vi.fn().mockReturnValue([]) } as unknown as BenchmarkService,
-        session: {
-            onSessionUpdated: vi.fn(),
-            startRankedSession: vi.fn(),
-            stopRankedSession: vi.fn(),
-            getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
-            getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
-        } as unknown as SessionService,
+        benchmark: _createBenchmarkMock(),
+        session: _createSessionMock(),
         estimator: {
             getScenarioEstimate: vi.fn(),
             recordPlay: vi.fn(),

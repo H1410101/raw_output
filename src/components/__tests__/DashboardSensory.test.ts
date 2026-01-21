@@ -39,14 +39,32 @@ describe('Dashboard audio interactions', (): void => {
         const audioMocks = _setupCaptureMocks();
         const services: BenchmarkViewServices = _createConfiguredServices();
         const audioService = new AudioService(services.visualSettings);
+
+        // Use the paths from the service itself to ensure matching
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+        const lightPath = (AudioService as any)._soundLight;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
+        const heavyPath = (AudioService as any)._soundHeavy;
+
+        const mockBuffer = { duration: 1 } as AudioBuffer;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+        (audioService as any)._bufferCache.set(lightPath, mockBuffer);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+        (audioService as any)._bufferCache.set(heavyPath, mockBuffer);
+
         services.audio = audioService;
 
         const benchmarkView: BenchmarkView = _initBenchmarkView(services, MockServiceFactory.createAppStateMock());
         await benchmarkView.render();
         await _waitForBehavioralElements();
 
-        _simulateRapidClicks();
-        expect(audioMocks.cloneMock).toHaveBeenCalledTimes(1);
+        // Directly trigger multiple plays to verify internal throttling
+        for (let i = 0; i < 10; i++) {
+            audioService.playLight(0.5);
+        }
+
+        // Wait for the throttled call to actually play (async because of context resume)
+        await vi.waitFor(() => expect(audioMocks.playMock).toHaveBeenCalledTimes(1));
     });
 });
 
@@ -69,27 +87,62 @@ function _assertLayoutSymmetry(): void {
     expect(panelRect.right - thumbRect.right).toBeGreaterThanOrEqual(0);
 }
 
-function _simulateRapidClicks(): void {
-    const row: HTMLElement = document.querySelector('.scenario-row')!;
-    for (let index = 0; index < 10; index++) {
-        row.click();
-    }
-}
 
-function _setupCaptureMocks(): { playMock: Mock; cloneMock: Mock } {
-    const playMock: Mock = vi.fn().mockResolvedValue(undefined);
-    const cloneMock: Mock = vi.fn().mockReturnThis();
-
-    vi.stubGlobal('Audio', class {
-        public play = playMock;
-        public cloneNode = cloneMock;
-        public volume: number = 1;
-        public preload: string = 'auto';
-        public addEventListener = vi.fn();
-        public removeEventListener = vi.fn();
+// eslint-disable-next-line max-lines-per-function
+function _setupCaptureMocks(): { playMock: Mock; decodeMock: Mock } {
+    const playMock: Mock = vi.fn();
+    const decodeMock: Mock = vi.fn().mockResolvedValue({
+        duration: 1,
+        numberOfChannels: 2,
+        sampleRate: 44100,
+        length: 44100
     });
 
-    return { playMock, cloneMock };
+    const mockBufferSource = {
+        buffer: null,
+        connect: vi.fn(),
+        start: playMock,
+    };
+
+    const mockGainNode = {
+        gain: {
+            value: 1,
+            setTargetAtTime: vi.fn(),
+            setValueAtTime: vi.fn(),
+            linearRampToValueAtTime: vi.fn(),
+            exponentialRampToValueAtTime: vi.fn(),
+        },
+        connect: vi.fn(),
+    };
+
+    const mockContext = {
+        state: 'running',
+        currentTime: 0,
+        createBufferSource: vi.fn().mockReturnValue(mockBufferSource),
+        createGain: vi.fn().mockReturnValue(mockGainNode),
+        decodeAudioData: decodeMock,
+        destination: {},
+        resume: vi.fn().mockResolvedValue(undefined),
+        close: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const AudioContextMock = vi.fn().mockImplementation(function (this: unknown) {
+        return mockContext;
+    });
+    vi.stubGlobal('AudioContext', AudioContextMock);
+
+    const OfflineAudioContextMock = vi.fn().mockImplementation(function (this: unknown) {
+        return {
+            decodeAudioData: decodeMock,
+        };
+    });
+    vi.stubGlobal('OfflineAudioContext', OfflineAudioContextMock);
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8))
+    }));
+
+    return { playMock, decodeMock };
 }
 
 function _setupDomEnvironment(): void {
@@ -130,16 +183,37 @@ async function _waitForBehavioralElements(): Promise<void> {
 }
 
 function _setupAudioGlobalMock(): void {
-    vi.stubGlobal('Audio', class {
-        public play = vi.fn().mockResolvedValue(undefined);
-        public pause = vi.fn();
-        public currentTime: number = 0;
-        public addEventListener = vi.fn();
-        public removeEventListener = vi.fn();
-        public cloneNode = vi.fn().mockReturnThis();
-        public volume: number = 1;
-        public preload: string = 'auto';
+    const mockContext = {
+        state: 'running',
+        currentTime: 0,
+        createBufferSource: vi.fn().mockReturnValue({
+            connect: vi.fn(),
+            start: vi.fn(),
+        }),
+        createGain: vi.fn().mockReturnValue({
+            gain: { value: 1, setTargetAtTime: vi.fn() },
+            connect: vi.fn(),
+        }),
+        decodeAudioData: vi.fn().mockResolvedValue({}),
+        resume: vi.fn().mockResolvedValue(undefined),
+        destination: {},
+    };
+
+    const AudioContextMock = vi.fn().mockImplementation(function (this: unknown) {
+        return mockContext;
     });
+    vi.stubGlobal('AudioContext', AudioContextMock);
+
+    const OfflineAudioContextMock = vi.fn().mockImplementation(function (this: unknown) {
+        return {
+            decodeAudioData: vi.fn().mockResolvedValue({}),
+        };
+    });
+    vi.stubGlobal('OfflineAudioContext', OfflineAudioContextMock);
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8))
+    }));
 }
 
 function _setupDocumentFontsMock(): void {

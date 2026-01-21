@@ -280,6 +280,7 @@ export class RankedSessionService {
         }
 
         if (this._difficulty && this._difficulty !== difficulty) {
+            this._snapshotScenarioTime();
             this._snapshotCurrentDifficultyState();
         }
 
@@ -300,9 +301,30 @@ export class RankedSessionService {
         this._sequence.push(...batch);
 
         this._sessionService.startRankedSession(Date.now());
+        this._sessionService.setRankedPlaylist(this._sequence);
         this._recordInitialEstimates(batch);
         this._scenarioStartTime = new Date().toISOString();
 
+        this._saveToLocalStorage();
+        this._notifyListeners();
+    }
+
+    private _resumeExistingSession(): void {
+        if (!this._difficulty || !this._difficultyStates[this._difficulty]) {
+            return;
+        }
+
+        this._applyDifficultyStateSnapshot(this._difficultyStates[this._difficulty]);
+        this._status = "ACTIVE";
+        this._startTime = new Date().toISOString();
+
+        this._jumpToNextUnplayedScenario();
+        if (this._status === "ACTIVE") {
+            this._scenarioStartTime = new Date().toISOString();
+        }
+
+        this._sessionService.startRankedSession(Date.now());
+        this._sessionService.setRankedPlaylist(this._sequence);
         this._saveToLocalStorage();
         this._notifyListeners();
     }
@@ -318,22 +340,6 @@ export class RankedSessionService {
             initialEstimates: { ...this._initialEstimates },
             accumulatedScenarioSeconds: Object.fromEntries(this._accumulatedScenarioSeconds),
         };
-    }
-
-    private _resumeExistingSession(): void {
-        if (!this._difficulty || !this._difficultyStates[this._difficulty]) {
-            return;
-        }
-
-        this._applyDifficultyStateSnapshot(this._difficultyStates[this._difficulty]);
-        this._status = "ACTIVE";
-        this._startTime = new Date().toISOString();
-
-        this._jumpToNextUnplayedScenario();
-
-        this._sessionService.startRankedSession(Date.now());
-        this._saveToLocalStorage();
-        this._notifyListeners();
     }
 
     private _applyDifficultyStateSnapshot(state: DifficultySessionState): void {
@@ -422,6 +428,7 @@ export class RankedSessionService {
         this._sequence.push(...batch);
         this._status = "ACTIVE";
 
+        this._sessionService.setRankedPlaylist(this._sequence);
         this._recordInitialEstimates(batch);
         this._snapshotScenarioTime();
         this._scenarioStartTime = new Date().toISOString();
@@ -454,6 +461,17 @@ export class RankedSessionService {
      * Checks if the session timer has expired and transitions to summary if so.
      */
     public checkExpiration(): void {
+        const isToday = this._isToday(this._rankedSessionId);
+
+        if (!isToday && !this.isSessionActive()) {
+            this._difficultyStates = {};
+            this._rankedSessionId = null;
+            this._saveToLocalStorage();
+            this._notifyListeners();
+
+            return;
+        }
+
         if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
             return;
         }
@@ -468,16 +486,23 @@ export class RankedSessionService {
      */
     public reset(): void {
         const wasSessionConcluded: boolean = this._status === "SUMMARY";
+
+        if (this._difficulty) {
+            if (wasSessionConcluded) {
+                this._playedScenarios.clear();
+                this._accumulatedScenarioSeconds.clear();
+                this._currentIndex = 0;
+                this._scenarioStartTime = null;
+                this._initialGauntletComplete = false;
+            }
+            this._snapshotCurrentDifficultyState();
+        }
+
+
         this._status = "IDLE";
+        this._difficulty = null;
 
         this._sessionService.stopRankedSession();
-
-        if (wasSessionConcluded) {
-            this._playedScenarios.clear();
-            this._accumulatedScenarioSeconds.clear();
-            this._currentIndex = 0;
-            this._scenarioStartTime = null;
-        }
 
         this._saveToLocalStorage();
         this._notifyListeners();
@@ -663,8 +688,12 @@ export class RankedSessionService {
 
                 if (this._status === "ACTIVE") {
                     updatedScenarioNames.forEach(name => {
-                        this._playedScenarios.add(name);
-                        this._rankEstimator.recordPlay(name);
+                        const isInSequence = this._sequence.includes(name);
+
+                        if (isInSequence) {
+                            this._playedScenarios.add(name);
+                            this._rankEstimator.recordPlay(name);
+                        }
                     });
                 }
             }
@@ -705,8 +734,19 @@ export class RankedSessionService {
             return;
         }
 
-        this._startTime = new Date().toISOString();
-        this._saveToLocalStorage();
+        const allRuns = this._sessionService.getAllRankedSessionRuns();
+        if (allRuns.length === 0) return;
+
+        // Extract the latest timestamp, treating missing timestamps as 0
+        const latestTimestamp = Math.max(...allRuns.map(run => run.timestamp || 0));
+        if (latestTimestamp === 0) return;
+
+        const latestTime = new Date(latestTimestamp).toISOString();
+
+        if (!this._startTime || latestTime > this._startTime) {
+            this._startTime = latestTime;
+            this._saveToLocalStorage();
+        }
     }
 
     private _saveToLocalStorage(): void {
@@ -747,6 +787,7 @@ export class RankedSessionService {
                 this._playedScenarios = new Set(difficultyState.playedScenarios || []);
                 this._initialEstimates = difficultyState.initialEstimates || {};
                 this._accumulatedScenarioSeconds = new Map(Object.entries(difficultyState.accumulatedScenarioSeconds || {}));
+                this._sessionService.setRankedPlaylist(this._sequence);
             }
         } catch {
             localStorage.removeItem(this._storageKey);

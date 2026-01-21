@@ -46,12 +46,16 @@ describe("RankTimelineComponent Logic", () => {
         const component = new RankTimelineComponent(config);
         const ranges = (component as any)._calculateViewBounds();
 
-        expect(ranges.minRU).toBeCloseTo(19.75);
-        expect(ranges.maxRU).toBeCloseTo(27.25);
+        // With target off-screen, we focus on centering Achieved (25) or aligning to 80%.
+        // minCenteredAchieved = 25 - 0.5 * 7.5 = 21.25.
+        // minRightAlignedHighest = 25 - 0.8 * 7.5 = 19.0.
+        // Math.min(21.25, 19.0) = 19.0 (leftmost).
+        expect(ranges.minRU).toBeCloseTo(19.0);
+        expect(ranges.maxRU).toBeCloseTo(26.5);
 
-        // Verify achieved is exactly at 70%
+        // Verify achieved is at exactly 80% (aligned correctly for leftmost view)
         const achievedRelative = 25 - ranges.minRU;
-        expect(achievedRelative / 7.5).toBeCloseTo(0.7);
+        expect(achievedRelative / 7.5).toBeCloseTo(0.8);
     });
 
     it("should detect offscreen target when clamped", () => {
@@ -76,10 +80,10 @@ describe("RankTimelineComponent Logic", () => {
         const caret = container.querySelector(".timeline-caret");
         expect(caret).toBeTruthy();
 
-        // Check for "TARGET" anchor snapped to 25%
-        const targetAnchor = container.querySelector(".anchor-target") as HTMLElement;
+        // Check for "TARGET" anchor snapped to 20% (Window Start)
+        const targetAnchor = container.querySelector(".anchor-target.offscreen") as HTMLElement;
         expect(targetAnchor).toBeTruthy();
-        expect(targetAnchor.style.left).toBe("25%");
+        expect(targetAnchor.style.left).toBe("20%");
     });
 
     it("should NOT clamp if achieved is close to target", () => {
@@ -128,12 +132,15 @@ describe("RankTimelineComponent Logic", () => {
         const markers = container.querySelectorAll(".timeline-marker");
         const anchors = container.querySelectorAll(".timeline-marker-anchor");
 
-        // Everything should be at 50%
-        expect((markers[0] as HTMLElement).style.left).toBe("50%");
-        expect((markers[1] as HTMLElement).style.left).toBe("50%");
+        // TargetRU 2, AchievedRU 2. Window 7.5.
+        // ABSOLUTE Position: 2 * (100 / 7.5) = 26.66%.
+        // The scroller will be translated by -minRU to center this at 50%.
+        expect(parseFloat((markers[0] as HTMLElement).style.left)).toBeCloseTo(26.66, 1);
+        expect(parseFloat((markers[1] as HTMLElement).style.left)).toBeCloseTo(26.66, 1);
 
-        expect((anchors[0] as HTMLElement).style.left).toBe("50%");
-        expect((anchors[1] as HTMLElement).style.left).toBe("50%");
+        expect(parseFloat((anchors[0] as HTMLElement).style.left)).toBeCloseTo(26.66, 1);
+        expect(parseFloat((anchors[1] as HTMLElement).style.left)).toBeCloseTo(26.66, 1);
+
     });
 
     it("should resolve collisions by shifting labels in the DOM", () => {
@@ -173,12 +180,13 @@ describe("RankTimelineComponent Logic", () => {
         const progressLine = container.querySelector(".timeline-progress-line") as HTMLElement;
         expect(progressLine).toBeTruthy();
 
-        // Window is 7.5, center is (2+4)/2 = 3. 
-        // MinRU = 3 - 3.75 = -0.75.
-        // tPct (target=2): (2 - (-0.75)) / 7.5 = 2.75 / 7.5 = 36.666...%
-        // ePct (expected=3): (3 - (-0.75)) / 7.5 = 3.75 / 7.5 = 50%
-        expect(parseFloat(progressLine.style.left)).toBeCloseTo(36.66, 1);
+        // Position is now relative to RU 0. 
+        // targetRU=2: 2 * (100 / 7.5) = 26.66%
+        // expectedRU=3: 3 * (100 / 7.5) = 40%
+        // width: 1 * (100 / 7.5) = 13.33%
+        expect(parseFloat(progressLine.style.left)).toBeCloseTo(26.66, 1);
         expect(parseFloat(progressLine.style.width)).toBeCloseTo(13.33, 1);
+
     });
 
     it("should render notches for all runs, highlighting top 3", () => {
@@ -209,9 +217,6 @@ describe("RankTimelineComponent Logic", () => {
         // Target 2. Achieved 3 (where label is). ScrollAnchor 10 (far ahead).
         // Window 7.5. Clamp at 70%.
         // 0.7 * 7.5 = 5.25.
-        // If it follows ScrollAnchor (10), MinRU should be 10 - 5.25 = 4.75.
-        // If it followed Achieved (3), MinRU would be standard centering or different clamp.
-
         const config: RankTimelineConfiguration = {
             thresholds: mockThresholds,
             settings: mockSettings,
@@ -222,7 +227,66 @@ describe("RankTimelineComponent Logic", () => {
         const component = new RankTimelineComponent(config);
         const ranges = (component as any)._calculateViewBounds();
 
-        expect(ranges.minRU).toBeCloseTo(4.75);
-        expect(ranges.maxRU).toBeCloseTo(12.25);
+        // TargetPct will be < 20%, so new logic triggers.
+        // ScrollAnchor (achieved) 10. highestScore 10. w 7.5.
+        // centered 10 - 3.75 = 6.25.
+        // rightAligned 10 - 6.0 = 4.0.
+        // min(6.25, 4.0) = 4.0 (leftmost).
+        expect(ranges.minRU).toBeCloseTo(4.0);
+        expect(ranges.maxRU).toBeCloseTo(11.5);
+    });
+
+    it("should spawn from targetRU if targetRU is within bounds on first render", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 10,
+            expectedRU: 12
+        };
+        const component = new RankTimelineComponent(config);
+
+        // Before rendering, manually confirm _currentMinRU is 0
+        expect((component as any)._currentMinRU).toBe(0);
+
+        // Render with paused = true to prevent immediate update to final position
+        const container = component.render(false, true);
+        const progressLine = container.querySelector(".timeline-progress-line") as HTMLElement;
+
+        // On first render, calculateViewBounds will return minRU = 7.25 (centered on 11)
+        // targetRU is 10. (10 - 7.25) = 2.75.
+        // targetViewPct = 2.75 / 7.5 = 36.6%. This is "within bounds".
+
+        // If FIXED, it should be targetRU * unitWidth = 10 * (100 / 7.5) = 133.33%.
+        // If NOT FIXED (using wrong _currentMinRU or broken math), it will likely be 0.
+
+        expect(parseFloat(progressLine.style.left)).toBeCloseTo(133.33, 1);
+    });
+
+    it("should spawn from left if targetRU is outside anchor width on first render", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 0,
+            expectedRU: 12
+        };
+        const component = new RankTimelineComponent(config);
+
+        // On first render:
+        // targetRU = 0. expectedRU = 12.
+        // highscore - target = 12 - 0 = 12. 0.6 * 7.5 = 4.5.
+        // 12 > 4.5 -> case 3.
+        // achievedRU is undefined. minRU = highscoreAt80 = 12 - 0.8 * 7.5 = 12 - 6 = 6.0.
+        // minRU = 6.0. Viewport [6.0, 13.5].
+
+        // targetRU is 0. targetViewPct = (0 - 6) / 7.5 = -80%.
+        // This is definitely outside 20-80%.
+
+        // So initialLeft should be viewportMinRU * unitWidth = 6.0 * (100 / 7.5) = 80%.
+
+        const container = component.render(false, true);
+        const progressLine = container.querySelector(".timeline-progress-line") as HTMLElement;
+
+        // Verify it spawns from the viewport left edge (80% in scroller-space)
+        expect(parseFloat(progressLine.style.left)).toBeCloseTo(80.0, 1);
     });
 });

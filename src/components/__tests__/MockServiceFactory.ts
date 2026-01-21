@@ -16,6 +16,7 @@ import { FocusManagementService } from "../../services/FocusManagementService";
 import { AudioService } from "../../services/AudioService";
 import { CloudflareService } from "../../services/CloudflareService";
 import { IdentityService } from "../../services/IdentityService";
+import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
 
 
 /**
@@ -38,7 +39,8 @@ export class MockServiceFactory {
             ...this._createStateServices(overrides),
             ...this._createInfrastructureServices(overrides),
             rankEstimator: estimator,
-            estimator: estimator
+            estimator: estimator,
+            cosmeticOverride: this._createCosmeticOverride(overrides.cosmeticOverride as Record<string, unknown>)
         } as unknown as BenchmarkViewServices;
     }
 
@@ -73,13 +75,20 @@ export class MockServiceFactory {
      */
     public static createAppStateMock(overrides: Record<string, unknown> = {}): AppStateService {
         return {
+            getActiveTabId: vi.fn().mockReturnValue("nav-benchmarks"),
+            setActiveTabId: vi.fn(),
+            onTabChanged: vi.fn(),
             getBenchmarkDifficulty: vi.fn().mockReturnValue("Advanced"),
-            getBenchmarkScrollTop: vi.fn().mockReturnValue(0),
             setBenchmarkDifficulty: vi.fn(),
-            getIsFolderViewOpen: vi.fn().mockReturnValue(false),
-            getIsSettingsMenuOpen: vi.fn().mockReturnValue(false),
-            getTheme: vi.fn().mockReturnValue("dark"),
             onDifficultyChanged: vi.fn(),
+            getIsSettingsMenuOpen: vi.fn().mockReturnValue(false),
+            setIsSettingsMenuOpen: vi.fn(),
+            getIsFolderViewOpen: vi.fn().mockReturnValue(false),
+            setIsFolderViewOpen: vi.fn(),
+            getBenchmarkScrollTop: vi.fn().mockReturnValue(0),
+            setBenchmarkScrollTop: vi.fn(),
+            getFocusedScenarioName: vi.fn().mockReturnValue(null),
+            setFocusedScenarioName: vi.fn(),
             ...overrides
         } as unknown as AppStateService;
     }
@@ -125,6 +134,7 @@ export class MockServiceFactory {
             getAvailableDifficulties: vi.fn().mockReturnValue(["Advanced"]),
             getRankNames: vi.fn().mockReturnValue(["Bronze", "Silver", "Gold"]),
             getDifficulty: vi.fn().mockReturnValue("Advanced"),
+            isPeak: vi.fn().mockReturnValue(false),
             ...overrides
         } as unknown as BenchmarkService;
     }
@@ -195,7 +205,8 @@ export class MockServiceFactory {
             showRankNotches: true, highlightLatestRun: true,
             showRankEstimate: true, showRanks: true,
             audioVolume: 80,
-            showIntervalsSettings: true
+            showIntervalsSettings: true,
+            playAnimationsUnfocused: false
         };
     }
 
@@ -259,5 +270,17 @@ export class MockServiceFactory {
             onUnlinkFolder: vi.fn(),
             ...overrides
         } as { onLinkFolder: () => Promise<void>, onForceScan: () => Promise<void>, onUnlinkFolder: () => void };
+    }
+
+    private static _createCosmeticOverride(overrides: Record<string, unknown> = {}): CosmeticOverrideService {
+        return {
+            isActiveFor: vi.fn().mockReturnValue(false),
+            getFakeEstimatedRank: vi.fn().mockReturnValue({ rankName: "Bronze", progressToNext: 0, continuousValue: 0 }),
+            getFakeRankResult: vi.fn().mockReturnValue({ currentRank: "Bronze", progressPercentage: 0 }),
+            onStateChanged: vi.fn(),
+            activate: vi.fn(),
+            deactivate: vi.fn(),
+            ...overrides
+        } as unknown as CosmeticOverrideService;
     }
 }

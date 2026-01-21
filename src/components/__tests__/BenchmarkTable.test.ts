@@ -6,6 +6,7 @@ import { BenchmarkScenario } from "../../data/benchmarks";
 import { ScenarioNameWidthManager } from "../benchmark/ScenarioNameWidthManager";
 import { BenchmarkViewServices } from "../BenchmarkView";
 import { AppStateService } from "../../services/AppStateService";
+import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
 
 const CONST_REALISTIC_SCENARIOS: BenchmarkScenario[] = [
     {
@@ -300,6 +301,7 @@ function _instantiateBenchmarkTable(dependencyContainer: MockViewDependencies): 
         audioService: dependencyContainer.audio,
         focusService: dependencyContainer.focus,
         rankEstimator: dependencyContainer.rankEstimator,
+        cosmeticOverride: { isActiveFor: () => false } as unknown as CosmeticOverrideService,
     });
 }
 

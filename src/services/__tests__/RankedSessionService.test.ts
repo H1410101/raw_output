@@ -116,8 +116,11 @@ describe("RankedSessionService: Timer Reset", (): void => {
         _setupStandardSession(service, mocks);
         const initialStartTime: string | null = service.state.startTime;
 
-        // Ensure at least 1ms passes
-        await new Promise((resolve): void => { setTimeout(resolve, 1); });
+        // Mock a new run that is newer than initialStartTime
+        const runTimestamp = Date.now() + 5000;
+        (mocks.session.getAllRankedSessionRuns as Mock).mockReturnValue([
+            { scenarioName: "someScenario", score: 100, timestamp: runTimestamp }
+        ]);
 
         const onSessionUpdated: Mock = mocks.session.onSessionUpdated as Mock;
         const onSessionUpdatedCallback: SessionUpdateListener = onSessionUpdated.mock.calls[0][0] as SessionUpdateListener;
@@ -125,6 +128,7 @@ describe("RankedSessionService: Timer Reset", (): void => {
 
         const newStartTime: string | null = service.state.startTime;
         expect(newStartTime).not.toBe(initialStartTime);
+        expect(newStartTime).toBe(new Date(runTimestamp).toISOString());
     });
 });
 
@@ -160,7 +164,10 @@ function _createMocks(): MockSet {
     localStorage.clear();
 
     return {
-        benchmark: { getScenarios: vi.fn() } as unknown as BenchmarkService,
+        benchmark: {
+            getScenarios: vi.fn(),
+            getDifficulty: vi.fn().mockReturnValue("Gold"),
+        } as unknown as BenchmarkService,
         session: {
             setIsRanked: vi.fn(),
             onSessionUpdated: vi.fn(),
@@ -170,6 +177,8 @@ function _createMocks(): MockSet {
             getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
             getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
             getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
+            getRankedScenarioBest: vi.fn().mockReturnValue({}),
+            setRankedPlaylist: vi.fn(),
         } as unknown as SessionService,
         estimator: { getScenarioEstimate: vi.fn(), recordPlay: vi.fn() } as unknown as RankEstimator,
         settings: {

@@ -1,26 +1,49 @@
-import { RankedSessionService, RankedSessionState } from "../services/RankedSessionService";
+import { RankedSessionService, RankedSessionState, RankedSessionStatus } from "../services/RankedSessionService";
 import { SessionService } from "../services/SessionService";
 import { BenchmarkService } from "../services/BenchmarkService";
 import { RankEstimator, EstimatedRank, ScenarioEstimate } from "../services/RankEstimator";
 import { BenchmarkScenario } from "../data/benchmarks";
-
 import { AppStateService } from "../services/AppStateService";
 import { HistoryService } from "../services/HistoryService";
 import { VisualSettingsService } from "../services/VisualSettingsService";
 import { AudioService } from "../services/AudioService";
-import { RankTimelineComponent } from "./visualizations/RankTimelineComponent";
+import { RankTimelineComponent, RankTimelineConfiguration } from "./visualizations/RankTimelineComponent";
 import { SummaryTimelineComponent } from "./visualizations/SummaryTimelineComponent";
 import { FolderSettingsView, FolderActionHandlers } from "./ui/FolderSettingsView";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { SessionSettingsService } from "../services/SessionSettingsService";
+import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
+import { CosmeticOverrideService } from "../services/CosmeticOverrideService";
+
+interface LaunchHoldState {
+  progress: number;
+  holdInterval: number | null;
+  regenInterval: number | null;
+  fadeTimeout: number | null;
+  button: HTMLElement;
+  progressBar: HTMLElement;
+  scenarioName: string | null;
+  tickCount: number;
+  onComplete: () => void;
+}
+
+interface SummaryItem {
+  name: string;
+  oldRU: number;
+  newRU: number;
+  gain: number;
+  time: number;
+  attempts: number;
+}
 
 export interface RankedViewDependencies {
   readonly rankedSession: RankedSessionService;
   readonly session: SessionService;
   readonly benchmark: BenchmarkService;
   readonly estimator: RankEstimator;
+  readonly cosmeticOverride: CosmeticOverrideService;
   readonly appState: AppStateService;
   readonly history: HistoryService;
   readonly visualSettings: VisualSettingsService;
@@ -42,6 +65,15 @@ export class RankedView {
   private readonly _deps: RankedViewDependencies;
   private _folderSettingsView: FolderSettingsView | null = null;
   private _hudInterval: number | null = null;
+  private _activeTimeline: RankTimelineComponent | null = null;
+  private _activeTimelineScenario: string | null = null;
+  private _lastStatus: RankedSessionState["status"] | null = null;
+  private _lastScenarioName: string | null = null;
+  private _summaryTimelines: SummaryTimelineComponent[] = [];
+  private readonly _pendingSummaryScenarios: Set<string> = new Set();
+  private readonly _onBrowserFocusBound: () => void;
+  private _summaryTimeouts: number[] = [];
+  private _isProcessingSummaryQueue: boolean = false;
 
   /**
    * Initializes the view with its mount point.
@@ -54,6 +86,198 @@ export class RankedView {
     this._deps = deps;
 
     this._setupListeners();
+
+    this._onBrowserFocusBound = this._onBrowserFocus.bind(this);
+    window.addEventListener("focus", this._onBrowserFocusBound);
+    // Also update indicator on blur
+    window.addEventListener("blur", this._onBrowserFocusBound);
+
+    this._deps.appState.onTabChanged((): void => {
+      if (this._deps.appState.getActiveTabId() !== "nav-ranked") {
+        this._clearSummaryTimeouts();
+      }
+    });
+  }
+
+  /**
+   * Cleans up resources and listeners.
+   */
+  public destroy(): void {
+    window.removeEventListener("focus", this._onBrowserFocusBound);
+    window.removeEventListener("blur", this._onBrowserFocusBound);
+    this._stopHudTicking();
+    this._clearSummaryTimeouts();
+  }
+
+  private _onBrowserFocus(): void {
+    this._updateAnimationIndicator();
+
+    if (document.hasFocus()) {
+      if (this._activeTimeline) {
+        this._activeTimeline.play();
+      }
+      this._playSummaryAnimations();
+    } else {
+      this._clearSummaryTimeouts();
+    }
+  }
+
+  private _playSummaryAnimations(): void {
+    if (!this._isViewVisible() || !document.hasFocus() || this._lastStatus !== "SUMMARY") return;
+    if (this._isProcessingSummaryQueue) return;
+
+    this._isProcessingSummaryQueue = true;
+    this._processNextSummaryItem();
+  }
+
+  private _processNextSummaryItem(): void {
+    if (!this._isViewVisible() || !document.hasFocus() || this._lastStatus !== "SUMMARY") {
+      this._isProcessingSummaryQueue = false;
+
+      return;
+    }
+
+    const list = this._container.querySelector(".scenarios-list") as HTMLElement;
+    if (!list) {
+      this._isProcessingSummaryQueue = false;
+
+      return;
+    }
+
+    const nextItem = this._findNextSummaryItem(list);
+
+    if (!nextItem) {
+      this._finishSummaryQueue();
+
+      return;
+    }
+
+    this._spawnSummaryItem(list, nextItem);
+  }
+
+  private _findNextSummaryItem(list: HTMLElement): SummaryItem | null {
+    const summaryData = this._calculateSummaryData();
+
+    return summaryData.find((data) => {
+      const itemId = `item-${this._slugify(data.name)}`;
+
+      const exists = !!list.querySelector(`#${CSS.escape(itemId)}`);
+      const isPending = this._pendingSummaryScenarios.has(data.name);
+
+      return !exists && !isPending;
+    }) ?? null;
+  }
+
+  private _finishSummaryQueue(): void {
+    this._summaryTimelines.forEach((timeline) => {
+      if (!timeline.hasStarted()) {
+        timeline.play();
+      }
+    });
+
+    this._isProcessingSummaryQueue = false;
+  }
+
+  private _spawnSummaryItem(list: HTMLElement, data: SummaryItem): void {
+    const slug = this._slugify(data.name);
+    const containerId = `rank-timeline-summary-${slug}`;
+    const itemId = `item-${slug}`;
+
+    this._pendingSummaryScenarios.add(data.name);
+
+    const timeoutId = window.setTimeout((): void => {
+      this._removeSummaryTimeout(timeoutId);
+      this._addSummaryItem(list, data, containerId, itemId);
+      this._scheduleNextSummaryItem();
+    }, 100);
+
+    this._summaryTimeouts.push(timeoutId);
+  }
+
+  private _scheduleNextSummaryItem(): void {
+    const nextTimeoutId = window.setTimeout(() => {
+      this._removeSummaryTimeout(nextTimeoutId);
+      this._processNextSummaryItem();
+    }, 1000);
+
+    this._summaryTimeouts.push(nextTimeoutId);
+  }
+
+  private _removeSummaryTimeout(timeoutId: number): void {
+    const index = this._summaryTimeouts.indexOf(timeoutId);
+    if (index !== -1) {
+      this._summaryTimeouts.splice(index, 1);
+    }
+  }
+
+  private _isViewVisible(): boolean {
+    return this._deps.appState.getActiveTabId() === "nav-ranked";
+  }
+
+  private _slugify(text: string): string {
+    return text.replace(/\s+/g, "-").replace(/[^\w-]/g, "");
+  }
+
+
+  private _addSummaryItem(list: HTMLElement, data: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }, containerId: string, itemId: string): void {
+    const existing = list.querySelector(`#${CSS.escape(itemId)}`);
+
+    if (existing) {
+      this._pendingSummaryScenarios.delete(data.name);
+
+      return;
+    }
+
+    const item = document.createElement("div");
+
+    item.className = "scenario-summary-item summary-timeline-item entering";
+
+    item.setAttribute("id", itemId);
+
+    item.innerHTML = `<div id="${containerId}"></div>`;
+
+    list.appendChild(item);
+
+    this._deps.audio.playSuccessPerc(0.4);
+
+    // Force reflow to trigger transition
+    void item.offsetHeight;
+
+    requestAnimationFrame((): void => {
+      if (this._lastStatus !== "SUMMARY" || !list.contains(item)) {
+        this._pendingSummaryScenarios.delete(data.name);
+
+        return;
+      }
+
+      item.classList.remove("entering");
+      this._pendingSummaryScenarios.delete(data.name);
+
+      this._updateSummaryTimeline(containerId, data);
+
+      const timeline = this._summaryTimelines[this._summaryTimelines.length - 1];
+      if (timeline) {
+        timeline.play();
+      }
+
+      this._scrollToBottom(list);
+    });
+  }
+
+  private _scrollToBottom(list: HTMLElement): void {
+    const isScrollable = list.scrollHeight > list.clientHeight;
+    if (isScrollable) {
+      list.scrollTo({
+        top: list.scrollHeight,
+        behavior: "smooth"
+      });
+    }
+  }
+
+  private _clearSummaryTimeouts(): void {
+    this._summaryTimeouts.forEach((timeout): void => window.clearTimeout(timeout));
+    this._summaryTimeouts = [];
+    this._isProcessingSummaryQueue = false;
   }
 
   /**
@@ -96,7 +320,6 @@ export class RankedView {
    * Renders the current state of the Ranked view.
    */
   public async render(): Promise<void> {
-    // Check if we should show the folder settings view instead of the ranked view
     if (await this._shouldShowFolderSettings()) {
       await this._renderFolderView();
 
@@ -104,10 +327,81 @@ export class RankedView {
     }
 
     const state: RankedSessionState = this._deps.rankedSession.state;
+    const scenarioName = this._getActiveScenarioName(state);
 
+    if (this._shouldPerformQuickUpdate(state, scenarioName)) {
+      this._performQuickUpdate(scenarioName!);
+
+      return;
+    }
+
+    this._updateLastKnownState(state.status, scenarioName);
     this._stopHudTicking();
+    this._clearSummaryTimeouts();
     this._container.innerHTML = "";
 
+    this._summaryTimelines.forEach((timeline) => timeline.destroy());
+    this._summaryTimelines = [];
+    this._pendingSummaryScenarios.clear();
+
+    this._renderMainUI(state);
+
+    if (state.status === "SUMMARY") {
+      const timeoutId = window.setTimeout(() => {
+        this._removeSummaryTimeout(timeoutId);
+
+        this._playSummaryAnimations();
+      }, 500);
+
+      this._summaryTimeouts.push(timeoutId);
+    }
+  }
+
+  private _getActiveScenarioName(state: RankedSessionState): string | null {
+    return (state.status === "ACTIVE" || state.status === "SUMMARY")
+      ? state.sequence[state.currentIndex]
+      : null;
+  }
+
+  private _shouldPerformQuickUpdate(state: RankedSessionState, scenarioName: string | null): boolean {
+    const statusChanged = this._lastStatus !== state.status;
+    const scenarioChanged = this._lastScenarioName !== scenarioName;
+
+    return !statusChanged && !scenarioChanged && state.status === "ACTIVE";
+  }
+
+  private _performQuickUpdate(scenarioName: string): void {
+    const containerId = `rank-timeline-${this._slugify(scenarioName)}`;
+
+    this._updateRankTimeline(containerId, scenarioName);
+    this._updateHolisticRankUI();
+    this._updateHudStats();
+    this._updateDrainAnimation(this._container);
+    this._updateAnimationIndicator();
+  }
+
+  private _updateAnimationIndicator(): void {
+    const indicator = this._container.querySelector(".now-playing") as HTMLElement;
+    if (!indicator) return;
+
+    const shouldPlay = this._shouldPlayAnimations();
+    this._container.classList.toggle("animate-on-focus", shouldPlay);
+  }
+
+  private _shouldPlayAnimations(): boolean {
+    const settings = this._deps.visualSettings.getSettings();
+    const isFocused = document.hasFocus();
+
+    return isFocused || settings.playAnimationsUnfocused;
+  }
+
+
+  private _updateLastKnownState(status: RankedSessionStatus, scenarioName: string | null): void {
+    this._lastStatus = status;
+    this._lastScenarioName = scenarioName;
+  }
+
+  private _renderMainUI(state: RankedSessionState): void {
     const viewContainer: HTMLDivElement = document.createElement("div");
     viewContainer.className = "benchmark-view-container";
 
@@ -118,6 +412,7 @@ export class RankedView {
     this._container.classList.toggle("session-active", isSessionActive);
     document.body.classList.toggle("ranked-mode-active", isSessionActive);
 
+    this._container.appendChild(viewContainer);
 
     if (state.status === "IDLE") {
       this._renderIdle(viewContainer);
@@ -125,7 +420,7 @@ export class RankedView {
       this._renderActiveState(state, viewContainer);
     }
 
-    this._container.appendChild(viewContainer);
+    this._updateAnimationIndicator();
   }
 
   /**
@@ -150,8 +445,6 @@ export class RankedView {
   }
 
   private _handleSessionUpdate(): void {
-    // We simply refresh the view when the session updates.
-    // Rank evolution is now deferred to RankedSessionService.endSession().
     this.refresh();
   }
 
@@ -174,19 +467,46 @@ export class RankedView {
   private _createHolisticRankUI(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "holistic-rank-container";
-    const estimate = this._calculateHolisticEstimateRank();
+    container.setAttribute("id", "holistic-rank-ui");
+
+    this._fillHolisticRankUI(container);
+
+    return container;
+  }
+
+  private _updateHolisticRankUI(): void {
+    const container = document.getElementById("holistic-rank-ui");
+    if (container) {
+      this._fillHolisticRankUI(container);
+    }
+  }
+
+  private _fillHolisticRankUI(container: HTMLElement): void {
+    const difficulty = this._deps.appState.getBenchmarkDifficulty();
+    const estimate = this._deps.cosmeticOverride.isActiveFor(difficulty)
+      ? this._deps.cosmeticOverride.getFakeEstimatedRank(difficulty)
+      : this._calculateHolisticEstimateRank();
+
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
 
+    const isPeak = this._deps.benchmark.isPeak(difficulty);
+    const peakIcon = this._getPeakIconHtml(isPeak);
+
     container.innerHTML = `
         <div class="badge-content">
-            <span class="${rankClass}">
+            <span class="${rankClass}" style="display: inline-flex; justify-content: flex-end; align-items: center; gap: 0.5rem;">
+                ${peakIcon}
                 <span class="rank-text-inner">${estimate.rankName}</span>
             </span>
             <span class="rank-progress">${estimate.continuousValue === 0 ? "" : `+${estimate.progressToNext}%`}</span>
         </div>
     `;
 
+    this._attachRankPopupListener(container, estimate.rankName);
+  }
+
+  private _attachRankPopupListener(container: HTMLElement, rankName: string): void {
     const rankInner = container.querySelector(".rank-text-inner") as HTMLElement;
     if (rankInner) {
       rankInner.style.cursor = "pointer";
@@ -194,13 +514,40 @@ export class RankedView {
         event.stopPropagation();
         const difficulty = this._deps.appState.getBenchmarkDifficulty();
         const rankNames = this._deps.benchmark.getRankNames(difficulty);
-        const popup = new RankPopupComponent(rankInner, estimate.rankName, rankNames);
+        const popup = new RankPopupComponent(rankInner, rankName, rankNames);
         popup.render();
       });
     }
 
-    return container;
+    const peakWarningIcon = container.querySelector(".peak-warning-icon") as HTMLElement;
+    if (peakWarningIcon) {
+      peakWarningIcon.style.cursor = "pointer";
+      peakWarningIcon.addEventListener("click", (event: Event) => {
+        event.stopPropagation();
+        const popup = new PeakWarningPopupComponent(this._deps.audio, this._deps.cosmeticOverride);
+        popup.subscribeToClose(() => {
+          this._deps.audio.playHeavy(0.4);
+        });
+        popup.render();
+      });
+    }
   }
+
+  private _getPeakIconHtml(isPeak: boolean): string {
+    if (!isPeak) {
+      return "";
+    }
+
+    return `
+      <span class="peak-warning-icon" style="display: flex; align-items: center; color: var(--lower-band-3);">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+           <line x1="12" y1="9" x2="12" y2="13"></line>
+           <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+      </span>`;
+  }
+
 
   private _createDifficultyTabs(): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
@@ -241,9 +588,12 @@ export class RankedView {
     parent.appendChild(container);
 
     const startBtn: HTMLButtonElement | null = container.querySelector("#start-ranked-btn");
-    startBtn?.addEventListener("click", (): void => {
-      this._deps.rankedSession.startSession(difficulty);
-    });
+    if (startBtn) {
+      const progressBar = startBtn.querySelector(".launch-progress-bar") as HTMLElement;
+      this._setupHoldInteractions(startBtn, progressBar, null, () => {
+        this._deps.rankedSession.startSession(difficulty);
+      });
+    }
   }
 
   private _getIdleHtml(): string {
@@ -259,11 +609,12 @@ export class RankedView {
               <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
           </div>
           <button class="media-btn primary" id="start-ranked-btn">
-              <svg viewBox="0 0 24 24">
-                  <g transform="matrix(0.6 0 0 0.6 4.8 4.8)">
-                      <path d="M8 5v14l11-7z"/>
-                  </g>
-              </svg>
+              <div class="launch-socket"></div>
+              <div class="launch-triangle"></div>
+              <div class="launch-dot"></div>
+              <div class="launch-progress-container">
+                  <div class="launch-progress-bar"></div>
+              </div>
           </button>
           <div class="controls-right" style="visibility: hidden;">
               <button class="media-btn secondary"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
@@ -272,6 +623,7 @@ export class RankedView {
       </div>
     `;
   }
+
 
   private _renderActiveState(state: RankedSessionState, parent: HTMLElement): void {
     const container: HTMLDivElement = document.createElement("div");
@@ -290,7 +642,11 @@ export class RankedView {
 
   private _startHudTicking(): void {
     this._updateHudStats();
-    this._hudInterval = window.setInterval(() => this._updateHudStats(), 1000);
+    this._updateAnimationIndicator();
+    this._hudInterval = window.setInterval(() => {
+      this._updateHudStats();
+      this._updateAnimationIndicator();
+    }, 1000);
   }
 
   private _stopHudTicking(): void {
@@ -299,7 +655,6 @@ export class RankedView {
       this._hudInterval = null;
     }
   }
-
 
   private _updateHudStats(): void {
     const scenarioStats = document.getElementById("hud-scenario-stats");
@@ -313,13 +668,11 @@ export class RankedView {
     const currentScenario = state.sequence[state.currentIndex];
     const allRuns = this._deps.session.getAllRankedSessionRuns();
 
-    // Scenario Stats: Time | Attempts
     const scenarioTime: number = this._deps.rankedSession.scenarioElapsedSeconds;
     const scenarioAttempts: number = allRuns.filter(run => run.scenarioName === currentScenario).length;
 
     scenarioStats.textContent = `${this._formatHudTime(scenarioTime)} | ${scenarioAttempts}`;
 
-    // Session Stats: Attempts | Time
     const sessionStartTime: number | null = this._deps.session.rankedStartTime;
     const sessionTime: number = sessionStartTime ? Math.floor((Date.now() - sessionStartTime) / 1000) : 0;
     const sessionAttempts: number = allRuns.length;
@@ -334,7 +687,6 @@ export class RankedView {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
 
-
   private _renderMainContent(state: RankedSessionState): string {
     if (state.status === "COMPLETED") {
       return this._renderCompletedContent();
@@ -348,7 +700,7 @@ export class RankedView {
   }
 
   private _renderSummaryContent(): string {
-    const summaryData = this._calculateSummaryData();
+    const summaryData: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] = this._calculateSummaryData();
 
     return `
       <div class="ranked-info-top">
@@ -356,11 +708,7 @@ export class RankedView {
       </div>
       <div class="summary-content-wrapper">
           <div class="scenarios-list summary-scrollable">
-              ${summaryData.length > 0 ? summaryData.map(data => `
-                  <div class="scenario-summary-item summary-timeline-item">
-                    ${this._renderSummaryTimeline(data)}
-                  </div>
-              `).join('') : '<p class="no-scenarios">No rank gains this session.</p>'}
+              ${summaryData.length === 0 ? '<p class="no-scenarios">No rank gains this session.</p>' : ""}
           </div>
       </div>
       <div class="media-controls">
@@ -375,22 +723,29 @@ export class RankedView {
     `;
   }
 
-  private _calculateSummaryData(): { name: string; oldRU: number; newRU: number; gain: number }[] {
+  private _calculateSummaryData(): { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] {
     const state = this._deps.rankedSession.state;
     const initialEstimates = state.initialEstimates;
-    const results: { name: string; oldRU: number; newRU: number; gain: number }[] = [];
+    const allRuns = this._deps.session.getAllRankedSessionRuns();
+    const results: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] = [];
 
     for (const scenarioName of state.playedScenarios) {
       const oldRU = initialEstimates[scenarioName] ?? 0;
-      const currentEstimate = this._deps.estimator.getScenarioEstimate(scenarioName);
+      const currentEstimate = this._deps.cosmeticOverride.isActiveFor(this._deps.appState.getBenchmarkDifficulty())
+        ? this._deps.cosmeticOverride.getFakeEstimatedRank(this._deps.appState.getBenchmarkDifficulty())
+        : this._deps.estimator.getScenarioEstimate(scenarioName);
       const newRU = currentEstimate.continuousValue;
 
-      if (newRU > oldRU + 0.001) {
+      const attemptsCount = allRuns.filter(run => run.scenarioName === scenarioName).length;
+
+      if (attemptsCount > 0 || state.status === "SUMMARY") {
         results.push({
           name: scenarioName,
           oldRU,
           newRU,
-          gain: Math.round((newRU - oldRU) * 100)
+          gain: Math.max(0, Math.round((newRU - oldRU) * 100)),
+          time: state.accumulatedScenarioSeconds[scenarioName] ?? 0,
+          attempts: Math.max(attemptsCount, 1)
         });
       }
     }
@@ -398,17 +753,8 @@ export class RankedView {
     return results.sort((a, b) => b.gain - a.gain);
   }
 
-  private _renderSummaryTimeline(data: { name: string; oldRU: number; newRU: number; gain: number }): string {
-    const containerId: string = `rank-timeline-summary-${data.name.replace(/\s+/g, "-")}`;
 
-    setTimeout((): void => {
-      this._updateSummaryTimeline(containerId, data);
-    }, 0);
-
-    return `<div id="${containerId}"></div>`;
-  }
-
-  private _updateSummaryTimeline(containerId: string, data: { name: string; oldRU: number; newRU: number; gain: number }): void {
+  private _updateSummaryTimeline(containerId: string, data: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }): void {
     const container: HTMLElement | null = document.getElementById(containerId);
     if (!container) return;
 
@@ -429,14 +775,17 @@ export class RankedView {
       oldRankName: oldEstimate.rankName,
       newRankName: newEstimate.rankName,
       oldProgress: oldEstimate.progressToNext,
-      newProgress: newEstimate.progressToNext
+      newProgress: newEstimate.progressToNext,
+      totalSecondsSpent: data.time,
+      attempts: data.attempts
     });
 
     container.innerHTML = "";
     container.appendChild(timeline.render());
     timeline.resolveCollisions();
-  }
 
+    this._summaryTimelines.push(timeline);
+  }
 
   private _renderCompletedContent(): string {
     return `
@@ -445,10 +794,10 @@ export class RankedView {
           <p style="color: var(--text-dim); line-height: 1.4; margin: 0;">End run,<br>or Keep Going?</p>
           
           <div style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; padding-bottom: 0.35rem;">
-              <button class="media-btn secondary destructive" id="end-ranked-btn" title="End Run">
+              <button class="media-btn secondary destructive" id="end-ranked-btn">
                   <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
               </button>
-              <button class="media-btn secondary" id="extend-ranked-btn" title="Keep Going">
+              <button class="media-btn secondary" id="extend-ranked-btn">
                   <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
               </button>
           </div>
@@ -456,13 +805,19 @@ export class RankedView {
     `;
   }
 
-
   private _renderRankTimeline(scenarioName: string): string {
-    const containerId: string = `rank-timeline-${scenarioName.replace(/\s+/g, "-")}`;
+    const containerId: string = `rank-timeline-${this._slugify(scenarioName)}`;
 
-    setTimeout((): void => {
+    const timeoutId = window.setTimeout((): void => {
+      const indexInList = this._summaryTimeouts.indexOf(timeoutId);
+      if (indexInList !== -1) {
+        this._summaryTimeouts.splice(indexInList, 1);
+      }
+
       this._updateRankTimeline(containerId, scenarioName);
     }, 0);
+
+    this._summaryTimeouts.push(timeoutId);
 
     return `<div id="${containerId}" class="rank-timeline-container"></div>`;
   }
@@ -483,10 +838,26 @@ export class RankedView {
       return;
     }
 
+    const config = this._prepareTimelineConfig(scenarioName, scenario);
+    const isSameScenario = this._activeTimelineScenario === scenarioName;
+    const shouldPlay = this._shouldPlayAnimations();
+    const paused = !shouldPlay;
+    const immediate = false;
+
+    if (this._activeTimeline && isSameScenario) {
+      this._updateExistingTimeline(container, config, immediate, paused);
+    } else {
+      this._createNewTimeline(container, config, scenarioName, { immediate, paused });
+    }
+
+    this._activeTimeline!.resolveCollisions();
+  }
+
+  private _prepareTimelineConfig(scenarioName: string, scenario: BenchmarkScenario): RankTimelineConfiguration {
     const { estimate, initialRU, achievedRU, bestRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
     const targetRU = initialRU !== undefined && initialRU !== -1 ? initialRU : undefined;
 
-    const timeline: RankTimelineComponent = new RankTimelineComponent({
+    return {
       thresholds: scenario.thresholds,
       settings: this._deps.visualSettings.getSettings(),
       targetRU,
@@ -494,11 +865,34 @@ export class RankedView {
       scrollAnchorRU: bestRU,
       expectedRU: this._calculateExpectedRU(estimate.continuousValue, targetRU ?? 0, achievedRU),
       attemptsRU
-    });
+    };
+  }
 
+  private _updateExistingTimeline(container: HTMLElement, config: RankTimelineConfiguration, immediate: boolean, paused: boolean): void {
+    const timelineContainer = this._activeTimeline!.getContainer();
+
+    if (container.firstChild !== timelineContainer) {
+      container.innerHTML = "";
+      container.appendChild(timelineContainer);
+    }
+
+    this._activeTimeline!.update(config, immediate, paused);
+  }
+
+  private _createNewTimeline(
+    container: HTMLElement,
+    config: RankTimelineConfiguration,
+    scenarioName: string,
+    options: { immediate: boolean; paused: boolean }
+  ): void {
+    this._activeTimeline = new RankTimelineComponent(config);
+    this._activeTimelineScenario = scenarioName;
+
+    this._activeTimeline.render(options.immediate, options.paused);
+
+    const timelineContainer = this._activeTimeline.getContainer();
     container.innerHTML = "";
-    container.appendChild(timeline.render());
-    timeline.resolveCollisions();
+    container.appendChild(timelineContainer);
   }
 
   private _getScenarioPerformanceData(
@@ -561,7 +955,7 @@ export class RankedView {
           </div>
 
           <div class="controls-left">
-              <button class="media-btn secondary" id="ranked-help-btn" title="Ranked Mode Info">
+              <button class="media-btn secondary" id="ranked-help-btn">
                   <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
               </button>
               <button class="media-btn secondary" id="ranked-back-btn" ${state.currentIndex === 0 ? "disabled" : ""}>
@@ -607,19 +1001,18 @@ export class RankedView {
 
   private _getPlayButtonHtml(): string {
     return `
-      <button class="media-btn primary" id="ranked-play-now">
-          <svg viewBox="0 0 24 24">
-              <mask id="play-drain-mask">
-                  <rect x="0" y="0" width="24" height="24" fill="black" />
-                  <rect id="play-drain-water" x="0" y="0" width="24" height="24" fill="white" />
-              </mask>
-              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none" mask="url(#play-drain-mask)" />
-              <g transform="matrix(0.6 0 0 0.6 4.8 4.8)">
-                  <path d="M8 5v14l11-7z"/>
-              </g>
-          </svg>
-      </button>
-    `;
+    <button class="media-btn primary" id="ranked-play-now">
+        <div class="launch-timer-fill-container">
+            <div class="launch-timer-fill" id="play-drain-water"></div>
+        </div>
+        <div class="launch-socket"></div>
+        <div class="launch-triangle"></div>
+        <div class="launch-dot"></div>
+        <div class="launch-progress-container">
+            <div class="launch-progress-bar"></div>
+        </div>
+    </button>
+  `;
   }
 
   private _attachActiveListeners(container: HTMLElement): void {
@@ -636,10 +1029,13 @@ export class RankedView {
     finishBtn?.addEventListener("click", () => this._deps.rankedSession.reset());
 
     const playNowBtn: HTMLButtonElement | null = container.querySelector("#ranked-play-now");
-    playNowBtn?.addEventListener("click", () => {
+    if (playNowBtn) {
+      const progressBar = playNowBtn.querySelector(".launch-progress-bar") as HTMLElement;
       const scenarioName = this._deps.rankedSession.state.sequence[this._deps.rankedSession.state.currentIndex];
-      this._launchScenario(scenarioName);
-    });
+      this._setupHoldInteractions(playNowBtn, progressBar, scenarioName, () => {
+        this._launchScenario(scenarioName);
+      });
+    }
 
     const backBtn: HTMLButtonElement | null = container.querySelector("#ranked-back-btn");
     backBtn?.addEventListener("click", () => this._deps.rankedSession.retreat());
@@ -653,8 +1049,15 @@ export class RankedView {
     this._updateDrainAnimation(container);
   }
 
+  /**
+   * Synchronizes the play button's circular drain animation with the backend session timer.
+   *
+   * @param container - The parent container containing the water element.
+   * @private
+   */
   private _updateDrainAnimation(container: HTMLElement): void {
     const water: HTMLElement | null = container.querySelector("#play-drain-water");
+
     if (!water) {
       return;
     }
@@ -663,9 +1066,224 @@ export class RankedView {
     const totalMinutes = this._deps.sessionSettings.getSettings().rankedIntervalMinutes;
     const totalSeconds = totalMinutes * 60;
 
-    water.style.transition = "none";
-    water.style.animation = `drain-vertical ${totalSeconds}s linear forwards`;
-    water.style.animationDelay = `-${elapsed}s`;
+    water.style.animationName = "none";
+    water.style.transform = "translateY(0%)";
+
+    window.requestAnimationFrame((): void => {
+      window.requestAnimationFrame((): void => {
+        this._applyDrainStyles(water, totalSeconds, elapsed);
+      });
+    });
+  }
+
+  /**
+   * Applies CSS animation styles to the timer filling element.
+   *
+   * @param water - The water element to animate.
+   * @param duration - The total duration of the session in seconds.
+   * @param delay - The elapsed seconds to offset the animation by.
+   */
+  private _applyDrainStyles(water: HTMLElement, duration: number, delay: number): void {
+    if (!water.parentElement) {
+      return;
+    }
+
+    water.style.animationName = "fill-vertical";
+    water.style.animationDuration = `${duration}s`;
+    water.style.animationTimingFunction = "linear";
+    water.style.animationFillMode = "forwards";
+    water.style.animationDelay = `-${delay}s`;
+  }
+
+  /**
+   * Initializes hold-to-launch logic for a button.
+   *
+   * @param button - The button element.
+   * @param progressBar - The progress bar element.
+   * @param scenarioName - The name of the scenario to launch, or null if not applicable.
+   * @param onComplete - Callback to execute when hold is finished.
+   */
+  private _setupHoldInteractions(
+    button: HTMLElement,
+    progressBar: HTMLElement,
+    scenarioName: string | null,
+    onComplete: () => void
+  ): void {
+    const state = this._createHoldState(button, progressBar, scenarioName, onComplete);
+
+    this._attachHoldListeners(button, state);
+  }
+
+  private _createHoldState(
+    button: HTMLElement,
+    progressBar: HTMLElement,
+    scenarioName: string | null,
+    onComplete: () => void
+  ): LaunchHoldState {
+    return {
+      progress: 100,
+      holdInterval: null,
+      regenInterval: null,
+      fadeTimeout: null,
+      button,
+      progressBar,
+      scenarioName,
+      tickCount: 0,
+      onComplete
+    };
+  }
+
+  private _attachHoldListeners(button: HTMLElement, state: LaunchHoldState): void {
+    button.addEventListener("mousedown", (event: MouseEvent): void => {
+      this._startHold(event, state);
+    });
+
+    const onRelease = (event: MouseEvent): void => {
+      this._stopHold(event, state);
+    };
+
+    button.addEventListener("mouseup", onRelease);
+    button.addEventListener("mouseleave", onRelease);
+    button.addEventListener("click", (event: MouseEvent): void => {
+      event.stopPropagation();
+    });
+  }
+
+  private static readonly _holdDuration: number = 600;
+  private static readonly _tickRate: number = 20;
+  private static readonly _depleteStep: number = 100 / (RankedView._holdDuration / RankedView._tickRate);
+  private static readonly _regenStep: number = RankedView._depleteStep * 2;
+
+  private _startHold(event: MouseEvent, state: LaunchHoldState): void {
+    if (event.button !== 0) return;
+    event.stopPropagation();
+    this._clearHoldTimers(state);
+
+    state.button.classList.add("holding");
+    state.holdInterval = window.setInterval((): void => {
+      this._tickHold(state);
+    }, RankedView._tickRate);
+  }
+
+  private _tickHold(state: LaunchHoldState): void {
+    state.progress -= RankedView._depleteStep;
+
+    if (state.progress <= 0) {
+      state.progress = 0;
+      this._finishHold(state);
+    }
+
+    this._playHoldSoundIfNecessary(state);
+    this._updateHoldVisuals(state);
+  }
+
+  private _playHoldSoundIfNecessary(state: LaunchHoldState): void {
+    if (state.progress <= 0) return;
+    if (state.tickCount % 2 === 0) {
+      this._deps.audio.playLight(0.7);
+    }
+    state.tickCount++;
+  }
+
+  private _stopHold(event: MouseEvent, state: LaunchHoldState): void {
+    if (state.holdInterval === null) return;
+    event.stopPropagation();
+    clearInterval(state.holdInterval);
+    state.holdInterval = null;
+
+    if (state.progress < 100) {
+      state.tickCount = 0;
+      this._startRegen(state);
+    } else {
+      state.button.classList.remove("holding");
+      this._updateHoldVisuals(state, true);
+    }
+  }
+
+  private _startRegen(state: LaunchHoldState): void {
+    if (state.regenInterval !== null) return;
+    state.regenInterval = window.setInterval((): void => {
+      this._tickRegen(state);
+    }, RankedView._tickRate);
+  }
+
+  private _tickRegen(state: LaunchHoldState): void {
+    state.progress += RankedView._regenStep;
+    if (state.progress >= 100) {
+      this._completeRegen(state);
+    }
+    this._updateHoldVisuals(state);
+  }
+
+  private _completeRegen(state: LaunchHoldState): void {
+    state.progress = 100;
+    if (state.regenInterval !== null) {
+      clearInterval(state.regenInterval);
+      state.regenInterval = null;
+    }
+    state.button.classList.remove("holding");
+    this._scheduleFade(state);
+  }
+
+  private _finishHold(state: LaunchHoldState): void {
+    const wasDepleted = state.progress <= 0;
+    this._clearHoldTimers(state);
+    state.button.classList.remove("holding");
+    state.button.classList.add("highlighted");
+
+    if (wasDepleted) {
+      this._deps.audio.playHeavy(1.0);
+      state.onComplete();
+    }
+
+    window.setTimeout((): void => {
+      state.button.classList.remove("highlighted");
+      if (!state.button.classList.contains("holding")) {
+        state.progress = 100;
+        this._updateHoldVisuals(state);
+        this._scheduleFade(state);
+      }
+    }, 1000);
+  }
+
+  private _updateHoldVisuals(state: LaunchHoldState, forceImmediateFade: boolean = false): void {
+    const scale: number = state.progress / 100;
+    state.progressBar.style.transform = `scaleX(${scale})`;
+
+    if (state.progress < 100) {
+      this._cancelFade(state);
+      state.button.classList.add("not-full");
+    } else if (forceImmediateFade) {
+      this._cancelFade(state);
+      state.button.classList.remove("not-full");
+    }
+  }
+
+  private _scheduleFade(state: LaunchHoldState): void {
+    this._cancelFade(state);
+    state.fadeTimeout = window.setTimeout((): void => {
+      state.button.classList.remove("not-full");
+      state.fadeTimeout = null;
+    }, 300);
+  }
+
+  private _cancelFade(state: LaunchHoldState): void {
+    if (state.fadeTimeout !== null) {
+      clearTimeout(state.fadeTimeout);
+      state.fadeTimeout = null;
+    }
+  }
+
+  private _clearHoldTimers(state: LaunchHoldState): void {
+    this._cancelFade(state);
+    if (state.holdInterval !== null) {
+      clearInterval(state.holdInterval);
+      state.holdInterval = null;
+    }
+    if (state.regenInterval !== null) {
+      clearInterval(state.regenInterval);
+      state.regenInterval = null;
+    }
   }
 
   private _launchScenario(scenarioName: string): void {
