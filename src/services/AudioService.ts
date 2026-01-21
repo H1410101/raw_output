@@ -1,6 +1,7 @@
 import { VisualSettingsService } from "./VisualSettingsService";
 import soundLight from "../assets/sounds/rxSound11.ogg";
 import soundHeavy from "../assets/sounds/kick-deep.ogg";
+import soundSuccessPerc from "../assets/sounds/808 perc.ogg";
 
 interface WindowWithWebAudio extends Window {
     /* eslint-disable @typescript-eslint/naming-convention */
@@ -28,6 +29,7 @@ export class AudioService {
 
     private static readonly _soundLight = soundLight;
     private static readonly _soundHeavy = soundHeavy;
+    private static readonly _soundSuccessPerc = soundSuccessPerc;
 
     /**
      * Initializes the service and starts pre-fetching audio data.
@@ -53,6 +55,7 @@ export class AudioService {
     private _startPreFetching(): void {
         this._fetchSound(AudioService._soundLight);
         this._fetchSound(AudioService._soundHeavy);
+        this._fetchSound(AudioService._soundSuccessPerc);
     }
 
     private _fetchSound(path: string): void {
@@ -158,6 +161,15 @@ export class AudioService {
      */
     public playHeavy(volume: number = 1.0): void {
         this.playSound(AudioService._soundHeavy, volume);
+    }
+
+    /**
+     * Plays the rhythmic success percussion (808 perc.ogg).
+     *
+     * @param volume - Relative volume (0.0 to 1.0).
+     */
+    public playSuccessPerc(volume: number = 1.0): void {
+        this.playSound(AudioService._soundSuccessPerc, volume);
     }
 
     private async _ensureContext(): Promise<AudioContext | null> {

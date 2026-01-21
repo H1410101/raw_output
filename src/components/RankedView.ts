@@ -158,6 +158,8 @@ export class RankedView {
 
     list.appendChild(item);
 
+    this._deps.audio.playSuccessPerc(0.4);
+
     // Force reflow to trigger transition
     void item.offsetHeight;
 
