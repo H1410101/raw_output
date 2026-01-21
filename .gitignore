@@ -1,3 +1,7 @@
+# Secrets
+.env
+.dev.vars
+
 # Logic
 node_modules
 dist
@@ -19,6 +23,6 @@ dist-ssr
 .examples/
 
 # Cloudflare
-.wrangler/
+.wrangler
 
 .docs/*
