@@ -25,50 +25,41 @@ import { RankEstimator } from "./services/RankEstimator";
 import { SettingsUiFactory } from "./components/ui/SettingsUiFactory";
 import { AnalyticsPopupComponent } from "./components/ui/AnalyticsPopupComponent";
 import { CosmeticOverrideService } from "./services/CosmeticOverrideService";
+import { DeviceDetectionService, DeviceCategory } from "./services/DeviceDetectionService";
+import { MobileLandingView } from "./components/MobileLandingView";
+import { MobileWarningPopup } from "./components/ui/MobileWarningPopup";
+
 
 /**
  * Orchestrate service instantiation and dependency wiring.
  */
 export class AppBootstrap {
   private _directoryService!: DirectoryAccessService;
-
   private _csvService!: KovaaksCsvParsingService;
-
   private _monitoringService!: DirectoryMonitoringService;
-
   private _benchmarkService!: BenchmarkService;
-
   private _historyService!: HistoryService;
-
   private _rankService!: RankService;
-
   private _appStateService!: AppStateService;
-
   private _sessionSettingsService!: SessionSettingsService;
-
   private _sessionService!: SessionService;
-
   private _ingestionService!: RunIngestionService;
-
   private _focusService!: FocusManagementService;
-
   private _statusView!: ApplicationStatusView;
-
   private _benchmarkView!: BenchmarkView;
   private _rankedView!: RankedView;
-
   private _navigationController!: NavigationController;
-
   private _visualSettingsService!: VisualSettingsService;
-
   private _audioService!: AudioService;
   private _cloudflareService!: CloudflareService;
   private _identityService!: IdentityService;
   private _rankedSessionService!: RankedSessionService;
   private _rankEstimator!: RankEstimator;
   private _cosmeticOverrideService!: CosmeticOverrideService;
+  private _deviceDetectionService!: DeviceDetectionService;
 
   private _hasPromptedAnalytics: boolean = false;
+
 
   /**
    * Initializes the application's core logic and UI components.
@@ -90,7 +81,9 @@ export class AppBootstrap {
     this._appStateService = new AppStateService();
     this._sessionSettingsService = new SessionSettingsService();
     this._visualSettingsService = new VisualSettingsService();
+    this._deviceDetectionService = new DeviceDetectionService();
   }
+
 
   private _initTelemetryServices(): void {
     this._audioService = new AudioService(this._visualSettingsService);
@@ -135,6 +128,7 @@ export class AppBootstrap {
       benchmarkService: this._benchmarkService,
     });
 
+
     this._ingestionService = new RunIngestionService({
       directoryService: this._directoryService,
       csvService: this._csvService,
@@ -155,8 +149,19 @@ export class AppBootstrap {
    * Triggers initial rendering and system initialization.
    */
   public async initialize(): Promise<void> {
+    const category: DeviceCategory = this._deviceDetectionService.getDetectedCategory();
+
+    if (category === DeviceCategory.MOBILE) {
+      this._handleMobileAccess();
+    }
+
+    if (category === DeviceCategory.SUSPICIOUS) {
+      this._showMobileWarning();
+    }
+
     this._statusView.reportReady();
     this._tryApplyDailyDecay();
+
 
     await this._attemptInitialReconnection();
 
@@ -261,7 +266,26 @@ export class AppBootstrap {
     }
   }
 
+  private _handleMobileAccess(): void {
+    const appElement: HTMLElement = this._getRequiredElement("app");
+    appElement.style.display = "none";
+
+    const mainContainer = document.querySelector(".container") as HTMLElement;
+    if (mainContainer) {
+      mainContainer.style.display = "none";
+    }
+
+    const landing = new MobileLandingView(document.body);
+    landing.render();
+  }
+
+  private _showMobileWarning(): void {
+    const warning = new MobileWarningPopup(this._audioService);
+    warning.render();
+  }
+
   private _setupActionListeners(): void {
+
     this._setupHeaderActions();
 
     this._sessionService.onSessionUpdated((): void => {
