@@ -9,7 +9,6 @@ import { VisualSettingsService } from "../services/VisualSettingsService";
 import { AudioService } from "../services/AudioService";
 import { RankTimelineComponent, RankTimelineConfiguration } from "./visualizations/RankTimelineComponent";
 import { SummaryTimelineComponent } from "./visualizations/SummaryTimelineComponent";
-import { FolderSettingsView, FolderActionHandlers } from "./ui/FolderSettingsView";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
@@ -50,11 +49,6 @@ export interface RankedViewDependencies {
   readonly sessionSettings: SessionSettingsService;
   readonly audio: AudioService;
   readonly directory: DirectoryAccessService;
-  readonly folderActions: {
-    readonly onLinkFolder: () => Promise<void>;
-    readonly onForceScan: () => Promise<void>;
-    readonly onUnlinkFolder: () => void;
-  };
 }
 
 /**
@@ -63,7 +57,6 @@ export interface RankedViewDependencies {
 export class RankedView {
   private readonly _container: HTMLElement;
   private readonly _deps: RankedViewDependencies;
-  private _folderSettingsView: FolderSettingsView | null = null;
   private _hudInterval: number | null = null;
   private _activeTimeline: RankTimelineComponent | null = null;
   private _activeTimelineScenario: string | null = null;
@@ -281,51 +274,9 @@ export class RankedView {
   }
 
   /**
-   * Toggles the visibility of the advanced folder settings view.
-   */
-  public toggleFolderView(): void {
-    const isCurrentlyOpen: boolean =
-      this._deps.appState.getIsFolderViewOpen();
-
-    this._deps.appState.setIsFolderViewOpen(!isCurrentlyOpen);
-
-    this.render();
-  }
-
-  /**
-   * Attempts to return to the ranked interface from the folder settings view.
-   * This succeeds only if a folder is already linked and statistics have been found.
-   *
-   * @returns A promise that resolves to true if the folder view was dismissed.
-   */
-  public async tryReturnToTable(): Promise<boolean> {
-    if (!this._deps.appState.getIsFolderViewOpen()) {
-      return false;
-    }
-
-    const isStatsFolder: boolean = this._deps.directory.isStatsFolderSelected();
-    const lastCheck: number =
-      await this._deps.history.getLastCheckTimestamp();
-
-    if (isStatsFolder && lastCheck > 0) {
-      await this._dismissFolderView();
-
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
    * Renders the current state of the Ranked view.
    */
   public async render(): Promise<void> {
-    if (await this._shouldShowFolderSettings()) {
-      await this._renderFolderView();
-
-      return;
-    }
-
     const state: RankedSessionState = this._deps.rankedSession.state;
     const scenarioName = this._getActiveScenarioName(state);
 
@@ -1298,74 +1249,9 @@ export class RankedView {
     return this._deps.estimator.calculateHolisticEstimateRank(difficulty);
   }
 
-  private async _shouldShowFolderSettings(): Promise<boolean> {
-    const isStatsFolder: boolean = this._deps.directory.isStatsFolderSelected();
-    const isManualOpen: boolean = this._deps.appState.getIsFolderViewOpen();
-
-    if (!isStatsFolder || isManualOpen) {
-      return true;
-    }
-
-    const lastCheck: number = await this._deps.history.getLastCheckTimestamp();
-
-    return lastCheck === 0;
-  }
-
-  private async _renderFolderView(): Promise<void> {
-    const lastCheck: number = await this._deps.history.getLastCheckTimestamp();
-
-    this._container.innerHTML = "";
-    this._folderSettingsView?.destroy();
-
-    this._updateHeaderButtonStates(true);
-
-    const handlers = this._createFolderViewHandlers();
-    const isInvalid = !!this._deps.directory.originalSelectionName && !this._deps.directory.isStatsFolderSelected();
-    const isValid = this._deps.directory.isStatsFolderSelected();
-
-    this._folderSettingsView = new FolderSettingsView({
-      handlers,
-      currentFolderName: this._deps.directory.originalSelectionName,
-      hasStats: lastCheck > 0,
-      isInvalid,
-      isValid,
-    });
-
-    this._container.classList.remove("session-active");
-    document.body.classList.remove("ranked-mode-active");
-    this._container.appendChild(this._folderSettingsView.render());
-  }
-
-  private _createFolderViewHandlers(): FolderActionHandlers {
-    return {
-      onLinkFolder: async (): Promise<void> => {
-        await this._deps.folderActions.onLinkFolder();
-        await this._dismissFolderView();
-      },
-      onForceScan: async (): Promise<void> => {
-        await this._deps.folderActions.onForceScan();
-        await this._dismissFolderView();
-      },
-      onUnlinkFolder: async (): Promise<void> => {
-        this._deps.folderActions.onUnlinkFolder();
-        await this._dismissFolderView();
-      },
-    };
-  }
-
-  private async _dismissFolderView(): Promise<void> {
-    this._deps.appState.setIsFolderViewOpen(false);
-    await this.render();
-  }
-
   private _updateHeaderButtonStates(isFolderActive: boolean): void {
-    const folderBtn: HTMLElement | null = document.getElementById("header-folder-btn");
     const settingsBtn: HTMLElement | null = document.getElementById("header-settings-btn");
     const rankedNavBtn: HTMLElement | null = document.getElementById("nav-ranked");
-
-    if (folderBtn) {
-      folderBtn.classList.toggle("active", isFolderActive);
-    }
 
     if (settingsBtn) {
       settingsBtn.classList.toggle("active", this._deps.appState.getIsSettingsMenuOpen());

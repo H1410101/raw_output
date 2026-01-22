@@ -258,6 +258,12 @@ h1 {
     color: var(--accent-color);
 }
 
+.nav-item.inactive {
+    opacity: 0.5;
+    filter: grayscale(0.8);
+    pointer-events: none;
+}
+
 .nav-item.not-soon {
     cursor: default;
 }
@@ -401,6 +407,7 @@ h1 {
 }
 
 .benchmark-view,
+.folder-view,
 .ranked-view {
     flex: 1;
     display: flex;

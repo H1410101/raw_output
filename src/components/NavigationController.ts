@@ -22,6 +22,8 @@ export interface ViewContainers {
   readonly benchmarksView: HTMLElement;
   /** Container for the Ranked view. */
   readonly rankedView: HTMLElement;
+  /** Container for the Folder view. */
+  readonly folderView: HTMLElement;
 }
 
 /**
@@ -36,6 +38,8 @@ export interface NavDependencies {
   readonly rankedSession: RankedSessionService;
   /** The ranked view component. */
   readonly rankedView: RankedView;
+  /** The folder view component. */
+  readonly folderView: import("./FolderView").FolderView;
   /** Service for managing the focused scenario. */
   readonly focusService: FocusManagementService;
 }
@@ -51,8 +55,10 @@ export class NavigationController {
 
   private readonly _viewBenchmarks: HTMLElement;
   private readonly _viewRanked: HTMLElement;
+  private readonly _viewFolder: HTMLElement;
 
   private readonly _benchmarkView: BenchmarkView;
+  private readonly _folderView: import("./FolderView").FolderView;
 
   private readonly _appStateService: AppStateService;
   private readonly _rankedSession: RankedSessionService;
@@ -76,8 +82,10 @@ export class NavigationController {
 
     this._viewBenchmarks = views.benchmarksView;
     this._viewRanked = views.rankedView;
+    this._viewFolder = views.folderView;
 
     this._benchmarkView = dependencies.benchmarkView;
+    this._folderView = dependencies.folderView;
 
     this._appStateService = dependencies.appStateService;
     this._rankedSession = dependencies.rankedSession;
@@ -85,6 +93,10 @@ export class NavigationController {
     this._focusService = dependencies.focusService;
 
     this._rankedSession.onStateChanged((): void => {
+      this._updateButtonStates();
+    });
+
+    this._appStateService.onFolderValidityChanged((): void => {
       this._updateButtonStates();
     });
   }
@@ -109,6 +121,13 @@ export class NavigationController {
   }
 
   private _restoreInitialTab(): void {
+    const isFolderOpen = this._appStateService.getIsFolderViewOpen();
+    if (isFolderOpen) {
+      this._updateVisibleView(this._viewFolder);
+
+      return;
+    }
+
     const activeTabId = this._appStateService.getActiveTabId();
 
     if (activeTabId === "nav-ranked") {
@@ -119,21 +138,21 @@ export class NavigationController {
   }
 
   private async _switchToBenchmarks(): Promise<void> {
+    if (!this._appStateService.getIsFolderValid()) {
+      return;
+    }
+
     const isAlreadyActive: boolean =
-      this._appStateService.getActiveTabId() === "nav-benchmarks";
+      this._appStateService.getActiveTabId() === "nav-benchmarks" &&
+      !this._appStateService.getIsFolderViewOpen();
 
-    const wasFolderDismissed: boolean =
-      await this._benchmarkView.tryReturnToTable();
-
+    this._appStateService.setIsFolderViewOpen(false);
     this._appStateService.setActiveTabId("nav-benchmarks");
 
     this._updateVisibleView(this._viewBenchmarks);
 
-    if (!isAlreadyActive || wasFolderDismissed) {
+    if (!isAlreadyActive) {
       this._highlightCurrentRankedScenario();
-    }
-
-    if (!isAlreadyActive && !wasFolderDismissed) {
       await this._benchmarkView.render();
     }
   }
@@ -147,45 +166,101 @@ export class NavigationController {
   }
 
   private async _switchToRanked(): Promise<void> {
-    const isAlreadyActive: boolean =
-      this._appStateService.getActiveTabId() === "nav-ranked";
-
-    if (isAlreadyActive) {
-      await this._rankedView.tryReturnToTable();
-
+    if (!this._appStateService.getIsFolderValid()) {
       return;
     }
 
-    await this._benchmarkView.tryReturnToTable();
-
+    this._appStateService.setIsFolderViewOpen(false);
     this._appStateService.setActiveTabId("nav-ranked");
 
     await this._rankedView.render();
     this._updateVisibleView(this._viewRanked);
   }
 
+  /**
+   * Toggles the visibility of the folder view.
+   */
+  public async toggleFolderView(): Promise<void> {
+    const isCurrentlyOpen: boolean = this._appStateService.getIsFolderViewOpen();
+
+    if (isCurrentlyOpen) {
+      const activeTabId = this._appStateService.getActiveTabId();
+      if (activeTabId === "nav-ranked") {
+        await this._switchToRanked();
+      } else {
+        await this._switchToBenchmarks();
+      }
+    } else {
+      await this._switchToFolder();
+    }
+  }
+
+  /**
+   * Attempts to exit the folder view if conditions for returning are met.
+   *
+   * @returns A promise that resolves to true if the folder view was exited.
+   */
+  public async tryExitFolderView(): Promise<boolean> {
+    if (!this._appStateService.getIsFolderViewOpen()) {
+      return false;
+    }
+
+    const isStatsFolder: boolean =
+      await this._folderView.isFolderValidAndPopulated();
+
+    if (isStatsFolder) {
+      await this.toggleFolderView();
+
+      return true;
+    }
+
+    return false;
+  }
+
+  private async _switchToFolder(): Promise<void> {
+    this._appStateService.setIsFolderViewOpen(true);
+    await this._folderView.render();
+    this._updateVisibleView(this._viewFolder);
+  }
+
   private _updateVisibleView(visibleView: HTMLElement): void {
     this._viewBenchmarks.classList.add("hidden-view");
     this._viewRanked.classList.add("hidden-view");
+    this._viewFolder.classList.add("hidden-view");
 
     visibleView.classList.remove("hidden-view");
 
-    document.body.classList.toggle(
-      "on-ranked-view",
-      visibleView === this._viewRanked,
-    );
+    const isRanked = visibleView === this._viewRanked;
+    const isFolder = visibleView === this._viewFolder;
+
+    document.body.classList.toggle("on-ranked-view", isRanked);
+
+    const folderBtn: HTMLElement | null = document.getElementById("header-folder-btn");
+    if (folderBtn) {
+      folderBtn.classList.toggle("active", isFolder);
+    }
 
     this._updateButtonStates();
   }
 
   private _updateButtonStates(): void {
     const activeTabId = this._appStateService.getActiveTabId();
+    const isFolderOpen = this._appStateService.getIsFolderViewOpen();
+    const isFolderValid = this._appStateService.getIsFolderValid();
 
     this._navBenchmarks.classList.toggle(
       "active",
-      activeTabId === "nav-benchmarks",
+      !isFolderOpen && activeTabId === "nav-benchmarks",
     );
-    this._navRanked.classList.toggle("active", activeTabId === "nav-ranked");
+    this._navRanked.classList.toggle(
+      "active",
+      !isFolderOpen && activeTabId === "nav-ranked",
+    );
+
+    const isInactive = isFolderOpen && !isFolderValid;
+
+    this._navBenchmarks.classList.toggle("inactive", isInactive);
+    this._navRanked.classList.toggle("inactive", isInactive);
 
     const isSessionActive: boolean = this._rankedSession.state.status !== "IDLE";
     this._navRanked.classList.toggle("ranked-active", isSessionActive);
