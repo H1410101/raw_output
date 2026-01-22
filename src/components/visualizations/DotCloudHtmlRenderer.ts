@@ -88,22 +88,23 @@ export class DotCloudHtmlRenderer {
     }
 
     private _renderThresholds(notchHeight: number, context: RenderContext): void {
-        const relevantIndices: number[] = this._mapper.identifyRelevantThresholds(
-            context.bounds.minRU,
-            context.bounds.maxRU,
-        );
+        const { minRU, maxRU } = context.bounds;
 
+        const relevantIndices: number[] = this._mapper.identifyRelevantThresholds(minRU, maxRU);
         const visibleLabels = this._getVisibleLabels(relevantIndices, context);
-        const visibleIndices = new Set(visibleLabels.map((label) => label.index));
+        const labelMap = new Map(visibleLabels.map((label) => [label.index, label]));
 
-        relevantIndices.forEach((thresholdIndex: number): void => {
-            const isLabelVisible = visibleIndices.has(thresholdIndex);
-            const xPos: number = this._calculateThresholdX(thresholdIndex, context);
+        const startRU = Math.ceil(minRU);
+        const endRU = Math.floor(maxRU);
+
+        for (let rankUnit = startRU; rankUnit <= endRU; rankUnit++) {
+            const xPos = this._mapper.getHorizontalPosition(rankUnit, minRU, maxRU, context.dimensions.width);
+            const labelData = labelMap.get(rankUnit - 1);
 
             if (context.settings.showRankNotches) {
-                this._createNotchElement(xPos, notchHeight, isLabelVisible);
+                this._createNotchElement(xPos, notchHeight, !!labelData);
             }
-        });
+        }
 
         visibleLabels.forEach((label) => {
             this._createLabelElement(label.text, label.xPos, label.alignment, context);
