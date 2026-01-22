@@ -58,9 +58,6 @@ export class DotCloudHtmlRenderer {
     public draw(context: RenderContext): void {
         this.clear();
 
-        this._container.style.width = `${context.dimensions.width}px`;
-        this._container.style.height = `${context.dimensions.height}px`;
-
         this._renderMetadata(context);
 
         const densities: number[] = this._calculateLocalDensities(
