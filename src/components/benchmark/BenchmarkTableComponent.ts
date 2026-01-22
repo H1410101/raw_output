@@ -137,7 +137,9 @@ export class BenchmarkTableComponent {
       this._visualSettings.showRankEstimate !== settings.showRankEstimate ||
       this._visualSettings.scenarioFontSize !== settings.scenarioFontSize ||
       this._visualSettings.uiScaling !== settings.uiScaling ||
-      this._visualSettings.categorySpacing !== settings.categorySpacing;
+      this._visualSettings.categorySpacing !== settings.categorySpacing ||
+      this._visualSettings.dotCloudWidth !== settings.dotCloudWidth ||
+      this._visualSettings.dotCloudSize !== settings.dotCloudSize;
 
     if (structuralChange) {
       return true;

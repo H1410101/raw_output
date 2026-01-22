@@ -2,10 +2,7 @@ import { VisualSettings } from "../../services/VisualSettingsService";
 import { ScoreProcessor, ScoreEntry } from "./ScoreProcessor";
 import { RankScaleMapper } from "./RankScaleMapper";
 import { ScalingService } from "../../services/ScalingService";
-import {
-  DotCloudCanvasRenderer,
-  RenderContext,
-} from "./DotCloudCanvasRenderer";
+import { DotCloudHtmlRenderer, RenderContext } from "./DotCloudHtmlRenderer";
 
 /**
  * Configuration for initializing a DotCloudComponent.
@@ -34,7 +31,7 @@ export interface UpdateDataOptions {
 
 /**
  * Responsibility: Orchestrate the rendering of a "Dot Cloud" (Strip Plot) of recent performance data.
- * Coordinates data processing, coordinate mapping, and canvas rendering.
+ * Coordinates data processing, coordinate mapping, and HTML rendering.
  */
 export class DotCloudComponent {
   public static readonly baseWidthRem: number = 14;
@@ -49,13 +46,11 @@ export class DotCloudComponent {
   private _targetRU?: number;
   private _achievedRU?: number;
 
-  private _canvasWidth: number = 0;
-  private _canvasHeight: number = 0;
+  private _containerWidth: number = 0;
+  private _containerHeight: number = 0;
   private _dotRadius: number = 0;
-  private _uiScaling: number = 1;
 
-  private _canvas: HTMLCanvasElement | null = null;
-  private _renderer: DotCloudCanvasRenderer | null = null;
+  private _renderer: DotCloudHtmlRenderer | null = null;
   private _animationFrameId: number | null = null;
   private _isDirty: boolean = false;
   private _container: HTMLElement | null = null;
@@ -96,11 +91,6 @@ export class DotCloudComponent {
 
     this._initializeDimensions();
 
-    if (this._canvas) {
-      this._syncCanvasSize();
-      this._rebuildRenderer();
-    }
-
     this._syncContainerDimensions();
 
     this.requestUpdate();
@@ -135,13 +125,12 @@ export class DotCloudComponent {
   public render(): HTMLElement {
     this._ensureContainerExists();
 
-    this._clearContainerContent();
-
     this._initializeDimensions();
 
     this._syncContainerDimensions();
 
-    this._setupVisualLayers();
+    this._rebuildRenderer();
+
     this._performRenderCycle();
 
     return this._container!;
@@ -153,7 +142,6 @@ export class DotCloudComponent {
   public destroy(): void {
     this._cancelPendingFrames();
 
-    this._canvas = null;
     this._renderer = null;
 
     if (this._container) {
@@ -180,38 +168,11 @@ export class DotCloudComponent {
   }
 
   private _handleDataUpdateSideEffects(): void {
-    if (this._canvas) {
+    if (this._container) {
       this._rebuildRenderer();
-    } else if (this._container) {
-      this._setupVisualLayers();
     }
 
     this.requestUpdate();
-  }
-
-  private _setupVisualLayers(): void {
-    this._canvas = this._createScaledCanvas();
-
-    if (this._container) {
-      this._container.appendChild(this._canvas);
-    }
-  }
-
-  private _createScaledCanvas(): HTMLCanvasElement {
-    const canvas: HTMLCanvasElement = document.createElement("canvas");
-
-    this._initializeDimensions();
-
-    const dpr: number = window.devicePixelRatio || 1;
-    this._uiScaling = dpr * 2;
-
-    this._canvas = canvas;
-
-    this._syncCanvasSize();
-
-    this._rebuildRenderer();
-
-    return canvas;
   }
 
   private _initializeDimensions(): void {
@@ -224,11 +185,11 @@ export class DotCloudComponent {
     const baseDotRadius: number =
       DotCloudComponent._baseDotRadiusRatio * rootFontSize;
 
-    this._canvasWidth = Math.round(
+    this._containerWidth = Math.round(
       ScalingService.getScaledValue(baseWidth, this._settings, "dotCloudWidth"),
     );
 
-    this._canvasHeight = Math.round(
+    this._containerHeight = Math.round(
       ScalingService.getScaledValue(baseHeight, this._settings, "dotCloudSize"),
     );
 
@@ -240,30 +201,11 @@ export class DotCloudComponent {
   }
 
   private _rebuildRenderer(): void {
-    if (!this._canvas) {
+    if (!this._container) {
       return;
     }
 
-    const context: CanvasRenderingContext2D | null =
-      this._canvas.getContext("2d");
-
-    if (context) {
-      this._renderer = new DotCloudCanvasRenderer(context, this._mapper);
-    }
-  }
-
-  private _syncCanvasSize(): void {
-    if (!this._canvas) {
-      return;
-    }
-
-    this._canvas.width = Math.round(this._canvasWidth * this._uiScaling);
-    this._canvas.height = Math.round(this._canvasHeight * this._uiScaling);
-
-    this._canvas.style.width = `${this._canvasWidth}px`;
-    this._canvas.style.height = `${this._canvasHeight}px`;
-
-    this._syncContainerDimensions();
+    this._renderer = new DotCloudHtmlRenderer(this._container, this._mapper);
   }
 
   private _syncContainerDimensions(): void {
@@ -271,8 +213,8 @@ export class DotCloudComponent {
       return;
     }
 
-    this._container.style.width = `${this._canvasWidth}px`;
-    this._container.style.height = `${this._canvasHeight}px`;
+    this._container.style.width = `${this._containerWidth}px`;
+    this._container.style.height = `${this._containerHeight}px`;
   }
 
   private _ensureContainerExists(): void {
@@ -300,45 +242,19 @@ export class DotCloudComponent {
   }
 
   private _performRenderCycle(): void {
-    if (!this._renderer || !this._canvas) {
+    if (!this._renderer || !this._container) {
       return;
     }
 
-    if (!this._renderer.areStylesReady()) {
-      this._handleStylesNotReady();
-
-      return;
-    }
-
-    const context: CanvasRenderingContext2D = this._canvas.getContext("2d")!;
     const padding: number = this._dotRadius * 3;
-    const drawableWidth: number = Math.max(0, this._canvasWidth - padding * 2);
-
-    this._prepareContextForDraw(context, padding);
+    const drawableWidth: number = Math.max(0, this._containerWidth - padding * 2);
 
     const renderContext: RenderContext =
       this._assembleRenderContext(drawableWidth);
 
     this._renderer.draw(renderContext);
-  }
 
-  private _handleStylesNotReady(): void {
-    if (document.fonts.status !== "loaded") {
-      document.fonts.ready.then(() => this.requestUpdate());
-    } else {
-      requestAnimationFrame(() => this.requestUpdate());
-    }
-  }
-
-  private _prepareContextForDraw(
-    context: CanvasRenderingContext2D,
-    padding: number,
-  ): void {
-    context.setTransform(this._uiScaling, 0, 0, this._uiScaling, 0, 0);
-
-    context.clearRect(0, 0, this._canvasWidth, this._canvasHeight);
-
-    context.translate(padding, 0);
+    this._container.style.padding = `0 ${padding}px`;
   }
 
   private _assembleRenderContext(width: number): RenderContext {
@@ -364,7 +280,7 @@ export class DotCloudComponent {
       achievedRU: this._achievedRU,
       dimensions: {
         width,
-        height: this._canvasHeight,
+        height: this._containerHeight,
         dotRadius: this._dotRadius,
         rootFontSize,
       },

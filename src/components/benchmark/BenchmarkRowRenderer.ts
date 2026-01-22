@@ -38,6 +38,14 @@ export class BenchmarkRowRenderer {
     new Map();
   private _loadCounter: number = 0;
 
+  private readonly _pendingBackgroundLoads: {
+    container: HTMLElement;
+    scenario: BenchmarkScenario;
+    loadId: number;
+  }[] = [];
+  private _isProcessingBackground: boolean = false;
+  private static readonly _maxDotCloudBudget: number = 100;
+
   /**
    * Initializes the renderer with required services.
    *
@@ -92,6 +100,7 @@ export class BenchmarkRowRenderer {
     });
 
     this._dotCloudRegistry.clear();
+    this._pendingBackgroundLoads.length = 0;
   }
 
   /**
@@ -373,14 +382,17 @@ export class BenchmarkRowRenderer {
         entries.forEach((entry: IntersectionObserverEntry): void => {
           if (entry.isIntersecting) {
             observer.disconnect();
-            this._loadDotCloudData(container, scenario, loadId);
+            this._loadDotCloudData(container, scenario, loadId, true);
           }
         });
       },
-      { rootMargin: "200px" },
+      { rootMargin: "1000px" },
     );
 
     observer.observe(container);
+
+    this._pendingBackgroundLoads.push({ container, scenario, loadId });
+    this._triggerBackgroundProcessing();
   }
 
   /**
@@ -389,21 +401,86 @@ export class BenchmarkRowRenderer {
    * @param container - The dot cloud container HTMLElement.
    * @param scenario - The benchmark scenario data.
    * @param loadId - The unique ID for the load operation.
+   * @param isPriority - Whether this is a high-priority load (intersecting).
    */
   private _loadDotCloudData(
     container: HTMLElement,
     scenario: BenchmarkScenario,
     loadId: number,
+    isPriority: boolean = false,
   ): void {
+    const currentId: string | undefined = container.dataset.loadId;
+
+    if (
+      currentId !== loadId.toString() ||
+      this._dotCloudRegistry.has(scenario.name)
+    ) {
+      this._removeFromPending(loadId);
+
+      return;
+    }
+
+    if (
+      !isPriority &&
+      this._dotCloudRegistry.size >= BenchmarkRowRenderer._maxDotCloudBudget
+    ) {
+      return;
+    }
+
     this._historyService
       .getLastScores(scenario.name, 100)
       .then((entries: ScoreEntry[]): void => {
-        const currentId: string | undefined = container.dataset.loadId;
+        const stillCurrentId: string | undefined = container.dataset.loadId;
 
-        if (entries.length > 0 && currentId === loadId.toString()) {
+        if (entries.length > 0 && stillCurrentId === loadId.toString()) {
           this._injectDotCloudVisualization(container, scenario, entries);
+          this._removeFromPending(loadId);
         }
       });
+  }
+
+  private _removeFromPending(loadId: number): void {
+    const index: number = this._pendingBackgroundLoads.findIndex(
+      (pendingLoad: { loadId: number }): boolean => pendingLoad.loadId === loadId,
+    );
+
+    if (index !== -1) {
+      this._pendingBackgroundLoads.splice(index, 1);
+    }
+  }
+
+  private _triggerBackgroundProcessing(): void {
+    if (this._isProcessingBackground || this._pendingBackgroundLoads.length === 0) {
+      return;
+    }
+
+    this._isProcessingBackground = true;
+
+    const processNext = (): void => {
+      if (
+        this._pendingBackgroundLoads.length === 0 ||
+        this._dotCloudRegistry.size >= BenchmarkRowRenderer._maxDotCloudBudget
+      ) {
+        this._isProcessingBackground = false;
+
+        return;
+      }
+
+      const next = this._pendingBackgroundLoads.shift();
+
+      if (next) {
+        this._loadDotCloudData(next.container, next.scenario, next.loadId, false);
+      }
+
+      // Defer next load to keep main thread responsive
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback((): void => processNext());
+      } else {
+        setTimeout(processNext, 50);
+      }
+    };
+
+    processNext();
   }
 
   /**

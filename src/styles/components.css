@@ -344,6 +344,98 @@
     margin-bottom: 1rem;
 }
 
+/* HTML Dot Cloud */
+.dot-cloud-container {
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+}
+
+.dot-cloud-dot {
+    position: absolute;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(var(--vis-dot-rgb), var(--dot-opacity, 0.4));
+    border: 1px solid rgba(var(--vis-dot-rgb), 0.1);
+    box-sizing: border-box;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+    z-index: 5;
+}
+
+.dot-cloud-dot.latest {
+    background: rgba(var(--vis-latest-rgb), var(--dot-opacity, 0.6));
+}
+
+.dot-cloud-dot.highlight {
+    background: rgba(var(--vis-highlight-rgb), var(--dot-opacity, 0.8));
+    box-shadow: 0 0 0.5rem rgba(var(--vis-highlight-rgb), 0.6);
+}
+
+.dot-cloud-notch {
+    position: absolute;
+    top: 0;
+    width: 1px;
+    background: var(--vis-label-color);
+    opacity: 0.15;
+    transform: translateX(-50%);
+    z-index: 1;
+}
+
+.dot-cloud-notch.labelled {
+    opacity: 0.8;
+}
+
+.dot-cloud-label-anchor {
+    position: absolute;
+    bottom: 0;
+    width: 0;
+    height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 2;
+}
+
+.dot-cloud-label-anchor.anchor-left {
+    justify-content: flex-start;
+}
+
+.dot-cloud-label-anchor.anchor-right {
+    justify-content: flex-end;
+}
+
+.dot-cloud-label {
+    position: relative;
+    color: var(--vis-label-color);
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0.8;
+}
+
+.dot-cloud-marker {
+    position: absolute;
+    width: 1px;
+    transform: translateX(-50%);
+    z-index: 3;
+}
+
+.dot-cloud-marker-target {
+    background: var(--vis-label-color);
+    opacity: 0.4;
+}
+
+.dot-cloud-marker-achieved {
+    background: var(--vis-latest-rgb);
+    width: 2px;
+}
+
+.dot-cloud-marker-achieved:not(.latest-run) {
+    background: var(--vis-highlight-rgb);
+}
+
 /* Rank Timeline Visualization */
 .rank-timeline-container {
     position: relative;
