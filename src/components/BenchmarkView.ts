@@ -40,7 +40,6 @@ export interface BenchmarkViewServices {
   audio: AudioService;
   cloudflare: CloudflareService;
   identity: IdentityService;
-  identity: IdentityService;
   rankEstimator: RankEstimator;
   cosmeticOverride: CosmeticOverrideService;
 }
@@ -59,7 +58,7 @@ export class BenchmarkView {
 
   private readonly _sessionService: SessionService;
 
-  private readonly _directoryService: DirectoryAccessService;
+
 
   private readonly _appStateService: AppStateService;
 
@@ -107,7 +106,6 @@ export class BenchmarkView {
     this._historyService = services.history;
     this._rankService = services.rank;
     this._sessionService = services.session;
-    this._directoryService = services.directory;
     this._focusService = services.focus;
     this._appStateService = appStateService;
     this._visualSettingsService = services.visualSettings;

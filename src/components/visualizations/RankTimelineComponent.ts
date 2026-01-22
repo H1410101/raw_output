@@ -46,12 +46,7 @@ export class RankTimelineComponent {
     private _config: RankTimelineConfiguration;
     private _mapper: RankScaleMapper;
 
-    private _targetAnchor: HTMLElement | null = null;
-    private _achievedAnchor: HTMLElement | null = null;
-    private _prevAnchor: HTMLElement | null = null;
-    private _targetLabel: HTMLElement | null = null;
-    private _achievedLabel: HTMLElement | null = null;
-    private _prevLabel: HTMLElement | null = null;
+
 
     private _isInitialized: boolean = false;
     private _hasPreviousProgress: boolean = false;
@@ -206,12 +201,6 @@ export class RankTimelineComponent {
     }
 
     private _resetMarkerState(): void {
-        this._targetAnchor = null;
-        this._achievedAnchor = null;
-        this._prevAnchor = null;
-        this._targetLabel = null;
-        this._achievedLabel = null;
-        this._prevLabel = null;
         this._isInitialized = false;
     }
 
@@ -317,7 +306,7 @@ export class RankTimelineComponent {
             caretRight,
         });
 
-        this._trackLabelAnchors(type, anchor);
+        this._trackLabelAnchors();
     }
 
     private _createNotch(percent: number, type: string): HTMLElement {
@@ -345,18 +334,8 @@ export class RankTimelineComponent {
         return anchor;
     }
 
-    private _trackLabelAnchors(type: string, anchor: HTMLElement): void {
-        const labelElement = anchor.querySelector(".timeline-marker-label") as HTMLElement | null;
-        if (type === "target") {
-            this._targetAnchor = anchor;
-            this._targetLabel = labelElement;
-        } else if (type === "achieved") {
-            this._achievedAnchor = anchor;
-            this._achievedLabel = labelElement;
-        } else if (type === "prev") {
-            this._prevAnchor = anchor;
-            this._prevLabel = labelElement;
-        }
+    private _trackLabelAnchors(): void {
+        // Reserved for potential use
     }
 
     private _createCaret(label: string, type: string, isLeft: boolean): HTMLElement {
