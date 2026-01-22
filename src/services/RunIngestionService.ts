@@ -145,29 +145,41 @@ export class RunIngestionService {
     for (let i: number = 0; i < handles.length; i += batchSize) {
       const batch: FileHandleWithDate[] = handles.slice(i, i + batchSize);
 
-      await Promise.all(
+      const parsedRuns: (KovaaksChallengeRun | null)[] = await Promise.all(
         batch.map(
-          (item: FileHandleWithDate): Promise<void> =>
-            this._ingestHighscoreFile(item),
+          (item: FileHandleWithDate): Promise<KovaaksChallengeRun | null> =>
+            this._parseRunFromFile(item.handle),
         ),
       );
+
+      const validRuns: KovaaksChallengeRun[] = parsedRuns.filter(
+        (run: KovaaksChallengeRun | null): run is KovaaksChallengeRun =>
+          run !== null,
+      );
+
+      await this._persistRunsInBatch(validRuns);
     }
   }
 
-  private async _ingestHighscoreFile(item: FileHandleWithDate): Promise<void> {
-    const run: KovaaksChallengeRun | null = await this._parseRunFromFile(
-      item.handle,
-    );
-
-    if (run) {
-      await this._historyService.recordScore(
-        run.scenarioName,
-        run.score,
-        run.completionDate.getTime(),
-      );
-
-      await this._historyService.updateHighscore(run.scenarioName, run.score);
+  private async _persistRunsInBatch(runs: KovaaksChallengeRun[]): Promise<void> {
+    if (runs.length === 0) {
+      return;
     }
+
+    const scoresToRecord = runs.map((run) => ({
+      scenarioName: run.scenarioName,
+      score: run.score,
+      timestamp: run.completionDate.getTime(),
+    }));
+
+    const highscoresToUpdate = runs.map((run) => ({
+      scenarioName: run.scenarioName,
+      score: run.score,
+    }));
+
+    await this._historyService.recordMultipleScores(scoresToRecord);
+
+    await this._historyService.updateMultipleHighscores(highscoresToUpdate);
   }
 
   private async _rebuildLatestSession(
