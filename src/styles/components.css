@@ -467,6 +467,17 @@
     color: var(--accent-color);
 }
 
+.marker-prev {
+    background-color: var(--lower-band-3);
+    box-shadow: none;
+    height: 0.375rem;
+    bottom: calc(50% + 0.375rem);
+}
+
+.label-prev {
+    color: var(--lower-band-3);
+}
+
 
 .marker-attempt {
     height: 0.375rem;
@@ -522,6 +533,10 @@
 
 .timeline-caret.caret-achieved {
     border-color: var(--accent-color);
+}
+
+.timeline-caret.caret-prev {
+    border-color: var(--lower-band-3);
 }
 
 .timeline-caret.caret-expected {

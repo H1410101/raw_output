@@ -19,6 +19,7 @@ export interface RankedSessionState {
     readonly rankedSessionId: number | null;
     readonly playedScenarios: string[];
     readonly initialEstimates: Record<string, number>;
+    readonly previousSessionRanks: Record<string, number>;
     readonly scenarioStartTime: string | null;
     readonly accumulatedScenarioSeconds: Record<string, number>;
 }
@@ -37,6 +38,8 @@ interface DifficultySessionState {
     initialGauntletComplete: boolean;
     playedScenarios: string[];
     initialEstimates: Record<string, number>;
+    previousSessionRanks: Record<string, number>;
+    lastSessionAchievements?: Record<string, number>;
     accumulatedScenarioSeconds: Record<string, number>;
 }
 
@@ -70,6 +73,8 @@ export class RankedSessionService {
     private _initialGauntletComplete: boolean = false;
     private _playedScenarios: Set<string> = new Set();
     private _initialEstimates: Record<string, number> = {};
+    private _previousSessionRanks: Record<string, number> = {};
+    private _lastSessionAchievements: Record<string, number> = {};
     private _accumulatedScenarioSeconds: Map<string, number> = new Map();
 
     private _difficultyStates: Record<string, DifficultySessionState> = {};
@@ -123,6 +128,7 @@ export class RankedSessionService {
             rankedSessionId: this._rankedSessionId,
             playedScenarios: Array.from(this._playedScenarios),
             initialEstimates: { ...this._initialEstimates },
+            previousSessionRanks: { ...this._previousSessionRanks },
             scenarioStartTime: this._scenarioStartTime,
             accumulatedScenarioSeconds: Object.fromEntries(this._accumulatedScenarioSeconds),
         };
@@ -295,6 +301,8 @@ export class RankedSessionService {
         this._initialGauntletComplete = false;
         this._playedScenarios.clear();
         this._initialEstimates = {};
+        this._previousSessionRanks = {};
+        this._lastSessionAchievements = {};
         this._accumulatedScenarioSeconds.clear();
 
         const batch = this._generateNextBatch(difficulty, []);
@@ -338,6 +346,8 @@ export class RankedSessionService {
             initialGauntletComplete: this._initialGauntletComplete,
             playedScenarios: Array.from(this._playedScenarios),
             initialEstimates: { ...this._initialEstimates },
+            previousSessionRanks: { ...this._previousSessionRanks },
+            lastSessionAchievements: { ...this._lastSessionAchievements },
             accumulatedScenarioSeconds: Object.fromEntries(this._accumulatedScenarioSeconds),
         };
     }
@@ -348,6 +358,8 @@ export class RankedSessionService {
         this._initialGauntletComplete = state.initialGauntletComplete;
         this._playedScenarios = new Set(state.playedScenarios);
         this._initialEstimates = state.initialEstimates;
+        this._previousSessionRanks = state.previousSessionRanks || {};
+        this._lastSessionAchievements = state.lastSessionAchievements || {};
         this._accumulatedScenarioSeconds = new Map(Object.entries(state.accumulatedScenarioSeconds));
     }
 
@@ -494,6 +506,13 @@ export class RankedSessionService {
                 this._currentIndex = 0;
                 this._scenarioStartTime = null;
                 this._initialGauntletComplete = false;
+
+                // Transfer last session achievements to previous session ranks
+                this._previousSessionRanks = {
+                    ...this._previousSessionRanks,
+                    ...this._lastSessionAchievements
+                };
+                this._lastSessionAchievements = {};
             }
             this._snapshotCurrentDifficultyState();
         }
@@ -724,6 +743,7 @@ export class RankedSessionService {
 
             const sessionValue = this._rankEstimator.getScenarioContinuousValue(effectiveScore, scenario);
             const initialValue = this._initialEstimates[scenarioName];
+            this._lastSessionAchievements[scenarioName] = sessionValue;
 
             this._rankEstimator.evolveScenarioEstimate(scenarioName, sessionValue, initialValue);
         });
@@ -786,6 +806,8 @@ export class RankedSessionService {
                 this._initialGauntletComplete = difficultyState.initialGauntletComplete || false;
                 this._playedScenarios = new Set(difficultyState.playedScenarios || []);
                 this._initialEstimates = difficultyState.initialEstimates || {};
+                this._previousSessionRanks = difficultyState.previousSessionRanks || {};
+                this._lastSessionAchievements = difficultyState.lastSessionAchievements || {};
                 this._accumulatedScenarioSeconds = new Map(Object.entries(difficultyState.accumulatedScenarioSeconds || {}));
                 this._sessionService.setRankedPlaylist(this._sequence);
             }

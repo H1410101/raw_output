@@ -805,7 +805,7 @@ export class RankedView {
   }
 
   private _prepareTimelineConfig(scenarioName: string, scenario: BenchmarkScenario): RankTimelineConfiguration {
-    const { estimate, initialRU, achievedRU, bestRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
+    const { estimate, initialRU, prevSessionRU, achievedRU, bestRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
     const targetRU = initialRU !== undefined && initialRU !== -1 ? initialRU : undefined;
 
     return {
@@ -815,7 +815,9 @@ export class RankedView {
       achievedRU,
       scrollAnchorRU: bestRU,
       expectedRU: this._calculateExpectedRU(estimate.continuousValue, targetRU ?? 0, achievedRU),
-      attemptsRU
+      attemptsRU,
+      prevSessionRU,
+      prevSessionLabel: "Prev Session"
     };
   }
 
@@ -849,9 +851,10 @@ export class RankedView {
   private _getScenarioPerformanceData(
     scenarioName: string,
     scenario: BenchmarkScenario
-  ): { estimate: ScenarioEstimate, initialRU?: number, achievedRU?: number, bestRU?: number, attemptsRU?: number[] } {
+  ): { estimate: ScenarioEstimate, initialRU?: number, prevSessionRU?: number, achievedRU?: number, bestRU?: number, attemptsRU?: number[] } {
     const estimate = this._deps.estimator.getScenarioEstimate(scenarioName);
     const initialRU = this._deps.rankedSession.state.initialEstimates[scenarioName];
+    const prevSessionRU = this._deps.rankedSession.state.previousSessionRanks[scenarioName];
     const record = this._deps.session.getRankedScenarioBest(scenarioName);
 
     const bestRU = record && record.bestScore > 0
@@ -869,7 +872,7 @@ export class RankedView {
       achievedRU = sorted[2];
     }
 
-    return { estimate, initialRU, achievedRU, bestRU, attemptsRU };
+    return { estimate, initialRU, prevSessionRU, achievedRU, bestRU, attemptsRU };
   }
 
   private _calculateExpectedRU(currentRU: number, initialRU: number, achievedRU?: number): number | undefined {
