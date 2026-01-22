@@ -14,8 +14,8 @@ A visualization of where a score or set of scores sits on a rank timeline. It sh
     - **Collision Resolution**: Shifting overlapping labels to ensure readability.
 
 ### `DotCloudComponent`
-A complex visualization of many score attempts over time or across scenarios. It uses canvas-based rendering for performance.
-- **Relies on**: `DotCloudCanvasRenderer`, `ScoreProcessor`
+A complex visualization of many score attempts over time or across scenarios. It uses HTML-based rendering for improved debuggability and accessibility.
+- **Relies on**: `DotCloudHtmlRenderer`, `ScoreProcessor`
 
 ### `RankScaleMapper`
 A utility for mapping raw scores to a linear "Rank Unit" (RU) scale. This allows consistent spacing on a timeline regardless of non-linear threshold values.
@@ -28,7 +28,7 @@ A utility for preparing and filtering raw run data for visualization.
 ```mermaid
 graph TD
     RankTimelineComponent -->|uses| RankScaleMapper
-    DotCloudComponent -->|uses| DotCloudCanvasRenderer
+    DotCloudComponent -->|uses| DotCloudHtmlRenderer
     DotCloudComponent -->|uses| ScoreProcessor
 ```
 
