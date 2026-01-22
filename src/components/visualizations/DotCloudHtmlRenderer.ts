@@ -88,41 +88,185 @@ export class DotCloudHtmlRenderer {
     }
 
     private _renderThresholds(notchHeight: number, context: RenderContext): void {
-        const indices: number[] = this._mapper.identifyRelevantThresholds(
+        const relevantIndices: number[] = this._mapper.identifyRelevantThresholds(
             context.bounds.minRU,
             context.bounds.maxRU,
         );
 
-        indices.forEach((thresholdIndex: number): void => {
-            this._renderThresholdMetadata(thresholdIndex, notchHeight, context);
+        const visibleLabels = this._getVisibleLabels(relevantIndices, context);
+        const visibleIndices = new Set(visibleLabels.map((label) => label.index));
+
+        relevantIndices.forEach((thresholdIndex: number): void => {
+            const isLabelVisible = visibleIndices.has(thresholdIndex);
+            const xPos: number = this._calculateThresholdX(thresholdIndex, context);
+
+            if (context.settings.showRankNotches) {
+                this._createNotchElement(xPos, notchHeight, isLabelVisible);
+            }
+        });
+
+        visibleLabels.forEach((label) => {
+            this._createLabelElement(label.text, label.xPos, label.alignment, context);
         });
     }
 
-    private _renderThresholdMetadata(
-        thresholdIndex: number,
-        notchHeight: number,
-        context: RenderContext,
-    ): void {
-        const [rankName]: [string, number] =
-            context.sortedThresholds[thresholdIndex];
-
-        const xPos: number = this._mapper.getHorizontalPosition(
+    private _calculateThresholdX(thresholdIndex: number, context: RenderContext): number {
+        return this._mapper.getHorizontalPosition(
             thresholdIndex + 1,
             context.bounds.minRU,
             context.bounds.maxRU,
             context.dimensions.width,
         );
+    }
 
-        if (context.settings.showRankNotches) {
-            this._createNotchElement(xPos, notchHeight);
+    private _getVisibleLabels(
+        relevantIndices: number[],
+        context: RenderContext
+    ): { index: number; text: string; xPos: number; width: number; alignment: "center" | "left" | "right" }[] {
+        const fontSize = this._calculateLabelFontSize(context);
+        const candidates = this._buildPriorityLabels(relevantIndices, context, fontSize);
+        const buffer = fontSize * 0.4;
+
+        const visible: { index: number; text: string; xPos: number; width: number; alignment: "center" | "left" | "right" }[] = [];
+
+        for (const candidate of candidates) {
+            const nextSet = [...visible, { ...candidate, alignment: "center" as const }].sort((a, b) => a.xPos - b.xPos);
+            const resolved = this._solveAlignments(nextSet, buffer, context.dimensions.width);
+
+            if (resolved) {
+                visible.splice(0, visible.length, ...resolved);
+            }
         }
 
-        this._createLabelElement(
-            rankName.toUpperCase(),
-            xPos,
-            context.dimensions,
-            context.settings,
-        );
+        return visible;
+    }
+
+    private _buildPriorityLabels(
+        relevantIndices: number[],
+        context: RenderContext,
+        fontSize: number
+    ): { index: number; text: string; priority: number; xPos: number; width: number }[] {
+        const totalRanks = context.sortedThresholds.length;
+        const topIndex = totalRanks - 1;
+        const bottomIndex = 0;
+
+        return relevantIndices.map(index => {
+            const text = context.sortedThresholds[index][0].toUpperCase();
+            const xPos = this._calculateThresholdX(index, context);
+            const width = this._measureLabelWidth(text, fontSize);
+
+            let priority = 3;
+            if (index === topIndex || index === bottomIndex) {
+                priority = 1;
+            } else if (index === relevantIndices[0] || index === relevantIndices[relevantIndices.length - 1]) {
+                priority = 2;
+            }
+
+            return { index, text, priority, xPos, width };
+        }).sort((a, b) => {
+            if (a.priority !== b.priority) {
+                return a.priority - b.priority;
+            }
+
+            return a.text.length - b.text.length;
+        });
+    }
+
+    private _solveAlignments<T extends { xPos: number; width: number; alignment: "center" | "left" | "right" }>(
+        labels: T[],
+        buffer: number,
+        containerWidth: number
+    ): T[] | null {
+        const result: T[] = [];
+        const config = { labels, result, buffer, containerWidth };
+
+        const success = this._backtrackAlignments(0, config);
+
+        return success ? [...result] : null;
+    }
+
+    private _backtrackAlignments<T extends { xPos: number; width: number; alignment: "center" | "left" | "right" }>(
+        index: number,
+        config: { labels: T[]; result: T[]; buffer: number; containerWidth: number }
+    ): boolean {
+        if (index === config.labels.length) {
+            return true;
+        }
+
+        const current = config.labels[index];
+        const alignments: ("center" | "left" | "right")[] = ["center", "left", "right"];
+
+        for (const alignment of alignments) {
+            if (this._tryApplyAlignment(index, current, alignment, config)) {
+                if (this._backtrackAlignments(index + 1, config)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private _tryApplyAlignment<T extends { xPos: number; width: number; alignment: "center" | "left" | "right" }>(
+        index: number,
+        current: T,
+        alignment: "center" | "left" | "right",
+        config: { result: T[]; buffer: number; containerWidth: number }
+    ): boolean {
+        const range = this._getLabelRange(current.xPos, current.width, alignment);
+
+        if (range.min < 0 || range.max > config.containerWidth) {
+            return false;
+        }
+
+        if (index > 0) {
+            const prev = config.result[index - 1];
+            const prevRange = this._getLabelRange(prev.xPos, prev.width, prev.alignment);
+
+            if (this._checkOverlap(range, prevRange, config.buffer)) {
+                return false;
+            }
+        }
+
+        config.result[index] = { ...current, alignment };
+
+        return true;
+    }
+
+    private _getLabelRange(xPos: number, width: number, alignment: string): { min: number; max: number } {
+        if (alignment === "left") {
+            return { min: xPos, max: xPos + width };
+        }
+
+        if (alignment === "right") {
+            return { min: xPos - width, max: xPos };
+        }
+
+        return { min: xPos - width / 2, max: xPos + width / 2 };
+    }
+
+    private _checkOverlap(a: { min: number; max: number }, b: { min: number; max: number }, buffer: number): boolean {
+        return a.min < b.max + buffer && a.max > b.min - buffer;
+    }
+
+    private _calculateLabelFontSize(context: RenderContext): number {
+        const factor: number = SCALING_FACTORS[context.settings.visRankFontSize] ?? SCALING_FACTORS.Normal;
+
+        return context.dimensions.rootFontSize * 0.5 * factor;
+    }
+
+    private _measureLabelWidth(text: string, fontSize: number): number {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        if (ctx) {
+            ctx.font = `bold ${fontSize}px Nunito, sans-serif`;
+
+            return ctx.measureText(text).width;
+        }
+
+        // Crude fallback if canvas is unavailable
+        return text.length * fontSize * 0.6;
     }
 
     private _renderMarker(
@@ -281,9 +425,14 @@ export class DotCloudHtmlRenderer {
         }
     }
 
-    private _createNotchElement(xPos: number, height: number): void {
+    private _createNotchElement(xPos: number, height: number, isLabelled: boolean): void {
         const notch: HTMLDivElement = document.createElement("div");
         notch.className = "dot-cloud-notch";
+
+        if (isLabelled) {
+            notch.classList.add("labelled");
+        }
+
         notch.style.left = `${xPos}px`;
         notch.style.height = `${height}px`;
         this._container.appendChild(notch);
@@ -292,17 +441,16 @@ export class DotCloudHtmlRenderer {
     private _createLabelElement(
         text: string,
         xPos: number,
-        dimensions: { width: number; height: number; rootFontSize: number },
-        settings: VisualSettings,
+        alignment: "center" | "left" | "right",
+        context: RenderContext,
     ): void {
         const anchor: HTMLDivElement = document.createElement("div");
         anchor.className = "dot-cloud-label-anchor";
         anchor.style.left = `${xPos}px`;
 
-        const relPos: number = xPos / dimensions.width;
-        if (relPos < 0.2) {
+        if (alignment === "left") {
             anchor.classList.add("anchor-left");
-        } else if (relPos > 0.8) {
+        } else if (alignment === "right") {
             anchor.classList.add("anchor-right");
         }
 
@@ -310,8 +458,8 @@ export class DotCloudHtmlRenderer {
         label.className = "dot-cloud-label";
         label.textContent = text;
 
-        const factor: number = SCALING_FACTORS[settings.visRankFontSize] ?? SCALING_FACTORS.Normal;
-        const fontSize: number = dimensions.rootFontSize * 0.5 * factor;
+        const factor: number = SCALING_FACTORS[context.settings.visRankFontSize] ?? SCALING_FACTORS.Normal;
+        const fontSize: number = context.dimensions.rootFontSize * 0.5 * factor;
         label.style.fontSize = `${fontSize}px`;
 
         anchor.appendChild(label);

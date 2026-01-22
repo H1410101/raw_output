@@ -381,6 +381,10 @@
     z-index: 1;
 }
 
+.dot-cloud-notch.labelled {
+    opacity: 0.8;
+}
+
 .dot-cloud-label-anchor {
     position: absolute;
     bottom: 0;
