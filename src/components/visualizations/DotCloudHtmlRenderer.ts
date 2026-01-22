@@ -295,6 +295,17 @@ export class DotCloudHtmlRenderer {
         dimensions: { width: number; height: number; rootFontSize: number },
         settings: VisualSettings,
     ): void {
+        const anchor: HTMLDivElement = document.createElement("div");
+        anchor.className = "dot-cloud-label-anchor";
+        anchor.style.left = `${xPos}px`;
+
+        const relPos: number = xPos / dimensions.width;
+        if (relPos < 0.2) {
+            anchor.classList.add("anchor-left");
+        } else if (relPos > 0.8) {
+            anchor.classList.add("anchor-right");
+        }
+
         const label: HTMLDivElement = document.createElement("div");
         label.className = "dot-cloud-label";
         label.textContent = text;
@@ -303,9 +314,8 @@ export class DotCloudHtmlRenderer {
         const fontSize: number = dimensions.rootFontSize * 0.5 * factor;
         label.style.fontSize = `${fontSize}px`;
 
-        label.style.left = `${xPos}px`;
-
-        this._container.appendChild(label);
+        anchor.appendChild(label);
+        this._container.appendChild(anchor);
     }
 
     private _calculateNotchHeight(

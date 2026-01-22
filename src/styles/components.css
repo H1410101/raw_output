@@ -381,16 +381,34 @@
     z-index: 1;
 }
 
-.dot-cloud-label {
+.dot-cloud-label-anchor {
     position: absolute;
     bottom: 0;
-    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    pointer-events: none;
+    overflow: visible;
+    z-index: 2;
+}
+
+.dot-cloud-label-anchor.anchor-left {
+    justify-content: flex-start;
+}
+
+.dot-cloud-label-anchor.anchor-right {
+    justify-content: flex-end;
+}
+
+.dot-cloud-label {
+    position: relative;
     color: var(--vis-label-color);
     font-weight: 700;
     text-transform: uppercase;
     white-space: nowrap;
     opacity: 0.8;
-    z-index: 2;
 }
 
 .dot-cloud-marker {
