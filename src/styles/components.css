@@ -677,8 +677,11 @@
 }
 
 .scenarios-list::-webkit-scrollbar-track {
-    background: rgba(var(--background-1-rgb), 0.05);
-    border-radius: 0.1875rem;
+    background: transparent;
+    border-left: 0.171875rem solid transparent;
+    border-right: 0.171875rem solid transparent;
+    background-color: rgba(var(--lower-band-1-rgb), 0.25);
+    background-clip: content-box;
 }
 
 .scenarios-list::-webkit-scrollbar-thumb {
