@@ -1,13 +1,19 @@
 import { VisualSettings } from "../../services/VisualSettingsService";
 import { RankScaleMapper } from "./RankScaleMapper";
 
+export interface AttemptEntry {
+    readonly score: number;
+    readonly timestamp: number;
+    readonly rankUnit: number;
+}
+
 export interface RankTimelineConfiguration {
     readonly thresholds: Record<string, number>;
     readonly settings: VisualSettings;
     readonly targetRU?: number;
     readonly achievedRU?: number;
     readonly scrollAnchorRU?: number;
-    readonly attemptsRU?: number[];
+    readonly attempts?: AttemptEntry[];
     // How many RUs to show. Default to 3.5
     readonly rangeWindow?: number;
     readonly expectedRU?: number;
@@ -66,6 +72,9 @@ export class RankTimelineComponent {
     }[] = [];
 
     private _markerSyncId: number | null = null;
+
+    private static _overlay: HTMLElement | null = null;
+    private static _popup: HTMLElement | null = null;
 
     /**
      * Initializes the timeline.
@@ -160,6 +169,17 @@ export class RankTimelineComponent {
         if (wasPaused) {
             this._startMarkerSync();
         }
+    }
+
+    /**
+     * Cleans up resources.
+     */
+    public destroy(): void {
+        if (this._markerSyncId !== null) {
+            cancelAnimationFrame(this._markerSyncId);
+            this._markerSyncId = null;
+        }
+        this._hideInspection();
     }
 
     /**
@@ -373,23 +393,147 @@ export class RankTimelineComponent {
 
 
     private _renderAttempts(): void {
-        const attempts = this._config.attemptsRU;
+        const attempts = this._config.attempts;
         if (!attempts || attempts.length === 0) return;
 
         const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
         const opacity = (this._config.settings.dotOpacity ?? 40) / 100;
-        const sorted = [...attempts].sort((a: number, b: number) => b - a);
-        const top3Threshold = sorted.length >= 3 ? sorted[2] : (sorted[sorted.length - 1] ?? -Infinity);
+        const sorted = [...attempts].sort((a, b) => b.rankUnit - a.rankUnit);
+        const top3Threshold = sorted.length >= 3 ? sorted[2].rankUnit : (sorted[sorted.length - 1]?.rankUnit ?? -Infinity);
 
-        attempts.forEach((rankUnit: number) => {
-            const isTop3 = rankUnit >= top3Threshold;
+        attempts.forEach((entry: AttemptEntry) => {
+            const isTop3 = entry.rankUnit >= top3Threshold;
             const notch = document.createElement("div");
             notch.className = "timeline-marker marker-attempt";
             if (!isTop3) notch.classList.add("secondary");
-            notch.style.left = `${rankUnit * unitWidth}%`;
+            notch.style.left = `${entry.rankUnit * unitWidth}%`;
             notch.style.opacity = opacity.toString();
+
+            this._setupAttemptInteractions(notch, entry);
+
             this._attemptsLayer.appendChild(notch);
         });
+    }
+
+    private _setupAttemptInteractions(notch: HTMLElement, entry: AttemptEntry): void {
+        notch.addEventListener("mouseenter", () => {
+            this._showInspection(notch, entry);
+        });
+
+        notch.addEventListener("mouseleave", () => {
+            this._hideInspection();
+        });
+    }
+
+    private _showInspection(notch: HTMLElement, entry: AttemptEntry): void {
+        const overlay = this._ensureOverlay();
+        const popup = this._ensurePopup();
+        const rect = notch.getBoundingClientRect();
+
+        this._clearMirror(popup);
+        this._createMirror(notch, popup);
+
+        popup.style.left = `${rect.left}px`;
+        popup.style.top = `${rect.top}px`;
+        popup.style.width = `${rect.width}px`;
+        popup.style.height = `${rect.height}px`;
+
+        const datetime = this._formatDateTime(entry.timestamp);
+        const rankInfo = this._formatRankProgress(entry.rankUnit);
+
+        popup.appendChild(this._createInspectionContent(entry.score, rankInfo, datetime));
+
+        overlay.classList.add("visible");
+        popup.classList.add("visible");
+    }
+
+    private _createMirror(element: HTMLElement, container: HTMLElement): void {
+        const mirror = element.cloneNode(true) as HTMLElement;
+        mirror.classList.add("dot-mirror");
+        mirror.style.position = "absolute";
+        mirror.style.inset = "0";
+        mirror.style.margin = "0";
+        mirror.style.transform = "none";
+        mirror.style.opacity = "1";
+        container.appendChild(mirror);
+    }
+
+    private _createInspectionContent(score: number, rankInfo: string, datetime: string): HTMLElement {
+        const textContainer = document.createElement("div");
+        textContainer.className = "dot-inspection-content";
+        textContainer.innerHTML = `
+            <div class="dot-inspection-text">${score.toFixed(2)}</div>
+            <div class="dot-inspection-text">${rankInfo}</div>
+            <div class="dot-inspection-text">${datetime}</div>
+        `;
+
+        return textContainer;
+    }
+
+    private _clearMirror(popup: HTMLElement): void {
+        const mirror = popup.querySelector(".dot-mirror");
+        if (mirror) mirror.remove();
+
+        const content = popup.querySelector(".dot-inspection-content");
+        if (content) content.remove();
+    }
+
+    private _formatDateTime(timestamp: number): string {
+        const date = new Date(timestamp);
+        const day = date.getDate().toString().padStart(2, "0");
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
+
+        return `${day}/${month} ${hours}:${minutes}`;
+    }
+
+    private _formatRankProgress(scoreRU: number): string {
+        const sortedThresholds = Object.entries(this._config.thresholds).sort(
+            (a, b) => a[1] - b[1]
+        );
+
+        const rankIndex = Math.floor(scoreRU) - 1;
+        const progress = Math.floor((scoreRU % 1) * 100);
+
+        if (rankIndex < 0) {
+            return `Unranked +${progress}%`;
+        }
+
+        if (rankIndex >= sortedThresholds.length) {
+            const lastRank = sortedThresholds[sortedThresholds.length - 1][0];
+
+            return `${lastRank} +${progress}%`;
+        }
+
+        const rankName = sortedThresholds[rankIndex][0];
+
+        return `${rankName} +${progress}%`;
+    }
+
+    private _hideInspection(): void {
+        RankTimelineComponent._overlay?.classList.remove("visible");
+        RankTimelineComponent._popup?.classList.remove("visible");
+    }
+
+    private _ensureOverlay(): HTMLElement {
+        if (!RankTimelineComponent._overlay) {
+            RankTimelineComponent._overlay = document.createElement("div");
+            RankTimelineComponent._overlay.className = "dot-inspection-overlay";
+            document.body.appendChild(RankTimelineComponent._overlay);
+        }
+
+        return RankTimelineComponent._overlay;
+    }
+
+    private _ensurePopup(): HTMLElement {
+        if (!RankTimelineComponent._popup) {
+            RankTimelineComponent._popup = document.createElement("div");
+            RankTimelineComponent._popup.className = "dot-inspection-popup";
+            document.body.appendChild(RankTimelineComponent._popup);
+        }
+
+        return RankTimelineComponent._popup;
     }
 
     private _renderProgressLine(options: {
@@ -771,7 +915,7 @@ export class RankTimelineComponent {
         if (this._config.achievedRU !== undefined) scores.push(this._config.achievedRU);
         if (this._config.prevSessionRU !== undefined) scores.push(this._config.prevSessionRU);
         if (this._config.expectedRU !== undefined) scores.push(this._config.expectedRU);
-        if (this._config.attemptsRU) scores.push(...this._config.attemptsRU);
+        if (this._config.attempts) scores.push(...this._config.attempts.map(a => a.rankUnit));
 
         return scores.length > 0 ? Math.max(...scores) : null;
     }

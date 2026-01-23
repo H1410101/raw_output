@@ -7,7 +7,7 @@ import { AppStateService } from "../services/AppStateService";
 import { HistoryService } from "../services/HistoryService";
 import { VisualSettingsService } from "../services/VisualSettingsService";
 import { AudioService } from "../services/AudioService";
-import { RankTimelineComponent, RankTimelineConfiguration } from "./visualizations/RankTimelineComponent";
+import { RankTimelineComponent, RankTimelineConfiguration, AttemptEntry } from "./visualizations/RankTimelineComponent";
 import { SummaryTimelineComponent } from "./visualizations/SummaryTimelineComponent";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
@@ -100,6 +100,9 @@ export class RankedView {
     window.removeEventListener("blur", this._onBrowserFocusBound);
     this._stopHudTicking();
     this._clearSummaryTimeouts();
+    if (this._activeTimeline) {
+      this._activeTimeline.destroy();
+    }
   }
 
   private _onBrowserFocus(): void {
@@ -293,6 +296,10 @@ export class RankedView {
 
     this._summaryTimelines.forEach((timeline) => timeline.destroy());
     this._summaryTimelines = [];
+    if (this._activeTimeline) {
+      this._activeTimeline.destroy();
+      this._activeTimeline = null;
+    }
     this._pendingSummaryScenarios.clear();
 
     this._renderMainUI(state);
@@ -805,7 +812,7 @@ export class RankedView {
   }
 
   private _prepareTimelineConfig(scenarioName: string, scenario: BenchmarkScenario): RankTimelineConfiguration {
-    const { estimate, initialRU, prevSessionRU, achievedRU, bestRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
+    const { estimate, initialRU, prevSessionRU, achievedRU, bestRU, attempts } = this._getScenarioPerformanceData(scenarioName, scenario);
     const targetRU = initialRU !== undefined && initialRU !== -1 ? initialRU : undefined;
 
     return {
@@ -815,7 +822,7 @@ export class RankedView {
       achievedRU,
       scrollAnchorRU: bestRU,
       expectedRU: this._calculateExpectedRU(estimate.continuousValue, targetRU ?? 0, achievedRU),
-      attemptsRU,
+      attempts,
       prevSessionRU,
       prevSessionLabel: "Prev Session"
     };
@@ -838,6 +845,9 @@ export class RankedView {
     scenarioName: string,
     options: { immediate: boolean; paused: boolean }
   ): void {
+    if (this._activeTimeline) {
+      this._activeTimeline.destroy();
+    }
     this._activeTimeline = new RankTimelineComponent(config);
     this._activeTimelineScenario = scenarioName;
 
@@ -851,7 +861,7 @@ export class RankedView {
   private _getScenarioPerformanceData(
     scenarioName: string,
     scenario: BenchmarkScenario
-  ): { estimate: ScenarioEstimate, initialRU?: number, prevSessionRU?: number, achievedRU?: number, bestRU?: number, attemptsRU?: number[] } {
+  ): { estimate: ScenarioEstimate, initialRU?: number, prevSessionRU?: number, achievedRU?: number, bestRU?: number, attempts: AttemptEntry[] } {
     const estimate = this._deps.estimator.getScenarioEstimate(scenarioName);
     const initialRU = this._deps.rankedSession.state.initialEstimates[scenarioName];
     const prevSessionRU = this._deps.rankedSession.state.previousSessionRanks[scenarioName];
@@ -863,16 +873,20 @@ export class RankedView {
 
     const rankedRuns = this._deps.session.getAllRankedSessionRuns();
     const scenarioRuns = rankedRuns.filter(run => run.scenarioName === scenarioName);
-    const attemptsRU = scenarioRuns.map(run => this._deps.estimator.getScenarioContinuousValue(run.score, scenario));
+    const attempts = scenarioRuns.map(run => ({
+      score: run.score,
+      timestamp: run.timestamp,
+      rankUnit: this._deps.estimator.getScenarioContinuousValue(run.score, scenario)
+    }));
 
     let achievedRU = undefined;
 
-    if (attemptsRU.length >= 3) {
-      const sorted = [...attemptsRU].sort((a, b) => b - a);
-      achievedRU = sorted[2];
+    if (attempts.length >= 3) {
+      const sorted = [...attempts].sort((a, b) => b.rankUnit - a.rankUnit);
+      achievedRU = sorted[2].rankUnit;
     }
 
-    return { estimate, initialRU, prevSessionRU, achievedRU, bestRU, attemptsRU };
+    return { estimate, initialRU, prevSessionRU, achievedRU, bestRU, attempts };
   }
 
   private _calculateExpectedRU(currentRU: number, initialRU: number, achievedRU?: number): number | undefined {

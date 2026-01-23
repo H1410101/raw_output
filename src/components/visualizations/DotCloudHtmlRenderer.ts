@@ -435,20 +435,53 @@ export class DotCloudHtmlRenderer {
         const popup = this._ensurePopup();
         const rect = dot.getBoundingClientRect();
 
-        popup.style.left = `${rect.left + rect.width / 2}px`;
+        this._clearMirror(popup);
+        this._createMirror(dot, popup);
+
+        popup.style.left = `${rect.left}px`;
         popup.style.top = `${rect.top}px`;
+        popup.style.width = `${rect.width}px`;
+        popup.style.height = `${rect.height}px`;
 
         const datetime = config.timestamp ? this._formatDateTime(config.timestamp) : "";
         const rankInfo = this._formatRankProgress(config.scoreRU, context.sortedThresholds);
 
-        popup.innerHTML = `
-            <div class="dot-inspection-text">${config.score.toFixed(2)}</div>
+        popup.appendChild(this._createInspectionContent(config.score, rankInfo, datetime));
+
+        overlay.classList.add("visible");
+        popup.classList.add("visible");
+    }
+
+    private _createMirror(element: HTMLElement, container: HTMLElement): void {
+        const mirror = element.cloneNode(true) as HTMLElement;
+        mirror.classList.add("dot-mirror");
+        mirror.style.position = "absolute";
+        mirror.style.inset = "0";
+        mirror.style.margin = "0";
+        mirror.style.transform = "none";
+        mirror.style.opacity = "1";
+        mirror.style.setProperty("--dot-opacity", "1");
+        container.appendChild(mirror);
+    }
+
+    private _createInspectionContent(score: number, rankInfo: string, datetime: string): HTMLElement {
+        const textContainer = document.createElement("div");
+        textContainer.className = "dot-inspection-content";
+        textContainer.innerHTML = `
+            <div class="dot-inspection-text">${score.toFixed(2)}</div>
             <div class="dot-inspection-text">${rankInfo}</div>
             <div class="dot-inspection-text">${datetime}</div>
         `;
 
-        overlay.classList.add("visible");
-        popup.classList.add("visible");
+        return textContainer;
+    }
+
+    private _clearMirror(popup: HTMLElement): void {
+        const mirror = popup.querySelector(".dot-mirror");
+        if (mirror) mirror.remove();
+
+        const content = popup.querySelector(".dot-inspection-content");
+        if (content) content.remove();
     }
 
     private _formatDateTime(timestamp: number): string {

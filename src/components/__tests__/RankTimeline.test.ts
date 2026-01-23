@@ -110,7 +110,10 @@ describe("RankTimelineComponent Logic", () => {
             settings: { dotOpacity: 50 } as VisualSettings,
             targetRU: 2,
             achievedRU: 3,
-            attemptsRU: [2.5, 2.7]
+            attempts: [
+                { score: 250, timestamp: Date.now(), rankUnit: 2.5 },
+                { score: 270, timestamp: Date.now(), rankUnit: 2.7 }
+            ]
         };
         const component = new RankTimelineComponent(config);
         const container = component.render();
@@ -196,7 +199,13 @@ describe("RankTimelineComponent Logic", () => {
             targetRU: 2,
             achievedRU: 2,
             // Top 3 are 5, 4, 3
-            attemptsRU: [1, 2, 3, 4, 5]
+            attempts: [
+                { score: 100, timestamp: Date.now(), rankUnit: 1 },
+                { score: 200, timestamp: Date.now(), rankUnit: 2 },
+                { score: 300, timestamp: Date.now(), rankUnit: 3 },
+                { score: 400, timestamp: Date.now(), rankUnit: 4 },
+                { score: 500, timestamp: Date.now(), rankUnit: 5 }
+            ]
         };
         const component = new RankTimelineComponent(config);
         const container = component.render();

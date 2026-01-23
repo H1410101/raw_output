@@ -369,12 +369,7 @@
 }
 
 .dot-inspection-popup {
-    position: absolute;
-    transform: translate(-50%, -100%);
-    padding-bottom: 0.8rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    position: fixed;
     pointer-events: none;
     z-index: 10000;
     opacity: 0;
@@ -383,6 +378,17 @@
 
 .dot-inspection-popup.visible {
     opacity: 1;
+}
+
+.dot-inspection-content {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding-bottom: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .dot-inspection-text {
@@ -554,11 +560,15 @@
 .timeline-marker {
     position: absolute;
     bottom: 50%;
-    width: 0.0625rem;
+    width: 0.5rem;
+    /* Increased hit area */
     height: 0.75rem;
     transform: translateX(-50%);
     z-index: 10;
     border-radius: 2px;
+    background-clip: padding-box;
+    border-left: calc(0.25rem - 0.03125rem) solid transparent;
+    border-right: calc(0.25rem - 0.03125rem) solid transparent;
 }
 
 .timeline-marker-anchor {
