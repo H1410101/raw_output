@@ -187,6 +187,7 @@ export class AppBootstrap {
 
     this._setupActionListeners();
     this._setupGlobalButtonSounds();
+    this._setupKeyboardShortcuts();
 
     this._checkAnalyticsPrompt();
   }
@@ -496,6 +497,33 @@ export class AppBootstrap {
       titleElement.addEventListener("mouseenter", (): void => {
         this._audioService.playLight(0.5);
       });
+    }
+  }
+
+  private _setupKeyboardShortcuts(): void {
+    document.addEventListener("keydown", (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        this._handleEscapeKey();
+      }
+    });
+  }
+
+  private _handleEscapeKey(): void {
+    const activeOverlays: NodeListOf<Element> =
+      document.querySelectorAll(".settings-overlay");
+
+    if (activeOverlays.length > 0) {
+      const lastOverlay: HTMLElement = activeOverlays[
+        activeOverlays.length - 1
+      ] as HTMLElement;
+
+      lastOverlay.click();
+
+      return;
+    }
+
+    if (this._appStateService.getIsFolderViewOpen()) {
+      void this._navigationController.tryExitFolderView();
     }
   }
 
