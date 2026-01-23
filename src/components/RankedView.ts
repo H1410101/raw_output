@@ -753,6 +753,7 @@ export class RankedView {
           
           <div style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; padding-bottom: 0.35rem;">
               <button class="media-btn secondary destructive" id="end-ranked-btn">
+                  <div class="button-fill"></div>
                   <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
               </button>
               <button class="media-btn secondary" id="extend-ranked-btn">
@@ -922,29 +923,42 @@ export class RankedView {
               ${isScenarioActive ? this._getScenarioHudString(state) : ""}
           </div>
 
-          <div class="controls-left">
-              <button class="media-btn secondary" id="ranked-help-btn">
-                  <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
-              </button>
-              <button class="media-btn secondary" id="ranked-back-btn" ${state.currentIndex === 0 ? "disabled" : ""}>
-                  <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-              </button>
-          </div>
+          ${this._renderLeftControls(state)}
 
           ${this._getPlayButtonHtml()}
 
-          <div class="controls-right">
-              <button class="media-btn secondary" id="next-ranked-btn">
-                  <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-              </button>
-              <button class="media-btn secondary destructive" id="end-ranked-btn">
-                  <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-              </button>
-          </div>
+          ${this._renderRightControls()}
 
           <div class="hud-group right" id="hud-session-stats">
               ${isScenarioActive ? this._getSessionHudString() : ""}
           </div>
+      </div>
+    `;
+  }
+
+  private _renderLeftControls(state: RankedSessionState): string {
+    return `
+      <div class="controls-left">
+          <button class="media-btn secondary" id="ranked-help-btn">
+              <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+          </button>
+          <button class="media-btn secondary" id="ranked-back-btn" ${state.currentIndex === 0 ? "disabled" : ""}>
+              <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+      </div>
+    `;
+  }
+
+  private _renderRightControls(): string {
+    return `
+      <div class="controls-right">
+          <button class="media-btn secondary" id="next-ranked-btn">
+              <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+          <button class="media-btn secondary destructive" id="end-ranked-btn">
+              <div class="button-fill"></div>
+              <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
       </div>
     `;
   }
@@ -984,37 +998,41 @@ export class RankedView {
   }
 
   private _attachActiveListeners(container: HTMLElement): void {
-    const nextBtn: HTMLButtonElement | null = container.querySelector("#next-ranked-btn");
-    nextBtn?.addEventListener("click", () => this._deps.rankedSession.advance());
+    container.querySelector("#next-ranked-btn")?.addEventListener("click", () => this._deps.rankedSession.advance());
+    container.querySelector("#extend-ranked-btn")?.addEventListener("click", () => this._deps.rankedSession.extendSession());
+    container.querySelector("#finish-ranked-btn")?.addEventListener("click", () => this._deps.rankedSession.reset());
+    container.querySelector("#ranked-back-btn")?.addEventListener("click", () => this._deps.rankedSession.retreat());
 
-    const extendBtn: HTMLButtonElement | null = container.querySelector("#extend-ranked-btn");
-    extendBtn?.addEventListener("click", () => this._deps.rankedSession.extendSession());
+    this._setupEndButtons(container);
+    this._setupPlayNowButton(container);
 
-    const endBtn: HTMLButtonElement | null = container.querySelector("#end-ranked-btn");
-    endBtn?.addEventListener("click", () => this._deps.rankedSession.endSession());
-
-    const finishBtn: HTMLButtonElement | null = container.querySelector("#finish-ranked-btn");
-    finishBtn?.addEventListener("click", () => this._deps.rankedSession.reset());
-
-    const playNowBtn: HTMLButtonElement | null = container.querySelector("#ranked-play-now");
-    if (playNowBtn) {
-      const progressBar = playNowBtn.querySelector(".launch-progress-bar") as HTMLElement;
-      const scenarioName = this._deps.rankedSession.state.sequence[this._deps.rankedSession.state.currentIndex];
-      this._setupHoldInteractions(playNowBtn, progressBar, scenarioName, () => {
-        this._launchScenario(scenarioName);
-      });
-    }
-
-    const backBtn: HTMLButtonElement | null = container.querySelector("#ranked-back-btn");
-    backBtn?.addEventListener("click", () => this._deps.rankedSession.retreat());
-
-    const helpBtn: HTMLButtonElement | null = container.querySelector("#ranked-help-btn");
-    helpBtn?.addEventListener("click", (): void => {
-      const popup: RankedHelpPopupComponent = new RankedHelpPopupComponent(this._deps.audio);
-      popup.render();
+    container.querySelector("#ranked-help-btn")?.addEventListener("click", (): void => {
+      new RankedHelpPopupComponent(this._deps.audio).render();
     });
 
     this._updateDrainAnimation(container);
+  }
+
+  private _setupEndButtons(container: HTMLElement): void {
+    const endBtns: NodeListOf<HTMLElement> = container.querySelectorAll("#end-ranked-btn");
+    endBtns.forEach((btn: HTMLElement): void => {
+      const progressBar = btn.querySelector(".button-fill") as HTMLElement;
+      this._setupHoldInteractions(btn, progressBar, null, (): void => {
+        this._deps.rankedSession.endSession();
+      });
+    });
+  }
+
+  private _setupPlayNowButton(container: HTMLElement): void {
+    const playNowBtn: HTMLButtonElement | null = container.querySelector("#ranked-play-now");
+    if (!playNowBtn) return;
+
+    const progressBar = playNowBtn.querySelector(".launch-progress-bar") as HTMLElement;
+    const scenarioName = this._deps.rankedSession.state.sequence[this._deps.rankedSession.state.currentIndex];
+
+    this._setupHoldInteractions(playNowBtn, progressBar, scenarioName, (): void => {
+      this._launchScenario(scenarioName);
+    });
   }
 
   /**
@@ -1215,8 +1233,13 @@ export class RankedView {
   }
 
   private _updateHoldVisuals(state: LaunchHoldState, forceImmediateFade: boolean = false): void {
-    const scale: number = state.progress / 100;
-    state.progressBar.style.transform = `scaleX(${scale})`;
+    if (state.progressBar.classList.contains("button-fill")) {
+      const fillPercent = 100 - state.progress;
+      state.progressBar.style.height = `${fillPercent}%`;
+    } else {
+      const scale: number = state.progress / 100;
+      state.progressBar.style.transform = `scaleX(${scale})`;
+    }
 
     if (state.progress < 100) {
       this._cancelFade(state);
