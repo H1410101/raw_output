@@ -119,7 +119,6 @@ export class MockServiceFactory {
         return {
             audio: { playLight: vi.fn(), playHeavy: vi.fn(), ...(overrides.audio as Record<string, unknown>) } as unknown as AudioService,
             directory: this._createDirectoryService(overrides.directory as Record<string, unknown>),
-            folderActions: this._createFolderActions(overrides.folderActions as Record<string, unknown>),
             cloudflare: { ...(overrides.cloudflare as Record<string, unknown>) } as unknown as CloudflareService,
             identity: { getDeviceId: vi.fn(), isAnalyticsEnabled: vi.fn(), ...(overrides.identity as Record<string, unknown>) } as unknown as IdentityService
         };
@@ -263,14 +262,7 @@ export class MockServiceFactory {
         } as unknown as SessionSettingsService;
     }
 
-    private static _createFolderActions(overrides: Record<string, unknown> = {}): { onLinkFolder: () => Promise<void>, onForceScan: () => Promise<void>, onUnlinkFolder: () => void } {
-        return {
-            onLinkFolder: vi.fn(),
-            onForceScan: vi.fn(),
-            onUnlinkFolder: vi.fn(),
-            ...overrides
-        } as { onLinkFolder: () => Promise<void>, onForceScan: () => Promise<void>, onUnlinkFolder: () => void };
-    }
+
 
     private static _createCosmeticOverride(overrides: Record<string, unknown> = {}): CosmeticOverrideService {
         return {

@@ -7,9 +7,8 @@ import { AppStateService } from "../services/AppStateService";
 import { HistoryService } from "../services/HistoryService";
 import { VisualSettingsService } from "../services/VisualSettingsService";
 import { AudioService } from "../services/AudioService";
-import { RankTimelineComponent, RankTimelineConfiguration } from "./visualizations/RankTimelineComponent";
+import { RankTimelineComponent, RankTimelineConfiguration, AttemptEntry } from "./visualizations/RankTimelineComponent";
 import { SummaryTimelineComponent } from "./visualizations/SummaryTimelineComponent";
-import { FolderSettingsView, FolderActionHandlers } from "./ui/FolderSettingsView";
 import { DirectoryAccessService } from "../services/DirectoryAccessService";
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
@@ -50,11 +49,6 @@ export interface RankedViewDependencies {
   readonly sessionSettings: SessionSettingsService;
   readonly audio: AudioService;
   readonly directory: DirectoryAccessService;
-  readonly folderActions: {
-    readonly onLinkFolder: () => Promise<void>;
-    readonly onForceScan: () => Promise<void>;
-    readonly onUnlinkFolder: () => void;
-  };
 }
 
 /**
@@ -63,7 +57,6 @@ export interface RankedViewDependencies {
 export class RankedView {
   private readonly _container: HTMLElement;
   private readonly _deps: RankedViewDependencies;
-  private _folderSettingsView: FolderSettingsView | null = null;
   private _hudInterval: number | null = null;
   private _activeTimeline: RankTimelineComponent | null = null;
   private _activeTimelineScenario: string | null = null;
@@ -107,6 +100,9 @@ export class RankedView {
     window.removeEventListener("blur", this._onBrowserFocusBound);
     this._stopHudTicking();
     this._clearSummaryTimeouts();
+    if (this._activeTimeline) {
+      this._activeTimeline.destroy();
+    }
   }
 
   private _onBrowserFocus(): void {
@@ -281,51 +277,9 @@ export class RankedView {
   }
 
   /**
-   * Toggles the visibility of the advanced folder settings view.
-   */
-  public toggleFolderView(): void {
-    const isCurrentlyOpen: boolean =
-      this._deps.appState.getIsFolderViewOpen();
-
-    this._deps.appState.setIsFolderViewOpen(!isCurrentlyOpen);
-
-    this.render();
-  }
-
-  /**
-   * Attempts to return to the ranked interface from the folder settings view.
-   * This succeeds only if a folder is already linked and statistics have been found.
-   *
-   * @returns A promise that resolves to true if the folder view was dismissed.
-   */
-  public async tryReturnToTable(): Promise<boolean> {
-    if (!this._deps.appState.getIsFolderViewOpen()) {
-      return false;
-    }
-
-    const isStatsFolder: boolean = this._deps.directory.isStatsFolderSelected();
-    const lastCheck: number =
-      await this._deps.history.getLastCheckTimestamp();
-
-    if (isStatsFolder && lastCheck > 0) {
-      await this._dismissFolderView();
-
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
    * Renders the current state of the Ranked view.
    */
   public async render(): Promise<void> {
-    if (await this._shouldShowFolderSettings()) {
-      await this._renderFolderView();
-
-      return;
-    }
-
     const state: RankedSessionState = this._deps.rankedSession.state;
     const scenarioName = this._getActiveScenarioName(state);
 
@@ -342,6 +296,10 @@ export class RankedView {
 
     this._summaryTimelines.forEach((timeline) => timeline.destroy());
     this._summaryTimelines = [];
+    if (this._activeTimeline) {
+      this._activeTimeline.destroy();
+      this._activeTimeline = null;
+    }
     this._pendingSummaryScenarios.clear();
 
     this._renderMainUI(state);
@@ -795,6 +753,7 @@ export class RankedView {
           
           <div style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; padding-bottom: 0.35rem;">
               <button class="media-btn secondary destructive" id="end-ranked-btn">
+                  <div class="button-fill"></div>
                   <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
               </button>
               <button class="media-btn secondary" id="extend-ranked-btn">
@@ -854,7 +813,7 @@ export class RankedView {
   }
 
   private _prepareTimelineConfig(scenarioName: string, scenario: BenchmarkScenario): RankTimelineConfiguration {
-    const { estimate, initialRU, achievedRU, bestRU, attemptsRU } = this._getScenarioPerformanceData(scenarioName, scenario);
+    const { estimate, initialRU, prevSessionRU, achievedRU, bestRU, attempts } = this._getScenarioPerformanceData(scenarioName, scenario);
     const targetRU = initialRU !== undefined && initialRU !== -1 ? initialRU : undefined;
 
     return {
@@ -864,7 +823,9 @@ export class RankedView {
       achievedRU,
       scrollAnchorRU: bestRU,
       expectedRU: this._calculateExpectedRU(estimate.continuousValue, targetRU ?? 0, achievedRU),
-      attemptsRU
+      attempts,
+      prevSessionRU,
+      prevSessionLabel: "Prev Session"
     };
   }
 
@@ -885,6 +846,9 @@ export class RankedView {
     scenarioName: string,
     options: { immediate: boolean; paused: boolean }
   ): void {
+    if (this._activeTimeline) {
+      this._activeTimeline.destroy();
+    }
     this._activeTimeline = new RankTimelineComponent(config);
     this._activeTimelineScenario = scenarioName;
 
@@ -898,9 +862,10 @@ export class RankedView {
   private _getScenarioPerformanceData(
     scenarioName: string,
     scenario: BenchmarkScenario
-  ): { estimate: ScenarioEstimate, initialRU?: number, achievedRU?: number, bestRU?: number, attemptsRU?: number[] } {
+  ): { estimate: ScenarioEstimate, initialRU?: number, prevSessionRU?: number, achievedRU?: number, bestRU?: number, attempts: AttemptEntry[] } {
     const estimate = this._deps.estimator.getScenarioEstimate(scenarioName);
     const initialRU = this._deps.rankedSession.state.initialEstimates[scenarioName];
+    const prevSessionRU = this._deps.rankedSession.state.previousSessionRanks[scenarioName];
     const record = this._deps.session.getRankedScenarioBest(scenarioName);
 
     const bestRU = record && record.bestScore > 0
@@ -909,16 +874,20 @@ export class RankedView {
 
     const rankedRuns = this._deps.session.getAllRankedSessionRuns();
     const scenarioRuns = rankedRuns.filter(run => run.scenarioName === scenarioName);
-    const attemptsRU = scenarioRuns.map(run => this._deps.estimator.getScenarioContinuousValue(run.score, scenario));
+    const attempts = scenarioRuns.map(run => ({
+      score: run.score,
+      timestamp: run.timestamp,
+      rankUnit: this._deps.estimator.getScenarioContinuousValue(run.score, scenario)
+    }));
 
     let achievedRU = undefined;
 
-    if (attemptsRU.length >= 3) {
-      const sorted = [...attemptsRU].sort((a, b) => b - a);
-      achievedRU = sorted[2];
+    if (attempts.length >= 3) {
+      const sorted = [...attempts].sort((a, b) => b.rankUnit - a.rankUnit);
+      achievedRU = sorted[2].rankUnit;
     }
 
-    return { estimate, initialRU, achievedRU, bestRU, attemptsRU };
+    return { estimate, initialRU, prevSessionRU, achievedRU, bestRU, attempts };
   }
 
   private _calculateExpectedRU(currentRU: number, initialRU: number, achievedRU?: number): number | undefined {
@@ -954,29 +923,42 @@ export class RankedView {
               ${isScenarioActive ? this._getScenarioHudString(state) : ""}
           </div>
 
-          <div class="controls-left">
-              <button class="media-btn secondary" id="ranked-help-btn">
-                  <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
-              </button>
-              <button class="media-btn secondary" id="ranked-back-btn" ${state.currentIndex === 0 ? "disabled" : ""}>
-                  <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-              </button>
-          </div>
+          ${this._renderLeftControls(state)}
 
           ${this._getPlayButtonHtml()}
 
-          <div class="controls-right">
-              <button class="media-btn secondary" id="next-ranked-btn">
-                  <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-              </button>
-              <button class="media-btn secondary destructive" id="end-ranked-btn">
-                  <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-              </button>
-          </div>
+          ${this._renderRightControls()}
 
           <div class="hud-group right" id="hud-session-stats">
               ${isScenarioActive ? this._getSessionHudString() : ""}
           </div>
+      </div>
+    `;
+  }
+
+  private _renderLeftControls(state: RankedSessionState): string {
+    return `
+      <div class="controls-left">
+          <button class="media-btn secondary" id="ranked-help-btn">
+              <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+          </button>
+          <button class="media-btn secondary" id="ranked-back-btn" ${state.currentIndex === 0 ? "disabled" : ""}>
+              <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+      </div>
+    `;
+  }
+
+  private _renderRightControls(): string {
+    return `
+      <div class="controls-right">
+          <button class="media-btn secondary" id="next-ranked-btn">
+              <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+          <button class="media-btn secondary destructive" id="end-ranked-btn">
+              <div class="button-fill"></div>
+              <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
       </div>
     `;
   }
@@ -1016,37 +998,41 @@ export class RankedView {
   }
 
   private _attachActiveListeners(container: HTMLElement): void {
-    const nextBtn: HTMLButtonElement | null = container.querySelector("#next-ranked-btn");
-    nextBtn?.addEventListener("click", () => this._deps.rankedSession.advance());
+    container.querySelector("#next-ranked-btn")?.addEventListener("click", () => this._deps.rankedSession.advance());
+    container.querySelector("#extend-ranked-btn")?.addEventListener("click", () => this._deps.rankedSession.extendSession());
+    container.querySelector("#finish-ranked-btn")?.addEventListener("click", () => this._deps.rankedSession.reset());
+    container.querySelector("#ranked-back-btn")?.addEventListener("click", () => this._deps.rankedSession.retreat());
 
-    const extendBtn: HTMLButtonElement | null = container.querySelector("#extend-ranked-btn");
-    extendBtn?.addEventListener("click", () => this._deps.rankedSession.extendSession());
+    this._setupEndButtons(container);
+    this._setupPlayNowButton(container);
 
-    const endBtn: HTMLButtonElement | null = container.querySelector("#end-ranked-btn");
-    endBtn?.addEventListener("click", () => this._deps.rankedSession.endSession());
-
-    const finishBtn: HTMLButtonElement | null = container.querySelector("#finish-ranked-btn");
-    finishBtn?.addEventListener("click", () => this._deps.rankedSession.reset());
-
-    const playNowBtn: HTMLButtonElement | null = container.querySelector("#ranked-play-now");
-    if (playNowBtn) {
-      const progressBar = playNowBtn.querySelector(".launch-progress-bar") as HTMLElement;
-      const scenarioName = this._deps.rankedSession.state.sequence[this._deps.rankedSession.state.currentIndex];
-      this._setupHoldInteractions(playNowBtn, progressBar, scenarioName, () => {
-        this._launchScenario(scenarioName);
-      });
-    }
-
-    const backBtn: HTMLButtonElement | null = container.querySelector("#ranked-back-btn");
-    backBtn?.addEventListener("click", () => this._deps.rankedSession.retreat());
-
-    const helpBtn: HTMLButtonElement | null = container.querySelector("#ranked-help-btn");
-    helpBtn?.addEventListener("click", (): void => {
-      const popup: RankedHelpPopupComponent = new RankedHelpPopupComponent(this._deps.audio);
-      popup.render();
+    container.querySelector("#ranked-help-btn")?.addEventListener("click", (): void => {
+      new RankedHelpPopupComponent(this._deps.audio).render();
     });
 
     this._updateDrainAnimation(container);
+  }
+
+  private _setupEndButtons(container: HTMLElement): void {
+    const endBtns: NodeListOf<HTMLElement> = container.querySelectorAll("#end-ranked-btn");
+    endBtns.forEach((btn: HTMLElement): void => {
+      const progressBar = btn.querySelector(".button-fill") as HTMLElement;
+      this._setupHoldInteractions(btn, progressBar, null, (): void => {
+        this._deps.rankedSession.endSession();
+      });
+    });
+  }
+
+  private _setupPlayNowButton(container: HTMLElement): void {
+    const playNowBtn: HTMLButtonElement | null = container.querySelector("#ranked-play-now");
+    if (!playNowBtn) return;
+
+    const progressBar = playNowBtn.querySelector(".launch-progress-bar") as HTMLElement;
+    const scenarioName = this._deps.rankedSession.state.sequence[this._deps.rankedSession.state.currentIndex];
+
+    this._setupHoldInteractions(playNowBtn, progressBar, scenarioName, (): void => {
+      this._launchScenario(scenarioName);
+    });
   }
 
   /**
@@ -1247,8 +1233,13 @@ export class RankedView {
   }
 
   private _updateHoldVisuals(state: LaunchHoldState, forceImmediateFade: boolean = false): void {
-    const scale: number = state.progress / 100;
-    state.progressBar.style.transform = `scaleX(${scale})`;
+    if (state.progressBar.classList.contains("button-fill")) {
+      const fillPercent = 100 - state.progress;
+      state.progressBar.style.height = `${fillPercent}%`;
+    } else {
+      const scale: number = state.progress / 100;
+      state.progressBar.style.transform = `scaleX(${scale})`;
+    }
 
     if (state.progress < 100) {
       this._cancelFade(state);
@@ -1298,74 +1289,9 @@ export class RankedView {
     return this._deps.estimator.calculateHolisticEstimateRank(difficulty);
   }
 
-  private async _shouldShowFolderSettings(): Promise<boolean> {
-    const isStatsFolder: boolean = this._deps.directory.isStatsFolderSelected();
-    const isManualOpen: boolean = this._deps.appState.getIsFolderViewOpen();
-
-    if (!isStatsFolder || isManualOpen) {
-      return true;
-    }
-
-    const lastCheck: number = await this._deps.history.getLastCheckTimestamp();
-
-    return lastCheck === 0;
-  }
-
-  private async _renderFolderView(): Promise<void> {
-    const lastCheck: number = await this._deps.history.getLastCheckTimestamp();
-
-    this._container.innerHTML = "";
-    this._folderSettingsView?.destroy();
-
-    this._updateHeaderButtonStates(true);
-
-    const handlers = this._createFolderViewHandlers();
-    const isInvalid = !!this._deps.directory.originalSelectionName && !this._deps.directory.isStatsFolderSelected();
-    const isValid = this._deps.directory.isStatsFolderSelected();
-
-    this._folderSettingsView = new FolderSettingsView({
-      handlers,
-      currentFolderName: this._deps.directory.originalSelectionName,
-      hasStats: lastCheck > 0,
-      isInvalid,
-      isValid,
-    });
-
-    this._container.classList.remove("session-active");
-    document.body.classList.remove("ranked-mode-active");
-    this._container.appendChild(this._folderSettingsView.render());
-  }
-
-  private _createFolderViewHandlers(): FolderActionHandlers {
-    return {
-      onLinkFolder: async (): Promise<void> => {
-        await this._deps.folderActions.onLinkFolder();
-        await this._dismissFolderView();
-      },
-      onForceScan: async (): Promise<void> => {
-        await this._deps.folderActions.onForceScan();
-        await this._dismissFolderView();
-      },
-      onUnlinkFolder: async (): Promise<void> => {
-        this._deps.folderActions.onUnlinkFolder();
-        await this._dismissFolderView();
-      },
-    };
-  }
-
-  private async _dismissFolderView(): Promise<void> {
-    this._deps.appState.setIsFolderViewOpen(false);
-    await this.render();
-  }
-
   private _updateHeaderButtonStates(isFolderActive: boolean): void {
-    const folderBtn: HTMLElement | null = document.getElementById("header-folder-btn");
     const settingsBtn: HTMLElement | null = document.getElementById("header-settings-btn");
     const rankedNavBtn: HTMLElement | null = document.getElementById("nav-ranked");
-
-    if (folderBtn) {
-      folderBtn.classList.toggle("active", isFolderActive);
-    }
 
     if (settingsBtn) {
       settingsBtn.classList.toggle("active", this._deps.appState.getIsSettingsMenuOpen());

@@ -1,18 +1,37 @@
 import { VisualSettings } from "../../services/VisualSettingsService";
 import { RankScaleMapper } from "./RankScaleMapper";
 
+export interface AttemptEntry {
+    readonly score: number;
+    readonly timestamp: number;
+    readonly rankUnit: number;
+}
+
 export interface RankTimelineConfiguration {
     readonly thresholds: Record<string, number>;
     readonly settings: VisualSettings;
     readonly targetRU?: number;
     readonly achievedRU?: number;
     readonly scrollAnchorRU?: number;
-    readonly attemptsRU?: number[];
+    readonly attempts?: AttemptEntry[];
     // How many RUs to show. Default to 3.5
     readonly rangeWindow?: number;
     readonly expectedRU?: number;
     readonly targetLabel?: string;
     readonly achievedLabel?: string;
+    readonly prevSessionRU?: number;
+    readonly prevSessionLabel?: string;
+}
+
+interface DiscreteLayoutContext {
+    readonly rects: DOMRect[];
+    readonly anchors: number[];
+    readonly buffer: number;
+    readonly bounds: DOMRect;
+    readonly result: {
+        best: number[] | null;
+        minShift: number;
+    };
 }
 
 
@@ -33,10 +52,7 @@ export class RankTimelineComponent {
     private _config: RankTimelineConfiguration;
     private _mapper: RankScaleMapper;
 
-    private _targetAnchor: HTMLElement | null = null;
-    private _achievedAnchor: HTMLElement | null = null;
-    private _targetLabel: HTMLElement | null = null;
-    private _achievedLabel: HTMLElement | null = null;
+
 
     private _isInitialized: boolean = false;
     private _hasPreviousProgress: boolean = false;
@@ -46,7 +62,7 @@ export class RankTimelineComponent {
 
     private _managedMarkers: {
         rankUnit: number;
-        type: "target" | "achieved" | "expected";
+        type: "target" | "achieved" | "expected" | "prev";
         label: string;
         notch: HTMLElement;
         anchor: HTMLElement;
@@ -56,6 +72,9 @@ export class RankTimelineComponent {
     }[] = [];
 
     private _markerSyncId: number | null = null;
+
+    private static _overlay: HTMLElement | null = null;
+    private static _popup: HTMLElement | null = null;
 
     /**
      * Initializes the timeline.
@@ -153,47 +172,67 @@ export class RankTimelineComponent {
     }
 
     /**
+     * Cleans up resources.
+     */
+    public destroy(): void {
+        if (this._markerSyncId !== null) {
+            cancelAnimationFrame(this._markerSyncId);
+            this._markerSyncId = null;
+        }
+        this._hideInspection();
+    }
+
+    /**
      * Renders the component contents and updates the scroll position.
      * @param immediate - If true, jumps to the new position without animation.
      * @param paused - If true, renders the initial state but waits for play() to animate.
      * @returns The container element.
      */
     public render(immediate: boolean = false, paused: boolean = false): HTMLElement {
-        // Clear non-persistent layers
-        this._ticksLayer.innerHTML = "";
-        this._attemptsLayer.innerHTML = "";
-        this._markersLayer.innerHTML = "";
-
-        const offscreenTargetAnchors = this._container.querySelectorAll(".timeline-marker-anchor.offscreen");
-        offscreenTargetAnchors.forEach(a => a.remove());
-
-        this._targetAnchor = null;
-        this._achievedAnchor = null;
-        this._targetLabel = null;
-        this._achievedLabel = null;
+        this._prepareRenderingComponents();
 
         const { minRU } = this._calculateViewBounds();
         const windowSize = this._config.rangeWindow ?? 7.5;
 
+        this._renderContentLayers();
+        this._renderProgressLine({ immediate, paused, viewportMinRU: minRU });
+
+        this._applyScroll(minRU, windowSize, immediate, paused);
+        this._finalizeRenderSync(immediate, paused);
+
+        return this._container;
+    }
+
+    private _prepareRenderingComponents(): void {
+        this._clearLayerContents();
+        this._removeStaleAnchors();
+    }
+
+    private _clearLayerContents(): void {
+        this._ticksLayer.innerHTML = "";
+        this._attemptsLayer.innerHTML = "";
+        this._markersLayer.innerHTML = "";
+    }
+
+    private _removeStaleAnchors(): void {
+        const anchors = this._container.querySelectorAll(".timeline-marker-anchor.offscreen");
+        anchors.forEach(anchor => anchor.remove());
+    }
+
+
+    private _renderContentLayers(): void {
         this._renderTicks();
         this._renderAttempts();
         this._renderMarkers();
-        this._renderProgressLine({
-            immediate,
-            paused,
-            viewportMinRU: minRU
-        });
+    }
 
-        this._applyScroll(minRU, windowSize, immediate, paused);
+    private _finalizeRenderSync(immediate: boolean, paused: boolean): void {
         this._isInitialized = true;
-
         if (!immediate && !paused) {
             this._startMarkerSync();
         } else {
             this._syncMarkers();
         }
-
-        return this._container;
     }
 
     private _renderTicks(): void {
@@ -253,12 +292,15 @@ export class RankTimelineComponent {
         if (achievedRU !== undefined) {
             this._setupManagedMarker(achievedRU, this._config.achievedLabel || "Achieved", "achieved");
         }
+        if (this._config.prevSessionRU !== undefined) {
+            this._setupManagedMarker(this._config.prevSessionRU, this._config.prevSessionLabel || "Prev Session", "prev");
+        }
         if (expectedRU !== undefined && expectedRU !== null && expectedRU > (achievedRU ?? -Infinity)) {
             this._setupManagedMarker(expectedRU, "", "expected");
         }
     }
 
-    private _setupManagedMarker(rankUnit: number, label: string, type: "target" | "achieved" | "expected"): void {
+    private _setupManagedMarker(rankUnit: number, label: string, type: "target" | "achieved" | "expected" | "prev"): void {
         const windowSize = this._config.rangeWindow ?? 7.5;
         const unitWidth = 100 / windowSize;
         const percent = rankUnit * unitWidth;
@@ -280,7 +322,7 @@ export class RankTimelineComponent {
             caretRight,
         });
 
-        this._trackLabelAnchors(type, anchor);
+        this._trackLabelAnchors();
     }
 
     private _createNotch(percent: number, type: string): HTMLElement {
@@ -308,15 +350,8 @@ export class RankTimelineComponent {
         return anchor;
     }
 
-    private _trackLabelAnchors(type: string, anchor: HTMLElement): void {
-        const labelElement = anchor.querySelector(".timeline-marker-label") as HTMLElement | null;
-        if (type === "target") {
-            this._targetAnchor = anchor;
-            this._targetLabel = labelElement;
-        } else if (type === "achieved") {
-            this._achievedAnchor = anchor;
-            this._achievedLabel = labelElement;
-        }
+    private _trackLabelAnchors(): void {
+        // Reserved for potential use
     }
 
     private _createCaret(label: string, type: string, isLeft: boolean): HTMLElement {
@@ -354,23 +389,147 @@ export class RankTimelineComponent {
 
 
     private _renderAttempts(): void {
-        const attempts = this._config.attemptsRU;
+        const attempts = this._config.attempts;
         if (!attempts || attempts.length === 0) return;
 
         const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
         const opacity = (this._config.settings.dotOpacity ?? 40) / 100;
-        const sorted = [...attempts].sort((a: number, b: number) => b - a);
-        const top3Threshold = sorted.length >= 3 ? sorted[2] : (sorted[sorted.length - 1] ?? -Infinity);
+        const sorted = [...attempts].sort((a, b) => b.rankUnit - a.rankUnit);
+        const top3Threshold = sorted.length >= 3 ? sorted[2].rankUnit : (sorted[sorted.length - 1]?.rankUnit ?? -Infinity);
 
-        attempts.forEach((rankUnit: number) => {
-            const isTop3 = rankUnit >= top3Threshold;
+        attempts.forEach((entry: AttemptEntry) => {
+            const isTop3 = entry.rankUnit >= top3Threshold;
             const notch = document.createElement("div");
             notch.className = "timeline-marker marker-attempt";
             if (!isTop3) notch.classList.add("secondary");
-            notch.style.left = `${rankUnit * unitWidth}%`;
+            notch.style.left = `${entry.rankUnit * unitWidth}%`;
             notch.style.opacity = opacity.toString();
+
+            this._setupAttemptInteractions(notch, entry);
+
             this._attemptsLayer.appendChild(notch);
         });
+    }
+
+    private _setupAttemptInteractions(notch: HTMLElement, entry: AttemptEntry): void {
+        notch.addEventListener("mouseenter", () => {
+            this._showInspection(notch, entry);
+        });
+
+        notch.addEventListener("mouseleave", () => {
+            this._hideInspection();
+        });
+    }
+
+    private _showInspection(notch: HTMLElement, entry: AttemptEntry): void {
+        const overlay = this._ensureOverlay();
+        const popup = this._ensurePopup();
+        const rect = notch.getBoundingClientRect();
+
+        this._clearMirror(popup);
+        this._createMirror(notch, popup);
+
+        popup.style.left = `${rect.left}px`;
+        popup.style.top = `${rect.top}px`;
+        popup.style.width = `${rect.width}px`;
+        popup.style.height = `${rect.height}px`;
+
+        const datetime = this._formatDateTime(entry.timestamp);
+        const rankInfo = this._formatRankProgress(entry.rankUnit);
+
+        popup.appendChild(this._createInspectionContent(entry.score, rankInfo, datetime));
+
+        overlay.classList.add("visible");
+        popup.classList.add("visible");
+    }
+
+    private _createMirror(element: HTMLElement, container: HTMLElement): void {
+        const mirror = element.cloneNode(true) as HTMLElement;
+        mirror.classList.add("dot-mirror");
+        mirror.style.position = "absolute";
+        mirror.style.inset = "0";
+        mirror.style.margin = "0";
+        mirror.style.transform = "none";
+        mirror.style.opacity = "1";
+        container.appendChild(mirror);
+    }
+
+    private _createInspectionContent(score: number, rankInfo: string, datetime: string): HTMLElement {
+        const textContainer = document.createElement("div");
+        textContainer.className = "dot-inspection-content";
+        textContainer.innerHTML = `
+            <div class="dot-inspection-text">${score.toFixed(2)}</div>
+            <div class="dot-inspection-text">${rankInfo}</div>
+            <div class="dot-inspection-text">${datetime}</div>
+        `;
+
+        return textContainer;
+    }
+
+    private _clearMirror(popup: HTMLElement): void {
+        const mirror = popup.querySelector(".dot-mirror");
+        if (mirror) mirror.remove();
+
+        const content = popup.querySelector(".dot-inspection-content");
+        if (content) content.remove();
+    }
+
+    private _formatDateTime(timestamp: number): string {
+        const date = new Date(timestamp);
+        const day = date.getDate().toString().padStart(2, "0");
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
+
+        return `${day}/${month} ${hours}:${minutes}`;
+    }
+
+    private _formatRankProgress(scoreRU: number): string {
+        const sortedThresholds = Object.entries(this._config.thresholds).sort(
+            (a, b) => a[1] - b[1]
+        );
+
+        const rankIndex = Math.floor(scoreRU) - 1;
+        const progress = Math.floor((scoreRU % 1) * 100);
+
+        if (rankIndex < 0) {
+            return `Unranked +${progress}%`;
+        }
+
+        if (rankIndex >= sortedThresholds.length) {
+            const lastRank = sortedThresholds[sortedThresholds.length - 1][0];
+
+            return `${lastRank} +${progress}%`;
+        }
+
+        const rankName = sortedThresholds[rankIndex][0];
+
+        return `${rankName} +${progress}%`;
+    }
+
+    private _hideInspection(): void {
+        RankTimelineComponent._overlay?.classList.remove("visible");
+        RankTimelineComponent._popup?.classList.remove("visible");
+    }
+
+    private _ensureOverlay(): HTMLElement {
+        if (!RankTimelineComponent._overlay) {
+            RankTimelineComponent._overlay = document.createElement("div");
+            RankTimelineComponent._overlay.className = "dot-inspection-overlay";
+            document.body.appendChild(RankTimelineComponent._overlay);
+        }
+
+        return RankTimelineComponent._overlay;
+    }
+
+    private _ensurePopup(): HTMLElement {
+        if (!RankTimelineComponent._popup) {
+            RankTimelineComponent._popup = document.createElement("div");
+            RankTimelineComponent._popup.className = "dot-inspection-popup";
+            document.body.appendChild(RankTimelineComponent._popup);
+        }
+
+        return RankTimelineComponent._popup;
     }
 
     private _renderProgressLine(options: {
@@ -566,85 +725,207 @@ export class RankTimelineComponent {
      * Resolves visual collisions between markers.
      */
     public resolveCollisions(): void {
-        const hasRequiredElements = this._targetAnchor && this._achievedAnchor &&
-            this._targetLabel && this._achievedLabel;
+        const markers = this._managedMarkers.filter(marker =>
+            marker.label && marker.labelElement && marker.anchor.style.opacity !== "0"
+        );
+        if (markers.length < 2) return;
 
-        if (!hasRequiredElements) return;
+        this._resetMarkerLabels(markers);
+        const buffer = 0.5 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+        const sorted = [...markers].sort((markerA, markerB) => markerA.rankUnit - markerB.rankUnit);
 
-        const targetRect: DOMRect = this._targetAnchor!.getBoundingClientRect();
-        const achievedRect: DOMRect = this._achievedAnchor!.getBoundingClientRect();
-        const buffer: number = 0.5 * parseFloat(getComputedStyle(document.documentElement).fontSize);
-
-        if (targetRect.left < achievedRect.right + buffer && targetRect.right > achievedRect.left - buffer) {
-            this._adjustOverlappingLabels(targetRect, achievedRect);
-        }
+        const clusters = this._findCollisionClusters(sorted, buffer);
+        clusters.forEach(cluster => this._resolveClusterLayout(cluster, buffer));
     }
 
-    private _adjustOverlappingLabels(targetRect: DOMRect, achievedRect: DOMRect): void {
-        const currentTargetCenter = targetRect.left + (targetRect.width / 2);
-        const currentAchievedCenter = achievedRect.left + (achievedRect.width / 2);
-        let finalTargetCenter;
-        let finalAchievedCenter;
-
-        if (currentTargetCenter <= currentAchievedCenter) {
-            finalTargetCenter = currentTargetCenter - (targetRect.width / 2);
-            finalAchievedCenter = currentAchievedCenter + (achievedRect.width / 2);
-        } else {
-            finalAchievedCenter = currentAchievedCenter - (achievedRect.width / 2);
-            finalTargetCenter = currentTargetCenter + (targetRect.width / 2);
-        }
-
-        this._targetLabel!.style.transform = `translateX(${finalTargetCenter - currentTargetCenter}px)`;
-        this._achievedLabel!.style.transform = `translateX(${finalAchievedCenter - currentAchievedCenter}px)`;
+    private _resetMarkerLabels(markers: typeof this._managedMarkers): void {
+        markers.forEach(marker => {
+            marker.labelElement!.style.transform = "";
+            marker.labelElement!.style.opacity = "1";
+        });
     }
 
-    private _calculateViewBounds(): { minRU: number; maxRU: number } {
-        const targetRU: number = this._config.targetRU ?? 0;
-        const achievedRU: number | undefined = this._config.scrollAnchorRU ?? this._config.achievedRU;
-        const expectedRU: number | undefined = this._config.expectedRU;
-        const windowSize: number = this._config.rangeWindow ?? 7.5;
+    private _findCollisionClusters(markers: typeof this._managedMarkers, buffer: number): (typeof this._managedMarkers)[] {
+        if (markers.length === 0) return [];
+        const clusters: (typeof this._managedMarkers)[] = [[markers[0]]];
 
-        // Determine highscore (best progress point)
-        const scores: number[] = [];
-        if (achievedRU !== undefined) scores.push(achievedRU);
+        for (let i = 1; i < markers.length; i++) {
+            const current = markers[i];
+            const prevCluster = clusters[clusters.length - 1];
+            const lastInPrev = prevCluster[prevCluster.length - 1];
 
-        // Include actual achieved too
-        if (this._config.achievedRU !== undefined) {
-            scores.push(this._config.achievedRU);
-        }
+            const anchorA = lastInPrev.anchor.getBoundingClientRect().left;
+            const anchorB = current.anchor.getBoundingClientRect().left;
+            const widthA = lastInPrev.labelElement!.offsetWidth;
+            const widthB = current.labelElement!.offsetWidth;
 
-        if (expectedRU !== undefined && expectedRU !== null) scores.push(expectedRU);
-        if (this._config.attemptsRU) scores.push(...this._config.attemptsRU);
-
-        const highscore: number | null = scores.length > 0 ? Math.max(...scores) : null;
-
-        let minRU: number;
-
-        if (highscore === null) {
-            // Case 1: If there is only the target labelled notch, center it.
-            minRU = targetRU - 0.5 * windowSize;
-        } else if (highscore - targetRU <= 0.6 * windowSize) {
-            // Case 2: If the target labelled notch and highscore both fit in the Window (60%), 
-            // make them symmetrical about the horizontal center.
-            const center = (targetRU + highscore) / 2;
-            minRU = center - 0.5 * windowSize;
-        } else {
-            // Case 3: If they do not fit within the view (Window):
-            const highscoreAt80 = highscore - 0.8 * windowSize;
-
-            if (achievedRU === undefined) {
-                // If only the highest score is present, align it to the right edge of the Window.
-                minRU = highscoreAt80;
+            // Clustering based on "Potential Footprint":
+            // Distance between anchors must be >= sum of widths (max possible span) + buffer
+            if (anchorB - anchorA < widthA + widthB + buffer) {
+                prevCluster.push(current);
             } else {
-                // If the achieved labelled notch is present, center it OR align the highest 
-                // score to the right edge of the Window, whichever is the leftmost scroll position.
-                // Leftmost scroll position = smallest minRU.
-                const achievedCentered = achievedRU - 0.5 * windowSize;
-                minRU = Math.min(achievedCentered, highscoreAt80);
+                clusters.push([current]);
             }
         }
 
+        return clusters;
+    }
+
+    private _resolveClusterLayout(cluster: typeof this._managedMarkers, buffer: number): void {
+        const success = this._applyDiscreteLayout(cluster, buffer);
+        if (success) return;
+
+        const prevMarker = cluster.find(marker => marker.type === "prev");
+        if (prevMarker) {
+            prevMarker.labelElement!.style.opacity = "0";
+            prevMarker.labelElement!.style.transform = "";
+
+            const remaining = cluster.filter(marker => marker !== prevMarker);
+            // Re-resolve for core markers only
+            this._applyDiscreteLayout(remaining, buffer);
+        } else {
+            // Fallback for core markers if they can't fit discretely (rare)
+            // We use simple progressive push to ensure they don't overlap, even if 'undefined'
+            this._applyProgressivePush(cluster, buffer);
+        }
+    }
+
+    private _applyDiscreteLayout(markers: typeof this._managedMarkers, buffer: number): boolean {
+        if (markers.length === 0) return true;
+
+        const rects = markers.map(marker => marker.labelElement!.getBoundingClientRect());
+        const anchors = markers.map(marker => marker.anchor.getBoundingClientRect().left);
+        const containerRect = this._container.getBoundingClientRect();
+
+        const bestShifts = this._findBestDiscreteShifts(rects, anchors, buffer, containerRect);
+        if (bestShifts) {
+            markers.forEach((marker, i) => {
+                marker.labelElement!.style.transform = `translateX(${bestShifts[i]}px)`;
+            });
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private _findBestDiscreteShifts(rects: DOMRect[], anchors: number[], buffer: number, bounds: DOMRect): number[] | null {
+        const context: DiscreteLayoutContext = {
+            rects,
+            anchors,
+            buffer,
+            bounds,
+            result: { best: null, minShift: Infinity }
+        };
+
+        this._searchDiscrete(0, [], context);
+
+        return context.result.best;
+    }
+
+    private _searchDiscrete(index: number, shifts: number[], context: DiscreteLayoutContext): void {
+        const { rects } = context;
+
+        if (index === rects.length) {
+            this._evaluateDiscreteLayout(shifts, context);
+
+            return;
+        }
+
+        [0, -1, 1].forEach(direction => {
+            const shiftValue = direction * (rects[index].width / 2);
+
+            shifts.push(shiftValue);
+            this._searchDiscrete(index + 1, shifts, context);
+            shifts.pop();
+        });
+    }
+
+    private _evaluateDiscreteLayout(shifts: number[], context: DiscreteLayoutContext): void {
+        if (!this._isValidDiscreteLayout(shifts, context)) return;
+
+        const { result } = context;
+        const total = shifts.reduce((sum, shift) => sum + Math.abs(shift), 0);
+
+        if (total < result.minShift) {
+            result.minShift = total;
+            result.best = [...shifts];
+        }
+    }
+
+    private _isValidDiscreteLayout(shifts: number[], context: DiscreteLayoutContext): boolean {
+        const { rects, anchors, buffer, bounds } = context;
+
+        for (let i = 0; i < shifts.length; i++) {
+            const leftI = anchors[i] + shifts[i] - rects[i].width / 2;
+            const rightI = anchors[i] + shifts[i] + rects[i].width / 2;
+
+            if (leftI < bounds.left || rightI > bounds.right) return false;
+
+            for (let j = i + 1; j < shifts.length; j++) {
+                const leftJ = anchors[j] + shifts[j] - rects[j].width / 2;
+
+                if (rightI + buffer > leftJ) return false;
+            }
+        }
+
+        return true;
+    }
+
+    private _applyProgressivePush(markers: typeof this._managedMarkers, buffer: number): void {
+        for (let i = 1; i < markers.length; i++) {
+            const current = markers[i];
+            const prev = markers[i - 1];
+            const currentRect = current.labelElement!.getBoundingClientRect();
+            const prevRect = prev.labelElement!.getBoundingClientRect();
+
+            if (currentRect.left < prevRect.right + buffer) {
+                const overlap = (prevRect.right + buffer) - currentRect.left;
+                current.labelElement!.style.transform = `translateX(${overlap}px)`;
+            }
+        }
+    }
+    private _calculateViewBounds(): { minRU: number; maxRU: number } {
+        const targetRU: number = this._config.targetRU ?? 0;
+        const achievedRU: number | undefined = this._config.scrollAnchorRU ?? this._config.achievedRU;
+        const windowSize: number = this._config.rangeWindow ?? 7.5;
+
+        const highscore = this._getHighscore();
+        let minRU: number;
+
+        if (highscore === null) {
+            minRU = targetRU - 0.5 * windowSize;
+        } else if (highscore - targetRU <= 0.6 * windowSize) {
+            const center = (targetRU + highscore) / 2;
+            minRU = center - 0.5 * windowSize;
+        } else {
+            minRU = this._calculateLargeOffsetMinRU(highscore, achievedRU, windowSize);
+        }
+
         return { minRU, maxRU: minRU + windowSize };
+    }
+
+    private _getHighscore(): number | null {
+        const scores: number[] = [];
+        if (this._config.scrollAnchorRU !== undefined) scores.push(this._config.scrollAnchorRU);
+        if (this._config.achievedRU !== undefined) scores.push(this._config.achievedRU);
+        if (this._config.prevSessionRU !== undefined) scores.push(this._config.prevSessionRU);
+        if (this._config.expectedRU !== undefined) scores.push(this._config.expectedRU);
+        if (this._config.attempts) scores.push(...this._config.attempts.map(a => a.rankUnit));
+
+        return scores.length > 0 ? Math.max(...scores) : null;
+    }
+
+    private _calculateLargeOffsetMinRU(highscore: number, achievedRU: number | undefined, windowSize: number): number {
+        const highscoreAt80 = highscore - 0.8 * windowSize;
+
+        if (achievedRU === undefined) {
+            return highscoreAt80;
+        }
+
+        const achievedCentered = achievedRU - 0.5 * windowSize;
+
+        return Math.min(achievedCentered, highscoreAt80);
     }
 
 }

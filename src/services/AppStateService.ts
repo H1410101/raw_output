@@ -16,6 +16,8 @@ export interface AppState {
   benchmarkScrollTop: number;
   /** The name of the scenario that was last focused by an autoscroll. */
   focusedScenarioName: string | null;
+  /** Whether the currently selected folder is valid and contains stats. */
+  isFolderValid: boolean;
 }
 
 /**
@@ -145,6 +147,48 @@ export class AppStateService {
     this._saveToStorage();
   }
 
+  private readonly _folderValidityListeners: (() => void)[] = [];
+
+  /**
+   * Retrieves whether the currently selected folder is valid.
+   *
+   * @returns True if the folder is valid.
+   */
+  public getIsFolderValid(): boolean {
+    return this._state.isFolderValid;
+  }
+
+  /**
+   * Updates the folder validity state and notifies listeners.
+   *
+   * @param isValid - The new validity state.
+   */
+  public setIsFolderValid(isValid: boolean): void {
+    if (this._state.isFolderValid === isValid) {
+      return;
+    }
+
+    this._state.isFolderValid = isValid;
+
+    this._saveToStorage();
+    this._notifyFolderValidityListeners();
+  }
+
+  /**
+   * Subscribes to changes in folder validity.
+   *
+   * @param callback - The function to call when validity changes.
+   */
+  public onFolderValidityChanged(callback: () => void): void {
+    this._folderValidityListeners.push(callback);
+  }
+
+  private _notifyFolderValidityListeners(): void {
+    this._folderValidityListeners.forEach(
+      (callback: () => void): void => callback(),
+    );
+  }
+
   /**
    * Retrieves the last persisted scroll position of the benchmark table.
    *
@@ -248,6 +292,7 @@ export class AppStateService {
       isFolderViewOpen: false,
       benchmarkScrollTop: 0,
       focusedScenarioName: null,
+      isFolderValid: false,
     };
   }
 

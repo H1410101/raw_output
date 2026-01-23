@@ -6,7 +6,7 @@ import { SCALING_FACTORS } from "../../services/ScalingService";
  * Immutable data snapshot required for a single render pass.
  */
 export interface RenderContext {
-    readonly scoresInRankUnits: number[];
+    readonly scores: number[];
     readonly timestamps: number[];
     readonly sortedThresholds: [string, number][];
     readonly bounds: { minRU: number; maxRU: number };
@@ -29,6 +29,9 @@ export interface RenderContext {
 export class DotCloudHtmlRenderer {
     private readonly _container: HTMLElement;
     private readonly _mapper: RankScaleMapper;
+
+    private static _overlay: HTMLElement | null = null;
+    private static _popup: HTMLElement | null = null;
 
     /**
      * Initializes the renderer with a container element and a mapper.
@@ -60,13 +63,12 @@ export class DotCloudHtmlRenderer {
 
         this._renderMetadata(context);
 
-        const densities: number[] = this._calculateLocalDensities(
-            context.scoresInRankUnits,
-        );
+        const rankUnits = context.scores.map(score => this._mapper.calculateRankUnit(score));
+        const densities: number[] = this._calculateLocalDensities(rankUnits);
         const peakDensity: number =
             densities.length > 0 ? Math.max(...densities) : 1;
 
-        this._renderPerformanceDots(context, densities, peakDensity);
+        this._renderPerformanceDots(context, densities, peakDensity, rankUnits);
     }
 
     private _renderMetadata(context: RenderContext): void {
@@ -304,6 +306,7 @@ export class DotCloudHtmlRenderer {
         context: RenderContext,
         densities: number[],
         peakDensity: number,
+        rankUnits: number[],
     ): void {
         const opacity: number = Math.max(0, Math.min(1, context.settings.dotOpacity / 100));
         const notchHeight: number = this._calculateNotchHeight(
@@ -312,7 +315,7 @@ export class DotCloudHtmlRenderer {
             context.settings,
         );
 
-        for (let i = context.scoresInRankUnits.length - 1; i >= 0; i--) {
+        for (let i = context.scores.length - 1; i >= 0; i--) {
             const density: number = densities[i] || 1;
 
             this._renderPerformanceDot({
@@ -322,22 +325,24 @@ export class DotCloudHtmlRenderer {
                 baseOpacity: opacity,
                 notchHeight,
                 context,
+                scoreRU: rankUnits[i],
             });
         }
     }
 
     private _renderPerformanceDot(config: {
-        index: number;
-        density: number;
-        peakDensity: number;
-        baseOpacity: number;
-        notchHeight: number;
-        context: RenderContext;
+        readonly index: number;
+        readonly density: number;
+        readonly peakDensity: number;
+        readonly baseOpacity: number;
+        readonly notchHeight: number;
+        readonly context: RenderContext;
+        readonly scoreRU: number;
     }): void {
-        const scoreRU: number = config.context.scoresInRankUnits[config.index];
-        const xPos: number = this._calculateXPosition(scoreRU, config.context);
+        const absoluteScoreValue: number = config.context.scores[config.index];
+        const horizontalPixelPosition: number = this._calculateXPosition(config.scoreRU, config.context);
 
-        const jitter: number = this._calculateVerticalJitter({
+        const verticalJitterOffset: number = this._calculateVerticalJitter({
             scoreIndex: config.index,
             localDensity: config.density,
             peakDensity: config.peakDensity,
@@ -345,15 +350,32 @@ export class DotCloudHtmlRenderer {
             context: config.context,
         });
 
+        this._assembleAndCreateDot(config, absoluteScoreValue, horizontalPixelPosition, verticalJitterOffset);
+    }
+
+    private _assembleAndCreateDot(
+        config: {
+            readonly index: number;
+            readonly notchHeight: number;
+            readonly context: RenderContext;
+            readonly scoreRU: number;
+            readonly baseOpacity: number;
+        },
+        absoluteScoreValue: number,
+        horizontalPixelPosition: number,
+        verticalJitterOffset: number,
+    ): void {
         this._createDotElement({
-            xPos,
-            yPos: config.notchHeight / 2 + jitter,
+            xPos: horizontalPixelPosition,
+            yPos: config.notchHeight / 2 + verticalJitterOffset,
             isLatest: config.index === 0 && config.context.settings.highlightLatestRun,
             isSession: config.context.isLatestFromSession,
-            scoreRU,
+            score: absoluteScoreValue,
+            scoreRU: config.scoreRU,
             timestamp: config.context.timestamps[config.index],
             radius: config.context.dimensions.dotRadius,
             baseOpacity: config.baseOpacity,
+            context: config.context,
         });
     }
 
@@ -367,28 +389,153 @@ export class DotCloudHtmlRenderer {
     }
 
     private _createDotElement(config: {
-        xPos: number;
-        yPos: number;
-        isLatest: boolean;
-        isSession: boolean;
-        scoreRU: number;
-        timestamp?: number;
-        radius: number;
-        baseOpacity: number;
+        readonly xPos: number;
+        readonly yPos: number;
+        readonly isLatest: boolean;
+        readonly isSession: boolean;
+        readonly score: number;
+        readonly scoreRU: number;
+        readonly timestamp?: number;
+        readonly radius: number;
+        readonly baseOpacity: number;
+        readonly context: RenderContext;
     }): void {
-        const dot: HTMLDivElement = document.createElement("div");
-        dot.className = "dot-cloud-dot";
+        const dotElement: HTMLDivElement = document.createElement("div");
+        dotElement.className = "dot-cloud-dot";
 
-        if (config.isLatest && config.isSession) {
-            dot.classList.add("highlight");
-        } else if (config.isLatest) {
-            dot.classList.add("latest");
+        this._applySpecificDotClasses(dotElement, config.isLatest, config.isSession);
+
+        this._applyDotStyles(dotElement, config);
+        this._applyDotMetadata(dotElement, config);
+        this._setupDotInteractions(dotElement, config, config.context);
+
+        this._container.appendChild(dotElement);
+    }
+
+    private _applySpecificDotClasses(dotElement: HTMLElement, isLatest: boolean, isSession: boolean): void {
+        if (isLatest && isSession) {
+            dotElement.classList.add("highlight");
+        } else if (isLatest) {
+            dotElement.classList.add("latest");
+        }
+    }
+
+    private _setupDotInteractions(dot: HTMLElement, config: { score: number; scoreRU: number; timestamp?: number }, context: RenderContext): void {
+        dot.addEventListener("mouseenter", () => {
+            this._showInspection(dot, config, context);
+        });
+
+        dot.addEventListener("mouseleave", () => {
+            this._hideInspection();
+        });
+    }
+
+    private _showInspection(dot: HTMLElement, config: { score: number; scoreRU: number; timestamp?: number }, context: RenderContext): void {
+        const overlay = this._ensureOverlay();
+        const popup = this._ensurePopup();
+        const rect = dot.getBoundingClientRect();
+
+        this._clearMirror(popup);
+        this._createMirror(dot, popup);
+
+        popup.style.left = `${rect.left}px`;
+        popup.style.top = `${rect.top}px`;
+        popup.style.width = `${rect.width}px`;
+        popup.style.height = `${rect.height}px`;
+
+        const datetime = config.timestamp ? this._formatDateTime(config.timestamp) : "";
+        const rankInfo = this._formatRankProgress(config.scoreRU, context.sortedThresholds);
+
+        popup.appendChild(this._createInspectionContent(config.score, rankInfo, datetime));
+
+        overlay.classList.add("visible");
+        popup.classList.add("visible");
+    }
+
+    private _createMirror(element: HTMLElement, container: HTMLElement): void {
+        const mirror = element.cloneNode(true) as HTMLElement;
+        mirror.classList.add("dot-mirror");
+        mirror.style.position = "absolute";
+        mirror.style.inset = "0";
+        mirror.style.margin = "0";
+        mirror.style.transform = "none";
+        mirror.style.opacity = "1";
+        mirror.style.setProperty("--dot-opacity", "1");
+        container.appendChild(mirror);
+    }
+
+    private _createInspectionContent(score: number, rankInfo: string, datetime: string): HTMLElement {
+        const textContainer = document.createElement("div");
+        textContainer.className = "dot-inspection-content";
+        textContainer.innerHTML = `
+            <div class="dot-inspection-text">${score.toFixed(2)}</div>
+            <div class="dot-inspection-text">${rankInfo}</div>
+            <div class="dot-inspection-text">${datetime}</div>
+        `;
+
+        return textContainer;
+    }
+
+    private _clearMirror(popup: HTMLElement): void {
+        const mirror = popup.querySelector(".dot-mirror");
+        if (mirror) mirror.remove();
+
+        const content = popup.querySelector(".dot-inspection-content");
+        if (content) content.remove();
+    }
+
+    private _formatDateTime(timestamp: number): string {
+        const date = new Date(timestamp);
+        const day = date.getDate().toString().padStart(2, "0");
+        const month = (date.getMonth() + 1).toString().padStart(2, "0");
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
+
+        return `${day}/${month} ${hours}:${minutes}`;
+    }
+
+    private _hideInspection(): void {
+        DotCloudHtmlRenderer._overlay?.classList.remove("visible");
+        DotCloudHtmlRenderer._popup?.classList.remove("visible");
+    }
+
+    private _ensureOverlay(): HTMLElement {
+        if (!DotCloudHtmlRenderer._overlay) {
+            DotCloudHtmlRenderer._overlay = document.createElement("div");
+            DotCloudHtmlRenderer._overlay.className = "dot-inspection-overlay";
+            document.body.appendChild(DotCloudHtmlRenderer._overlay);
         }
 
-        this._applyDotStyles(dot, config);
-        this._applyDotMetadata(dot, config);
+        return DotCloudHtmlRenderer._overlay;
+    }
 
-        this._container.appendChild(dot);
+    private _ensurePopup(): HTMLElement {
+        if (!DotCloudHtmlRenderer._popup) {
+            DotCloudHtmlRenderer._popup = document.createElement("div");
+            DotCloudHtmlRenderer._popup.className = "dot-inspection-popup";
+            document.body.appendChild(DotCloudHtmlRenderer._popup);
+        }
+
+        return DotCloudHtmlRenderer._popup;
+    }
+
+    private _formatRankProgress(scoreRU: number, sortedThresholds: [string, number][]): string {
+        const rankIndex = Math.floor(scoreRU) - 1;
+        const progress = Math.floor((scoreRU % 1) * 100);
+
+        if (rankIndex < 0) {
+            return `Unranked +${progress}%`;
+        }
+
+        if (rankIndex >= sortedThresholds.length) {
+            const lastRank = sortedThresholds[sortedThresholds.length - 1][0];
+
+            return `${lastRank} +${progress}%`;
+        }
+
+        const rankName = sortedThresholds[rankIndex][0];
+
+        return `${rankName} +${progress}%`;
     }
 
     private _applyDotStyles(
@@ -415,10 +562,12 @@ export class DotCloudHtmlRenderer {
     private _applyDotMetadata(
         dot: HTMLElement,
         config: {
+            score: number;
             scoreRU: number;
             timestamp?: number;
         },
     ): void {
+        dot.setAttribute("data-score", config.score.toFixed(2));
         dot.setAttribute("data-ru", config.scoreRU.toFixed(3));
 
         if (config.timestamp) {
@@ -510,7 +659,7 @@ export class DotCloudHtmlRenderer {
 
         const jitterRange: number = config.notchHeight / 2 - config.context.dimensions.dotRadius;
         const densityRatio: number = Math.pow(config.localDensity / config.peakDensity, 3);
-        const populationRatio: number = 0.25 + (0.75 * config.context.scoresInRankUnits.length) / 100;
+        const populationRatio: number = 0.25 + (0.75 * config.context.scores.length) / 100;
 
         const localMax: number = jitterRange * multiplier * densityRatio * populationRatio;
         const seed: number = config.context.timestamps[config.scoreIndex] ?? config.scoreIndex;

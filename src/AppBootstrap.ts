@@ -4,6 +4,7 @@ import { KovaaksCsvParsingService } from "./services/KovaaksCsvParsingService";
 import { DirectoryMonitoringService } from "./services/DirectoryMonitoringService";
 import { BenchmarkService } from "./services/BenchmarkService";
 import { BenchmarkView } from "./components/BenchmarkView";
+import { FolderView } from "./components/FolderView";
 import { HistoryService } from "./services/HistoryService";
 import { RankService } from "./services/RankService";
 import { SessionService } from "./services/SessionService";
@@ -47,6 +48,7 @@ export class AppBootstrap {
   private _focusService!: FocusManagementService;
   private _statusView!: ApplicationStatusView;
   private _benchmarkView!: BenchmarkView;
+  private _folderView!: FolderView;
   private _rankedView!: RankedView;
   private _navigationController!: NavigationController;
   private _visualSettingsService!: VisualSettingsService;
@@ -141,6 +143,7 @@ export class AppBootstrap {
   private _initUIComponents(): void {
     this._statusView = this._createStatusView();
     this._benchmarkView = this._createBenchmarkView();
+    this._folderView = this._createFolderView();
     this._rankedView = this._createRankedView();
     this._navigationController = this._createNavigationController();
   }
@@ -166,7 +169,17 @@ export class AppBootstrap {
     await this._attemptInitialReconnection();
 
     await this._benchmarkView.render();
+    await this._folderView.render();
     await this._rankedView.render();
+
+    const lastCheck = await this._historyService.getLastCheckTimestamp();
+    const isFolderSelected = this._directoryService.isStatsFolderSelected();
+
+    if (!isFolderSelected || lastCheck === 0) {
+      this._appStateService.setIsFolderViewOpen(true);
+    }
+
+    await this._updateFolderValidity();
 
     this._navigationController.initialize();
 
@@ -174,6 +187,7 @@ export class AppBootstrap {
 
     this._setupActionListeners();
     this._setupGlobalButtonSounds();
+    this._setupKeyboardShortcuts();
 
     this._checkAnalyticsPrompt();
   }
@@ -202,14 +216,25 @@ export class AppBootstrap {
         identity: this._identityService,
         rankEstimator: this._rankEstimator,
         cosmeticOverride: this._cosmeticOverrideService,
+      },
+      this._appStateService,
+    );
+  }
+
+  private _createFolderView(): FolderView {
+    return new FolderView(
+      this._getRequiredElement("view-folder"),
+      {
+        directory: this._directoryService,
+        history: this._historyService,
+        appState: this._appStateService,
         folderActions: {
           onLinkFolder: (): Promise<void> =>
             this._handleManualFolderSelection(),
           onForceScan: (): Promise<void> => this._handleManualImport(),
           onUnlinkFolder: (): void => this._handleFolderRemoval(),
         },
-      },
-      this._appStateService,
+      }
     );
   }
 
@@ -222,12 +247,14 @@ export class AppBootstrap {
       {
         benchmarksView: this._getRequiredElement("view-benchmarks"),
         rankedView: this._getRequiredElement("view-ranked"),
+        folderView: this._getRequiredElement("view-folder"),
       },
       {
         benchmarkView: this._benchmarkView,
         appStateService: this._appStateService,
         rankedSession: this._rankedSessionService,
         rankedView: this._rankedView,
+        folderView: this._folderView,
         focusService: this._focusService,
       },
     );
@@ -246,11 +273,6 @@ export class AppBootstrap {
       sessionSettings: this._sessionSettingsService,
       audio: this._audioService,
       directory: this._directoryService,
-      folderActions: {
-        onLinkFolder: (): Promise<void> => this._handleManualFolderSelection(),
-        onForceScan: (): Promise<void> => this._handleManualImport(),
-        onUnlinkFolder: (): void => this._handleFolderRemoval(),
-      },
     });
   }
 
@@ -336,11 +358,7 @@ export class AppBootstrap {
     folderBtn.addEventListener("click", (): void => {
       this._animateButton(folderBtn);
 
-      if (this._appStateService.getActiveTabId() === "nav-ranked") {
-        this._rankedView.toggleFolderView();
-      } else {
-        this._benchmarkView.toggleFolderView();
-      }
+      this._navigationController.toggleFolderView();
     });
 
     const aboutBtn = this._getRequiredElement("header-about-btn");
@@ -389,6 +407,11 @@ export class AppBootstrap {
       await this._synchronizeAndMonitor(handle);
 
       this._benchmarkView.refresh();
+      this._rankedView.refresh();
+
+      await this._updateFolderValidity();
+
+      await this._navigationController.tryExitFolderView();
 
       this._checkAnalyticsPrompt();
     }
@@ -402,6 +425,11 @@ export class AppBootstrap {
     this._statusView.reportActive();
 
     this._benchmarkView.refresh();
+    this._rankedView.refresh();
+
+    await this._updateFolderValidity();
+
+    await this._navigationController.tryExitFolderView();
   }
 
   private _handleFolderRemoval(): void {
@@ -412,6 +440,18 @@ export class AppBootstrap {
     this._statusView.reportDisconnected();
 
     this._benchmarkView.refresh();
+    this._rankedView.refresh();
+
+    void this._updateFolderValidity();
+
+    this._folderView.render();
+  }
+
+  private async _updateFolderValidity(): Promise<void> {
+    const isValid: boolean =
+      await this._folderView.isFolderValidAndPopulated();
+
+    this._appStateService.setIsFolderValid(isValid);
   }
 
   private async _synchronizeAndMonitor(
@@ -457,6 +497,33 @@ export class AppBootstrap {
       titleElement.addEventListener("mouseenter", (): void => {
         this._audioService.playLight(0.5);
       });
+    }
+  }
+
+  private _setupKeyboardShortcuts(): void {
+    document.addEventListener("keydown", (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        this._handleEscapeKey();
+      }
+    });
+  }
+
+  private _handleEscapeKey(): void {
+    const activeOverlays: NodeListOf<Element> =
+      document.querySelectorAll(".settings-overlay");
+
+    if (activeOverlays.length > 0) {
+      const lastOverlay: HTMLElement = activeOverlays[
+        activeOverlays.length - 1
+      ] as HTMLElement;
+
+      lastOverlay.click();
+
+      return;
+    }
+
+    if (this._appStateService.getIsFolderViewOpen()) {
+      void this._navigationController.tryExitFolderView();
     }
   }
 

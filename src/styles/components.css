@@ -114,6 +114,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    overflow: hidden;
     transition:
         background 0.8s cubic-bezier(0.22, 1, 0.36, 1),
         color 0.8s cubic-bezier(0.22, 1, 0.36, 1);
@@ -127,6 +129,32 @@
     height: calc(1.2rem * var(--label-font-multiplier));
     fill: currentColor;
     pointer-events: none;
+    position: relative;
+    z-index: 2;
+}
+
+.button-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 0%;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition:
+        height 0.05s linear,
+        opacity 0.3s ease;
+}
+
+.media-btn.destructive .button-fill {
+    background: rgba(var(--status-hard-rgb), 0.2);
+}
+
+.media-btn.not-full .button-fill,
+.media-btn.holding .button-fill,
+.media-btn.highlighted .button-fill {
+    opacity: 1;
 }
 
 .media-btn.primary {
@@ -351,6 +379,58 @@
     user-select: none;
 }
 
+/* Dot Cloud Inspection */
+.dot-inspection-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(var(--background-1-rgb), 0.2);
+    backdrop-filter: blur(0.3rem);
+    -webkit-backdrop-filter: blur(0.3rem);
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.dot-inspection-overlay.visible {
+    opacity: 1;
+}
+
+.dot-inspection-popup {
+    position: fixed;
+    pointer-events: none;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.dot-inspection-popup.visible {
+    opacity: 1;
+}
+
+.dot-inspection-content {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding-bottom: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.dot-inspection-text {
+    font-size: 0.5rem;
+    font-weight: 300;
+    color: var(--lower-band-3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    line-height: 1.4;
+    text-align: center;
+    pointer-events: none;
+}
+
 .dot-cloud-dot {
     position: absolute;
     border-radius: 50%;
@@ -508,11 +588,15 @@
 .timeline-marker {
     position: absolute;
     bottom: 50%;
-    width: 0.0625rem;
+    width: 0.5rem;
+    /* Increased hit area */
     height: 0.75rem;
     transform: translateX(-50%);
     z-index: 10;
     border-radius: 2px;
+    background-clip: padding-box;
+    border-left: calc(0.25rem - 0.03125rem) solid transparent;
+    border-right: calc(0.25rem - 0.03125rem) solid transparent;
 }
 
 .timeline-marker-anchor {
@@ -557,6 +641,17 @@
 
 .label-achieved {
     color: var(--accent-color);
+}
+
+.marker-prev {
+    background-color: var(--lower-band-3);
+    box-shadow: none;
+    height: 0.375rem;
+    bottom: calc(50% + 0.375rem);
+}
+
+.label-prev {
+    color: var(--lower-band-3);
 }
 
 
@@ -616,6 +711,10 @@
     border-color: var(--accent-color);
 }
 
+.timeline-caret.caret-prev {
+    border-color: var(--lower-band-3);
+}
+
 .timeline-caret.caret-expected {
     border-color: var(--lower-band-2);
 }
@@ -662,8 +761,11 @@
 }
 
 .scenarios-list::-webkit-scrollbar-track {
-    background: rgba(var(--background-1-rgb), 0.05);
-    border-radius: 0.1875rem;
+    background: transparent;
+    border-left: 0.171875rem solid transparent;
+    border-right: 0.171875rem solid transparent;
+    background-color: rgba(var(--lower-band-1-rgb), 0.25);
+    background-clip: content-box;
 }
 
 .scenarios-list::-webkit-scrollbar-thumb {

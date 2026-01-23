@@ -157,7 +157,7 @@ h1 {
 .rank-name.unranked-text,
 .unranked-text {
     font-size: calc(0.9rem * var(--rank-font-multiplier));
-    font-weight: 600 !important;
+    font-weight: 600;
 }
 
 .run-score {
