@@ -186,7 +186,6 @@ export class RankTimelineComponent {
     private _prepareRenderingComponents(): void {
         this._clearLayerContents();
         this._removeStaleAnchors();
-        this._resetMarkerState();
     }
 
     private _clearLayerContents(): void {
@@ -200,9 +199,6 @@ export class RankTimelineComponent {
         anchors.forEach(anchor => anchor.remove());
     }
 
-    private _resetMarkerState(): void {
-        this._isInitialized = false;
-    }
 
     private _renderContentLayers(): void {
         this._renderTicks();
