@@ -15,6 +15,8 @@ export class RankPopupComponent {
     private _visibleBelowCount: number = 0;
     private _glassPane: HTMLElement | null = null;
     private _lastWheelTime: number = 0;
+    private _scrollAccumulator: number = 0;
+    private readonly _scrollThreshold: number = 100;
 
     /**
      * Creates a new RankPopupComponent instance.
@@ -170,20 +172,29 @@ export class RankPopupComponent {
         }
 
         const now = Date.now();
-        if (now - this._lastWheelTime < 150) {
+        const timeElapsed = now - this._lastWheelTime;
+
+        this._scrollAccumulator += deltaY;
+
+        const thresholdExceeded = Math.abs(this._scrollAccumulator) >= this._scrollThreshold;
+        const cooldownExpired = timeElapsed >= 50;
+
+        if (thresholdExceeded || cooldownExpired) {
+            const effectiveDelta = thresholdExceeded ? this._scrollAccumulator : deltaY;
+
+            this._scrollAccumulator = 0;
+            this._lastWheelTime = now;
+
+            this._processWheelScroll(effectiveDelta, event);
+        } else {
             event.preventDefault();
-
-            return;
         }
-
-        this._processWheelScroll(deltaY, now, event);
     }
 
-    private _processWheelScroll(deltaY: number, now: number, event: WheelEvent): void {
+    private _processWheelScroll(deltaY: number, event: WheelEvent): void {
         const changed = this._calculateExpansion(deltaY);
 
         if (changed) {
-            this._lastWheelTime = now;
             event.preventDefault();
             event.stopPropagation();
             this._refreshContent();
