@@ -263,9 +263,7 @@ export class DotCloudComponent {
     );
 
     return {
-      scoresInRankUnits: this._recentEntries.map((entry: ScoreEntry): number =>
-        this._mapper.calculateRankUnit(entry.score),
-      ),
+      scores: this._recentEntries.map((entry: ScoreEntry): number => entry.score),
       timestamps: this._recentEntries.map(
         (entry: ScoreEntry): number => entry.timestamp,
       ),

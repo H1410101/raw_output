@@ -351,6 +351,52 @@
     user-select: none;
 }
 
+/* Dot Cloud Inspection */
+.dot-inspection-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(var(--background-1-rgb), 0.2);
+    backdrop-filter: blur(0.3rem);
+    -webkit-backdrop-filter: blur(0.3rem);
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.dot-inspection-overlay.visible {
+    opacity: 1;
+}
+
+.dot-inspection-popup {
+    position: absolute;
+    transform: translate(-50%, -100%);
+    padding-bottom: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.dot-inspection-popup.visible {
+    opacity: 1;
+}
+
+.dot-inspection-text {
+    font-size: 0.5rem;
+    font-weight: 300;
+    color: var(--lower-band-3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    line-height: 1.4;
+    text-align: center;
+    pointer-events: none;
+}
+
 .dot-cloud-dot {
     position: absolute;
     border-radius: 50%;
