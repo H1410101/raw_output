@@ -136,7 +136,22 @@ export class BenchmarkRowRenderer {
         this._updateRankEstimateBadge(rowElement, scenario);
       }
     }
-    this._updateDotCloud(scenario);
+
+    if (this._visualSettings.showDotCloud) {
+      this._ensureDotCloudInjected(rowElement, scenario);
+    }
+  }
+
+  private _ensureDotCloudInjected(rowElement: HTMLElement, scenario: BenchmarkScenario): void {
+    if (this._dotCloudRegistry.has(scenario.name)) {
+      this._updateDotCloud(scenario);
+    } else {
+      const container = rowElement.querySelector(".dot-cloud-container") as HTMLElement;
+      if (container) {
+        const loadId = parseInt(container.dataset.loadId || "0", 10);
+        this._loadDotCloudData(container, scenario, loadId, true);
+      }
+    }
   }
 
   /**
