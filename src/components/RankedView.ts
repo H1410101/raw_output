@@ -364,7 +364,7 @@ export class RankedView {
     viewContainer.className = "benchmark-view-container";
 
     viewContainer.appendChild(this._createHeaderControls());
-    this._updateHeaderButtonStates(false);
+    this._updateHeaderButtonStates();
 
     const isSessionActive = state.status !== "IDLE";
     this._container.classList.toggle("session-active", isSessionActive);
@@ -1289,19 +1289,11 @@ export class RankedView {
     return this._deps.estimator.calculateHolisticEstimateRank(difficulty);
   }
 
-  private _updateHeaderButtonStates(isFolderActive: boolean): void {
+  private _updateHeaderButtonStates(): void {
     const settingsBtn: HTMLElement | null = document.getElementById("header-settings-btn");
-    const rankedNavBtn: HTMLElement | null = document.getElementById("nav-ranked");
 
     if (settingsBtn) {
       settingsBtn.classList.toggle("active", this._deps.appState.getIsSettingsMenuOpen());
-    }
-
-    if (rankedNavBtn) {
-      const isRankedTabActive = this._deps.appState.getActiveTabId() === "nav-ranked";
-      if (isRankedTabActive) {
-        rankedNavBtn.classList.toggle("active", !isFolderActive);
-      }
     }
   }
 }
