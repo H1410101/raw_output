@@ -36,7 +36,7 @@ export interface UpdateDataOptions {
 export class DotCloudComponent {
   public static readonly baseWidthRem: number = 14;
   public static readonly baseHeightRem: number = 2.2;
-  private static readonly _baseDotRadiusRatio: number = 0.11;
+  private static readonly _baseDotRadiusRatio: number = 0.16;
 
   private _recentEntries: ScoreEntry[];
   private _rankThresholds: Record<string, number>;
@@ -88,12 +88,7 @@ export class DotCloudComponent {
    */
   public updateConfiguration(settings: VisualSettings): void {
     this._settings = settings;
-
-    this._initializeDimensions();
-
-    this._syncContainerDimensions();
-
-    this.requestUpdate();
+    this._handleVisualUpdate();
   }
 
   /**
@@ -113,8 +108,7 @@ export class DotCloudComponent {
     );
 
     this._mapper = new RankScaleMapper(thresholdValues, options.rankInterval ?? 100);
-
-    this._handleDataUpdateSideEffects();
+    this._handleVisualUpdate(true);
   }
 
   /**
@@ -123,14 +117,13 @@ export class DotCloudComponent {
    * @returns The constructed HTMLElement containing the visualization.
    */
   public render(): HTMLElement {
+    this._cancelPendingFrames();
+    this._isDirty = false;
+
     this._ensureContainerExists();
-
     this._initializeDimensions();
-
     this._syncContainerDimensions();
-
     this._rebuildRenderer();
-
     this._performRenderCycle();
 
     return this._container!;
@@ -141,7 +134,6 @@ export class DotCloudComponent {
    */
   public destroy(): void {
     this._cancelPendingFrames();
-
     this._renderer = null;
 
     if (this._container) {
@@ -154,12 +146,11 @@ export class DotCloudComponent {
    * Schedules a redraw on the next animation frame.
    */
   public requestUpdate(): void {
-    if (this._isDirty) {
+    if (this._isDirty || !this._container) {
       return;
     }
 
     this._isDirty = true;
-
     this._animationFrameId = requestAnimationFrame((): void => {
       this._isDirty = false;
       this._animationFrameId = null;
@@ -167,12 +158,16 @@ export class DotCloudComponent {
     });
   }
 
-  private _handleDataUpdateSideEffects(): void {
-    if (this._container) {
-      this._rebuildRenderer();
-    }
+  private _handleVisualUpdate(forceRebuildRenderer: boolean = false): void {
+    this._initializeDimensions();
+    this._syncContainerDimensions();
 
-    this.requestUpdate();
+    if (this._container) {
+      if (forceRebuildRenderer || !this._renderer) {
+        this._rebuildRenderer();
+      }
+      this.requestUpdate();
+    }
   }
 
   private _initializeDimensions(): void {
@@ -253,7 +248,6 @@ export class DotCloudComponent {
       this._assembleRenderContext(drawableWidth);
 
     this._renderer.draw(renderContext);
-
     this._container.style.padding = `0 ${padding}px`;
   }
 
@@ -325,6 +319,7 @@ export class DotCloudComponent {
   ): { minRU: number; maxRU: number } {
     const highestRankIndex: number = this._mapper.getHighestRankIndex();
     const highestRU: number = highestRankIndex + 1;
+
     if (maxRUScore <= highestRU || width <= this._dotRadius * 2) {
       return this._mapper.calculateAlignedBounds(minRUScore, maxRUScore);
     }

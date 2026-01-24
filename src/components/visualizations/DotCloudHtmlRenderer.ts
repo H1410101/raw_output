@@ -549,10 +549,11 @@ export class DotCloudHtmlRenderer {
             baseOpacity: number;
         },
     ): void {
-        dot.style.width = `${config.radius * 2}px`;
-        dot.style.height = `${config.radius * 2}px`;
-        dot.style.left = `${config.xPos}px`;
-        dot.style.top = `${config.yPos}px`;
+        const diameter: number = Math.max(4, Math.ceil(config.radius * 2 / 2) * 2);
+        dot.style.width = `${diameter}px`;
+        dot.style.height = `${diameter}px`;
+        dot.style.left = `${Math.round(config.xPos - diameter / 2)}px`;
+        dot.style.top = `${Math.round(config.yPos - diameter / 2)}px`;
 
         const boost: number = config.isLatest && config.isSession ? 0.4 : config.isLatest ? 0.2 : 0;
         const finalOpacity: number = Math.min(1, config.baseOpacity + boost);

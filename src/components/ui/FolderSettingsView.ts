@@ -21,6 +21,8 @@ export interface FolderSettingsConfig {
   readonly isInvalid?: boolean;
   /** Whether the current folder selection is valid. */
   readonly isValid?: boolean;
+  /** Whether the application is currently syncing statistics. */
+  readonly isSyncing?: boolean;
 }
 
 /**
@@ -34,6 +36,9 @@ export class FolderSettingsView {
 
   /** Whether the current folder selection is valid. */
   private readonly _isValid: boolean;
+
+  /** Whether the application is currently syncing statistics. */
+  private readonly _isSyncing: boolean;
 
   /** Active ResizeObservers for cleanup. */
   private readonly _observers: ResizeObserver[] = [];
@@ -62,6 +67,7 @@ export class FolderSettingsView {
     this._handlers = config.handlers;
     this._isInvalid = config.isInvalid ?? false;
     this._isValid = config.isValid ?? false;
+    this._isSyncing = config.isSyncing ?? false;
   }
 
   /**
@@ -83,7 +89,7 @@ export class FolderSettingsView {
 
     container.appendChild(content);
 
-    if (this._isInvalid) {
+    if (this._isInvalid || this._isSyncing) {
       requestAnimationFrame(() => this._startErrorScroller());
     }
 
@@ -125,7 +131,7 @@ export class FolderSettingsView {
 
     button.addEventListener("click", () => this._handlers.onLinkFolder());
 
-    if (this._isInvalid) {
+    if (this._isInvalid || this._isSyncing) {
       this._errorContainer = document.createElement("div");
       this._errorContainer.className = "error-scrolling-text-container";
       container.appendChild(this._errorContainer);
@@ -174,7 +180,7 @@ export class FolderSettingsView {
     let currentX = deathX;
 
     while (currentX < spawnX) {
-      const element = this._spawnErrorElement(currentX);
+      const element = this._spawnScrollingTextElement(currentX);
       const width = element.offsetWidth;
       // Advance currentX to the next element's left edge
       currentX += width;
@@ -252,20 +258,26 @@ export class FolderSettingsView {
       const entryX = lastElement
         ? parseFloat(lastElement.dataset.x || "0") + lastElement.offsetWidth / 2
         : spawnX;
-      this._spawnErrorElement(entryX);
+      this._spawnScrollingTextElement(entryX);
     }
   }
 
   /**
-   * Spawns a single "ERROR: TRY AGAIN" element at the specified left coordinate.
+   * Spawns a single scrolling text element at the specified left coordinate.
    *
    * @param leftX - The X coordinate for the element's left edge.
    * @returns The created element.
    */
-  private _spawnErrorElement(leftX: number): HTMLElement {
+  private _spawnScrollingTextElement(leftX: number): HTMLElement {
     const element = document.createElement("div");
-    element.className = "error-scrolling-text";
-    element.textContent = "ERROR: TRY AGAIN";
+
+    if (this._isSyncing && !this._isInvalid) {
+      element.className = "error-scrolling-text success-scrolling-text";
+      element.textContent = "LOADING...";
+    } else {
+      element.className = "error-scrolling-text";
+      element.textContent = "ERROR: TRY AGAIN";
+    }
 
     this._errorContainer!.appendChild(element);
     const width = element.offsetWidth;

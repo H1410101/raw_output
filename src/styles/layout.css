@@ -1677,6 +1677,10 @@ h1 {
     will-change: transform;
 }
 
+.success-scrolling-text {
+    color: var(--status-success);
+}
+
 .peak-warning-scroller {
     position: relative !important;
     width: calc(100% - calc(4rem * var(--margin-spacing-multiplier))) !important;
