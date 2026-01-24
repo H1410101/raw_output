@@ -41,6 +41,10 @@ export class CosmeticOverrideService {
      * Deactivates the override.
      */
     public deactivate(): void {
+        if (!this._isBeBetterActive) {
+            return;
+        }
+
         this._isBeBetterActive = false;
         this._activeDifficulty = null;
         this._notifyListeners();
