@@ -1241,11 +1241,13 @@ export class RankedView {
     const isUnranked = estimate.rankName === "Unranked";
     const rankClass = isUnranked ? "start-screen-rank-large unranked-text" : "start-screen-rank-large";
 
+    const isPeak = this._deps.benchmark.isPeak(difficulty);
     const rankRow: HTMLDivElement = document.createElement("div");
     rankRow.className = "start-screen-rank-row";
     rankRow.innerHTML = `
         <div class="${rankClass} rank-text-inner">
             ${estimate.rankName}
+            ${this._getPeakIconHtml(isPeak)}
         </div>
         ${estimate.continuousValue === 0 ? "" : `<div class="start-screen-rank-progress">+${estimate.progressToNext}%</div>`}
     `;
