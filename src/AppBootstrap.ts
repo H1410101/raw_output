@@ -387,9 +387,8 @@ export class AppBootstrap {
     if (handle) {
       this._statusView.reportFolderReconnected();
 
-      await this._synchronizeAndMonitor(handle);
-
       this._identityService.initializeOnboarding();
+      await this._synchronizeAndMonitor(handle);
 
       this._benchmarkView.refresh();
 
@@ -406,6 +405,7 @@ export class AppBootstrap {
     if (handle) {
       this._statusView.reportFolderLinked();
 
+      this._identityService.initializeOnboarding();
       await this._synchronizeAndMonitor(handle);
 
       this._benchmarkView.refresh();
@@ -414,8 +414,6 @@ export class AppBootstrap {
       await this._updateFolderValidity();
 
       await this._navigationController.tryExitFolderView();
-
-      this._identityService.initializeOnboarding();
 
       this._checkAnalyticsPrompt();
     }
