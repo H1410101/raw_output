@@ -406,6 +406,10 @@ export class AppBootstrap {
       this._statusView.reportFolderLinked();
 
       this._identityService.initializeOnboarding();
+
+      await this._updateFolderValidity();
+      await this._folderView.render();
+
       await this._synchronizeAndMonitor(handle);
 
       this._benchmarkView.refresh();
