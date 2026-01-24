@@ -389,6 +389,8 @@ export class AppBootstrap {
 
       await this._synchronizeAndMonitor(handle);
 
+      this._identityService.initializeOnboarding();
+
       this._benchmarkView.refresh();
 
       return;
@@ -412,6 +414,8 @@ export class AppBootstrap {
       await this._updateFolderValidity();
 
       await this._navigationController.tryExitFolderView();
+
+      this._identityService.initializeOnboarding();
 
       this._checkAnalyticsPrompt();
     }
