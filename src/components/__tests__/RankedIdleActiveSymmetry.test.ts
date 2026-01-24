@@ -38,7 +38,7 @@ function _setupBaseStyles(): void {
             --glass-border: rgba(var(--upper-band-1-rgb), 0.1);
         }
         *, *::before, *::after { box-sizing: border-box; }
-        .ranked-container {
+        .ranked-view-container {
             width: 800px;
             height: 600px;
             display: flex;
@@ -54,61 +54,56 @@ function _setupBaseStyles(): void {
 
 function _setupLayoutStyles(): void {
     const style: HTMLStyleElement = document.createElement("style");
-    // Emulate the new flex layout with gap
     style.innerHTML = `
-        .ranked-container {
-            justify-content: flex-end;
-            align-items: center;
-            gap: 1rem;
+        .ranked-view-container {
+            width: 100%; height: 15rem; display: flex;
+            flex-direction: column; justify-content: space-between; align-items: center;
         }
-        .ranked-info-top {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        .ranked-selector-group, .rank-timeline-container {
+            height: 6rem; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
         }
+        .ranked-info-top { display: flex; flex-direction: column; align-items: center; }
         .media-controls {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            align-items: center;
-            gap: 1rem;
-            width: 100%;
+            display: grid; grid-template-columns: 1fr auto 1fr;
+            align-items: center; gap: 1rem; width: 100%;
         }
         .media-btn { width: 2.5rem; height: 2.5rem; }
         .media-btn.primary { width: 3.75rem; height: 3.75rem; }
-        
-        /* Mock visual element height for symmetry test */
-        .ranked-dot-cloud, .rank-timeline-container {
-            height: 6rem; 
-            width: 100%;
-        }
     `;
     document.head.appendChild(style);
 }
 
 function _setupIdleDOM(): void {
     document.body.innerHTML = `
-      <div class="ranked-container idle">
+      <div class="ranked-view-container idle">
         <div class="ranked-info-top">
             <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
-            <h2 class="ranked-scenario-name" style="visibility: hidden;">Placeholder</h2>
+            <div class="start-screen-rank-label">Daily Ranked Run</div>
         </div>
-        <div class="dot-cloud-container ranked-dot-cloud" style="visibility: hidden;"></div>
+        <div class="ranked-selector-group">
+            <div class="start-screen-rank-row"></div>
+            <div class="difficulty-tabs"></div>
+        </div>
         <div class="media-controls">
-            <div class="controls-left" style="visibility: hidden;">
+            <div class="controls-left">
                 <button class="media-btn secondary"></button>
             </div>
             <button class="media-btn primary" id="start-ranked-btn"></button>
-            <div class="controls-right" style="visibility: hidden;">
+            <div class="controls-right">
                 <button class="media-btn secondary"></button>
             </div>
         </div>
       </div>
+
+
+
     `;
 }
 
 function _setupActiveDOM(): void {
     document.body.innerHTML = `
-      <div class="ranked-container active">
+      <div class="ranked-view-container active">
         <div class="ranked-info-top">
             <span class="now-playing">NOW PLAYING</span>
             <h2 class="ranked-scenario-name">Scenario Name</h2>

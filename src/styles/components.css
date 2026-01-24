@@ -1023,3 +1023,61 @@
 .no-transition {
     transition: none !important;
 }
+
+/* Start Screen Large Rank and Difficulty */
+
+
+.start-screen-rank-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.ranked-selector-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 6rem;
+    gap: 1rem;
+    width: 100%;
+}
+
+.start-screen-rank-label {
+    font-size: calc(1.4rem * var(--label-font-multiplier));
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--accent-color);
+    margin-bottom: 0;
+    opacity: 0.8;
+}
+
+.start-screen-rank-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+}
+
+.start-screen-rank-large {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--accent-color);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    line-height: 1;
+}
+
+.start-screen-rank-large.unranked-text {
+    color: var(--text-dim);
+    text-shadow: none;
+    opacity: 0.4;
+}
+
+.start-screen-rank-progress {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent-color);
+    opacity: 0.8;
+}
