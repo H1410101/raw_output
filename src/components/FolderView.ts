@@ -15,6 +15,7 @@ export interface FolderViewServices {
         readonly onForceScan: () => Promise<void>;
         readonly onUnlinkFolder: () => void;
     };
+    readonly isSyncing: () => boolean;
 }
 
 /**
@@ -62,6 +63,7 @@ export class FolderView {
                 hasStats: lastCheck > 0,
                 isInvalid,
                 isValid,
+                isSyncing: this._services.isSyncing(),
             });
 
             this._mountPoint.appendChild(this._folderSettingsView.render());

@@ -61,6 +61,7 @@ export class AppBootstrap {
   private _deviceDetectionService!: DeviceDetectionService;
 
   private _hasPromptedAnalytics: boolean = false;
+  private _isSyncing: boolean = false;
 
 
   /**
@@ -234,6 +235,7 @@ export class AppBootstrap {
           onForceScan: (): Promise<void> => this._handleManualImport(),
           onUnlinkFolder: (): void => this._handleFolderRemoval(),
         },
+        isSyncing: (): boolean => this._isSyncing,
       }
     );
   }
@@ -410,7 +412,13 @@ export class AppBootstrap {
       await this._updateFolderValidity();
       await this._folderView.render();
 
+      this._isSyncing = true;
+      await this._folderView.render();
+
       await this._synchronizeAndMonitor(handle);
+
+      this._isSyncing = false;
+      await this._folderView.render();
 
       this._benchmarkView.refresh();
       this._rankedView.refresh();
@@ -426,7 +434,13 @@ export class AppBootstrap {
   private async _handleManualImport(): Promise<void> {
     this._statusView.reportScanning();
 
+    this._isSyncing = true;
+    await this._folderView.render();
+
     await this._ingestionService.synchronizeAvailableRuns();
+
+    this._isSyncing = false;
+    await this._folderView.render();
 
     this._statusView.reportActive();
 
