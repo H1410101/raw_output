@@ -15,6 +15,7 @@ export class DirectoryAccessService {
 
   private readonly _persistenceService: DirectoryAccessPersistenceService;
   private _directoryHandle: FileSystemDirectoryHandle | null = null;
+  private _persistedHandle: FileSystemDirectoryHandle | null = null;
   private _logicalPath: string = "";
   private _originalSelectionName: string = "";
 
@@ -52,15 +53,67 @@ export class DirectoryAccessService {
     const persistedData =
       await this._persistenceService.retrieveHandleFromStorage();
 
-    if (persistedData && (await this._verifyPermission(persistedData.handle))) {
-      this._directoryHandle = persistedData.handle;
-      this._logicalPath = persistedData.handle.name;
+    if (persistedData) {
+      this._persistedHandle = persistedData.handle;
       this._originalSelectionName = persistedData.originalName;
 
-      return persistedData.handle;
+      if (await this._verifyPermission(persistedData.handle)) {
+        this._directoryHandle = persistedData.handle;
+        this._logicalPath = persistedData.handle.name;
+
+        return persistedData.handle;
+      }
     }
 
     return null;
+  }
+
+  /**
+   * Checks if there is a handle in persistent storage, regardless of current permission.
+   *
+   * @returns True if a handle is persisted.
+   */
+  public hasPersistedHandle(): boolean {
+    return this._persistedHandle !== null;
+  }
+
+  /**
+   * Gets the name of the persisted handle.
+   *
+   * @returns The name of the persisted handle or null.
+   */
+  public get persistedHandleName(): string | null {
+    return this._persistedHandle?.name ?? null;
+  }
+
+  /**
+   * Attempts to request permission for the already persisted handle.
+   *
+   * @returns A promise resolving to the handle if permission granted, or null.
+   */
+  public async requestPersistedHandlePermission(): Promise<FileSystemDirectoryHandle | null> {
+    if (!this._persistedHandle) {
+      return null;
+    }
+
+    try {
+      const permissionStatus = await this._persistedHandle.requestPermission({
+        mode: "read",
+      });
+
+      if (permissionStatus === "granted") {
+        this._directoryHandle = this._persistedHandle;
+        this._logicalPath = this._persistedHandle.name;
+
+        return this._directoryHandle;
+      }
+
+      return null;
+    } catch (error) {
+      this._handlePickerError(error);
+
+      return null;
+    }
   }
 
   /**
@@ -126,6 +179,7 @@ export class DirectoryAccessService {
    */
   public clearStoredHandle(): void {
     this._directoryHandle = null;
+    this._persistedHandle = null;
     this._logicalPath = "";
     this._originalSelectionName = "";
     this._persistenceService.clearHandleFromStorage();
@@ -137,6 +191,7 @@ export class DirectoryAccessService {
     this._originalSelectionName = handle.name;
     const { statsHandle, path } = await this._discoverStatsFolder(handle);
     this._directoryHandle = statsHandle;
+    this._persistedHandle = statsHandle;
     this._logicalPath = path;
     await this._persistenceService.saveHandleToStorage(
       statsHandle,
