@@ -1246,8 +1246,8 @@ export class RankedView {
     rankRow.className = "start-screen-rank-row";
     rankRow.innerHTML = `
         <div class="${rankClass} rank-text-inner">
-            ${estimate.rankName}
             ${this._getPeakIconHtml(isPeak)}
+            ${estimate.rankName}
         </div>
         ${estimate.continuousValue === 0 ? "" : `<div class="start-screen-rank-progress">+${estimate.progressToNext}%</div>`}
     `;
