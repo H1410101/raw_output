@@ -15,6 +15,7 @@ import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { SessionSettingsService } from "../services/SessionSettingsService";
 import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
 import { CosmeticOverrideService } from "../services/CosmeticOverrideService";
+import { BenchmarkScrollController } from "./benchmark/BenchmarkScrollController";
 
 interface LaunchHoldState {
   progress: number;
@@ -608,9 +609,16 @@ export class RankedView {
       <div class="ranked-info-top">
           <span class="now-playing">SUMMARY</span>
       </div>
-      <div class="summary-content-wrapper">
+      <div class="summary-content-wrapper summary-scroll-container">
           <div class="scenarios-list summary-scrollable">
               ${summaryData.length === 0 ? '<p class="no-scenarios">No rank gains this session.</p>' : ""}
+          </div>
+          <div class="custom-scroll-thumb">
+              <div class="grip-container">
+                  <div class="thumb-grip grip-0"></div>
+                  <div class="thumb-grip grip-1"></div>
+                  <div class="thumb-grip grip-2"></div>
+              </div>
           </div>
       </div>
       <div class="media-controls">
@@ -948,6 +956,19 @@ export class RankedView {
 
     this._setupEndButtons(container);
     this._setupPlayNowButton(container);
+
+    const scrollArea = container.querySelector(".scenarios-list") as HTMLElement;
+    const scrollThumb = container.querySelector(".custom-scroll-thumb") as HTMLElement;
+    if (scrollArea && scrollThumb) {
+      const controller = new BenchmarkScrollController({
+        scrollContainer: scrollArea,
+        scrollThumb: scrollThumb,
+        hoverContainer: container.querySelector(".summary-content-wrapper") as HTMLElement,
+        appStateService: null,
+        audioService: this._deps.audio,
+      });
+      controller.initialize();
+    }
 
     container.querySelector("#ranked-help-btn")?.addEventListener("click", (): void => {
       new RankedHelpPopupComponent(this._deps.audio).render();

@@ -741,6 +741,8 @@
     align-items: center;
     width: clamp(60%, 40rem, 100%);
     min-height: 0;
+    position: relative;
+    overflow: hidden;
 }
 
 .scenarios-list {
@@ -758,20 +760,25 @@
 
 /* Custom Scrollbar */
 .scenarios-list::-webkit-scrollbar {
-    width: 0.375rem;
+    width: 0;
 }
 
-.scenarios-list::-webkit-scrollbar-track {
-    background: transparent;
-    border-left: 0.171875rem solid transparent;
-    border-right: 0.171875rem solid transparent;
-    background-color: rgba(var(--lower-band-1-rgb), 0.25);
-    background-clip: content-box;
+.summary-scroll-container .custom-scroll-thumb {
+    right: 0;
 }
 
-.scenarios-list::-webkit-scrollbar-thumb {
-    background: rgba(var(--accent-color-rgb), 0.2);
-    border-radius: 0.1875rem;
+.summary-scroll-container.has-scroll::before {
+    content: "";
+    position: absolute;
+    top: calc(1.5rem * var(--margin-spacing-multiplier));
+    bottom: calc(1.5rem * var(--margin-spacing-multiplier));
+    /* Aligned with the center of the 0.5rem thumb at right: 0 */
+    right: calc(0.25rem * var(--margin-spacing-multiplier) - 0.015625rem);
+    width: 0.03125rem;
+    background: rgba(var(--lower-band-1-rgb), 0.25);
+    border-radius: 0.03125rem;
+    pointer-events: none;
+    z-index: 0;
 }
 
 .scenario-summary-item {

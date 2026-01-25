@@ -76,11 +76,13 @@ export class BenchmarkScrollController {
 
     if (totalScrollRange <= 0) {
       this._scrollThumb.style.display = "none";
+      this._hoverContainer.classList.remove("has-scroll");
 
       return;
     }
 
     this._scrollThumb.style.display = "block";
+    this._hoverContainer.classList.add("has-scroll");
     this._applyThumbTranslation(totalScrollRange);
   }
 

@@ -475,7 +475,7 @@ h1 {
     isolation: isolate;
 }
 
-.benchmark-table-container::before {
+.benchmark-table-container.has-scroll::before {
     content: "";
     position: absolute;
     top: calc(1.5rem * var(--margin-spacing-multiplier));
@@ -539,8 +539,9 @@ h1 {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: calc(0.075rem * var(--margin-spacing-multiplier));
+    gap: calc(0.1rem * var(--margin-spacing-multiplier));
     pointer-events: none;
+    z-index: 1;
 }
 
 
@@ -1024,7 +1025,7 @@ h1 {
 }
 
 
-.settings-menu-container::before {
+.settings-menu-container.has-scroll::before {
     content: "";
     position: absolute;
     top: calc(1.5rem * var(--margin-spacing-multiplier));
