@@ -401,8 +401,15 @@ export class AppBootstrap {
   }
 
   private async _handleManualFolderSelection(): Promise<void> {
-    const handle: FileSystemDirectoryHandle | null =
-      await this._directoryService.requestDirectorySelection();
+    let handle: FileSystemDirectoryHandle | null = null;
+
+    if (this._directoryService.hasPersistedHandle()) {
+      handle = await this._directoryService.requestPersistedHandlePermission();
+    }
+
+    if (!handle) {
+      handle = await this._directoryService.requestDirectorySelection();
+    }
 
     if (handle) {
       this._statusView.reportFolderLinked();

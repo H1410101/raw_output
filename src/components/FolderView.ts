@@ -52,9 +52,11 @@ export class FolderView {
             this._clearMount();
 
             const lastCheck: number = await this._services.history.getLastCheckTimestamp();
+            const needsPermission: boolean = this._services.directory.hasPersistedHandle() && !this._services.directory.isStatsFolderSelected();
             const isInvalid: boolean =
                 !!this._services.directory.originalSelectionName &&
-                !this._services.directory.isStatsFolderSelected();
+                !this._services.directory.isStatsFolderSelected() &&
+                !needsPermission;
             const isValid: boolean = this._services.directory.isStatsFolderSelected();
 
             this._folderSettingsView = new FolderSettingsView({
@@ -64,6 +66,7 @@ export class FolderView {
                 isInvalid,
                 isValid,
                 isSyncing: this._services.isSyncing(),
+                needsPermission,
             });
 
             this._mountPoint.appendChild(this._folderSettingsView.render());

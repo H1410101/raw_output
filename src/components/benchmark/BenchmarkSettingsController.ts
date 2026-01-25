@@ -127,6 +127,16 @@ export class BenchmarkSettingsController {
     const thumb: HTMLDivElement = document.createElement("div");
     thumb.className = "custom-scroll-thumb";
 
+    const gripContainer: HTMLDivElement = document.createElement("div");
+    gripContainer.className = "grip-container";
+
+    for (let i = 0; i < 3; i++) {
+      const grip: HTMLDivElement = document.createElement("div");
+      grip.className = `thumb-grip grip-${i}`;
+      gripContainer.appendChild(grip);
+    }
+    thumb.appendChild(gripContainer);
+
     return thumb;
   }
 

@@ -1,31 +1,60 @@
-# Component Tests Documentation
+# External Documentation
 
-This directory contains Vitest-based unit and integration tests for the UI components of the application.
-
-## Test Infrastructure
-
-To ensure consistency and reduce boilerplate, tests should utilize the centralized mock factory.
-
-### Key Utilities
-
-- **MockServiceFactory**: A centralized class for creating standard, composable mocks for services like `BenchmarkService`, `RankEstimator`, and `AppStateService`.
-- **_waitForSelector**: A helper function to wait for elements to appear in the JSDOM, essential for async rendering cycles.
-
-## Component Relationships in Tests
+## External Interactions Diagram
 
 ```mermaid
 graph TD
-    Test[Test File] --> Factory[MockServiceFactory]
-    Test --> Target[Component Under Test]
-    Factory --> Mocks[Service Mocks]
-    Target --> Mocks
+    subgraph "Test Suite"
+        Test[Test File]
+    end
+
+    subgraph "Infrastructure"
+        Factory[MockServiceFactory]
+        Mocks[Service Mocks]
+    end
+
+    subgraph "Target"
+        CUT[Component Under Test]
+    end
+
+    Test -->|Uses| Factory
+    Test -->|Instantiates| CUT
+    Factory -->|Creates| Mocks
+    CUT -->|Consumes| Mocks
 ```
 
-## Abstracting Test Logic
+## Exposed Internal API
+
+### `MockServiceFactory`
+A centralized class for creating standard, composable mocks for services like `BenchmarkService`, `RankEstimator`, and `AppStateService`.
+- **Purpose**: Reduces boilerplate and ensures consistent mock behavior across tests.
+
+### `_waitForSelector`
+A helper function to wait for elements to appear in the JSDOM, essential for async rendering cycles.
+
+# Internal Documentation
+
+## Internal Interactions Diagram
+
+```mermaid
+graph TD
+    subgraph "Internal Infrastructure"
+        Factory[MockServiceFactory]
+        Helpers[Test Helpers]
+    end
+    
+    Factory -->|Uses| Helpers
+```
+
+## Internal Files and API
+
+To ensure consistency and reduce boilerplate, tests should utilize the centralized mock factory.
+
+### Abstracting Test Logic
 
 As per the "Abstraction and Composition" principle, repetitive test setup and assertion logic should be extracted into helper functions (prefixed with `_`) within the test file or moved to a shared utility if used across multiple files.
 
-### Example Refactoring
+#### Example Refactoring
 
 Before:
 ```typescript
