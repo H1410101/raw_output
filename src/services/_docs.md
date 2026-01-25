@@ -1,8 +1,36 @@
-# Services Documentation
+# External Documentation
 
-The `services` folder contains the core business logic of the application. These services are responsible for managing state, processing data, and orchestrating interactions between different components.
+## External Interactions Diagram
 
-## Core Services
+```mermaid
+graph LR
+    subgraph "src/services"
+        SessionService
+        RankedSessionService
+        VisualSettingsService
+    end
+
+    subgraph "src/components"
+        BenchmarkView
+        RankedView
+        UIComponents
+    end
+
+    subgraph "Browser Context"
+        BrowserUI[Browser DOM]
+    end
+    
+    %% Control Flow / Dependency Direction
+    
+    BenchmarkView -->|Reads| SessionService
+    RankedView -->|Reads| SessionService
+    RankedSessionService -->|Subscribes to| SessionService
+    
+    UIComponents -->|Observes| VisualSettingsService
+    VisualSettingsService -->|Updates| BrowserUI
+```
+
+## Exposed Internal API
 
 ### `SessionService`
 Manages the lifecycle of a training session. It maintains dual tracks: a **Global Track** for all runs in the current session window, and a **Ranked Track** for data recorded specifically during high-stakes ranked runs.
@@ -33,16 +61,26 @@ Manages and persists visual preferences and display settings. It orchestrates th
 - **Relies on**: `ScalingService`
 - **Used by**: `AppBootstrap`, `AudioService`, and most UI components.
 
-## Relationships
+### `IdentityService`
+Manages the user's "Identity" state, including their current rank and historical performance profile. It handles the persistence of this identity across sessions.
+- **Relies on**: `HistoryService`
+- **Used by**: `RankedSessionService`, `AppBootstrap`
 
-```mermaid
-graph TD
-    RunIngestionService -->|updates runs| SessionService
-    SessionService -->|Global Track| BenchmarkView
-    SessionService -->|Ranked Track| RankedView
-    SessionService -->|notifies| RankedSessionService
-    VisualSettingsService -->|orchestrates| UIComponents
-    VisualSettingsService -->|manages| BrowserUI
-```
+### `HistoryService`
+Manages the long-term storage and retrieval of past activity. It builds the historical context required for generating accurate rank estimates and trends.
+- **Used by**: `IdentityService`, `RunIngestionService`, `BenchmarkService`
+
+### `SessionSyncService`
+Handles the synchronization of local session data with the Cloudflare Edge backend. It ensures that locally achieved scores are backed up to the cloud.
+- **Relies on**: `CloudflareService`
+- **Used by**: `SessionService`
+
+### `AudioService`
+Manages sound effects and audio feedback throughout the application.
+- **Relies on**: `VisualSettingsService` (for volume/mute preferences)
+
+# Internal Documentation
+
+## Internal Files and API
 
 The `RankedSessionService` listens for updates from the `SessionService`. When new scores are recorded, the `RankedSessionService` resets its internal run timer. It ensures that the `RankedView` only shows improvements made within the context of an active ranked run.
