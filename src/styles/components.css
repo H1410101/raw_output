@@ -741,6 +741,7 @@
     align-items: center;
     width: clamp(60%, 40rem, 100%);
     min-height: 0;
+    padding: calc(1.5rem * var(--margin-spacing-multiplier));
 }
 
 .scenarios-list {
