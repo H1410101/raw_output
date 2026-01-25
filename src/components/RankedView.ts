@@ -503,7 +503,7 @@ export class RankedView {
     return `
       <div class="ranked-info-top">
           <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
-          <div class="start-screen-rank-label">Daily Ranked Run</div>
+          <h2 class="ranked-scenario-name">Daily Ranked Run</h2>
       </div>
       <div class="ranked-selector-group"></div>
 
@@ -608,6 +608,7 @@ export class RankedView {
     return `
       <div class="ranked-info-top">
           <span class="now-playing">SUMMARY</span>
+          <h2 class="ranked-scenario-name">Session Results</h2>
       </div>
       <div class="summary-content-wrapper summary-scroll-container">
           <div class="scenarios-list summary-scrollable">
@@ -699,9 +700,16 @@ export class RankedView {
 
   private _renderCompletedContent(): string {
     return `
-      <div class="ranked-result" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center;">
-          <h2 style="text-transform: none; margin: 0; color: var(--upper-band-3); font-weight: 700;">Daily Run Complete</h2>
+      <div class="ranked-info-top">
+          <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
+          <h2 class="ranked-scenario-name">Daily Run Complete</h2>
+      </div>
+      <div class="ranked-result" style="height: 6rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
           <p style="color: var(--text-dim); line-height: 1.4; margin: 0;">End run,<br>or Keep Going?</p>
+      </div>
+      <div class="media-controls">
+          <div class="hud-group left" style="visibility: hidden;"></div>
+          <div class="controls-left" style="visibility: hidden;"></div>
           
           <div style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; padding-bottom: 0.35rem;">
               <button class="media-btn secondary destructive" id="end-ranked-btn">
@@ -712,6 +720,9 @@ export class RankedView {
                   <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
               </button>
           </div>
+
+          <div class="controls-right" style="visibility: hidden;"></div>
+          <div class="hud-group right" style="visibility: hidden;"></div>
       </div>
     `;
   }

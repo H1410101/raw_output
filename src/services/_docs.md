@@ -9,6 +9,11 @@ Manages the lifecycle of a training session. It maintains dual tracks: a **Globa
 - **Relies on**: `RankService`, `SessionSettingsService`
 - **Used by**: `RankedSessionService`, `RunIngestionService`
 
+### `DirectoryAccessService`
+Manages interaction with the Browser File System Access API. It handles folder selection, persistence of directory handles across sessions, and verification of read permissions.
+- **Persistence**: Uses IndexedDB to store `FileSystemDirectoryHandle` objects.
+- **Used by**: `AppBootstrap`, `RunIngestionService`, `DirectoryMonitoringService`.
+
 ### `RunIngestionService`
 Orchestrates the ingestion of CSV performance data from the local file system. It detects new runs and populates them into both the Global and Ranked tracks of `SessionService` as appropriate.
 - **Relies on**: `DirectoryAccessService`, `KovaaksCsvParsingService`, `HistoryService`, `SessionService`, `BenchmarkService`
