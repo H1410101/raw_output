@@ -283,7 +283,7 @@ export class FolderSettingsView {
 
     if (this._isSyncing && !this._isInvalid && !this._needsPermission) {
       element.className = "error-scrolling-text success-scrolling-text";
-      element.textContent = "LOADING...";
+      element.textContent = "LOADING";
     } else if (this._needsPermission) {
       element.className = "error-scrolling-text warning-scrolling-text";
       element.textContent = "Permissions Lost: Re-grant Access";
