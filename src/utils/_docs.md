@@ -24,6 +24,16 @@ A deterministic **Pseudo-Random Number Generator**.
 
 # Internal Documentation
 
+## Internal Interactions Diagram
+
+```mermaid
+graph TD
+    subgraph "src/utils"
+        Prng[Prng.ts]
+    end
+    %% Utility files are independent
+```
+
 ## Internal Files and API
 
 (None - Pure utility functions)

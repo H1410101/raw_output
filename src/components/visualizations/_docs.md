@@ -14,22 +14,11 @@ graph LR
         RankTimelineComponent
         SummaryTimelineComponent
         DotCloudComponent
-        
-        subgraph "Internal Helpers"
-            RankScaleMapper
-            ScoreProcessor
-            DotCloudHtmlRenderer
-        end
     end
 
     RankedView -->|Configures| RankTimelineComponent
     SummaryView -->|Configures| SummaryTimelineComponent
     BenchmarkView -->|Configures| DotCloudComponent
-    
-    RankTimelineComponent -->|Uses| RankScaleMapper
-    SummaryTimelineComponent -->|Uses| RankTimelineComponent
-    DotCloudComponent -->|Uses| DotCloudHtmlRenderer
-    DotCloudComponent -->|Uses| ScoreProcessor
 ```
 
 ## Exposed Internal API
@@ -47,6 +36,28 @@ A complex visualization of many score attempts over time or across scenarios. It
 - **Relies on**: `DotCloudHtmlRenderer`, `ScoreProcessor`
 
 # Internal Documentation
+
+## Internal Interactions Diagram
+
+```mermaid
+graph TD
+    subgraph "src/components/visualizations"
+        RankTimelineComponent
+        SummaryTimelineComponent
+        DotCloudComponent
+        
+        subgraph "Internal Helpers"
+            RankScaleMapper
+            ScoreProcessor
+            DotCloudHtmlRenderer
+        end
+    end
+
+    RankTimelineComponent -->|Uses| RankScaleMapper
+    SummaryTimelineComponent -->|Uses| RankTimelineComponent
+    DotCloudComponent -->|Uses| DotCloudHtmlRenderer
+    DotCloudComponent -->|Uses| ScoreProcessor
+```
 
 ## Internal Files and API
 

@@ -34,6 +34,18 @@ A helper function to wait for elements to appear in the JSDOM, essential for asy
 
 # Internal Documentation
 
+## Internal Interactions Diagram
+
+```mermaid
+graph TD
+    subgraph "Internal Infrastructure"
+        Factory[MockServiceFactory]
+        Helpers[Test Helpers]
+    end
+    
+    Factory -->|Uses| Helpers
+```
+
 ## Internal Files and API
 
 To ensure consistency and reduce boilerplate, tests should utilize the centralized mock factory.

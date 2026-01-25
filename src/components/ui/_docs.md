@@ -51,6 +51,25 @@ graph LR
 
 # Internal Documentation
 
+## Internal Interactions Diagram
+
+```mermaid
+graph TD
+    subgraph "src/components/ui"
+        subgraph "Independent Components"
+            FolderSettingsView
+            HUDTimer
+            HUDProgressBar
+            Status[ApplicationStatusView]
+            Popups[Popups...]
+        end
+        
+        Factory[SettingsUiFactory]
+    end
+    
+    %% No significant internal coupling between these components
+```
+
 ## Internal Files and API
 
 Most popups use the `settings-overlay` and `settings-menu-container` classes for a consistent glassmorphic look. Components that require interaction sounds use the `AudioService`. Standardized settings elements are built via `SettingsUiFactory` to ensure visual consistency across the app.

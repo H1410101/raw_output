@@ -8,11 +8,6 @@ graph LR
         NavigationController
         RankedView
         BenchmarkView
-        
-        subgraph "Internal Components"
-             RankTimelineComponent
-             BenchmarkTable
-        end
     end
 
     subgraph "src/services"
@@ -24,10 +19,7 @@ graph LR
     NavigationController -->|Switches| BenchmarkView
     
     RankedView -->|Consumes| RankedSessionService
-    RankedView -->|Embeds| RankTimelineComponent
-    
     BenchmarkView -->|Consumes| SessionService
-    BenchmarkView -->|Embeds| BenchmarkTable
 ```
 
 ## Exposed Internal API
@@ -47,6 +39,36 @@ Manages the transitions between different views (e.g., from Benchmark to Ranked)
 The initial landing screen for mobile users, directing them to desktop for the full experience or providing limited mobile functionality.
 
 # Internal Documentation
+
+## Internal Interactions Diagram
+
+```mermaid
+graph TD
+    subgraph "src/components"
+        RankedView
+        BenchmarkView
+        MobileLandingView
+    end
+
+    subgraph "src/components/visualizations"
+        RankTimelineComponent
+    end
+
+    subgraph "src/components/benchmark"
+        BenchmarkTable
+    end
+
+    subgraph "src/components/ui"
+        Elements[UI Primitives]
+    end
+
+    RankedView -->|Embeds| RankTimelineComponent
+    BenchmarkView -->|Embeds| BenchmarkTable
+    
+    RankedView -->|Uses| Elements
+    BenchmarkView -->|Uses| Elements
+    MobileLandingView -->|Uses| Elements
+```
 
 ## Internal Files and API
 

@@ -31,12 +31,9 @@ If Service A calls Utility B, the arrow points A -> B. Even if B returns data to
 [List of exported elements used by external consumers]
 
 # Internal Documentation
+## Internal Interactions Diagram
+[Mermaid graph with clear boundaries using subdirectory names, as well as filenames]
 ## Internal Files and API
 [Implementation details, subdirectories, and private helpers]
+[At least one additional paragraph for every file and every subdirectory]
 "
-
-"Another critical lesson: make arrows mean one thing consistently.
-
-In diagrams, arrows often ambiguously mean 'data flows this way' or 'dependency points this way'. I insist that arrows should always represent **Control Flow**—the direction the code actually reaches out.
-
-If Service A calls Utility B, the arrow points A -> B. Even if B returns data to A, the *initiative* came from A. This aligns the diagram with the stack trace. When arrows flip-flop between 'A calls B' and 'B gives data to A', the reader loses the ability to trace the execution path mentally."

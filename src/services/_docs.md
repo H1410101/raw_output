@@ -81,6 +81,29 @@ Manages sound effects and audio feedback throughout the application.
 
 # Internal Documentation
 
+## Internal Interactions Diagram
+
+```mermaid
+graph TD
+    subgraph "src/services"
+        SessionService
+        RankedSessionService
+        RunIngestionService
+        IdentityService
+        HistoryService
+        SessionSyncService
+        DirectoryAccessService
+    end
+
+    RankedSessionService -->|Reads| SessionService
+    RunIngestionService -->|Writes| SessionService
+    SessionService -->|Syncs via| SessionSyncService
+    
+    IdentityService -->|Queries| HistoryService
+    RunIngestionService -->|Queries| HistoryService
+    RunIngestionService -->|Uses| DirectoryAccessService
+```
+
 ## Internal Files and API
 
 The `RankedSessionService` listens for updates from the `SessionService`. When new scores are recorded, the `RankedSessionService` resets its internal run timer. It ensures that the `RankedView` only shows improvements made within the context of an active ranked run.

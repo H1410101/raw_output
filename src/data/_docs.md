@@ -30,6 +30,16 @@ Contains the hardcoded definitions for the Ranked Mode mechanics and Benchmark t
 
 # Internal Documentation
 
+## Internal Interactions Diagram
+
+```mermaid
+graph TD
+    subgraph "src/data"
+        Benchmarks[benchmarks.ts]
+    end
+    %% Data files are independent
+```
+
 ## Internal Files and API
 
 (None - Logic is purely static configuration)
