@@ -36,7 +36,7 @@ export interface UpdateDataOptions {
 export class DotCloudComponent {
   public static readonly baseWidthRem: number = 14;
   public static readonly baseHeightRem: number = 2.2;
-  private static readonly _baseDotRadiusRatio: number = 0.16;
+  private static readonly _baseDotRadiusRatio: number = 0.1;
 
   private _recentEntries: ScoreEntry[];
   private _rankThresholds: Record<string, number>;
@@ -171,25 +171,20 @@ export class DotCloudComponent {
   }
 
   private _initializeDimensions(): void {
-    const rootFontSize: number = parseFloat(
-      getComputedStyle(document.documentElement).fontSize,
+    this._containerWidth = ScalingService.getScaledValue(
+      DotCloudComponent.baseWidthRem,
+      this._settings,
+      "dotCloudWidth",
     );
 
-    const baseWidth: number = DotCloudComponent.baseWidthRem * rootFontSize;
-    const baseHeight: number = DotCloudComponent.baseHeightRem * rootFontSize;
-    const baseDotRadius: number =
-      DotCloudComponent._baseDotRadiusRatio * rootFontSize;
-
-    this._containerWidth = Math.round(
-      ScalingService.getScaledValue(baseWidth, this._settings, "dotCloudWidth"),
-    );
-
-    this._containerHeight = Math.round(
-      ScalingService.getScaledValue(baseHeight, this._settings, "dotCloudSize"),
+    this._containerHeight = ScalingService.getScaledValue(
+      DotCloudComponent.baseHeightRem,
+      this._settings,
+      "dotCloudSize",
     );
 
     this._dotRadius = ScalingService.getScaledValue(
-      baseDotRadius,
+      DotCloudComponent._baseDotRadiusRatio,
       this._settings,
       "visDotSize",
     );
@@ -208,8 +203,8 @@ export class DotCloudComponent {
       return;
     }
 
-    this._container.style.width = `${this._containerWidth}px`;
-    this._container.style.height = `${this._containerHeight}px`;
+    this._container.style.width = `${this._containerWidth}rem`;
+    this._container.style.height = `${this._containerHeight}rem`;
   }
 
   private _ensureContainerExists(): void {
@@ -248,7 +243,7 @@ export class DotCloudComponent {
       this._assembleRenderContext(drawableWidth);
 
     this._renderer.draw(renderContext);
-    this._container.style.padding = `0 ${padding}px`;
+    this._container.style.padding = `0 ${padding}rem`;
   }
 
   private _assembleRenderContext(width: number): RenderContext {
