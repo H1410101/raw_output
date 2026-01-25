@@ -196,7 +196,7 @@ export class BenchmarkView {
       );
 
     this._clearAndPrepareMount();
-    this._updateHeaderButtonStates(false);
+    this._updateHeaderButtonStates();
     this._renderBenchmarkTable(scenarios, highscores);
     this._showView();
   }
@@ -314,22 +314,16 @@ export class BenchmarkView {
     return false;
   }
 
-  private _updateHeaderButtonStates(isFolderActive: boolean): void {
+  private _updateHeaderButtonStates(): void {
     const settingsBtn: HTMLElement | null = document.getElementById(
       "header-settings-btn",
     );
-    const benchmarkNavBtn: HTMLElement | null =
-      document.getElementById("nav-benchmarks");
 
     if (settingsBtn) {
       settingsBtn.classList.toggle(
         "active",
         this._appStateService.getIsSettingsMenuOpen(),
       );
-    }
-
-    if (benchmarkNavBtn) {
-      benchmarkNavBtn.classList.toggle("active", !isFolderActive);
     }
   }
 

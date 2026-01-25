@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 
-import { RankedView, RankedViewDependencies } from "../RankedView";
+import { RankedViewDependencies } from "../RankedView";
 import { BenchmarkView, BenchmarkViewServices } from "../BenchmarkView";
 import { MockServiceFactory } from "./MockServiceFactory";
 
@@ -44,34 +44,14 @@ describe("Typography Consistency", (): void => {
         mockDeps = initializeData(container);
     });
 
-    it("should have consistent font weight for rank names", async (): Promise<void> => {
-        const hudProps: RankLayoutProperties = await _getHudRankProperties(container, mockDeps);
-
-        container.innerHTML = "";
-
+    it("should have consistent font weight for rank names in BenchmarkView", async (): Promise<void> => {
         const tableProps: RankLayoutProperties = await _getTableRankProperties(container, mockDeps);
 
-        expect(hudProps.weight).toBe(700);
         expect(tableProps.weight).toBe(700);
         expect(tableProps.color.toLowerCase()).toBe(`rgb(193, 230, 227)`);
-        expect(hudProps.color.toLowerCase()).toBe(`rgb(193, 230, 227)`);
     });
 });
 
-async function _getHudRankProperties(
-    container: HTMLElement,
-    mockDeps: RankedViewDependencies
-): Promise<RankLayoutProperties> {
-    const rankedView: RankedView = new RankedView(container, mockDeps);
-    await rankedView.render();
-    const hudRank: HTMLElement | null = container.querySelector(".holistic-rank-container .rank-name");
-
-    if (!hudRank) {
-        throw new Error("HUD Rank element not found");
-    }
-
-    return _getRankProperties(hudRank);
-}
 
 async function _getTableRankProperties(
     container: HTMLElement,

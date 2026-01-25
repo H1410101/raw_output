@@ -15,13 +15,21 @@ export class IdentityService {
      * Initializes the identity and privacy settings from local storage.
      */
     public constructor() {
-        this._loadOrCreateDeviceId();
-        this._loadAnalyticsConsent();
-        this._loadLastAnalyticsPromptDate();
+        this._loadAnalyticsConsentStatus();
+        this._loadExistingIdentityState();
     }
 
     /**
-     * Returns the anonymous device ID.
+     * Anchors the identity and onboarding state (Device ID and Analytics Prompt Date)
+     * if they have not already been initialized.
+     */
+    public initializeOnboarding(): void {
+        this._ensureDeviceIdExists();
+        this._ensureAnalyticsPromptDateIsAnchored();
+    }
+
+    /**
+     * Returns the anonymous device ID, initializing it if necessary.
      *
      * @returns The unique ID string for this device.
      */
@@ -66,17 +74,14 @@ export class IdentityService {
             return true;
         }
 
-        const today: Date = new Date();
-        const midnight: number = 0;
-        today.setHours(midnight, midnight, midnight, midnight);
+        const currentTimestamp: Date = new Date();
+        const startOfToday: Date = this._getStartOfDate(currentTimestamp);
+        const startOfLastPrompt: Date = this._getStartOfDate(this._lastAnalyticsPromptDate);
 
-        const lastPrompt: Date = new Date(this._lastAnalyticsPromptDate);
-        lastPrompt.setHours(midnight, midnight, midnight, midnight);
+        const timeDifferenceMilliseconds: number = startOfToday.getTime() - startOfLastPrompt.getTime();
+        const elapsedDaysSincePrompt: number = Math.floor(timeDifferenceMilliseconds / (1000 * 60 * 60 * 24));
 
-        const diffTime: number = today.getTime() - lastPrompt.getTime();
-        const diffDays: number = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-        return diffDays >= 7;
+        return elapsedDaysSincePrompt >= 7;
     }
 
     /**
@@ -89,55 +94,74 @@ export class IdentityService {
         localStorage.setItem(IdentityService._lastAnalyticsPromptKey, date.toISOString());
     }
 
-    /**
-     * Loads the device ID from storage or generates a new one if missing.
-     */
-    private _loadOrCreateDeviceId(): void {
-        const storedId: string | null = localStorage.getItem(IdentityService._deviceIdKey);
+    private _ensureDeviceIdExists(): void {
+        if (this._deviceId === null) {
+            this._loadOrCreateDeviceId();
+        }
+    }
 
-        if (storedId) {
-            this._deviceId = storedId;
+    private _ensureAnalyticsPromptDateIsAnchored(): void {
+        if (this._lastAnalyticsPromptDate === null) {
+            const anchorDateForOnboarding: Date = new Date();
+            anchorDateForOnboarding.setDate(anchorDateForOnboarding.getDate() - 6);
+
+            this.recordAnalyticsPrompt(anchorDateForOnboarding);
+        }
+    }
+
+    private _getStartOfDate(date: Date): Date {
+        const midnightCopy: Date = new Date(date);
+        const midnightValue: number = 0;
+
+        midnightCopy.setHours(midnightValue, midnightValue, midnightValue, midnightValue);
+
+        return midnightCopy;
+    }
+
+    private _loadOrCreateDeviceId(): void {
+        const storedIdentifier: string | null = localStorage.getItem(IdentityService._deviceIdKey);
+
+        if (storedIdentifier) {
+            this._deviceId = storedIdentifier;
         } else {
             this._deviceId = crypto.randomUUID();
             localStorage.setItem(IdentityService._deviceIdKey, this._deviceId);
         }
     }
 
-    /**
-     * Loads the analytics consent state from storage.
-     */
-    private _loadAnalyticsConsent(): void {
-        const storedConsent: string | null = localStorage.getItem(IdentityService._analyticsEnabledKey);
+    private _loadAnalyticsConsentStatus(): void {
+        const storedConsentJson: string | null = localStorage.getItem(IdentityService._analyticsEnabledKey);
 
-        if (storedConsent !== null) {
-            try {
-                this._isAnalyticsEnabled = JSON.parse(storedConsent) === true;
-            } catch {
-                this._isAnalyticsEnabled = false;
-            }
+        if (storedConsentJson !== null) {
+            this._parseAndSetConsent(storedConsentJson);
         } else {
-            // Default to false (opt-in required)
             this._isAnalyticsEnabled = false;
         }
     }
 
-    /**
-     * Loads the last analytics prompt date or initializes it to 6 days ago.
-     */
-    private _loadLastAnalyticsPromptDate(): void {
-        const storedDate: string | null = localStorage.getItem(IdentityService._lastAnalyticsPromptKey);
-
-        if (storedDate) {
-            const date: Date = new Date(storedDate);
-            if (!isNaN(date.getTime())) {
-                this._lastAnalyticsPromptDate = date;
-
-                return;
-            }
+    private _parseAndSetConsent(jsonString: string): void {
+        try {
+            this._isAnalyticsEnabled = JSON.parse(jsonString) === true;
+        } catch {
+            this._isAnalyticsEnabled = false;
         }
+    }
 
-        const sixDaysAgo: Date = new Date();
-        sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
-        this.recordAnalyticsPrompt(sixDaysAgo);
+    private _loadExistingIdentityState(): void {
+        this._deviceId = localStorage.getItem(IdentityService._deviceIdKey);
+
+        const storedPromptDateString: string | null = localStorage.getItem(IdentityService._lastAnalyticsPromptKey);
+
+        if (storedPromptDateString) {
+            this._parseAndSetPromptDate(storedPromptDateString);
+        }
+    }
+
+    private _parseAndSetPromptDate(dateString: string): void {
+        const parsedDate: Date = new Date(dateString);
+
+        if (!isNaN(parsedDate.getTime())) {
+            this._lastAnalyticsPromptDate = parsedDate;
+        }
     }
 }

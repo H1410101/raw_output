@@ -15,9 +15,13 @@ export interface RenderContext {
     readonly targetRU?: number;
     readonly achievedRU?: number;
     readonly dimensions: {
+        /** In Rem */
         readonly width: number;
+        /** In Rem */
         readonly height: number;
+        /** In Rem */
         readonly dotRadius: number;
+        /** For pixel conversions (e.g. canvas measurement) */
         readonly rootFontSize: number;
     };
 }
@@ -73,7 +77,6 @@ export class DotCloudHtmlRenderer {
 
     private _renderMetadata(context: RenderContext): void {
         const notchHeight: number = this._calculateNotchHeight(
-            context.dimensions.rootFontSize,
             context.dimensions.height,
             context.settings,
         );
@@ -156,7 +159,7 @@ export class DotCloudHtmlRenderer {
         return relevantIndices.map(index => {
             const text = context.sortedThresholds[index][0].toUpperCase();
             const xPos = this._calculateThresholdX(index, context);
-            const width = this._measureLabelWidth(text, fontSize);
+            const width = this._measureLabelWidth(text, fontSize, context.dimensions.rootFontSize);
 
             let priority = 3;
             if (index === topIndex || index === bottomIndex) {
@@ -255,21 +258,22 @@ export class DotCloudHtmlRenderer {
     private _calculateLabelFontSize(context: RenderContext): number {
         const factor: number = SCALING_FACTORS[context.settings.visRankFontSize] ?? SCALING_FACTORS.Normal;
 
-        return context.dimensions.rootFontSize * 0.5 * factor;
+        return 0.5 * factor;
     }
 
-    private _measureLabelWidth(text: string, fontSize: number): number {
+    private _measureLabelWidth(text: string, fontSizeRem: number, rootFontSize: number): number {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
 
         if (ctx) {
-            ctx.font = `bold ${fontSize}px Nunito, sans-serif`;
+            const fontSizePx = fontSizeRem * rootFontSize;
+            ctx.font = `bold ${fontSizePx}px Nunito, sans-serif`;
 
-            return ctx.measureText(text).width;
+            return ctx.measureText(text).width / rootFontSize;
         }
 
         // Crude fallback if canvas is unavailable
-        return text.length * fontSize * 0.6;
+        return text.length * fontSizeRem * 0.6;
     }
 
     private _renderMarker(
@@ -295,9 +299,9 @@ export class DotCloudHtmlRenderer {
             marker.classList.add("latest-run");
         }
 
-        marker.style.left = `${xPos}px`;
-        marker.style.height = `${markerHeight}px`;
-        marker.style.top = `${(notchHeight - markerHeight) / 2}px`;
+        marker.style.left = `${xPos}rem`;
+        marker.style.height = `${markerHeight}rem`;
+        marker.style.top = `${(notchHeight - markerHeight) / 2}rem`;
 
         this._container.appendChild(marker);
     }
@@ -310,7 +314,6 @@ export class DotCloudHtmlRenderer {
     ): void {
         const opacity: number = Math.max(0, Math.min(1, context.settings.dotOpacity / 100));
         const notchHeight: number = this._calculateNotchHeight(
-            context.dimensions.rootFontSize,
             context.dimensions.height,
             context.settings,
         );
@@ -340,7 +343,7 @@ export class DotCloudHtmlRenderer {
         readonly scoreRU: number;
     }): void {
         const absoluteScoreValue: number = config.context.scores[config.index];
-        const horizontalPixelPosition: number = this._calculateXPosition(config.scoreRU, config.context);
+        const horizontalPosition: number = this._calculateXPosition(config.scoreRU, config.context);
 
         const verticalJitterOffset: number = this._calculateVerticalJitter({
             scoreIndex: config.index,
@@ -350,7 +353,7 @@ export class DotCloudHtmlRenderer {
             context: config.context,
         });
 
-        this._assembleAndCreateDot(config, absoluteScoreValue, horizontalPixelPosition, verticalJitterOffset);
+        this._assembleAndCreateDot(config, absoluteScoreValue, horizontalPosition, verticalJitterOffset);
     }
 
     private _assembleAndCreateDot(
@@ -362,11 +365,11 @@ export class DotCloudHtmlRenderer {
             readonly baseOpacity: number;
         },
         absoluteScoreValue: number,
-        horizontalPixelPosition: number,
+        horizontalPosition: number,
         verticalJitterOffset: number,
     ): void {
         this._createDotElement({
-            xPos: horizontalPixelPosition,
+            xPos: horizontalPosition,
             yPos: config.notchHeight / 2 + verticalJitterOffset,
             isLatest: config.index === 0 && config.context.settings.highlightLatestRun,
             isSession: config.context.isLatestFromSession,
@@ -438,10 +441,11 @@ export class DotCloudHtmlRenderer {
         this._clearMirror(popup);
         this._createMirror(dot, popup);
 
-        popup.style.left = `${rect.left}px`;
-        popup.style.top = `${rect.top}px`;
-        popup.style.width = `${rect.width}px`;
-        popup.style.height = `${rect.height}px`;
+        const rootFontSize = context.dimensions.rootFontSize;
+        popup.style.left = `${rect.left / rootFontSize}rem`;
+        popup.style.top = `${rect.top / rootFontSize}rem`;
+        popup.style.width = `${rect.width / rootFontSize}rem`;
+        popup.style.height = `${rect.height / rootFontSize}rem`;
 
         const datetime = config.timestamp ? this._formatDateTime(config.timestamp) : "";
         const rankInfo = this._formatRankProgress(config.scoreRU, context.sortedThresholds);
@@ -549,10 +553,11 @@ export class DotCloudHtmlRenderer {
             baseOpacity: number;
         },
     ): void {
-        dot.style.width = `${config.radius * 2}px`;
-        dot.style.height = `${config.radius * 2}px`;
-        dot.style.left = `${config.xPos}px`;
-        dot.style.top = `${config.yPos}px`;
+        const diameter: number = config.radius * 2;
+        dot.style.width = `${diameter}rem`;
+        dot.style.height = `${diameter}rem`;
+        dot.style.left = `${config.xPos - diameter / 2}rem`;
+        dot.style.top = `${config.yPos - diameter / 2}rem`;
 
         const boost: number = config.isLatest && config.isSession ? 0.4 : config.isLatest ? 0.2 : 0;
         const finalOpacity: number = Math.min(1, config.baseOpacity + boost);
@@ -583,8 +588,8 @@ export class DotCloudHtmlRenderer {
             notch.classList.add("labelled");
         }
 
-        notch.style.left = `${xPos}px`;
-        notch.style.height = `${height}px`;
+        notch.style.left = `${xPos}rem`;
+        notch.style.height = `${height}rem`;
         this._container.appendChild(notch);
     }
 
@@ -596,7 +601,7 @@ export class DotCloudHtmlRenderer {
     ): void {
         const anchor: HTMLDivElement = document.createElement("div");
         anchor.className = "dot-cloud-label-anchor";
-        anchor.style.left = `${xPos}px`;
+        anchor.style.left = `${xPos}rem`;
 
         if (alignment === "left") {
             anchor.classList.add("anchor-left");
@@ -609,20 +614,19 @@ export class DotCloudHtmlRenderer {
         label.textContent = text;
 
         const factor: number = SCALING_FACTORS[context.settings.visRankFontSize] ?? SCALING_FACTORS.Normal;
-        const fontSize: number = context.dimensions.rootFontSize * 0.5 * factor;
-        label.style.fontSize = `${fontSize}px`;
+        const fontSizeRem: number = 0.5 * factor;
+        label.style.fontSize = `${fontSizeRem}rem`;
 
         anchor.appendChild(label);
         this._container.appendChild(anchor);
     }
 
     private _calculateNotchHeight(
-        rootFontSize: number,
         containerHeight: number,
         settings: VisualSettings,
     ): number {
         const factor: number = SCALING_FACTORS[settings.visRankFontSize] ?? SCALING_FACTORS.Normal;
-        const rankFontSize: number = rootFontSize * 0.5 * factor;
+        const rankFontSize: number = 0.5 * factor;
         const gap: number = rankFontSize * 0.2;
         const labelBuffer: number = rankFontSize + gap;
 

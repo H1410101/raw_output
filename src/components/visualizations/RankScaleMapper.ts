@@ -59,12 +59,12 @@ export class RankScaleMapper {
     const range: number = maxRU - minRU;
 
     if (range === 0) {
-      return Math.round(canvasWidth / 2);
+      return canvasWidth / 2;
     }
 
     const normalizedPosition: number = (rankUnit - minRU) / range;
 
-    return Math.round(normalizedPosition * canvasWidth);
+    return normalizedPosition * canvasWidth;
   }
 
   /**

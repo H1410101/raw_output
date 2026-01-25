@@ -15,6 +15,7 @@ import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { SessionSettingsService } from "../services/SessionSettingsService";
 import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
 import { CosmeticOverrideService } from "../services/CosmeticOverrideService";
+import { BenchmarkScrollController } from "./benchmark/BenchmarkScrollController";
 
 interface LaunchHoldState {
   progress: number;
@@ -332,7 +333,6 @@ export class RankedView {
     const containerId = `rank-timeline-${this._slugify(scenarioName)}`;
 
     this._updateRankTimeline(containerId, scenarioName);
-    this._updateHolisticRankUI();
     this._updateHudStats();
     this._updateDrainAnimation(this._container);
     this._updateAnimationIndicator();
@@ -361,10 +361,10 @@ export class RankedView {
 
   private _renderMainUI(state: RankedSessionState): void {
     const viewContainer: HTMLDivElement = document.createElement("div");
-    viewContainer.className = "benchmark-view-container";
+    viewContainer.className = "ranked-view-container";
 
-    viewContainer.appendChild(this._createHeaderControls());
-    this._updateHeaderButtonStates(false);
+
+    this._updateHeaderButtonStates();
 
     const isSessionActive = state.status !== "IDLE";
     this._container.classList.toggle("session-active", isSessionActive);
@@ -404,64 +404,6 @@ export class RankedView {
 
   private _handleSessionUpdate(): void {
     this.refresh();
-  }
-
-  private _createHeaderControls(): HTMLElement {
-    const header: HTMLDivElement = document.createElement("div");
-    header.className = "benchmark-header-controls";
-    header.style.justifyContent = "center";
-
-    const aligner: HTMLDivElement = document.createElement("div");
-    aligner.className = "header-aligner";
-
-    aligner.appendChild(this._createDifficultyTabs());
-    aligner.appendChild(this._createHolisticRankUI());
-
-    header.appendChild(aligner);
-
-    return header;
-  }
-
-  private _createHolisticRankUI(): HTMLElement {
-    const container: HTMLDivElement = document.createElement("div");
-    container.className = "holistic-rank-container";
-    container.setAttribute("id", "holistic-rank-ui");
-
-    this._fillHolisticRankUI(container);
-
-    return container;
-  }
-
-  private _updateHolisticRankUI(): void {
-    const container = document.getElementById("holistic-rank-ui");
-    if (container) {
-      this._fillHolisticRankUI(container);
-    }
-  }
-
-  private _fillHolisticRankUI(container: HTMLElement): void {
-    const difficulty = this._deps.appState.getBenchmarkDifficulty();
-    const estimate = this._deps.cosmeticOverride.isActiveFor(difficulty)
-      ? this._deps.cosmeticOverride.getFakeEstimatedRank(difficulty)
-      : this._calculateHolisticEstimateRank();
-
-    const isUnranked = estimate.rankName === "Unranked";
-    const rankClass = isUnranked ? "rank-name unranked-text" : "rank-name";
-
-    const isPeak = this._deps.benchmark.isPeak(difficulty);
-    const peakIcon = this._getPeakIconHtml(isPeak);
-
-    container.innerHTML = `
-        <div class="badge-content">
-            <span class="${rankClass}" style="display: inline-flex; justify-content: flex-end; align-items: center; gap: 0.5rem;">
-                ${peakIcon}
-                <span class="rank-text-inner">${estimate.rankName}</span>
-            </span>
-            <span class="rank-progress">${estimate.continuousValue === 0 ? "" : `+${estimate.progressToNext}%`}</span>
-        </div>
-    `;
-
-    this._attachRankPopupListener(container, estimate.rankName);
   }
 
   private _attachRankPopupListener(container: HTMLElement, rankName: string): void {
@@ -538,17 +480,20 @@ export class RankedView {
   }
 
   private _renderIdle(parent: HTMLElement): void {
-    const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
-    const container: HTMLDivElement = document.createElement("div");
-    container.className = "ranked-container idle";
+    parent.classList.add("idle");
+    parent.innerHTML = this._getIdleHtml();
 
-    container.innerHTML = this._getIdleHtml();
-    parent.appendChild(container);
+    const selectorGroup = parent.querySelector(".ranked-selector-group") as HTMLElement;
+    if (selectorGroup) {
+      selectorGroup.appendChild(this._createLargeRankRow());
+      selectorGroup.appendChild(this._createDifficultyTabs());
+    }
 
-    const startBtn: HTMLButtonElement | null = container.querySelector("#start-ranked-btn");
+    const startBtn: HTMLButtonElement | null = parent.querySelector("#start-ranked-btn");
     if (startBtn) {
       const progressBar = startBtn.querySelector(".launch-progress-bar") as HTMLElement;
       this._setupHoldInteractions(startBtn, progressBar, null, () => {
+        const difficulty: string = this._deps.appState.getBenchmarkDifficulty();
         this._deps.rankedSession.startSession(difficulty);
       });
     }
@@ -558,9 +503,12 @@ export class RankedView {
     return `
       <div class="ranked-info-top">
           <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
-          <h2 class="ranked-scenario-name" style="visibility: hidden;">Placeholder</h2>
+          <h2 class="ranked-scenario-name">Daily Ranked Run</h2>
       </div>
-      <div class="dot-cloud-container ranked-dot-cloud" style="visibility: hidden;"></div>
+      <div class="ranked-selector-group"></div>
+
+
+
       <div class="media-controls">
           <div class="hud-group left" style="visibility: hidden;"></div>
           <div class="controls-left" style="visibility: hidden;">
@@ -584,18 +532,15 @@ export class RankedView {
 
 
   private _renderActiveState(state: RankedSessionState, parent: HTMLElement): void {
-    const container: HTMLDivElement = document.createElement("div");
-    container.className = "ranked-container active";
-
-    container.innerHTML = this._renderMainContent(state);
-
-    parent.appendChild(container);
+    parent.classList.add("active");
+    parent.classList.toggle("summary", state.status === "SUMMARY");
+    parent.innerHTML = this._renderMainContent(state);
 
     if (state.status === "ACTIVE") {
       this._startHudTicking();
     }
 
-    this._attachActiveListeners(container);
+    this._attachActiveListeners(parent);
   }
 
   private _startHudTicking(): void {
@@ -663,10 +608,18 @@ export class RankedView {
     return `
       <div class="ranked-info-top">
           <span class="now-playing">SUMMARY</span>
+          <h2 class="ranked-scenario-name">Session Results</h2>
       </div>
-      <div class="summary-content-wrapper">
+      <div class="summary-content-wrapper summary-scroll-container">
           <div class="scenarios-list summary-scrollable">
               ${summaryData.length === 0 ? '<p class="no-scenarios">No rank gains this session.</p>' : ""}
+          </div>
+          <div class="custom-scroll-thumb">
+              <div class="grip-container">
+                  <div class="thumb-grip grip-0"></div>
+                  <div class="thumb-grip grip-1"></div>
+                  <div class="thumb-grip grip-2"></div>
+              </div>
           </div>
       </div>
       <div class="media-controls">
@@ -747,9 +700,16 @@ export class RankedView {
 
   private _renderCompletedContent(): string {
     return `
-      <div class="ranked-result" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; text-align: center;">
-          <h2 style="text-transform: none; margin: 0; color: var(--upper-band-3); font-weight: 700;">Daily Run Complete</h2>
+      <div class="ranked-info-top">
+          <span class="now-playing" style="visibility: hidden;">NOW PLAYING</span>
+          <h2 class="ranked-scenario-name">Daily Run Complete</h2>
+      </div>
+      <div class="ranked-result" style="height: 6rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
           <p style="color: var(--text-dim); line-height: 1.4; margin: 0;">End run,<br>or Keep Going?</p>
+      </div>
+      <div class="media-controls">
+          <div class="hud-group left" style="visibility: hidden;"></div>
+          <div class="controls-left" style="visibility: hidden;"></div>
           
           <div style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; padding-bottom: 0.35rem;">
               <button class="media-btn secondary destructive" id="end-ranked-btn">
@@ -760,6 +720,9 @@ export class RankedView {
                   <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
               </button>
           </div>
+
+          <div class="controls-right" style="visibility: hidden;"></div>
+          <div class="hud-group right" style="visibility: hidden;"></div>
       </div>
     `;
   }
@@ -908,7 +871,6 @@ export class RankedView {
           <span class="now-playing">NOW PLAYING</span>
           <h2 class="ranked-scenario-name">${scenarioName}</h2>
       </div>
-      
       ${this._renderRankTimeline(scenarioName)}
       ${this._renderMediaControls(state)}
     `;
@@ -1005,6 +967,19 @@ export class RankedView {
 
     this._setupEndButtons(container);
     this._setupPlayNowButton(container);
+
+    const scrollArea = container.querySelector(".scenarios-list") as HTMLElement;
+    const scrollThumb = container.querySelector(".custom-scroll-thumb") as HTMLElement;
+    if (scrollArea && scrollThumb) {
+      const controller = new BenchmarkScrollController({
+        scrollContainer: scrollArea,
+        scrollThumb: scrollThumb,
+        hoverContainer: container.querySelector(".summary-content-wrapper") as HTMLElement,
+        appStateService: null,
+        audioService: this._deps.audio,
+      });
+      controller.initialize();
+    }
 
     container.querySelector("#ranked-help-btn")?.addEventListener("click", (): void => {
       new RankedHelpPopupComponent(this._deps.audio).render();
@@ -1289,19 +1264,36 @@ export class RankedView {
     return this._deps.estimator.calculateHolisticEstimateRank(difficulty);
   }
 
-  private _updateHeaderButtonStates(isFolderActive: boolean): void {
+  private _createLargeRankRow(): HTMLElement {
+    const difficulty = this._deps.appState.getBenchmarkDifficulty();
+    const estimate = this._deps.cosmeticOverride.isActiveFor(difficulty)
+      ? this._deps.cosmeticOverride.getFakeEstimatedRank(difficulty)
+      : this._calculateHolisticEstimateRank();
+
+    const isUnranked = estimate.rankName === "Unranked";
+    const rankClass = isUnranked ? "start-screen-rank-large unranked-text" : "start-screen-rank-large";
+
+    const isPeak = this._deps.benchmark.isPeak(difficulty);
+    const rankRow: HTMLDivElement = document.createElement("div");
+    rankRow.className = "start-screen-rank-row";
+    rankRow.innerHTML = `
+        <div class="${rankClass} rank-text-inner">
+            ${this._getPeakIconHtml(isPeak)}
+            ${estimate.rankName}
+        </div>
+        ${estimate.continuousValue === 0 ? "" : `<div class="start-screen-rank-progress">+${estimate.progressToNext}%</div>`}
+    `;
+
+    this._attachRankPopupListener(rankRow, estimate.rankName);
+
+    return rankRow;
+  }
+
+  private _updateHeaderButtonStates(): void {
     const settingsBtn: HTMLElement | null = document.getElementById("header-settings-btn");
-    const rankedNavBtn: HTMLElement | null = document.getElementById("nav-ranked");
 
     if (settingsBtn) {
       settingsBtn.classList.toggle("active", this._deps.appState.getIsSettingsMenuOpen());
-    }
-
-    if (rankedNavBtn) {
-      const isRankedTabActive = this._deps.appState.getActiveTabId() === "nav-ranked";
-      if (isRankedTabActive) {
-        rankedNavBtn.classList.toggle("active", !isFolderActive);
-      }
     }
   }
 }

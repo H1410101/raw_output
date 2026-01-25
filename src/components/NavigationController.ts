@@ -148,6 +148,7 @@ export class NavigationController {
 
     this._appStateService.setIsFolderViewOpen(false);
     this._appStateService.setActiveTabId("nav-benchmarks");
+    this._updateButtonStates();
 
     this._updateVisibleView(this._viewBenchmarks);
 
@@ -172,6 +173,7 @@ export class NavigationController {
 
     this._appStateService.setIsFolderViewOpen(false);
     this._appStateService.setActiveTabId("nav-ranked");
+    this._updateButtonStates();
 
     await this._rankedView.render();
     this._updateVisibleView(this._viewRanked);

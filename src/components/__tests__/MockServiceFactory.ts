@@ -233,7 +233,15 @@ export class MockServiceFactory {
 
     private static _createRankedSession(overrides: Record<string, unknown> = {}): RankedSessionService {
         return {
-            state: { status: "IDLE", sequence: ["Scenario A"], currentIndex: 0 },
+            state: {
+                status: "IDLE",
+                sequence: ["Scenario A"],
+                currentIndex: 0,
+                initialEstimates: {},
+                previousSessionRanks: {},
+                accumulatedScenarioSeconds: {},
+                playedScenarios: []
+            },
             currentScenarioName: "Scenario A",
             onStateChanged: vi.fn(),
             advance: vi.fn(),

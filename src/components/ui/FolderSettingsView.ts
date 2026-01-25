@@ -21,6 +21,10 @@ export interface FolderSettingsConfig {
   readonly isInvalid?: boolean;
   /** Whether the current folder selection is valid. */
   readonly isValid?: boolean;
+  /** Whether the application is currently syncing statistics. */
+  readonly isSyncing?: boolean;
+  /** Whether the application needs the user to grant permission to a persisted handle. */
+  readonly needsPermission?: boolean;
 }
 
 /**
@@ -34,6 +38,12 @@ export class FolderSettingsView {
 
   /** Whether the current folder selection is valid. */
   private readonly _isValid: boolean;
+
+  /** Whether the application is currently syncing statistics. */
+  private readonly _isSyncing: boolean;
+
+  /** Whether the application needs the user to re-grant permission. */
+  private readonly _needsPermission: boolean;
 
   /** Active ResizeObservers for cleanup. */
   private readonly _observers: ResizeObserver[] = [];
@@ -62,6 +72,8 @@ export class FolderSettingsView {
     this._handlers = config.handlers;
     this._isInvalid = config.isInvalid ?? false;
     this._isValid = config.isValid ?? false;
+    this._isSyncing = config.isSyncing ?? false;
+    this._needsPermission = config.needsPermission ?? false;
   }
 
   /**
@@ -83,7 +95,7 @@ export class FolderSettingsView {
 
     container.appendChild(content);
 
-    if (this._isInvalid) {
+    if (this._isInvalid || this._isSyncing || this._needsPermission) {
       requestAnimationFrame(() => this._startErrorScroller());
     }
 
@@ -112,10 +124,14 @@ export class FolderSettingsView {
     const button: HTMLButtonElement = document.createElement("button");
     const baseClass = "central-folder-icon-btn";
     let finalClass = baseClass;
-    if (this._isInvalid) finalClass += " invalid-selection";
+    if (this._needsPermission) finalClass += " permission-required";
+    else if (this._isInvalid) finalClass += " invalid-selection";
     else if (this._isValid) finalClass += " valid-selection";
     button.className = finalClass;
-    button.setAttribute("aria-label", "Link Kovaak's Stats Folder");
+    button.setAttribute(
+      "aria-label",
+      this._needsPermission ? "Grant Access" : "Link Kovaak's Stats Folder",
+    );
 
     button.innerHTML = `
       <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -125,7 +141,7 @@ export class FolderSettingsView {
 
     button.addEventListener("click", () => this._handlers.onLinkFolder());
 
-    if (this._isInvalid) {
+    if (this._isInvalid || this._isSyncing || this._needsPermission) {
       this._errorContainer = document.createElement("div");
       this._errorContainer.className = "error-scrolling-text-container";
       container.appendChild(this._errorContainer);
@@ -174,7 +190,7 @@ export class FolderSettingsView {
     let currentX = deathX;
 
     while (currentX < spawnX) {
-      const element = this._spawnErrorElement(currentX);
+      const element = this._spawnScrollingTextElement(currentX);
       const width = element.offsetWidth;
       // Advance currentX to the next element's left edge
       currentX += width;
@@ -252,20 +268,29 @@ export class FolderSettingsView {
       const entryX = lastElement
         ? parseFloat(lastElement.dataset.x || "0") + lastElement.offsetWidth / 2
         : spawnX;
-      this._spawnErrorElement(entryX);
+      this._spawnScrollingTextElement(entryX);
     }
   }
 
   /**
-   * Spawns a single "ERROR: TRY AGAIN" element at the specified left coordinate.
+   * Spawns a single scrolling text element at the specified left coordinate.
    *
    * @param leftX - The X coordinate for the element's left edge.
    * @returns The created element.
    */
-  private _spawnErrorElement(leftX: number): HTMLElement {
+  private _spawnScrollingTextElement(leftX: number): HTMLElement {
     const element = document.createElement("div");
-    element.className = "error-scrolling-text";
-    element.textContent = "ERROR: TRY AGAIN";
+
+    if (this._isSyncing && !this._isInvalid && !this._needsPermission) {
+      element.className = "error-scrolling-text success-scrolling-text";
+      element.textContent = "LOADING";
+    } else if (this._needsPermission) {
+      element.className = "error-scrolling-text warning-scrolling-text";
+      element.textContent = "Permissions Lost: Re-grant Access";
+    } else {
+      element.className = "error-scrolling-text";
+      element.textContent = "ERROR: TRY AGAIN";
+    }
 
     this._errorContainer!.appendChild(element);
     const width = element.offsetWidth;
@@ -322,8 +347,15 @@ export class FolderSettingsView {
 
     const setupInstruction: HTMLParagraphElement = document.createElement("p");
     setupInstruction.className = "setup-instruction";
-    setupInstruction.innerHTML =
-      "To get started, link your Kovaak's Stats folder: <br><code>&lt;steam library&gt;/steamapps/common/<br>FPSAimTrainer/FPSAimTrainer/stats</code>";
+
+    if (this._needsPermission) {
+      setupInstruction.innerHTML =
+        "Your folder link has expired. <b>Please click the folder icon above</b> to re-grant read access to your stats.";
+    } else {
+      setupInstruction.innerHTML =
+        "To get started, link your Kovaak's Stats folder: <br><code>&lt;steam library&gt;/steamapps/common/<br>FPSAimTrainer/FPSAimTrainer/stats</code>";
+    }
+
     topGroup.appendChild(setupInstruction);
 
     return topGroup;

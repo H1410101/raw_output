@@ -476,6 +476,10 @@ export class RankedSessionService {
         const isToday = this._isToday(this._rankedSessionId);
 
         if (!isToday && !this.isSessionActive()) {
+            if (this._rankedSessionId === null && Object.keys(this._difficultyStates).length === 0) {
+                return;
+            }
+
             this._difficultyStates = {};
             this._rankedSessionId = null;
             this._saveToLocalStorage();

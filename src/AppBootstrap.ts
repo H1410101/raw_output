@@ -61,6 +61,7 @@ export class AppBootstrap {
   private _deviceDetectionService!: DeviceDetectionService;
 
   private _hasPromptedAnalytics: boolean = false;
+  private _isSyncing: boolean = false;
 
 
   /**
@@ -234,6 +235,7 @@ export class AppBootstrap {
           onForceScan: (): Promise<void> => this._handleManualImport(),
           onUnlinkFolder: (): void => this._handleFolderRemoval(),
         },
+        isSyncing: (): boolean => this._isSyncing,
       }
     );
   }
@@ -387,6 +389,7 @@ export class AppBootstrap {
     if (handle) {
       this._statusView.reportFolderReconnected();
 
+      this._identityService.initializeOnboarding();
       await this._synchronizeAndMonitor(handle);
 
       this._benchmarkView.refresh();
@@ -398,13 +401,31 @@ export class AppBootstrap {
   }
 
   private async _handleManualFolderSelection(): Promise<void> {
-    const handle: FileSystemDirectoryHandle | null =
-      await this._directoryService.requestDirectorySelection();
+    let handle: FileSystemDirectoryHandle | null = null;
+
+    if (this._directoryService.hasPersistedHandle()) {
+      handle = await this._directoryService.requestPersistedHandlePermission();
+    }
+
+    if (!handle) {
+      handle = await this._directoryService.requestDirectorySelection();
+    }
 
     if (handle) {
       this._statusView.reportFolderLinked();
 
+      this._identityService.initializeOnboarding();
+
+      await this._updateFolderValidity();
+      await this._folderView.render();
+
+      this._isSyncing = true;
+      await this._folderView.render();
+
       await this._synchronizeAndMonitor(handle);
+
+      this._isSyncing = false;
+      await this._folderView.render();
 
       this._benchmarkView.refresh();
       this._rankedView.refresh();
@@ -420,7 +441,13 @@ export class AppBootstrap {
   private async _handleManualImport(): Promise<void> {
     this._statusView.reportScanning();
 
+    this._isSyncing = true;
+    await this._folderView.render();
+
     await this._ingestionService.synchronizeAvailableRuns();
+
+    this._isSyncing = false;
+    await this._folderView.render();
 
     this._statusView.reportActive();
 

@@ -129,26 +129,9 @@ export class BenchmarkTableComponent {
    * @returns True if a full re-render is required due to structural changes.
    */
   public updateVisualSettings(settings: VisualSettings): boolean {
-    const structuralChange: boolean =
-      this._visualSettings.showDotCloud !== settings.showDotCloud ||
-      this._visualSettings.showRanks !== settings.showRanks ||
-      this._visualSettings.showSessionBest !== settings.showSessionBest ||
-      this._visualSettings.showAllTimeBest !== settings.showAllTimeBest ||
-      this._visualSettings.showRankEstimate !== settings.showRankEstimate ||
-      this._visualSettings.scenarioFontSize !== settings.scenarioFontSize ||
-      this._visualSettings.uiScaling !== settings.uiScaling ||
-      this._visualSettings.categorySpacing !== settings.categorySpacing ||
-      this._visualSettings.dotCloudWidth !== settings.dotCloudWidth ||
-      this._visualSettings.dotCloudSize !== settings.dotCloudSize;
-
-    if (structuralChange) {
-      return true;
-    }
-
     this._visualSettings = settings;
-    this._rowRenderer.updateVisualSettings(settings);
 
-    return false;
+    return true;
   }
 
   /**
