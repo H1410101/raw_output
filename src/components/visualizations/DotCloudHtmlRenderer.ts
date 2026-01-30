@@ -24,6 +24,7 @@ export interface RenderContext {
         /** For pixel conversions (e.g. canvas measurement) */
         readonly rootFontSize: number;
     };
+    readonly paddingLeft?: number;
 }
 
 /**
@@ -103,7 +104,7 @@ export class DotCloudHtmlRenderer {
         const endRU = Math.floor(maxRU);
 
         for (let rankUnit = startRU; rankUnit <= endRU; rankUnit++) {
-            const xPos = this._mapper.getHorizontalPosition(rankUnit, minRU, maxRU, context.dimensions.width);
+            const xPos = this._mapper.getHorizontalPosition(rankUnit, minRU, maxRU, context.dimensions.width) + (context.paddingLeft ?? 0);
             const labelData = labelMap.get(rankUnit - 1);
 
             if (context.settings.showRankNotches) {
@@ -122,7 +123,7 @@ export class DotCloudHtmlRenderer {
             context.bounds.minRU,
             context.bounds.maxRU,
             context.dimensions.width,
-        );
+        ) + (context.paddingLeft ?? 0);
     }
 
     private _getVisibleLabels(
@@ -137,7 +138,9 @@ export class DotCloudHtmlRenderer {
 
         for (const candidate of candidates) {
             const nextSet = [...visible, { ...candidate, alignment: "center" as const }].sort((a, b) => a.xPos - b.xPos);
-            const resolved = this._solveAlignments(nextSet, buffer, context.dimensions.width);
+            // containerWidth should account for padding if xPos includes padding
+            const containerWidth = context.dimensions.width + (context.paddingLeft ?? 0) * 2;
+            const resolved = this._solveAlignments(nextSet, buffer, containerWidth);
 
             if (resolved) {
                 visible.splice(0, visible.length, ...resolved);
@@ -287,7 +290,7 @@ export class DotCloudHtmlRenderer {
             context.bounds.minRU,
             context.bounds.maxRU,
             context.dimensions.width,
-        );
+        ) + (context.paddingLeft ?? 0);
 
         const markerHeight: number = notchHeight * 0.4;
         const isSession: boolean = context.isLatestFromSession;
@@ -388,7 +391,7 @@ export class DotCloudHtmlRenderer {
             context.bounds.minRU,
             context.bounds.maxRU,
             context.dimensions.width,
-        );
+        ) + (context.paddingLeft ?? 0);
     }
 
     private _createDotElement(config: {
