@@ -252,6 +252,9 @@ export class RankEstimator {
      * @returns The aggregated estimated rank.
      */
     public calculateHolisticEstimateRank(difficulty: string): EstimatedRank {
+        // Dynamic backfill of peak ranks for unplayed scenarios
+        this.initializePeakRanks();
+
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
         const rankNames: string[] = this._benchmarkService.getRankNames(difficulty);
         const estimateMap = this.getRankEstimateMap();
@@ -312,6 +315,97 @@ export class RankEstimator {
         const overallRankValue = RankEstimator._calculateHierarchicalAverage(scenarios, scenarioRanks);
 
         return this._buildEstimate(overallRankValue, rankNames);
+    }
+
+    /**
+     * Analyzes all played scenarios to initialize peak ranks for those never played in ranked.
+     * Uses the formula: peak = min(medianRU, 0.5 * allTimeBestRU).
+     */
+    public initializePeakRanks(): void {
+        const map = this.getRankEstimateMap();
+        const metrics = this._calculateGlobalMetrics(map);
+        if (metrics.allTimeBest === 0) {
+            return;
+        }
+
+        const initialPeak = Math.min(metrics.median, 0.5 * metrics.allTimeBest);
+        const scenarios = this._benchmarkService.getAllScenarios();
+        const timestamp = new Date().toISOString();
+        const changed = this._applyInitialPeaksToMap(map, scenarios, initialPeak, timestamp);
+
+        if (changed) {
+            localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
+        }
+    }
+
+    private _applyInitialPeaksToMap(
+        map: RankEstimateMap,
+        scenarios: BenchmarkScenario[],
+        peak: number,
+        timestamp: string
+    ): boolean {
+        let changed = false;
+
+        for (const scenario of scenarios) {
+            if (!(scenario.name in map)) {
+                this._setNewScenarioPeak(map, scenario.name, peak, timestamp);
+                changed = true;
+            } else if (map[scenario.name].highestAchieved === 0) {
+                this._updateExistingScenarioPeak(map, scenario.name, peak, timestamp);
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private _setNewScenarioPeak(map: RankEstimateMap, name: string, peak: number, timestamp: string): void {
+        map[name] = {
+            continuousValue: 0,
+            highestAchieved: peak,
+            lastUpdated: timestamp,
+            penalty: 0,
+            lastPlayed: timestamp,
+            lastDecayed: timestamp,
+        };
+    }
+
+    private _updateExistingScenarioPeak(map: RankEstimateMap, name: string, peak: number, timestamp: string): void {
+        map[name] = {
+            ...map[name],
+            highestAchieved: peak,
+            lastUpdated: timestamp,
+        };
+    }
+
+    private _calculateGlobalMetrics(map: RankEstimateMap): { median: number; allTimeBest: number } {
+        const estimates = Object.values(map);
+        const playedRUs = estimates
+            .map(estimate => estimate.continuousValue)
+            .filter(val => val > 0);
+
+        const allTimeBest = estimates.reduce(
+            (max: number, estimate: ScenarioEstimate) => Math.max(max, estimate.highestAchieved),
+            0
+        );
+
+        return {
+            median: this._calculateMedian(playedRUs),
+            allTimeBest
+        };
+    }
+
+    private _calculateMedian(values: number[]): number {
+        if (values.length === 0) return 0;
+
+        const sorted = [...values].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+
+        if (sorted.length % 2 === 0) {
+            return (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+
+        return sorted[mid];
     }
 
     /**

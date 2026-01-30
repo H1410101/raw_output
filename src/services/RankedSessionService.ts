@@ -267,6 +267,7 @@ export class RankedSessionService {
         }
 
         this._prepareSessionStart(difficulty);
+        this._rankEstimator.initializePeakRanks();
 
         if (this._difficultyStates[difficulty]) {
             this._resumeExistingSession();
