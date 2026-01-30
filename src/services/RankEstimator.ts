@@ -267,7 +267,7 @@ export class RankEstimator {
             // Treat unranked (-1) or missing as 0 (0 RU)
             let val = 0;
             if (estimate && estimate.continuousValue !== -1) {
-                val = estimate.continuousValue;
+                val = Math.min(estimate.continuousValue, rankNames.length);
             }
             estimateRanks.set(scenario.name, val);
         }
@@ -299,7 +299,8 @@ export class RankEstimator {
         for (const scenario of scenarios) {
             const score = sessionScores.get(scenario.name);
             if (score !== undefined) {
-                scenarioRanks.set(scenario.name, this.getScenarioContinuousValue(score, scenario));
+                const continuousValue = this.getScenarioContinuousValue(score, scenario);
+                scenarioRanks.set(scenario.name, Math.min(continuousValue, rankNames.length));
             }
         }
 
