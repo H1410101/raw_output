@@ -1,4 +1,4 @@
-/* eslint-disable max-lines-per-function, @typescript-eslint/naming-convention, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable max-lines-per-function, @typescript-eslint/naming-convention */
 import { describe, it, expect } from "vitest";
 import { SummaryTimelineComponent, SummaryTimelineConfiguration } from "../visualizations/SummaryTimelineComponent";
 import { VisualSettings } from "../../services/VisualSettingsService";
