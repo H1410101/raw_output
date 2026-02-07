@@ -99,14 +99,23 @@ export class RankEstimator {
             };
         }
 
+        // Apply penalty decay on read
+        const now = new Date();
+        const lastPlayedStr = stored.lastPlayed || stored.lastUpdated || now.toISOString();
+        const lastPlayed = new Date(lastPlayedStr);
+        const elapsedMs = now.getTime() - lastPlayed.getTime();
+        const daysPassed = Math.max(0, elapsedMs / (1000 * 60 * 60 * 24));
+        const currentPenalty = Math.max(0, (stored.penalty || 0) - 0.5 * daysPassed);
+
         return {
             ...stored,
             continuousValue: Math.max(0, stored.continuousValue),
             highestAchieved: Math.max(0, stored.highestAchieved),
-            // Wall-clock penalty decay removed as per "Activity-Based Lift" requirement.
-            penalty: stored.penalty || 0,
-            lastPlayed: stored.lastPlayed || stored.lastUpdated || new Date().toISOString(),
-            lastDecayed: stored.lastDecayed || stored.lastUpdated || new Date().toISOString(),
+            penalty: currentPenalty,
+            lastPlayed: lastPlayedStr,
+            lastDecayed: stored.lastDecayed || stored.lastUpdated || now.toISOString(),
+            // We don't update lastUpdated here to avoid constant writes on read,
+            // but the returned object reflects the decayed penalty.
         };
     }
 
@@ -221,45 +230,6 @@ export class RankEstimator {
         this._notifyListeners(scenarioName);
     }
 
-    /**
-     * Lifts the "recently played" penalty for all scenarios by 0.5 RU.
-     * This occurs at most once per day, triggered by ranked session activity.
-     */
-    public applyPenaltyLift(): void {
-        const liftKey = "rank_penalty_lift_date";
-        const today = new Date().toISOString().split("T")[0];
-        const lastLift = localStorage.getItem(liftKey);
-
-        if (lastLift === today) {
-            return;
-        }
-
-        const map: RankEstimateMap = this.getRankEstimateMap();
-        let changed = false;
-
-        for (const scenarioName in map) {
-            const estimate = map[scenarioName];
-            if (estimate.penalty > 0) {
-                const newPenalty = Math.max(0, estimate.penalty - 0.5);
-                map[scenarioName] = {
-                    ...estimate,
-                    penalty: newPenalty,
-                };
-                changed = true;
-            }
-        }
-
-        if (changed) {
-            localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
-            // Trigger listeners for all scenarios that changed
-            for (const scenarioName in map) {
-                this._notifyListeners(scenarioName);
-            }
-        }
-
-        localStorage.setItem(liftKey, today);
-    }
-
 
 
     /**
@@ -282,9 +252,6 @@ export class RankEstimator {
      * @returns The aggregated estimated rank.
      */
     public calculateHolisticEstimateRank(difficulty: string): EstimatedRank {
-        // Dynamic backfill of peak ranks for unplayed scenarios
-        this.initializePeakRanks();
-
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
         const rankNames: string[] = this._benchmarkService.getRankNames(difficulty);
         const estimateMap = this.getRankEstimateMap();
@@ -300,7 +267,7 @@ export class RankEstimator {
             // Treat unranked (-1) or missing as 0 (0 RU)
             let val = 0;
             if (estimate && estimate.continuousValue !== -1) {
-                val = Math.min(estimate.continuousValue, rankNames.length);
+                val = estimate.continuousValue;
             }
             estimateRanks.set(scenario.name, val);
         }
@@ -332,8 +299,7 @@ export class RankEstimator {
         for (const scenario of scenarios) {
             const score = sessionScores.get(scenario.name);
             if (score !== undefined) {
-                const continuousValue = this.getScenarioContinuousValue(score, scenario);
-                scenarioRanks.set(scenario.name, Math.min(continuousValue, rankNames.length));
+                scenarioRanks.set(scenario.name, this.getScenarioContinuousValue(score, scenario));
             }
         }
 
@@ -345,97 +311,6 @@ export class RankEstimator {
         const overallRankValue = RankEstimator._calculateHierarchicalAverage(scenarios, scenarioRanks);
 
         return this._buildEstimate(overallRankValue, rankNames);
-    }
-
-    /**
-     * Analyzes all played scenarios to initialize peak ranks for those never played in ranked.
-     * Uses the formula: peak = min(medianRU, 0.5 * allTimeBestRU).
-     */
-    public initializePeakRanks(): void {
-        const map = this.getRankEstimateMap();
-        const metrics = this._calculateGlobalMetrics(map);
-        if (metrics.allTimeBest === 0) {
-            return;
-        }
-
-        const initialPeak = Math.min(metrics.median, 0.5 * metrics.allTimeBest);
-        const scenarios = this._benchmarkService.getAllScenarios();
-        const timestamp = new Date().toISOString();
-        const changed = this._applyInitialPeaksToMap(map, scenarios, initialPeak, timestamp);
-
-        if (changed) {
-            localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
-        }
-    }
-
-    private _applyInitialPeaksToMap(
-        map: RankEstimateMap,
-        scenarios: BenchmarkScenario[],
-        peak: number,
-        timestamp: string
-    ): boolean {
-        let changed = false;
-
-        for (const scenario of scenarios) {
-            if (!(scenario.name in map)) {
-                this._setNewScenarioPeak(map, scenario.name, peak, timestamp);
-                changed = true;
-            } else if (map[scenario.name].highestAchieved === 0) {
-                this._updateExistingScenarioPeak(map, scenario.name, peak, timestamp);
-                changed = true;
-            }
-        }
-
-        return changed;
-    }
-
-    private _setNewScenarioPeak(map: RankEstimateMap, name: string, peak: number, timestamp: string): void {
-        map[name] = {
-            continuousValue: 0,
-            highestAchieved: peak,
-            lastUpdated: timestamp,
-            penalty: 0,
-            lastPlayed: timestamp,
-            lastDecayed: timestamp,
-        };
-    }
-
-    private _updateExistingScenarioPeak(map: RankEstimateMap, name: string, peak: number, timestamp: string): void {
-        map[name] = {
-            ...map[name],
-            highestAchieved: peak,
-            lastUpdated: timestamp,
-        };
-    }
-
-    private _calculateGlobalMetrics(map: RankEstimateMap): { median: number; allTimeBest: number } {
-        const estimates = Object.values(map);
-        const playedRUs = estimates
-            .map(estimate => estimate.continuousValue)
-            .filter(val => val > 0);
-
-        const allTimeBest = estimates.reduce(
-            (max: number, estimate: ScenarioEstimate) => Math.max(max, estimate.highestAchieved),
-            0
-        );
-
-        return {
-            median: this._calculateMedian(playedRUs),
-            allTimeBest
-        };
-    }
-
-    private _calculateMedian(values: number[]): number {
-        if (values.length === 0) return 0;
-
-        const sorted = [...values].sort((a, b) => a - b);
-        const mid = Math.floor(sorted.length / 2);
-
-        if (sorted.length % 2 === 0) {
-            return (sorted[mid - 1] + sorted[mid]) / 2;
-        }
-
-        return sorted[mid];
     }
 
     /**
@@ -479,7 +354,7 @@ export class RankEstimator {
             daysPassed
         );
 
-        const newPenalty = estimate.penalty || 0;
+        const newPenalty = Math.max(0, (estimate.penalty || 0) - 0.5 * daysPassed);
 
         if (Math.abs(newContinuous - estimate.continuousValue) > 0.001 || Math.abs(newPenalty - (estimate.penalty || 0)) > 0.001) {
             return {

@@ -430,7 +430,9 @@ export class SessionService {
     this._allRuns.length = 0;
 
     if (!preserveRanked) {
-      this._isRanked = false;
+      this._rankedBestRanks.clear();
+      this._rankedAllRuns.length = 0;
+      this._rankedPlaylist = null;
     }
 
     this._clearExpirationTimer();

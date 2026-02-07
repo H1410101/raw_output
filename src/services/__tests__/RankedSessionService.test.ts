@@ -159,51 +159,37 @@ describe("RankedSessionService: Diversity", (): void => {
     });
 });
 
-function _createSessionMock(): SessionService {
-    return {
-        setIsRanked: vi.fn(),
-        onSessionUpdated: vi.fn(),
-        resetSession: vi.fn(),
-        startRankedSession: vi.fn(),
-        stopRankedSession: vi.fn(),
-        getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
-        getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
-        getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
-        getRankedScenarioBest: vi.fn().mockReturnValue({}),
-        setRankedPlaylist: vi.fn(),
-    } as unknown as SessionService;
-}
-
 function _createMocks(): MockSet {
     vi.clearAllMocks();
     localStorage.clear();
 
-    const mocks: MockSet = {
+    return {
         benchmark: {
             getScenarios: vi.fn(),
             getDifficulty: vi.fn().mockReturnValue("Gold"),
         } as unknown as BenchmarkService,
-        session: _createSessionMock(),
-        estimator: {
-            getScenarioEstimate: vi.fn(),
-            recordPlay: vi.fn(),
-            initializePeakRanks: vi.fn(),
-            applyPenaltyLift: vi.fn(),
-        } as unknown as RankEstimator,
+        session: {
+            setIsRanked: vi.fn(),
+            onSessionUpdated: vi.fn(),
+            resetSession: vi.fn(),
+            startRankedSession: vi.fn(),
+            stopRankedSession: vi.fn(),
+            getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
+            getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
+            getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
+            getRankedScenarioBest: vi.fn().mockReturnValue({}),
+            setRankedPlaylist: vi.fn(),
+        } as unknown as SessionService,
+        estimator: { getScenarioEstimate: vi.fn(), recordPlay: vi.fn() } as unknown as RankEstimator,
         settings: {
             getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
         } as unknown as SessionSettingsService
     };
-
-    _mockEstimates(mocks.estimator, {});
-
-    return mocks;
 }
 
 function _mockEstimates(estimator: RankEstimator, estimates: Record<string, Partial<ScenarioEstimate>>): void {
-    const defaultEstimate: ScenarioEstimate = { continuousValue: -1, highestAchieved: -1, lastUpdated: "", penalty: 0, lastPlayed: "", lastDecayed: "" };
     (estimator.getScenarioEstimate as Mock).mockImplementation((name: string) => {
-        return estimates[name] || defaultEstimate;
+        return estimates[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "", penalty: 0, lastPlayed: "" };
     });
 }
 

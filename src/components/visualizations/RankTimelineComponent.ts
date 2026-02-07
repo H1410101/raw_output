@@ -322,21 +322,7 @@ export class RankTimelineComponent {
             caretRight,
         });
 
-        if (type === "achieved") {
-            this._setupAchievedInteractions(notch, rankUnit);
-        }
-
         this._trackLabelAnchors();
-    }
-
-    private _setupAchievedInteractions(notch: HTMLElement, rankUnit: number): void {
-        const entry = this._config.attempts?.find((attempt: AttemptEntry) =>
-            Math.abs(attempt.rankUnit - rankUnit) < 0.001
-        );
-
-        if (entry) {
-            this._setupAttemptInteractions(notch, entry);
-        }
     }
 
     private _createNotch(percent: number, type: string): HTMLElement {
@@ -412,11 +398,6 @@ export class RankTimelineComponent {
         const top3Threshold = sorted.length >= 3 ? sorted[2].rankUnit : (sorted[sorted.length - 1]?.rankUnit ?? -Infinity);
 
         attempts.forEach((entry: AttemptEntry) => {
-            // Skip rendering attempt notch if it corresponds to the achieved RU
-            if (this._config.achievedRU !== undefined && Math.abs(entry.rankUnit - this._config.achievedRU) < 0.001) {
-                return;
-            }
-
             const isTop3 = entry.rankUnit >= top3Threshold;
             const notch = document.createElement("div");
             notch.className = "timeline-marker marker-attempt";

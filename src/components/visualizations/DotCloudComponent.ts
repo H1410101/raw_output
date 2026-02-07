@@ -240,13 +240,13 @@ export class DotCloudComponent {
     const drawableWidth: number = Math.max(0, this._containerWidth - padding * 2);
 
     const renderContext: RenderContext =
-      this._assembleRenderContext(drawableWidth, padding);
+      this._assembleRenderContext(drawableWidth);
 
     this._renderer.draw(renderContext);
     this._container.style.padding = `0 ${padding}rem`;
   }
 
-  private _assembleRenderContext(width: number, padding: number): RenderContext {
+  private _assembleRenderContext(width: number): RenderContext {
     const rootFontSize: number = parseFloat(
       getComputedStyle(document.documentElement).fontSize,
     );
@@ -271,7 +271,6 @@ export class DotCloudComponent {
         dotRadius: this._dotRadius,
         rootFontSize,
       },
-      paddingLeft: padding,
     };
   }
 

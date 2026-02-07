@@ -902,13 +902,8 @@
     width: 1px;
     height: 0.4rem;
     background: var(--text-default);
-    opacity: 0.5;
+    opacity: 0.15;
     transform: translateX(-50%);
-}
-
-.summary-timeline-tick.minor {
-    height: 0.2rem;
-    opacity: 0.25;
 }
 
 .summary-timeline-progress {
@@ -941,12 +936,12 @@
     height: 0.8rem;
     transform: translateX(-50%);
     background: var(--text-dim);
-    opacity: 1;
+    opacity: 0.3;
 }
 
 .summary-timeline-marker-notch.new {
     background: var(--accent-color);
-    opacity: 1;
+    opacity: 0.5;
 }
 
 .summary-timeline-label-anchor {

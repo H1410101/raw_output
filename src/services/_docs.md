@@ -48,11 +48,11 @@ Orchestrates the ingestion of CSV performance data from the local file system. I
 
 ### `RankedSessionService`
 Manages the "Ranked Run" experience, which includes a guided sequence of scenarios and a timed session. It consumes data exclusively from the Ranked track of `SessionService`.
-- **Persistence**: Automatically persists session state per difficulty to `localStorage`. This allows for same-day resumption, switching between difficulties without losing progress, and maintaining consistent daily targets (initial ranks) for fair rank evolution scoring. It triggers `RankEstimator.initializePeakRanks()` at the start of a session.
+- **Persistence**: Automatically persists session state per difficulty to `localStorage`. This allows for same-day resumption, switching between difficulties without losing progress, and maintaining consistent daily targets (initial ranks) for fair rank evolution scoring.
 - **Relies on**: `BenchmarkService`, `SessionService`, `RankEstimator`, `SessionSettingsService`
 
 ### `RankEstimator`
-Calculates holographic rank estimates across scenarios and manages the "Rank Identity" state. It implements rank evolution logic (EMA), daily rank penalties (0.05 RU/day), and **peak rank initialization** (backfilling unplayed scenarios using a global median-based formula).
+Calculates holographic rank estimates across scenarios and manages the "Rank Identity" state. It implements rank evolution logic (EMA) and daily rank penalties (0.05 RU/day).
 - **Relies on**: `BenchmarkService`
 - **Used by**: `RankedSessionService`, `AppBootstrap`
 

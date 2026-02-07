@@ -45,8 +45,6 @@ function _createResumptionMocks(): MockSet {
             recordPlay: vi.fn(),
             getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
             evolveScenarioEstimate: vi.fn(),
-            initializePeakRanks: vi.fn(),
-            applyPenaltyLift: vi.fn(),
         } as unknown as RankEstimator,
         settings: {
             getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
