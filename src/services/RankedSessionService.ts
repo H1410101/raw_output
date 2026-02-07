@@ -574,13 +574,16 @@ export class RankedSessionService {
      */
     private _generateNextBatch(difficulty: string, excludeScenarios: string[]): string[] {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
+        const rankNames: string[] = this._benchmarkService.getRankNames(difficulty);
+        const maxRank: number = rankNames.length;
+
         const pool: BenchmarkScenario[] = scenarios.filter((scenario: BenchmarkScenario) => !excludeScenarios.includes(scenario.name));
 
         if (pool.length < 3) {
             return this._getFallbackBatch(pool);
         }
 
-        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool);
+        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool, maxRank);
 
         const strongMetric: ScenarioMetric | null = this._selectStrongScenario(metrics);
         if (!strongMetric) {
@@ -608,12 +611,15 @@ export class RankedSessionService {
             .map((scenario: BenchmarkScenario) => scenario.name);
     }
 
-    private _calculateScenarioMetrics(pool: BenchmarkScenario[]): ScenarioMetric[] {
+    private _calculateScenarioMetrics(pool: BenchmarkScenario[], maxRank: number): ScenarioMetric[] {
         return pool.map((scenario: BenchmarkScenario) => {
             const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
-            const current: number = estimate.continuousValue === -1 ? 0 : estimate.continuousValue;
-            const peak: number = estimate.highestAchieved === -1 ? 0 : estimate.highestAchieved;
+            const rawCurrent: number = estimate.continuousValue === -1 ? 0 : estimate.continuousValue;
+            const rawPeak: number = estimate.highestAchieved === -1 ? 0 : estimate.highestAchieved;
             const penalty: number = estimate.penalty || 0;
+
+            const current = Math.min(rawCurrent, maxRank);
+            const peak = Math.min(rawPeak, maxRank);
 
             const gap = peak - current;
 
