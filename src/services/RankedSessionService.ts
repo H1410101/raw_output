@@ -267,14 +267,14 @@ export class RankedSessionService {
         }
 
         this._prepareSessionStart(difficulty);
-        this._rankEstimator.initializePeakRanks();
-
         if (this._difficultyStates[difficulty]) {
+            this._rankEstimator.initializePeakRanks();
             this._resumeExistingSession();
 
             return;
         }
 
+        this._rankEstimator.initializePeakRanks();
         this._initializeNewSession(difficulty);
     }
 
