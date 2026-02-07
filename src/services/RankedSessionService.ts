@@ -711,6 +711,8 @@ export class RankedSessionService {
                 this._resetTimerOnScore();
 
                 if (this._status === "ACTIVE") {
+                    this._rankEstimator.applyPenaltyLift();
+
                     updatedScenarioNames.forEach(name => {
                         const isInSequence = this._sequence.includes(name);
 

@@ -99,23 +99,14 @@ export class RankEstimator {
             };
         }
 
-        // Apply penalty decay on read
-        const now = new Date();
-        const lastPlayedStr = stored.lastPlayed || stored.lastUpdated || now.toISOString();
-        const lastPlayed = new Date(lastPlayedStr);
-        const elapsedMs = now.getTime() - lastPlayed.getTime();
-        const daysPassed = Math.max(0, elapsedMs / (1000 * 60 * 60 * 24));
-        const currentPenalty = Math.max(0, (stored.penalty || 0) - 0.5 * daysPassed);
-
         return {
             ...stored,
             continuousValue: Math.max(0, stored.continuousValue),
             highestAchieved: Math.max(0, stored.highestAchieved),
-            penalty: currentPenalty,
-            lastPlayed: lastPlayedStr,
-            lastDecayed: stored.lastDecayed || stored.lastUpdated || now.toISOString(),
-            // We don't update lastUpdated here to avoid constant writes on read,
-            // but the returned object reflects the decayed penalty.
+            // Wall-clock penalty decay removed as per "Activity-Based Lift" requirement.
+            penalty: stored.penalty || 0,
+            lastPlayed: stored.lastPlayed || stored.lastUpdated || new Date().toISOString(),
+            lastDecayed: stored.lastDecayed || stored.lastUpdated || new Date().toISOString(),
         };
     }
 
@@ -228,6 +219,45 @@ export class RankEstimator {
 
         localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
         this._notifyListeners(scenarioName);
+    }
+
+    /**
+     * Lifts the "recently played" penalty for all scenarios by 0.5 RU.
+     * This occurs at most once per day, triggered by ranked session activity.
+     */
+    public applyPenaltyLift(): void {
+        const liftKey = "rank_penalty_lift_date";
+        const today = new Date().toISOString().split("T")[0];
+        const lastLift = localStorage.getItem(liftKey);
+
+        if (lastLift === today) {
+            return;
+        }
+
+        const map: RankEstimateMap = this.getRankEstimateMap();
+        let changed = false;
+
+        for (const scenarioName in map) {
+            const estimate = map[scenarioName];
+            if (estimate.penalty > 0) {
+                const newPenalty = Math.max(0, estimate.penalty - 0.5);
+                map[scenarioName] = {
+                    ...estimate,
+                    penalty: newPenalty,
+                };
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
+            // Trigger listeners for all scenarios that changed
+            for (const scenarioName in map) {
+                this._notifyListeners(scenarioName);
+            }
+        }
+
+        localStorage.setItem(liftKey, today);
     }
 
 
@@ -449,7 +479,7 @@ export class RankEstimator {
             daysPassed
         );
 
-        const newPenalty = Math.max(0, (estimate.penalty || 0) - 0.5 * daysPassed);
+        const newPenalty = estimate.penalty || 0;
 
         if (Math.abs(newContinuous - estimate.continuousValue) > 0.001 || Math.abs(newPenalty - (estimate.penalty || 0)) > 0.001) {
             return {
