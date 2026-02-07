@@ -95,6 +95,37 @@ describe("SessionService Expiration", (): void => {
     });
 });
 
+describe("SessionService Ranked Data Preservation", (): void => {
+    let service: SessionService;
+
+    beforeEach((): void => {
+        const mocks: SessionMocks = _initSessionTestEnv();
+        service = _createSessionService(mocks);
+    });
+
+    afterEach((): void => {
+        vi.restoreAllMocks();
+        vi.useRealTimers();
+    });
+
+    it("should NOT clear ranked data on resetSession", (): void => {
+        service.startRankedSession(Date.now());
+        service.registerRun({
+            scenarioName: "Ranked Scenario",
+            score: 100,
+            scenario: { name: "Ranked Scenario" } as unknown as BenchmarkScenario,
+            difficulty: "Medium"
+        });
+
+        expect(service.getAllRankedSessionRuns().length).toBe(1);
+
+        service.resetSession();
+
+        expect(service.getAllRankedSessionRuns().length).toBe(1);
+        expect(service.isRanked).toBe(false);
+    });
+});
+
 describe("SessionService Recovery", (): void => {
     let service: SessionService;
     let mocks: SessionMocks;

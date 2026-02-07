@@ -192,7 +192,7 @@ describe("RankTimelineComponent Logic", () => {
 
     });
 
-    it("should render notches for all runs, highlighting top 3", () => {
+    it("should render notches for all runs, highlighting top 3, skipping achieved redundant", () => {
         const config: RankTimelineConfiguration = {
             thresholds: mockThresholds,
             settings: mockSettings,
@@ -201,6 +201,7 @@ describe("RankTimelineComponent Logic", () => {
             // Top 3 are 5, 4, 3
             attempts: [
                 { score: 100, timestamp: Date.now(), rankUnit: 1 },
+                // Matches achievedRU, should be skipped
                 { score: 200, timestamp: Date.now(), rankUnit: 2 },
                 { score: 300, timestamp: Date.now(), rankUnit: 3 },
                 { score: 400, timestamp: Date.now(), rankUnit: 4 },
@@ -210,16 +211,21 @@ describe("RankTimelineComponent Logic", () => {
         const component = new RankTimelineComponent(config);
         const container = component.render();
 
-        const allNotches = container.querySelectorAll(".marker-attempt");
-        expect(allNotches.length).toBe(5);
+        const allAttempts = container.querySelectorAll(".marker-attempt");
+        // Total 5 attempts, but one matches achievedRU, so only 4 rendered in attempts layer
+        expect(allAttempts.length).toBe(4);
 
         const accentNotches = container.querySelectorAll(".marker-attempt:not(.secondary)");
         // Should have 3 accent notches for 5, 4, 3
         expect(accentNotches.length).toBe(3);
 
         const secondaryNotches = container.querySelectorAll(".marker-attempt.secondary");
-        // Should have 2 secondary notches for 2, 1
-        expect(secondaryNotches.length).toBe(2);
+        // Should have 1 secondary notch for 1 (2 is skipped)
+        expect(secondaryNotches.length).toBe(1);
+
+        // Verify achieved notch also exists and is NOT a marker-attempt (it's marker-achieved)
+        const achievedNotch = container.querySelector(".marker-achieved");
+        expect(achievedNotch).toBeTruthy();
     });
 
     it("should use scrollAnchorRU for view bounds if provided", () => {

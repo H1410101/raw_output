@@ -293,14 +293,21 @@ export class SummaryTimelineComponent {
     }
 
     private _renderTicks(options: { parent: HTMLElement, minRU: number, maxRU: number, rankUnitsRange: number, unitWidth: number }): void {
-        const startRU = Math.ceil(options.minRU - 0.5);
-        const endRU = Math.floor(options.maxRU + 0.5);
+        const startRU = Math.ceil((options.minRU - 0.5) * 5) / 5;
+        const endRU = Math.floor((options.maxRU + 0.5) * 5) / 5;
 
-        for (let i = startRU; i <= endRU; i++) {
+        for (let i = startRU; i <= endRU + 0.001; i += 0.2) {
             const leftPercent = (i - options.minRU) * options.unitWidth;
 
             const tick = document.createElement("div");
             tick.className = "summary-timeline-tick";
+
+            // Check if 'i' is close to an integer
+            const distToInteger = Math.abs(i - Math.round(i));
+            if (distToInteger > 0.001) {
+                tick.classList.add("minor");
+            }
+
             tick.style.left = `${leftPercent}%`;
             options.parent.appendChild(tick);
         }
