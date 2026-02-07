@@ -182,6 +182,7 @@ function _createMocks(): MockSet {
         benchmark: {
             getScenarios: vi.fn(),
             getDifficulty: vi.fn().mockReturnValue("Gold"),
+            getRankNames: vi.fn().mockReturnValue(["R1", "R2", "R3", "R4", "R5"]),
         } as unknown as BenchmarkService,
         session: _createSessionMock(),
         estimator: {

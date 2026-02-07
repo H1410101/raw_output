@@ -589,15 +589,27 @@ export class RankedSessionService {
         if (!strongMetric) {
             return this._getFallbackBatch(pool);
         }
+        console.log(`[Ranked] Selected Strong: ${strongMetric.scenario.name} (Peak: ${strongMetric.peak.toFixed(2)}, Current: ${strongMetric.current.toFixed(2)}, Gap: ${strongMetric.gap.toFixed(2)}, Penalty: ${strongMetric.penalty.toFixed(2)}) -> Weight: ${(strongMetric.peak + strongMetric.gap - strongMetric.penalty).toFixed(2)}`);
+
         metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== strongMetric.scenario.name);
 
         const weakMetric: ScenarioMetric | null = this._selectWeakScenario(metrics);
         if (!weakMetric) {
             return [strongMetric.scenario.name, ...this._getFallbackBatch(pool.filter((scenario: BenchmarkScenario) => scenario.name !== strongMetric.scenario.name))];
         }
+        console.log(`[Ranked] Selected Weak: ${weakMetric.scenario.name} (Peak: ${weakMetric.peak.toFixed(2)}, Current: ${weakMetric.current.toFixed(2)}, Gap: ${weakMetric.gap.toFixed(2)}, Penalty: ${weakMetric.penalty.toFixed(2)}) -> Weight: ${(Math.max(weakMetric.current - weakMetric.gap, 0) + weakMetric.penalty).toFixed(2)}`);
+
         metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== weakMetric.scenario.name);
 
         const midMetric: ScenarioMetric = this._selectMidScenario(metrics, [strongMetric, weakMetric]);
+
+        // Re-calculate mid weight for logging (including diversity penalty)
+        let diversityPenalty = 0;
+        for (const other of [strongMetric, weakMetric]) {
+            if (other.scenario.subcategory === midMetric.scenario.subcategory) diversityPenalty += 0.5;
+            else if (other.scenario.category === midMetric.scenario.category) diversityPenalty += 0.25;
+        }
+        console.log(`[Ranked] Selected Mid: ${midMetric.scenario.name} (Peak: ${midMetric.peak.toFixed(2)}, Current: ${midMetric.current.toFixed(2)}, Gap: ${midMetric.gap.toFixed(2)}, Penalty: ${midMetric.penalty.toFixed(2)}, Diversity: ${diversityPenalty.toFixed(2)}) -> Weight: ${(midMetric.gap - diversityPenalty - midMetric.penalty).toFixed(2)}`);
 
         return [strongMetric.scenario.name, weakMetric.scenario.name, midMetric.scenario.name];
     }
