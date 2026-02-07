@@ -287,13 +287,13 @@ export class SummaryTimelineComponent {
     private _renderAxis(parent: HTMLElement): void {
         const axis = document.createElement("div");
         axis.className = "summary-timeline-axis";
-        axis.style.left = "-500%";
+        axis.style.left = "0%";
         axis.style.right = "-500%";
         parent.appendChild(axis);
     }
 
     private _renderTicks(options: { parent: HTMLElement, minRU: number, maxRU: number, rankUnitsRange: number, unitWidth: number }): void {
-        const startRU = Math.ceil((options.minRU - 0.5) * 5) / 5;
+        const startRU = Math.max(0, Math.ceil((options.minRU - 0.5) * 5) / 5);
         const endRU = Math.floor((options.maxRU + 0.5) * 5) / 5;
 
         for (let i = startRU; i <= endRU + 0.001; i += 0.2) {

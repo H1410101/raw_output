@@ -240,7 +240,7 @@ export class RankTimelineComponent {
             (a, b) => this._config.thresholds[a] - this._config.thresholds[b]
         );
 
-        for (let i = -5; i <= 25; i++) {
+        for (let i = 0; i <= 25; i++) {
             const matchingRank = rankNames.find((name: string) => {
                 const score = this._config.thresholds[name];
                 const rankUnit = this._mapper.calculateRankUnit(score);
@@ -248,7 +248,8 @@ export class RankTimelineComponent {
                 return Math.abs(rankUnit - i) < 0.001;
             });
 
-            this._renderRankTick(i, matchingRank || "");
+            const labelText = matchingRank || (i === 0 ? "Unranked" : "");
+            this._renderRankTick(i, labelText);
         }
     }
 
