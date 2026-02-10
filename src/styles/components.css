@@ -59,6 +59,10 @@
     color: var(--accent-color);
 }
 
+.hud-group>div {
+    width: fit-content;
+}
+
 .hud-group {
     display: flex;
     align-items: center;
@@ -70,40 +74,42 @@
     color: var(--lower-band-1);
     opacity: 0.5;
     letter-spacing: 0.1em;
+    margin-right: -0.1em;
     text-transform: uppercase;
 }
 
 .hud-group.left {
-    justify-content: flex-start;
+    grid-column: 1;
+    justify-self: end;
+    display: flex !important;
+    justify-content: flex-end !important;
+    text-align: right;
+    width: fit-content;
 }
 
 .hud-group.right {
-    justify-content: flex-end;
+    grid-column: 7;
+    justify-self: start;
+    display: flex !important;
+    justify-content: flex-start !important;
+    text-align: left;
+    width: fit-content;
 }
-
 
 /* Media Player Controls */
 .media-controls {
-    display: flex;
-    justify-content: center;
+    display: grid;
+    --btn-size: calc(1.8rem * var(--label-font-multiplier));
+    grid-template-columns: minmax(0, 1fr) var(--btn-size) var(--btn-size) auto var(--btn-size) var(--btn-size) minmax(0, 1fr);
     align-items: center;
     gap: calc(1.5rem * var(--label-font-multiplier));
     margin-top: 0;
     width: 100%;
 }
 
-.controls-left {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: calc(1rem * var(--label-font-multiplier));
-}
-
+.controls-left,
 .controls-right {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    gap: calc(1rem * var(--label-font-multiplier));
+    display: contents;
 }
 
 .media-btn {
@@ -172,6 +178,12 @@
 .media-btn.secondary {
     width: calc(1.8rem * var(--label-font-multiplier));
     height: calc(1.8rem * var(--label-font-multiplier));
+    grid-row: 1;
+}
+
+#ranked-play-now,
+#start-ranked-btn {
+    grid-column: 4;
 }
 
 .media-btn:hover:not(:disabled) {
