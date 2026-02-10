@@ -19,6 +19,7 @@ function _createBenchmarkMock(): BenchmarkService {
             { name: "Scenario B", category: "Cat2", subcategory: "Sub2", thresholds: {} },
             { name: "Scenario C", category: "Cat3", subcategory: "Sub3", thresholds: {} },
         ]),
+        getRankNames: vi.fn().mockReturnValue(["Bronze", "Silver", "Gold", "Platinum", "Diamond"]),
     } as unknown as BenchmarkService;
 }
 

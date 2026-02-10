@@ -179,6 +179,10 @@ export class SessionService {
   ): void {
     const runTimestamp = run.timestamp.getTime();
 
+    if (this._isDuplicateRun(run.scenarioName, run.score, runTimestamp)) {
+      return;
+    }
+
     this._updateSessionState(runTimestamp);
 
     this._processRunData(run);
@@ -207,6 +211,32 @@ export class SessionService {
       score: run.score,
       timestamp,
     });
+  }
+
+  private _isDuplicateRun(
+    scenarioName: string,
+    score: number,
+    timestamp: number,
+  ): boolean {
+    const targetSecond = Math.floor(timestamp / 1000);
+
+    const isInAllRuns = this._allRuns.some(
+      (run) =>
+        run.scenarioName === scenarioName &&
+        run.score === score &&
+        Math.floor(run.timestamp / 1000) === targetSecond,
+    );
+
+    if (isInAllRuns) {
+      return true;
+    }
+
+    return this._rankedAllRuns.some(
+      (run) =>
+        run.scenarioName === scenarioName &&
+        run.score === score &&
+        Math.floor(run.timestamp / 1000) === targetSecond,
+    );
   }
 
   private _routeToRankedTrack(

@@ -56,7 +56,7 @@ function _runRightEdgeLabelTest(
 
 function _setupMockPositions(mockMapper: RankScaleMapper): void {
     // Mock positions: Start at 0, End at width
-    mockMapper.getHorizontalPosition = (rankUnit: number, minRU: number, maxRU: number, widthValue: number): number => {
+    mockMapper.getHorizontalPosition = (rankUnit: number, _minRU: number, _maxRU: number, widthValue: number): number => {
         if (rankUnit === 1) {
             return 0;
         }
@@ -74,8 +74,8 @@ function _createMockMapper(): RankScaleMapper {
         calculateRankUnit: (score: number): number => score,
         getHorizontalPosition: (
             rankUnit: number,
-            minRU: number,
-            maxRU: number,
+            _minRU: number,
+            _maxRU: number,
             width: number
         ): number => {
             if (rankUnit === 100) {
@@ -91,15 +91,28 @@ function _createMockMapper(): RankScaleMapper {
     } as unknown as RankScaleMapper;
 }
 
+
 function _createMockSettings(): VisualSettings {
     return {
-        visRankFontSize: "Normal",
-        showRankNotches: true,
+        ..._getDefaultVisualSettings(),
+        scalingMode: "Floating",
         dotOpacity: 100,
-        highlightLatestRun: true,
-        dotJitterIntensity: "Normal",
-        scalingMode: "Standard",
-    } as VisualSettings;
+    };
+}
+
+function _getDefaultVisualSettings(): VisualSettings {
+    return {
+        theme: "dark", showDotCloud: true, dotOpacity: 50, scalingMode: "Aligned",
+        dotSize: "Normal", visDotSize: "Normal", uiScaling: "Normal",
+        marginSpacing: "Normal", verticalSpacing: "Normal", scenarioFontSize: "Normal",
+        rankFontSize: "Normal", launchButtonSize: "Normal", headerFontSize: "Normal",
+        labelFontSize: "Normal", categorySpacing: "Normal", dotCloudSize: "Normal",
+        dotCloudWidth: "Normal", visRankFontSize: "Normal",
+        showSessionBest: true, showAllTimeBest: true, dotJitterIntensity: "Normal",
+        showRankNotches: true, highlightLatestRun: true, showRankEstimate: true,
+        showRanks: true, audioVolume: 80, showIntervalsSettings: true,
+        playAnimationsUnfocused: false,
+    };
 }
 
 function _createRenderContext(width: number, padding: number, settings: VisualSettings): RenderContext {

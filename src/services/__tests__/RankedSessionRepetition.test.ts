@@ -76,7 +76,9 @@ describe("RankedSessionService: Persistence Behavior", (): void => {
 function _createBenchmarkMock(): BenchmarkService {
     return {
         getScenarios: vi.fn(),
-        getRankNames: vi.fn(),
+        getRankNames: vi.fn().mockImplementation((diff: string) => {
+            return diff === "Gold" ? ["G1", "G2", "G3", "G4", "G5"] : ["S1", "S2", "S3", "S4", "S5"];
+        }),
         getDifficulty: vi.fn().mockImplementation((name: string) => {
             return (name.includes("Gold") || name === "Scen1") ? "Gold" : "Silver";
         }),

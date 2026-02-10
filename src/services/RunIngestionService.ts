@@ -76,8 +76,6 @@ export class RunIngestionService {
 
     await this._updateHighscoresForNewRuns(csvHandlesWithDates);
 
-    await this._rebuildLatestSession(csvHandlesWithDates);
-
     await this._updateLastCheckTimestamp(csvHandlesWithDates);
 
     return this._parseLatestRuns(csvHandlesWithDates);
@@ -180,44 +178,16 @@ export class RunIngestionService {
     await this._historyService.recordMultipleScores(scoresToRecord);
 
     await this._historyService.updateMultipleHighscores(highscoresToUpdate);
+
+    const sessionRuns = runs.map((run) => this._createSessionRunRecord(run));
+
+    this._sessionService.registerMultipleRuns(sessionRuns);
   }
 
-  private async _rebuildLatestSession(
-    sortedHandles: FileHandleWithDate[],
-  ): Promise<void> {
-    const sessionItems = this._identifyLatestSessionItems(sortedHandles);
+  private _isMostRecentRunExpired(mostRecent: FileHandleWithDate): boolean {
+    const elapsed: number = Date.now() - mostRecent.date.getTime();
 
-    this._sessionService.resetSession(true);
-
-    const runsToRegister = await this._parseSessionRuns(sessionItems);
-
-    this._sessionService.registerMultipleRuns(runsToRegister);
-  }
-
-  private async _parseSessionRuns(sessionItems: FileHandleWithDate[]): Promise<
-    {
-      scenarioName: string;
-      score: number;
-      scenario: BenchmarkScenario | null;
-      difficulty: string | null;
-      timestamp: Date;
-    }[]
-  > {
-    const runs: (KovaaksChallengeRun | null)[] = await Promise.all(
-      [...sessionItems]
-        .reverse()
-        .map(
-          (item: FileHandleWithDate): Promise<KovaaksChallengeRun | null> =>
-            this._parseRunFromFile(item.handle),
-        ),
-    );
-
-    return runs
-      .filter(
-        (run: KovaaksChallengeRun | null): run is KovaaksChallengeRun =>
-          run !== null,
-      )
-      .map((run: KovaaksChallengeRun) => this._createSessionRunRecord(run));
+    return elapsed > this._sessionService.sessionTimeoutMilliseconds;
   }
 
   private _createSessionRunRecord(run: KovaaksChallengeRun): {
@@ -247,56 +217,6 @@ export class RunIngestionService {
       difficulty,
       timestamp: run.completionDate,
     };
-  }
-
-  private _identifyLatestSessionItems(
-    sortedHandles: FileHandleWithDate[],
-  ): FileHandleWithDate[] {
-    const isRanked = this._sessionService.isRanked;
-
-    if (
-      sortedHandles.length === 0 ||
-      (!isRanked && this._isMostRecentRunExpired(sortedHandles[0]))
-    ) {
-      return [];
-    }
-
-    return this._collectContiguousSessionItems(sortedHandles);
-  }
-
-  private _isMostRecentRunExpired(mostRecent: FileHandleWithDate): boolean {
-    const elapsed: number = Date.now() - mostRecent.date.getTime();
-
-    return elapsed > this._sessionService.sessionTimeoutMilliseconds;
-  }
-
-  private _collectContiguousSessionItems(
-    sortedHandles: FileHandleWithDate[],
-  ): FileHandleWithDate[] {
-    const sessionItems: FileHandleWithDate[] = [sortedHandles[0]];
-
-    const isRanked = this._sessionService.isRanked;
-    const rankedStartTime = this._sessionService.rankedStartTime ?? 0;
-
-    for (let i: number = 1; i < sortedHandles.length; i++) {
-      const runDate = sortedHandles[i].date.getTime();
-      const gap: number =
-        sortedHandles[i - 1].date.getTime() - runDate;
-
-      const isBeyondTimeout = gap > this._sessionService.sessionTimeoutMilliseconds;
-
-      if (isBeyondTimeout) {
-        // If we're beyond timeout, we stop UNLESS we are in a ranked run
-        // and the current run is still after the ranked floor.
-        if (!isRanked || runDate < rankedStartTime) {
-          break;
-        }
-      }
-
-      sessionItems.push(sortedHandles[i]);
-    }
-
-    return sessionItems;
   }
 
   private async _parseLatestRuns(
