@@ -184,11 +184,6 @@ export class RunIngestionService {
     this._sessionService.registerMultipleRuns(sessionRuns);
   }
 
-  private _isMostRecentRunExpired(mostRecent: FileHandleWithDate): boolean {
-    const elapsed: number = Date.now() - mostRecent.date.getTime();
-
-    return elapsed > this._sessionService.sessionTimeoutMilliseconds;
-  }
 
   private _createSessionRunRecord(run: KovaaksChallengeRun): {
     scenarioName: string;
