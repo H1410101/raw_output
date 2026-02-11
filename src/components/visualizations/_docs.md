@@ -74,4 +74,5 @@ The `RankTimelineComponent` features:
 - **60% Window**: A clearly visible central area (20-80% of width) for focus.
 - **Dynamic Scroll Algorithm**: Symmetrical centering for target/highscore, or edge-alignment fallbacks.
 - **Dynamic Carets**: Labelled notches automatically transition to caret versions when outside the active Window, even during animations.
+- **Negative Unit Clamping**: The timeline axis is clamped to start at 0 RU, ensuring no visual overflow into negative space.
 - **Collision Resolution**: Shifting overlapping labels to ensure readability.
