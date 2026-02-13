@@ -13,6 +13,7 @@ describe("RankEstimator: RU Influence Capping Check", (): void => {
         const mockBenchmarkService = {
             getScenarios: vi.fn().mockReturnValue(mockScenarios),
             getRankNames: vi.fn().mockReturnValue(["rank1", "rank2"]),
+            getAllScenarios: vi.fn().mockReturnValue(mockScenarios),
         } as unknown as BenchmarkService;
 
         const identityService = {

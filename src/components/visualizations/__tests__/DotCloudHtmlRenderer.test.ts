@@ -91,17 +91,49 @@ function _createMockMapper(): RankScaleMapper {
     } as unknown as RankScaleMapper;
 }
 
+
 function _createMockSettings(): VisualSettings {
     return {
-        visRankFontSize: "Normal",
-        showRankNotches: true,
+        ..._getDefaultVisualSettings(),
+        scalingMode: "Floating",
         dotOpacity: 100,
         highlightLatestRun: true,
         dotJitterIntensity: "Normal",
-        scalingMode: "Standard",
         allowBackgroundPolling: true,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any as VisualSettings;
+}
+
+function _getDefaultVisualSettings(): VisualSettings {
+    return {
+        theme: "dark",
+        showDotCloud: true,
+        dotOpacity: 50,
+        scalingMode: "Aligned",
+        dotSize: "Normal",
+        visDotSize: "Normal",
+        uiScaling: "Normal",
+        marginSpacing: "Normal",
+        verticalSpacing: "Normal",
+        scenarioFontSize: "Normal",
+        rankFontSize: "Normal",
+        launchButtonSize: "Normal",
+        headerFontSize: "Normal",
+        labelFontSize: "Normal",
+        categorySpacing: "Normal",
+        dotCloudSize: "Normal",
+        dotCloudWidth: "Normal",
+        visRankFontSize: "Normal",
+        showSessionBest: true,
+        showAllTimeBest: true,
+        dotJitterIntensity: "Normal",
+        showRankNotches: true,
+        highlightLatestRun: true,
+        showRankEstimate: true,
+        showRanks: true,
+        audioVolume: 80,
+        showIntervalsSettings: true,
+        playAnimationsUnfocused: false,
+    };
 }
 
 function _createRenderContext(width: number, padding: number, settings: VisualSettings): RenderContext {

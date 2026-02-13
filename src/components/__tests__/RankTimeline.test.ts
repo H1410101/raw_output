@@ -304,4 +304,35 @@ describe("RankTimelineComponent Logic", () => {
         // Verify it spawns from the viewport left edge (80% in scroller-space)
         expect(parseFloat(progressLine.style.left)).toBeCloseTo(80.0, 1);
     });
+
+    it("should NOT render ticks or labels for RU < 0", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 0,
+            achievedRU: 0
+        };
+        const component = new RankTimelineComponent(config);
+        const container = component.render();
+
+        const ticks = container.querySelectorAll(".timeline-tick") as NodeListOf<HTMLElement>;
+        const labels = container.querySelectorAll(".timeline-tick-label") as NodeListOf<HTMLElement>;
+
+        // All ticks should be at left >= 0%
+        ticks.forEach(tick => {
+            const left = parseFloat(tick.style.left);
+            expect(left).toBeGreaterThanOrEqual(0);
+        });
+
+        // All labels should be at left >= 0%
+        labels.forEach(label => {
+            const left = parseFloat(label.style.left);
+            expect(left).toBeGreaterThanOrEqual(0);
+        });
+
+        // Should have unranked label at 0
+        const unrankedLabel = Array.from(labels).find(label => label.innerText === "Unranked");
+        expect(unrankedLabel).toBeTruthy();
+        expect(parseFloat(unrankedLabel!.style.left)).toBe(0);
+    });
 });

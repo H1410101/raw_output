@@ -290,13 +290,14 @@ export class RankedSessionService {
         }
 
         this._prepareSessionStart(difficulty);
-
         if (this._difficultyStates[difficulty]) {
+            this._rankEstimator.initializePeakRanks();
             this._resumeExistingSession();
 
             return;
         }
 
+        this._rankEstimator.initializePeakRanks();
         this._initializeNewSession(difficulty);
     }
 
@@ -596,29 +597,50 @@ export class RankedSessionService {
      */
     private _generateNextBatch(difficulty: string, excludeScenarios: string[]): string[] {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
+        const rankNames: string[] = this._benchmarkService.getRankNames(difficulty);
+        const maxRank: number = rankNames.length;
+
         const pool: BenchmarkScenario[] = scenarios.filter((scenario: BenchmarkScenario) => !excludeScenarios.includes(scenario.name));
 
         if (pool.length < 3) {
+            console.log(`[Ranked] Pool too small (${pool.length}), using fallback batch`);
+
             return this._getFallbackBatch(pool);
         }
 
-        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool);
+        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool, maxRank);
 
-        const strongMetric: ScenarioMetric | null = this._selectStrongScenario(metrics);
-        if (!strongMetric) {
+        const strongCandidates = this._getWeightedStrongScenarios(metrics);
+        if (strongCandidates.length === 0) {
             return this._getFallbackBatch(pool);
         }
+        this._logTopCandidates("Strong", strongCandidates);
+        const strongMetric = strongCandidates[0].metric;
+
         metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== strongMetric.scenario.name);
 
-        const weakMetric: ScenarioMetric | null = this._selectWeakScenario(metrics);
-        if (!weakMetric) {
+        const weakCandidates = this._getWeightedWeakScenarios(metrics);
+        if (weakCandidates.length === 0) {
             return [strongMetric.scenario.name, ...this._getFallbackBatch(pool.filter((scenario: BenchmarkScenario) => scenario.name !== strongMetric.scenario.name))];
         }
+        this._logTopCandidates("Weak", weakCandidates);
+        const weakMetric = weakCandidates[0].metric;
+
         metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== weakMetric.scenario.name);
 
-        const midMetric: ScenarioMetric = this._selectMidScenario(metrics, [strongMetric, weakMetric]);
+        const midCandidates = this._getWeightedMidScenarios(metrics, [strongMetric, weakMetric]);
+        this._logTopCandidates("Mid", midCandidates);
+        const midMetric = midCandidates[0].metric;
 
         return [strongMetric.scenario.name, weakMetric.scenario.name, midMetric.scenario.name];
+    }
+
+    private _logTopCandidates(type: string, candidates: { metric: ScenarioMetric; weight: number }[]): void {
+        console.log(`[Ranked] Top 3 ${type} Candidates:`);
+        candidates.slice(0, 3).forEach((candidate, index) => {
+            const metric = candidate.metric;
+            console.log(`  ${index + 1}. ${metric.scenario.name} (Peak: ${metric.peak.toFixed(2)}, Current: ${metric.current.toFixed(2)}, Gap: ${metric.gap.toFixed(2)}, Penalty: ${metric.penalty.toFixed(2)}) -> Weight: ${candidate.weight.toFixed(2)}`);
+        });
     }
 
     private _getFallbackBatch(pool: BenchmarkScenario[]): string[] {
@@ -630,12 +652,15 @@ export class RankedSessionService {
             .map((scenario: BenchmarkScenario) => scenario.name);
     }
 
-    private _calculateScenarioMetrics(pool: BenchmarkScenario[]): ScenarioMetric[] {
+    private _calculateScenarioMetrics(pool: BenchmarkScenario[], maxRank: number): ScenarioMetric[] {
         return pool.map((scenario: BenchmarkScenario) => {
             const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
-            const current: number = estimate.continuousValue === -1 ? 0 : estimate.continuousValue;
-            const peak: number = estimate.highestAchieved === -1 ? 0 : estimate.highestAchieved;
+            const rawCurrent: number = estimate.continuousValue === -1 ? 0 : estimate.continuousValue;
+            const rawPeak: number = estimate.highestAchieved === -1 ? 0 : estimate.highestAchieved;
             const penalty: number = estimate.penalty || 0;
+
+            const current = Math.min(rawCurrent, maxRank);
+            const peak = Math.min(rawPeak, maxRank);
 
             const gap = peak - current;
 
@@ -649,81 +674,35 @@ export class RankedSessionService {
         });
     }
 
-    private _selectStrongScenario(metrics: ScenarioMetric[]): ScenarioMetric | null {
-        // Logic: Select the scenario with the highest weight based on peak rank and distance from peak.
-        // Disqualify if current_rank > peak (beyond rank)
-
-        let bestMetric: ScenarioMetric | null = null;
-        let maxWeight = -Infinity;
-
-        for (const metric of metrics) {
-            if (metric.current > metric.peak) {
-                continue;
-            }
-
-            const dist = metric.peak - metric.current;
-
-            const weight = metric.peak + dist - metric.penalty;
-
-            if (weight > maxWeight) {
-                maxWeight = weight;
-                bestMetric = metric;
-            }
-        }
-
-        return bestMetric;
+    private _getWeightedStrongScenarios(metrics: ScenarioMetric[]): { metric: ScenarioMetric; weight: number }[] {
+        return metrics
+            .filter(metric => metric.current <= metric.peak)
+            .map(metric => ({ metric, weight: metric.peak + (metric.peak - metric.current) - metric.penalty }))
+            // Sort by weight descending. Stable sort preserves original pool order for ties.
+            .sort((a, b) => b.weight - a.weight);
     }
 
-    private _selectWeakScenario(metrics: ScenarioMetric[]): ScenarioMetric | null {
-        // Logic: Select the scenario with the lowest weight for current rank minus capacity gap.
-
-        let bestMetric: ScenarioMetric | null = null;
-        let minWeight = Infinity;
-
-        for (const metric of metrics) {
-            const dist = metric.peak - metric.current;
-
-            const weight = Math.max(metric.current - dist, 0) + metric.penalty;
-
-            if (weight < minWeight) {
-                minWeight = weight;
-                bestMetric = metric;
-            } else if (weight === minWeight) {
-                if (bestMetric && metric.scenario.name.localeCompare(bestMetric.scenario.name) < 0) {
-                    bestMetric = metric;
-                }
-            }
-        }
-
-        return bestMetric;
+    private _getWeightedWeakScenarios(metrics: ScenarioMetric[]): { metric: ScenarioMetric; weight: number }[] {
+        return metrics
+            .map(metric => ({ metric, weight: Math.max(metric.current - (metric.peak - metric.current), 0) + metric.penalty }))
+            // Sort by weight ascending. Original code used localeCompare for ties.
+            .sort((a, b) => a.weight - b.weight || a.metric.scenario.name.localeCompare(b.metric.scenario.name));
     }
 
-    private _selectMidScenario(metrics: ScenarioMetric[], chosen: ScenarioMetric[]): ScenarioMetric {
-        // Logic: Highest weight for gap between current and peak, adjusted for category diversity.
-
-        let bestMetric: ScenarioMetric | null = null;
-        let maxWeight = -Infinity;
-
-        for (const metric of metrics) {
+    private _getWeightedMidScenarios(metrics: ScenarioMetric[], chosen: ScenarioMetric[]): { metric: ScenarioMetric; weight: number }[] {
+        return metrics.map(metric => {
             let diversityPenalty = 0;
             for (const other of chosen) {
-                if (other.scenario.subcategory === metric.scenario.subcategory) {
-                    diversityPenalty += 0.5;
-                }
-                else if (other.scenario.category === metric.scenario.category) {
-                    diversityPenalty += 0.25;
-                }
+                if (other.scenario.subcategory === metric.scenario.subcategory) diversityPenalty += 0.5;
+                else if (other.scenario.category === metric.scenario.category) diversityPenalty += 0.25;
             }
 
             const weight = (metric.peak - metric.current) - diversityPenalty - metric.penalty;
 
-            if (weight > maxWeight) {
-                maxWeight = weight;
-                bestMetric = metric;
-            }
-        }
-
-        return bestMetric || metrics[0];
+            return { metric, weight };
+        })
+            // Sort by weight descending. Stable sort preserves original pool order for ties.
+            .sort((a, b) => b.weight - a.weight);
     }
 
 

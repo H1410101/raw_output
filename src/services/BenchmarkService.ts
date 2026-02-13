@@ -71,4 +71,27 @@ export class BenchmarkService {
   public getBenchmarkId(difficulty: DifficultyTier): string | null {
     return getBenchmarkIdFromData(difficulty);
   }
+
+  /**
+   * Retrieves all scenarios from all difficulty tiers.
+   *
+   * @returns An array of unique scenarios.
+   */
+  public getAllScenarios(): BenchmarkScenario[] {
+    const difficulties = this.getAvailableDifficulties();
+    const allScenarios: BenchmarkScenario[] = [];
+    const seenNames = new Set<string>();
+
+    for (const difficulty of difficulties) {
+      const scenarios = this.getScenarios(difficulty);
+      for (const scenario of scenarios) {
+        if (!seenNames.has(scenario.name)) {
+          allScenarios.push(scenario);
+          seenNames.add(scenario.name);
+        }
+      }
+    }
+
+    return allScenarios;
+  }
 }

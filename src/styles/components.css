@@ -59,6 +59,10 @@
     color: var(--accent-color);
 }
 
+.hud-group>div {
+    width: fit-content;
+}
+
 .hud-group {
     display: flex;
     align-items: center;
@@ -70,40 +74,42 @@
     color: var(--lower-band-1);
     opacity: 0.5;
     letter-spacing: 0.1em;
+    margin-right: -0.1em;
     text-transform: uppercase;
 }
 
 .hud-group.left {
-    justify-content: flex-start;
+    grid-column: 1;
+    justify-self: end;
+    display: flex !important;
+    justify-content: flex-end !important;
+    text-align: right;
+    width: fit-content;
 }
 
 .hud-group.right {
-    justify-content: flex-end;
+    grid-column: 7;
+    justify-self: start;
+    display: flex !important;
+    justify-content: flex-start !important;
+    text-align: left;
+    width: fit-content;
 }
-
 
 /* Media Player Controls */
 .media-controls {
-    display: flex;
-    justify-content: center;
+    display: grid;
+    --btn-size: calc(1.8rem * var(--label-font-multiplier));
+    grid-template-columns: minmax(0, 1fr) var(--btn-size) var(--btn-size) auto var(--btn-size) var(--btn-size) minmax(0, 1fr);
     align-items: center;
     gap: calc(1.5rem * var(--label-font-multiplier));
     margin-top: 0;
     width: 100%;
 }
 
-.controls-left {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: calc(1rem * var(--label-font-multiplier));
-}
-
+.controls-left,
 .controls-right {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    gap: calc(1rem * var(--label-font-multiplier));
+    display: contents;
 }
 
 .media-btn {
@@ -172,6 +178,12 @@
 .media-btn.secondary {
     width: calc(1.8rem * var(--label-font-multiplier));
     height: calc(1.8rem * var(--label-font-multiplier));
+    grid-row: 1;
+}
+
+#ranked-play-now,
+#start-ranked-btn {
+    grid-column: 4;
 }
 
 .media-btn:hover:not(:disabled) {
@@ -550,7 +562,7 @@
 .timeline-axis {
     position: absolute;
     top: 50%;
-    left: -1000%;
+    left: 0%;
     right: -1000%;
     height: 1px;
     background-color: var(--text-default);
@@ -609,6 +621,8 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    opacity: 0;
+    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .timeline-marker-label {
@@ -618,7 +632,7 @@
     white-space: nowrap;
     letter-spacing: 0.05em;
     text-shadow: 0 0.125rem 0.25rem rgba(var(--surface-0-rgb), 0.5);
-    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 

@@ -122,6 +122,7 @@ describe('Ranked Session Diagnosis', () => {
                 difficulty: 'Intermediate',
                 timestamp: new Date()
             });
+            vi.advanceTimersByTime(1000);
         }
 
         // 4. Check Estimate

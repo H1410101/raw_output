@@ -240,7 +240,7 @@ export class RankTimelineComponent {
             (a, b) => this._config.thresholds[a] - this._config.thresholds[b]
         );
 
-        for (let i = -5; i <= 25; i++) {
+        for (let i = 0; i <= 25; i++) {
             const matchingRank = rankNames.find((name: string) => {
                 const score = this._config.thresholds[name];
                 const rankUnit = this._mapper.calculateRankUnit(score);
@@ -248,7 +248,8 @@ export class RankTimelineComponent {
                 return Math.abs(rankUnit - i) < 0.001;
             });
 
-            this._renderRankTick(i, matchingRank || "");
+            const labelText = matchingRank || (i === 0 ? "Unranked" : "");
+            this._renderRankTick(i, labelText);
         }
     }
 
@@ -750,7 +751,7 @@ export class RankTimelineComponent {
         if (markers.length < 2) return;
 
         this._resetMarkerLabels(markers);
-        const buffer = 0.5 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+        const buffer = 0.25 * parseFloat(getComputedStyle(document.documentElement).fontSize);
         const sorted = [...markers].sort((markerA, markerB) => markerA.rankUnit - markerB.rankUnit);
 
         const clusters = this._findCollisionClusters(sorted, buffer);
@@ -773,14 +774,18 @@ export class RankTimelineComponent {
             const prevCluster = clusters[clusters.length - 1];
             const lastInPrev = prevCluster[prevCluster.length - 1];
 
-            const anchorA = lastInPrev.anchor.getBoundingClientRect().left;
-            const anchorB = current.anchor.getBoundingClientRect().left;
+            const rectA = lastInPrev.anchor.getBoundingClientRect();
+            const rectB = current.anchor.getBoundingClientRect();
+            const centerA = rectA.left + rectA.width / 2;
+            const centerB = rectB.left + rectB.width / 2;
             const widthA = lastInPrev.labelElement!.offsetWidth;
             const widthB = current.labelElement!.offsetWidth;
 
             // Clustering based on "Potential Footprint":
-            // Distance between anchors must be >= sum of widths (max possible span) + buffer
-            if (anchorB - anchorA < widthA + widthB + buffer) {
+            // Clustering based on "Pessimistic Footprint":
+            // We cluster if shifted positions *could* potentially cause a chain reaction.
+            // Distance between centers < sum of full widths + buffer.
+            if (centerB - centerA < (widthA + widthB) + buffer) {
                 prevCluster.push(current);
             } else {
                 clusters.push([current]);
@@ -813,7 +818,11 @@ export class RankTimelineComponent {
         if (markers.length === 0) return true;
 
         const rects = markers.map(marker => marker.labelElement!.getBoundingClientRect());
-        const anchors = markers.map(marker => marker.anchor.getBoundingClientRect().left);
+        const anchors = markers.map(marker => {
+            const rect = marker.anchor.getBoundingClientRect();
+
+            return rect.left + rect.width / 2;
+        });
         const containerRect = this._container.getBoundingClientRect();
 
         const bestShifts = this._findBestDiscreteShifts(rects, anchors, buffer, containerRect);

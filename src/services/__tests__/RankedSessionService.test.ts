@@ -177,6 +177,7 @@ function _createEstimatorMock(): RankEstimator {
         applyPenaltyLift: vi.fn(),
         getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
         evolveScenarioEstimate: vi.fn(),
+        initializePeakRanks: vi.fn(),
     } as unknown as RankEstimator;
 }
 
@@ -197,18 +198,23 @@ function _createMocks(): MockSet {
     vi.clearAllMocks();
     localStorage.clear();
 
-    return {
+    const mocks: MockSet = {
         benchmark: _createBenchmarkMock(),
         session: _createSessionMock(),
         estimator: _createEstimatorMock(),
         settings: _createSettingsMock(),
         identity: _createIdentityMock()
     };
+
+    _mockEstimates(mocks.estimator, {});
+
+    return mocks;
 }
 
 function _mockEstimates(estimator: RankEstimator, estimates: Record<string, Partial<ScenarioEstimate>>): void {
+    const defaultEstimate: ScenarioEstimate = { continuousValue: -1, highestAchieved: -1, lastUpdated: "", penalty: 0, lastPlayed: "", lastDecayed: "" };
     (estimator.getScenarioEstimate as Mock).mockImplementation((name: string) => {
-        return estimates[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "", penalty: 0, lastPlayed: "" };
+        return estimates[name] || defaultEstimate;
     });
 }
 

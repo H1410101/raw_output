@@ -1,431 +1,574 @@
 /**
- * Represents a single score entry in the historical database.
- */
-export interface RecordedScore {
-  /** Internal unique identifier for the score. */
-  id?: number;
-  /** Unique identifier for the player (Kovaaks username). */
-  playerId: string;
-  /** The name of the scenario. */
-  scenarioName: string;
-  /** The achieved score value. */
-  score: number;
-  /** The date and time when the run was completed. */
-  completionDate: string;
-}
-
-/**
- * Represents the personal best for a specific scenario and player.
- */
-export interface Highscore {
-  /** Internal unique identifier for the highscore. */
-  id?: number;
-  /** The name of the scenario. */
-  scenarioName: string;
-  /** Unique identifier for the player (Kovaaks username). */
-  playerId: string;
-  /** The highest score recorded for this player and scenario. */
-  score: number;
-  /** The date and time of the highscore. */
-  date: string;
-}
-
-/**
- * Manages persistence of scores and highscores using IndexedDB.
+ * Responsibility: Manage and persist user highscores for scenarios using IndexedDB.
  */
 export class HistoryService {
-  private static readonly _dbName: string = "raw_output_history";
-  private static readonly _dbVersion: number = 4;
+  private readonly _databaseName: string = "RawOutputHistory";
 
-  private readonly _onScoreRecordedListeners: (() => void)[] = [];
-  private readonly _onHighscoreUpdatedListeners: ((scenarioName?: string) => void)[] = [];
+  private readonly _highscoreStoreName: string = "Highscores";
+
+  private readonly _scoresStoreName: string = "Scores";
+
+  private readonly _metadataStoreName: string = "Metadata";
+
+  private readonly _databaseVersion: number = 3;
+
   private _db: IDBDatabase | null = null;
 
+  private readonly _highscoreCallbacks: ((scenarioName?: string) => void)[] =
+    [];
+
+  private readonly _scoreRecordedCallbacks: ((scenarioName: string) => void)[] =
+    [];
+
   /**
-   * Initializes the service and opens the database.
+   * Registers a callback to be executed when a highscore is updated.
+   *
+   * @param callback - The function to invoke on updates.
    */
-  public constructor() {
-    this._initDatabase();
+  public onHighscoreUpdated(callback: (scenarioName?: string) => void): void {
+    this._highscoreCallbacks.push(callback);
   }
 
   /**
-   * Records multiple scores in a single transaction.
+   * Registers a callback to be executed when any new score is recorded.
    *
-   * @param playerId - The player to associate the scores with.
-   * @param scores - The list of scores to record.
+   * @param callback - The function to invoke on new score records.
    */
-  public async recordMultipleScores(
-    playerId: string,
-    scores: Omit<RecordedScore, "id" | "playerId">[],
-  ): Promise<void> {
-    const database: IDBDatabase = await this._getDb();
-    const transaction: IDBTransaction = database.transaction("Scores", "readwrite");
-    const store: IDBObjectStore = transaction.objectStore("Scores");
+  public onScoreRecorded(callback: (scenarioName: string) => void): void {
+    this._scoreRecordedCallbacks.push(callback);
+  }
 
-    const promises: Promise<void>[] = scores.map((score: Omit<RecordedScore, "id" | "playerId">): Promise<void> => {
-      return new Promise<void>((resolve: () => void, reject: (error: DOMException | null) => void): void => {
-        const request: IDBRequest<IDBValidKey> = store.add({ ...score, playerId });
-        request.onsuccess = (): void => resolve();
+  /**
+   * Returns the highscore for a specific scenario from persistent storage.
+   *
+   * @param scenarioName - The name of the Kovaak's scenario.
+   * @returns A promise resolving to the numeric highscore.
+   */
+  public async getHighscore(scenarioName: string): Promise<number> {
+    const database: IDBDatabase = await this._getDatabase();
+
+    return new Promise(
+      (
+        resolve: (value: number) => void,
+        reject: (reason: unknown) => void,
+      ): void => {
+        const transaction: IDBTransaction = database.transaction(
+          this._highscoreStoreName,
+          "readonly",
+        );
+
+        const store = transaction.objectStore(this._highscoreStoreName);
+
+        const request: IDBRequest = store.get(scenarioName);
+
+        request.onsuccess = (): void => resolve(request.result || 0);
+
         request.onerror = (): void => reject(request.error);
-      });
-    });
-
-    await Promise.all(promises);
-    this._notifyScoreRecorded();
+      },
+    );
   }
 
   /**
-   * Retrieves all scores for a specific scenario and player.
+   * Updates the highscore for a scenario if the new score is higher.
    *
-   * @param playerId - The player's ID.
    * @param scenarioName - The name of the scenario.
-   * @returns A promise resolving to the list of scores.
+   * @param score - The new score value.
+   * @returns A promise resolving to true if a new highscore was achieved.
    */
-  public async getScoresForScenario(
-    playerId: string,
+  public async updateHighscore(
     scenarioName: string,
-  ): Promise<RecordedScore[]> {
-    const database: IDBDatabase = await this._getDb();
-    const transaction: IDBTransaction = database.transaction("Scores", "readonly");
-    const store: IDBObjectStore = transaction.objectStore("Scores");
-    const index: IDBIndex = store.index("scenarioName");
+    score: number,
+  ): Promise<boolean> {
+    const currentHighscore = await this.getHighscore(scenarioName);
 
-    return new Promise((resolve: (value: RecordedScore[]) => void, reject: (error: DOMException | null) => void): void => {
-      const request: IDBRequest<RecordedScore[]> = index.getAll(scenarioName) as IDBRequest<RecordedScore[]>;
-      request.onsuccess = (): void => {
-        const results: RecordedScore[] = request.result as RecordedScore[];
-        resolve(results.filter((scoreRecord: RecordedScore): boolean => scoreRecord.playerId === playerId));
-      };
-      request.onerror = (): void => reject(request.error);
-    });
+    if (score <= currentHighscore) {
+      return false;
+    }
+
+    await this._persistHighscore(scenarioName, score);
+
+    this._highscoreCallbacks.forEach(
+      (callback: (scenarioName: string) => void): void =>
+        callback(scenarioName),
+    );
+
+    return true;
   }
 
-  /**
-   * Retrieves the highscore for a specific scenario and player.
-   *
-   * @param playerId - The player's ID.
-   * @param scenarioName - The name of the scenario.
-   * @returns A promise resolving to the highscore or null if none exists.
-   */
-  public async getHighscore(
-    playerId: string,
+  private async _persistHighscore(
     scenarioName: string,
-  ): Promise<Highscore | null> {
-    const database: IDBDatabase = await this._getDb();
-    const transaction: IDBTransaction = database.transaction("Highscores", "readonly");
-    const store: IDBObjectStore = transaction.objectStore("Highscores");
-    const index: IDBIndex = store.index("playerScenario");
-
-    return new Promise((resolve: (value: Highscore | null) => void, reject: (error: DOMException | null) => void): void => {
-      const request: IDBRequest<Highscore | undefined> = index.get([playerId, scenarioName]) as IDBRequest<Highscore | undefined>;
-      request.onsuccess = (): void => resolve((request.result as Highscore) || null);
-      request.onerror = (): void => reject(request.error);
-    });
-  }
-
-  /**
-   * Updates or creates highscores for multiple scenarios and a player.
-   *
-   * @param playerId - The player's ID.
-   * @param newHighscores - The list of highscores to update.
-   */
-  public async updateMultipleHighscores(
-    playerId: string,
-    newHighscores: Omit<Highscore, "id" | "playerId">[],
+    score: number,
   ): Promise<void> {
-    const database: IDBDatabase = await this._getDb();
-    const transaction: IDBTransaction = database.transaction("Highscores", "readwrite");
-    const store: IDBObjectStore = transaction.objectStore("Highscores");
+    const database: IDBDatabase = await this._getDatabase();
 
-    const promises: Promise<void>[] = newHighscores.map(async (highscoreEntry: Omit<Highscore, "id" | "playerId">): Promise<void> => {
-      const record: Omit<Highscore, "id"> = { ...highscoreEntry, playerId };
-      const existing: Highscore | null = await this.getHighscore(playerId, highscoreEntry.scenarioName);
+    return new Promise(
+      (resolve: () => void, reject: (reason: unknown) => void): void => {
+        const transaction: IDBTransaction = database.transaction(
+          this._highscoreStoreName,
+          "readwrite",
+        );
 
-      return new Promise<void>((resolve: () => void, reject: (error: DOMException | null) => void): void => {
-        if (existing) {
-          // eslint-disable-next-line id-length
-          const request: IDBRequest<IDBValidKey> = store.put({ ...record, id: existing.id });
-          request.onsuccess = (): void => resolve();
-          request.onerror = (): void => reject(request.error);
-        } else {
-          const request: IDBRequest<IDBValidKey> = store.add(record);
-          request.onsuccess = (): void => resolve();
-          request.onerror = (): void => reject(request.error);
-        }
+        const store = transaction.objectStore(this._highscoreStoreName);
+
+        const request: IDBRequest = store.put(score, scenarioName);
+
+        request.onsuccess = (): void => resolve();
+
+        request.onerror = (): void => reject(request.error);
+      },
+    );
+  }
+
+  private async _getDatabase(): Promise<IDBDatabase> {
+    if (this._db) {
+      return this._db;
+    }
+
+    this._db = await this._initializeDatabase();
+
+    return this._db;
+  }
+
+  private _initializeDatabase(): Promise<IDBDatabase> {
+    return new Promise(
+      (
+        resolve: (value: IDBDatabase) => void,
+        reject: (reason: unknown) => void,
+      ): void => {
+        const request: IDBOpenDBRequest = indexedDB.open(
+          this._databaseName,
+          this._databaseVersion,
+        );
+
+        request.onupgradeneeded = (): void => {
+          this._handleDatabaseUpgrade(request.result);
+        };
+
+        request.onsuccess = (): void => resolve(request.result);
+
+        request.onerror = (): void => reject(request.error);
+      },
+    );
+  }
+
+  private _handleDatabaseUpgrade(database: IDBDatabase): void {
+    if (!database.objectStoreNames.contains(this._highscoreStoreName)) {
+      database.createObjectStore(this._highscoreStoreName);
+    }
+
+    if (!database.objectStoreNames.contains(this._scoresStoreName)) {
+      const store = database.createObjectStore(this._scoresStoreName, {
+        keyPath: "id",
+        autoIncrement: true,
       });
-    });
 
-    await Promise.all(promises);
-    this._notifyHighscoreUpdated();
+      store.createIndex("scenarioName", "scenarioName", { unique: false });
+    }
+
+    if (!database.objectStoreNames.contains(this._metadataStoreName)) {
+      database.createObjectStore(this._metadataStoreName);
+    }
   }
 
   /**
-   * Retrieves highscores for a batch of scenarios and a player.
+   * Retrieves highscores for multiple scenarios at once using a single transaction.
    *
-   * @param playerId - The player's ID.
-   * @param scenarioNames - The list of scenario names.
-   * @returns A promise resolving to a record of scenario names and scores.
+   * @param scenarioNames - Array of scenario names to query.
+   * @returns A promise resolving to a map of scenario names to highscores.
    */
   public async getBatchHighscores(
-    playerId: string,
     scenarioNames: string[],
   ): Promise<Record<string, number>> {
-    const database: IDBDatabase = await this._getDb();
-    const transaction: IDBTransaction = database.transaction("Highscores", "readonly");
-    const store: IDBObjectStore = transaction.objectStore("Highscores");
-    const index: IDBIndex = store.index("playerScenario");
+    const database: IDBDatabase = await this._getDatabase();
 
-    const results: Record<string, number> = {};
-    const promises: Promise<void>[] = scenarioNames.map((name: string): Promise<void> => {
-      return new Promise<void>((resolve: () => void, reject: (error: DOMException | null) => void): void => {
-        const request: IDBRequest<Highscore | undefined> = index.get([playerId, name]) as IDBRequest<Highscore | undefined>;
-        request.onsuccess = (): void => {
-          if (request.result) {
-            results[name] = (request.result as Highscore).score;
-          }
-          resolve();
-        };
-        request.onerror = (): void => reject(request.error);
-      });
-    });
-
-    await Promise.all(promises);
-
-    return results;
+    return new Promise(
+      (
+        resolve: (value: Record<string, number>) => void,
+        reject: (reason: unknown) => void,
+      ): void =>
+        this._executeBatchHighscoreFetch(
+          database,
+          scenarioNames,
+          resolve,
+          reject,
+        ),
+    );
   }
 
-  /**
-   * Records scores fetched from the Kovaaks API and updates highscores.
-   *
-   * @param playerId - The player's ID.
-   * @param scenarioName - The name of the scenario.
-   * @param scores - The list of scores to record.
-   */
-  public async recordKovaaksScores(
-    playerId: string,
-    scenarioName: string,
-    scores: { score: number; date: string }[],
-  ): Promise<void> {
-    const newScores: Omit<RecordedScore, "id" | "playerId">[] = await this._getNewScoresOnly(playerId, scenarioName, scores);
+  private _executeBatchHighscoreFetch(
+    database: IDBDatabase,
+    scenarioNames: string[],
+    resolve: (value: Record<string, number>) => void,
+    reject: (reason: unknown) => void,
+  ): void {
+    const transaction: IDBTransaction = database.transaction(
+      this._highscoreStoreName,
+      "readonly",
+    );
 
-    if (newScores.length === 0) {
+    const store: IDBObjectStore = transaction.objectStore(
+      this._highscoreStoreName,
+    );
+
+    const highscores: Record<string, number> = {};
+
+    if (scenarioNames.length === 0) {
+      resolve(highscores);
+
       return;
     }
 
-    await this.recordMultipleScores(playerId, newScores);
-    await this._updateHighscoreIfHigher(playerId, scenarioName, newScores);
+    this._fetchHighscoresInTransaction({
+      store,
+      scenarioNames,
+      highscores,
+      resolve,
+      reject,
+    });
   }
 
-  private async _getNewScoresOnly(
-    playerId: string,
-    scenarioName: string,
-    scores: { score: number; date: string }[],
-  ): Promise<Omit<RecordedScore, "id" | "playerId">[]> {
-    const existing: RecordedScore[] = await this.getScoresForScenario(playerId, scenarioName);
-    const existingDates: Set<string> = new Set(existing.map((score: RecordedScore): string => score.completionDate));
+  private _fetchHighscoresInTransaction(options: {
+    store: IDBObjectStore;
+    scenarioNames: string[];
+    highscores: Record<string, number>;
+    resolve: (value: Record<string, number>) => void;
+    reject: (reason: unknown) => void;
+  }): void {
+    const { store, scenarioNames, highscores, resolve, reject } = options;
 
-    return scores
-      .filter((score: { score: number; date: string }): boolean => !existingDates.has(score.date))
-      .map((score: { score: number; date: string }): Omit<RecordedScore, "id" | "playerId"> => ({
-        scenarioName,
-        score: score.score,
-        completionDate: score.date,
-      }));
-  }
+    let pendingCount: number = scenarioNames.length;
 
-  private async _updateHighscoreIfHigher(
-    playerId: string,
-    scenarioName: string,
-    newScores: Omit<RecordedScore, "id" | "playerId">[],
-  ): Promise<void> {
-    const currentHighscore: Highscore | null = await this.getHighscore(playerId, scenarioName);
-    const maxNewScore: number = Math.max(...newScores.map((score: Omit<RecordedScore, "id" | "playerId">): number => score.score));
+    scenarioNames.forEach((name: string): void => {
+      const request: IDBRequest = store.get(name);
 
-    if (!currentHighscore || maxNewScore > currentHighscore.score) {
-      const bestRun: Omit<RecordedScore, "id" | "playerId"> | undefined = newScores.find((score: Omit<RecordedScore, "id" | "playerId">): boolean => score.score === maxNewScore);
-      if (bestRun) {
-        await this.updateMultipleHighscores(playerId, [
-          {
-            scenarioName,
-            score: maxNewScore,
-            date: bestRun.completionDate,
-          },
-        ]);
-      }
-    }
+      request.onsuccess = (): void => {
+        highscores[name] = (request.result as number) || 0;
+
+        pendingCount--;
+
+        if (pendingCount === 0) {
+          resolve(highscores);
+        }
+      };
+
+      request.onerror = (): void => reject(request.error);
+    });
   }
 
   /**
-   * Retrieves the most recent scores with their timestamps for a specific scenario and player.
+   * Records multiple score entries in a single transaction.
    *
-   * @param playerId - The player's ID.
+   * @param scores - Array of score data to persist.
+   * @returns A promise resolving when persistence is complete.
+   */
+  public async recordMultipleScores(
+    scores: { scenarioName: string; score: number; timestamp: number }[],
+  ): Promise<void> {
+    const database: IDBDatabase = await this._getDatabase();
+
+    return new Promise(
+      (resolve: () => void, reject: (reason: unknown) => void): void =>
+        this._executeBatchScoreRecording(database, scores, resolve, reject),
+    );
+  }
+
+  private _executeBatchScoreRecording(
+    database: IDBDatabase,
+    scores: { scenarioName: string; score: number; timestamp: number }[],
+    resolve: () => void,
+    reject: (reason: unknown) => void,
+  ): void {
+    const transaction: IDBTransaction = database.transaction(
+      this._scoresStoreName,
+      "readwrite",
+    );
+
+    const store: IDBObjectStore = transaction.objectStore(
+      this._scoresStoreName,
+    );
+
+    scores.forEach((scoreRecord): void => {
+      store.add({
+        scenarioName: scoreRecord.scenarioName,
+        score: scoreRecord.score,
+        timestamp: scoreRecord.timestamp,
+      });
+    });
+
+    transaction.oncomplete = (): void => {
+      this._notifyScoreRecorded(scores);
+
+      resolve();
+    };
+
+    transaction.onerror = (): void => reject(transaction.error);
+  }
+
+  private _notifyScoreRecorded(
+    scores: { scenarioName: string; score: number; timestamp: number }[],
+  ): void {
+    scores.forEach((scoreRecord): void => {
+      this._scoreRecordedCallbacks.forEach(
+        (callback: (scenarioName: string) => void): void =>
+          callback(scoreRecord.scenarioName),
+      );
+    });
+  }
+
+  /**
+   * Updates highscores for multiple scenarios if new scores are higher, using a single transaction.
+   *
+   * @param updates - Array of scenario names and scores to check.
+   * @returns A promise resolving when update checks are complete.
+   */
+  public async updateMultipleHighscores(
+    updates: { scenarioName: string; score: number }[],
+  ): Promise<void> {
+    const database: IDBDatabase = await this._getDatabase();
+
+    const maxScoresPerScenario: Map<string, number> =
+      this._deduplicateUpdates(updates);
+
+    return new Promise(
+      (resolve: () => void, reject: (reason: unknown) => void): void =>
+        this._executeBatchHighscoreUpdate(
+          database,
+          maxScoresPerScenario,
+          resolve,
+          reject,
+        ),
+    );
+  }
+
+  private _deduplicateUpdates(
+    updates: { scenarioName: string; score: number }[],
+  ): Map<string, number> {
+    const maxScoresPerScenario: Map<string, number> = new Map();
+
+    updates.forEach((update): void => {
+      const currentVal: number =
+        maxScoresPerScenario.get(update.scenarioName) || 0;
+
+      if (update.score > currentVal) {
+        maxScoresPerScenario.set(update.scenarioName, update.score);
+      }
+    });
+
+    return maxScoresPerScenario;
+  }
+
+  private _executeBatchHighscoreUpdate(
+    database: IDBDatabase,
+    maxScoresPerScenario: Map<string, number>,
+    resolve: () => void,
+    reject: (reason: unknown) => void,
+  ): void {
+    const transaction: IDBTransaction = database.transaction(
+      this._highscoreStoreName,
+      "readwrite",
+    );
+
+    const store: IDBObjectStore = transaction.objectStore(
+      this._highscoreStoreName,
+    );
+
+    const scenariosToNotify: Set<string> = new Set();
+
+    maxScoresPerScenario.forEach((score: number, scenario: string): void => {
+      const getRequest: IDBRequest = store.get(scenario);
+
+      getRequest.onsuccess = (): void => {
+        const currentHighscore: number = (getRequest.result as number) || 0;
+
+        if (score > currentHighscore) {
+          store.put(score, scenario);
+
+          scenariosToNotify.add(scenario);
+        }
+      };
+    });
+
+    transaction.oncomplete = (): void => {
+      this._notifyHighscoresUpdated(scenariosToNotify);
+
+      resolve();
+    };
+
+    transaction.onerror = (): void => reject(transaction.error);
+  }
+
+  private _notifyHighscoresUpdated(scenariosToNotify: Set<string>): void {
+    scenariosToNotify.forEach((scenario: string): void => {
+      this._highscoreCallbacks.forEach(
+        (callback: (scenarioName: string) => void): void => callback(scenario),
+      );
+    });
+  }
+
+  /**
+   * Records a new score entry in the historical scores database.
+   *
+   * @param scenarioName - The name of the scenario.
+   * @param score - The numeric score achieved.
+   * @param timestamp - The time of the run.
+   */
+  public async recordScore(
+    scenarioName: string,
+    score: number,
+    timestamp: number,
+  ): Promise<void> {
+    const database: IDBDatabase = await this._getDatabase();
+
+    return new Promise(
+      (resolve: () => void, reject: (reason: unknown) => void): void => {
+        const transaction: IDBTransaction = database.transaction(
+          this._scoresStoreName,
+          "readwrite",
+        );
+
+        const store = transaction.objectStore(this._scoresStoreName);
+
+        const request: IDBRequest = store.add({
+          scenarioName,
+          score,
+          timestamp,
+        });
+
+        request.onsuccess = (): void => {
+          this._scoreRecordedCallbacks.forEach(
+            (callback: (scenarioName: string) => void): void =>
+              callback(scenarioName),
+          );
+
+          resolve();
+        };
+
+        request.onerror = (): void => reject(request.error);
+      },
+    );
+  }
+
+  /**
+   * Retrieves the most recent scores with their timestamps for a specific scenario.
+   *
    * @param scenarioName - The name of the scenario.
    * @param limit - Maximum number of recent scores to return.
    * @returns A promise resolving to an array of score entries.
    */
   public async getLastScores(
-    playerId: string,
     scenarioName: string,
     limit: number = 100,
   ): Promise<{ score: number; timestamp: number }[]> {
-    const database: IDBDatabase = await this._getDb();
-    const transaction: IDBTransaction = database.transaction("Scores", "readonly");
-    const store: IDBObjectStore = transaction.objectStore("Scores");
-    const index: IDBIndex = store.index("scenarioName");
+    const database: IDBDatabase = await this._getDatabase();
 
-    return new Promise((resolve: (value: { score: number; timestamp: number }[]) => void, reject: (error: DOMException | null) => void): void => {
-      const scores: { score: number; timestamp: number }[] = [];
-      const request: IDBRequest<IDBCursorWithValue | null> = index.openCursor(IDBKeyRange.only(scenarioName), "prev");
+    return new Promise(
+      (
+        resolve: (value: { score: number; timestamp: number }[]) => void,
+        reject: (reason: unknown) => void,
+      ): void => {
+        const transaction: IDBTransaction = database.transaction(
+          this._scoresStoreName,
+          "readonly",
+        );
 
-      request.onsuccess = (event: Event): void => {
-        const cursor: IDBCursorWithValue | null = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
-        if (cursor && scores.length < limit) {
-          const scoreRecord: RecordedScore = cursor.value as RecordedScore;
-          if (scoreRecord.playerId === playerId) {
-            scores.push({
-              score: scoreRecord.score,
-              timestamp: Number(scoreRecord.completionDate),
-            });
-          }
-          cursor.continue();
-        } else {
-          resolve(scores);
-        }
-      };
-      request.onerror = (): void => reject(request.error);
-    });
-  }
+        const index: IDBIndex = transaction
+          .objectStore(this._scoresStoreName)
+          .index("scenarioName");
 
-  /**
-   * Registers a callback for when a new score is recorded.
-   * @param callback
-   */
-  public onScoreRecorded(callback: () => void): void {
-    this._onScoreRecordedListeners.push(callback);
-  }
+        const scores: { score: number; timestamp: number }[] = [];
 
-  /**
-   * Registers a callback for when a highscore is updated.
-   * @param callback
-   */
-  public onHighscoreUpdated(callback: (scenarioName?: string) => void): void {
-    this._onHighscoreUpdatedListeners.push(callback);
-  }
+        const request: IDBRequest<IDBCursorWithValue | null> = index.openCursor(
+          IDBKeyRange.only(scenarioName),
+          "prev",
+        );
 
-  private _initDatabase(): void {
-    const request: IDBOpenDBRequest = indexedDB.open(
-      HistoryService._dbName,
-      HistoryService._dbVersion,
+        request.onsuccess = (event: Event): void =>
+          this._processScoreCursor(event, scores, limit, resolve);
+
+        request.onerror = (): void => reject(request.error);
+      },
     );
-
-    request.onupgradeneeded = (event: IDBVersionChangeEvent): void => {
-      const database: IDBDatabase = request.result;
-      const oldVersion: number = event.oldVersion;
-      const transaction: IDBTransaction | null = request.transaction;
-
-      if (oldVersion < 4) {
-        this._upgradeToMultiPlayer(database, transaction);
-      }
-    };
-
-    request.onsuccess = (): void => {
-      this._db = request.result;
-    };
-
-    request.onerror = (): void => {
-      console.error("Database error:", request.error);
-    };
   }
 
-  private _upgradeToMultiPlayer(database: IDBDatabase, transaction: IDBTransaction | null): void {
-    if (database.objectStoreNames.contains("Scores")) {
-      const scoreStore: IDBObjectStore = transaction!.objectStore("Scores");
-      if (!scoreStore.indexNames.contains("playerId")) {
-        scoreStore.createIndex("playerId", "playerId", { unique: false });
-      }
-    } else {
-      const scoreStore: IDBObjectStore = database.createObjectStore("Scores", { keyPath: "id", autoIncrement: true });
-      scoreStore.createIndex("scenarioName", "scenarioName", { unique: false });
-      scoreStore.createIndex("playerId", "playerId", { unique: false });
-    }
+  private _processScoreCursor(
+    event: Event,
+    scores: { score: number; timestamp: number }[],
+    limit: number,
+    resolve: (value: { score: number; timestamp: number }[]) => void,
+  ): void {
+    const cursor: IDBCursorWithValue | null = (
+      event.target as IDBRequest<IDBCursorWithValue | null>
+    ).result;
 
-    if (database.objectStoreNames.contains("Highscores")) {
-      database.deleteObjectStore("Highscores");
-    }
-
-    const highscoreStore: IDBObjectStore = database.createObjectStore("Highscores", {
-      keyPath: "id",
-      autoIncrement: true,
-    });
-    highscoreStore.createIndex("playerScenario", ["playerId", "scenarioName"], {
-      unique: true,
-    });
-    highscoreStore.createIndex("playerId", "playerId", { unique: false });
-    highscoreStore.createIndex("scenarioName", "scenarioName", { unique: false });
-
-    if (!database.objectStoreNames.contains("Metadata")) {
-      database.createObjectStore("Metadata", { keyPath: "id" });
-    }
-  }
-
-  private async _getDb(): Promise<IDBDatabase> {
-    if (this._db) {
-      return this._db;
-    }
-
-    return new Promise((resolve: (value: IDBDatabase) => void, reject: (error: DOMException | null) => void): void => {
-      const request: IDBOpenDBRequest = indexedDB.open(
-        HistoryService._dbName,
-        HistoryService._dbVersion,
-      );
-      request.onsuccess = (): void => {
-        this._db = request.result;
-        resolve(this._db);
+    if (cursor && scores.length < limit) {
+      const entry: { score: number; timestamp: number } = cursor.value as {
+        score: number;
+        timestamp: number;
       };
-      request.onerror = (): void => reject(request.error);
-    });
-  }
 
-  private _notifyScoreRecorded(): void {
-    this._onScoreRecordedListeners.forEach((callback: () => void): void => callback());
-  }
+      scores.push({
+        score: entry.score,
+        timestamp: entry.timestamp,
+      });
 
-  private _notifyHighscoreUpdated(scenarioName?: string): void {
-    this._onHighscoreUpdatedListeners.forEach((callback: (scenarioName?: string) => void): void => callback(scenarioName));
+      cursor.continue();
+    } else {
+      resolve(scores);
+    }
   }
 
   /**
-   * Deletes all scores and highscores for a specific player.
+   * Retrieves the timestamp of the last time statistics were ingested.
    *
-   * @param playerId - The player's ID (username).
+   * @returns A promise resolving to the last check timestamp.
    */
-  public async deletePlayerData(playerId: string): Promise<void> {
-    await this._getDb();
-    await Promise.all([
-      this._deleteFromStore("Highscores", playerId),
-      this._deleteFromStore("Scores", playerId)
-    ]);
+  public async getLastCheckTimestamp(): Promise<number> {
+    const database: IDBDatabase = await this._getDatabase();
+
+    return new Promise(
+      (
+        resolve: (value: number) => void,
+        reject: (reason: unknown) => void,
+      ): void => {
+        const transaction: IDBTransaction = database.transaction(
+          this._metadataStoreName,
+          "readonly",
+        );
+
+        const store = transaction.objectStore(this._metadataStoreName);
+
+        const request: IDBRequest = store.get("lastCheck");
+
+        request.onsuccess = (): void => resolve(request.result || 0);
+
+        request.onerror = (): void => reject(request.error);
+      },
+    );
   }
 
-  private async _deleteFromStore(storeName: string, playerId: string): Promise<void> {
-    const database = await this._getDb();
+  /**
+   * Persists the timestamp of the most recent statistics ingestion check.
+   *
+   * @param timestamp - The timestamp to record.
+   */
+  public async setLastCheckTimestamp(timestamp: number): Promise<void> {
+    const database: IDBDatabase = await this._getDatabase();
 
-    return new Promise<void>((resolve, reject) => {
-      const transaction: IDBTransaction = database.transaction(storeName, "readwrite");
-      const store: IDBObjectStore = transaction.objectStore(storeName);
-      const index: IDBIndex = store.index("playerId");
-      const request: IDBRequest<IDBCursorWithValue | null> = index.openCursor(IDBKeyRange.only(playerId));
+    return new Promise(
+      (resolve: () => void, reject: (reason: unknown) => void): void => {
+        const transaction: IDBTransaction = database.transaction(
+          this._metadataStoreName,
+          "readwrite",
+        );
 
-      request.onsuccess = (event: Event): void => {
-        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-        if (cursor) {
-          cursor.delete();
-          cursor.continue();
-        }
-      };
+        const store = transaction.objectStore(this._metadataStoreName);
 
-      transaction.oncomplete = (): void => resolve();
-      transaction.onerror = (): void => reject(transaction.error);
-    });
+        const request: IDBRequest = store.put(timestamp, "lastCheck");
+
+        request.onsuccess = (): void => resolve();
+
+        request.onerror = (): void => reject(request.error);
+      },
+    );
   }
 }
