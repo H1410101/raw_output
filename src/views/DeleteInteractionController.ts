@@ -82,8 +82,7 @@ export class DeleteInteractionController {
 
     private readonly _complete = (): void => {
         this._reset();
-        const isActive = this._btn.closest(".pfp-item")?.classList.contains("active");
-        this._audioService.playHeavy(isActive ? 1.0 : 0.7);
+        this._audioService.playHeavy(0.4);
         this._identityService.removeProfile(this._username);
     };
 

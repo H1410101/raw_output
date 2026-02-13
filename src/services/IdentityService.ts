@@ -225,9 +225,26 @@ export class IdentityService {
      * @param profile
      */
     public addProfile(profile: PlayerProfile): void {
-        const exists = this._profiles.some(profile => profile.username === profile.username);
-        if (exists) {
+        const existingIndex = this._profiles.findIndex(prof => prof.username.toLowerCase() === profile.username.toLowerCase());
+
+        if (existingIndex !== -1) {
+            // Re-activate and undelete if necessary
+            const existing = this._profiles[existingIndex];
+            let changed = false;
+
+            if (existing.deletedAt) {
+                const rest = { ...existing };
+                delete rest.deletedAt;
+                this._profiles[existingIndex] = rest;
+                changed = true;
+            }
+
             this.setActiveProfile(profile.username);
+
+            if (changed) {
+                this._persistState();
+                this._notifyProfilesChanged();
+            }
 
             return;
         }
