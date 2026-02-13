@@ -1,16 +1,26 @@
 import { IdentityService } from "../services/IdentityService";
+import { AudioService } from "../services/AudioService";
 import { KovaaksApiService } from "../services/KovaaksApiService";
 import { PlayerProfile } from "../types/PlayerTypes";
 import { KovaaksUserSearchResult } from "../types/KovaaksApiTypes";
+import { DeleteInteractionController } from "./DeleteInteractionController";
 
 /**
  * Responsibility: Manage the Account Selection screen, including user carousel and search.
  */
+export interface AccountSelectionViewDependencies {
+    identityService: IdentityService;
+    kovaaksApiService: KovaaksApiService;
+    audioService: AudioService;
+    onProfileSelected: (profile: PlayerProfile) => void;
+}
+
+/**
+ *
+ */
 export class AccountSelectionView {
     private readonly _container: HTMLElement;
-    private readonly _identityService: IdentityService;
-    private readonly _kovaaksApiService: KovaaksApiService;
-    private readonly _onProfileSelected: (profile: PlayerProfile) => void;
+    private readonly _deps: AccountSelectionViewDependencies;
 
     private _searchTimeout: number | null = null;
     private _lastActiveUsername: string | null = null;
@@ -24,20 +34,14 @@ export class AccountSelectionView {
      * Initializes the account selection view.
      * 
      * @param container - The element to mount the view in.
-     * @param identityService - Service for managing player profiles.
-     * @param kovaaksApiService - Service for searching Kovaaks accounts.
-     * @param onProfileSelected - Callback for when a profile is selected.
+     * @param deps - Service dependencies.
      */
     public constructor(
         container: HTMLElement,
-        identityService: IdentityService,
-        kovaaksApiService: KovaaksApiService,
-        onProfileSelected: (profile: PlayerProfile) => void
+        deps: AccountSelectionViewDependencies
     ) {
         this._container = container;
-        this._identityService = identityService;
-        this._kovaaksApiService = kovaaksApiService;
-        this._onProfileSelected = onProfileSelected;
+        this._deps = deps;
 
         this._renderBaseStructure();
         this._setupListeners();
@@ -107,16 +111,16 @@ export class AccountSelectionView {
             }
         });
 
-        this._identityService.onProfilesChanged(() => this.refresh());
+        this._deps.identityService.onProfilesChanged(() => this.refresh());
     }
 
     private _setupCarouselWheel(stage: HTMLElement): void {
         stage.addEventListener("wheel", (event: WheelEvent): void => {
             event.preventDefault();
-            const profiles = this._identityService.getProfiles();
+            const profiles = this._deps.identityService.getProfiles();
             if (profiles.length < 2) return;
 
-            const active = this._identityService.getActiveProfile();
+            const active = this._deps.identityService.getActiveProfile();
             const currentIndex = active ? profiles.findIndex(profile => profile.username === active.username) : 0;
 
             const delta = event.deltaY > 0 ? 1 : -1;
@@ -126,15 +130,15 @@ export class AccountSelectionView {
             if (nextIndex < 0) nextIndex = profiles.length - 1;
             if (nextIndex >= profiles.length) nextIndex = 0;
 
-            this._identityService.setActiveProfile(profiles[nextIndex].username);
+            this._deps.identityService.setActiveProfile(profiles[nextIndex].username);
         }, { passive: false });
     }
 
     private _renderCarousel(): void {
         const track = this._container.querySelector("#carousel-track") as HTMLElement;
         const nameStage = this._container.querySelector("#name-stage") as HTMLElement;
-        const profiles = this._identityService.getProfiles();
-        const activeProfile = this._identityService.getActiveProfile();
+        const profiles = this._deps.identityService.getProfiles();
+        const activeProfile = this._deps.identityService.getActiveProfile();
 
         if (profiles.length === 0) {
             track.innerHTML = `<p class="text-dim">Search to add your Kovaaks profile</p>`;
@@ -311,12 +315,32 @@ export class AccountSelectionView {
         const { profile, unit, activeIndex, indexShift, profiles } = options;
         const node = document.createElement("div");
         node.className = "pfp-item";
-        node.innerHTML = `<img src="${profile.pfpUrl}" alt="${profile.username}" class="carousel-pfp">`;
+
+        node.innerHTML = `
+            <img src="${profile.pfpUrl}" alt="${profile.username}" class="carousel-pfp">
+            <div class="pfp-delete-btn">
+                <div class="button-fill"></div>
+                <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </div>
+        `;
+
         const startUnits = unit - indexShift;
         node.setAttribute("data-units", startUnits.toString());
         this._applyPfpNodeStyles(node, startUnits, activeIndex, profiles);
 
+        const deleteBtn = node.querySelector(".pfp-delete-btn") as HTMLElement;
+        this._setupDeleteInteraction(deleteBtn, profile.username);
+
         return node;
+    }
+
+    private _setupDeleteInteraction(btn: HTMLElement, username: string): void {
+        new DeleteInteractionController(
+            this._deps.audioService,
+            this._deps.identityService,
+            btn,
+            username
+        );
     }
 
     private _pruneOffScreenNodes(track: HTMLElement, totalProfiles: number): void {
@@ -349,8 +373,11 @@ export class AccountSelectionView {
         node.style.opacity = isActive ? "1" : "0.4";
 
         node.onclick = (): void => {
-            this._pendingIndexDelta = Math.round(unit);
-            this._identityService.setActiveProfile(profileUsername);
+            if (!this._container.querySelector(".pfp-delete-btn.holding")) {
+                this._deps.audioService.playHeavy(0.4);
+                this._pendingIndexDelta = Math.round(unit);
+                this._deps.identityService.setActiveProfile(profileUsername);
+            }
         };
     }
 
@@ -455,7 +482,7 @@ export class AccountSelectionView {
     private async _performSearch(query: string): Promise<void> {
         const resultsContainer = this._container.querySelector("#search-results") as HTMLElement;
         try {
-            const results = await this._kovaaksApiService.searchUsers(query);
+            const results = await this._deps.kovaaksApiService.searchUsers(query);
             this._renderSearchResults(results);
             resultsContainer.classList.add("active");
         } catch (err: unknown) {
@@ -488,13 +515,14 @@ export class AccountSelectionView {
             </div>
         `;
         item.addEventListener("click", () => {
+            this._deps.audioService.playHeavy(0.4);
             const profile: PlayerProfile = {
                 username: user.username,
                 pfpUrl: user.steamAccountAvatar,
                 steamId: user.steamId
             };
-            this._identityService.addProfile(profile);
-            this._onProfileSelected(profile);
+            this._deps.identityService.addProfile(profile);
+            this._deps.onProfileSelected(profile);
             const searchInput = this._container.querySelector("#account-search-input") as HTMLInputElement;
             if (searchInput) searchInput.value = "";
             const resultsContainer = this._container.querySelector("#search-results") as HTMLElement;

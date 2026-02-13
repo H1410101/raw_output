@@ -1,4 +1,5 @@
 import { PlayerProfile } from "../types/PlayerTypes";
+import { HistoryService } from "./HistoryService";
 
 /**
  * Service responsible for managing user identity and privacy preferences.
@@ -210,8 +211,13 @@ export class IdentityService {
      * 
      * @returns The list of profiles.
      */
+    /**
+     * Returns the list of all registered player profiles, excluding soft-deleted ones.
+     * 
+     * @returns The list of profiles.
+     */
     public getProfiles(): PlayerProfile[] {
-        return [...this._profiles];
+        return this._profiles.filter(profile => !profile.deletedAt);
     }
 
     /**
@@ -251,15 +257,63 @@ export class IdentityService {
      * Removes a player profile.
      * @param username
      */
+    /**
+     * Soft-deletes a player profile.
+     * @param username
+     */
     public removeProfile(username: string): void {
-        this._profiles = this._profiles.filter(profile => profile.username !== username);
+        const profileIndex = this._profiles.findIndex(profile => profile.username === username);
+        if (profileIndex === -1) return;
+
+        // Perform soft delete
+        const updatedProfile = { ...this._profiles[profileIndex], deletedAt: new Date().toISOString() };
+        this._profiles[profileIndex] = updatedProfile;
 
         if (this._activeUsername === username) {
-            this._activeUsername = this._profiles.length > 0 ? this._profiles[0].username : null;
+            const remainingProfiles = this.getProfiles();
+            this._activeUsername = remainingProfiles.length > 0 ? remainingProfiles[0].username : null;
         }
 
         this._persistState();
         this._notifyProfilesChanged();
+    }
+
+    /**
+     * Permanently removes profiles that have been soft-deleted for more than 30 days.
+     * @param historyService
+     */
+    public async performRetentionCleanup(historyService: HistoryService): Promise<void> {
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+        const profilesToDelete: PlayerProfile[] = [];
+
+        this._profiles = this._profiles.filter(profile => {
+            if (profile.deletedAt) {
+                const deletedDate = new Date(profile.deletedAt);
+                if (deletedDate < thirtyDaysAgo) {
+                    profilesToDelete.push(profile);
+
+                    // Remove from local state
+                    return false;
+                }
+            }
+
+            // Keep in local state
+            return true;
+        });
+
+        if (profilesToDelete.length > 0) {
+            this._persistState();
+            // We don't necessarily need to notify profiles changed if these were already hidden, 
+            // but it's safer to do so in case UI was holding onto stale data? 
+            // Actually, hidden profiles wouldn't be shown anyway. 
+            // But let's verify if `activeUsername` needs update? 
+            // Soft deleted profiles shouldn't be active.
+
+            for (const profile of profilesToDelete) {
+                await historyService.deletePlayerData(profile.username);
+            }
+        }
     }
 
     /**

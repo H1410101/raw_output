@@ -169,6 +169,9 @@ export class AppBootstrap {
 
     this._setupGlobalInteractions();
     this._checkAnalyticsPrompt();
+
+    // Perform cleanup of old profiles without awaiting to not block startup
+    this._identityService.performRetentionCleanup(this._historyService).catch(console.error);
   }
 
   private _checkDeviceCompatibility(): void {
@@ -257,17 +260,20 @@ export class AppBootstrap {
   private _createAccountSelectionView(): AccountSelectionView {
     return new AccountSelectionView(
       this._getRequiredElement("view-account-selection"),
-      this._identityService,
-      this._kovaaksApiService,
-      (profile) => {
-        this._identityService.setActiveProfile(profile.username);
-        // After selecting, return to previous or benchmarks
-        const activeTab = this._appStateService.getActiveTabId();
-        if (activeTab === "nav-ranked") {
-          // Use restore logic
-          this._navigationController.initialize();
-        } else {
-          this._navigationController.initialize();
+      {
+        identityService: this._identityService,
+        kovaaksApiService: this._kovaaksApiService,
+        audioService: this._audioService,
+        onProfileSelected: (profile): void => {
+          this._identityService.setActiveProfile(profile.username);
+          // After selecting, return to previous or benchmarks
+          const activeTab = this._appStateService.getActiveTabId();
+          if (activeTab === "nav-ranked") {
+            // Use restore logic
+            this._navigationController.initialize();
+          } else {
+            this._navigationController.initialize();
+          }
         }
       }
     );

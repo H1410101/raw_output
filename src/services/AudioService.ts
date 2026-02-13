@@ -41,10 +41,10 @@ export class AudioService {
         this._visualSettingsService.subscribe((settings): void => {
             this._masterVolume = settings.audioVolume / 100;
             if (this._masterGain && this._audioContext) {
-                this._masterGain.gain.setTargetAtTime(
+                this._masterGain.gain.cancelScheduledValues(this._audioContext.currentTime);
+                this._masterGain.gain.setValueAtTime(
                     this._masterVolume,
-                    this._audioContext.currentTime,
-                    0.05
+                    this._audioContext.currentTime
                 );
             }
         });

@@ -393,4 +393,39 @@ export class HistoryService {
   private _notifyHighscoreUpdated(scenarioName?: string): void {
     this._onHighscoreUpdatedListeners.forEach((callback: (scenarioName?: string) => void): void => callback(scenarioName));
   }
+
+  /**
+   * Deletes all scores and highscores for a specific player.
+   *
+   * @param playerId - The player's ID (username).
+   */
+  public async deletePlayerData(playerId: string): Promise<void> {
+    await this._getDb();
+    await Promise.all([
+      this._deleteFromStore("Highscores", playerId),
+      this._deleteFromStore("Scores", playerId)
+    ]);
+  }
+
+  private async _deleteFromStore(storeName: string, playerId: string): Promise<void> {
+    const database = await this._getDb();
+
+    return new Promise<void>((resolve, reject) => {
+      const transaction: IDBTransaction = database.transaction(storeName, "readwrite");
+      const store: IDBObjectStore = transaction.objectStore(storeName);
+      const index: IDBIndex = store.index("playerId");
+      const request: IDBRequest<IDBCursorWithValue | null> = index.openCursor(IDBKeyRange.only(playerId));
+
+      request.onsuccess = (event: Event): void => {
+        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        }
+      };
+
+      transaction.oncomplete = (): void => resolve();
+      transaction.onerror = (): void => reject(transaction.error);
+    });
+  }
 }

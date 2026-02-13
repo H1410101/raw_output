@@ -8,6 +8,8 @@ export interface PlayerProfile {
     readonly pfpUrl: string;
     /** The player's Steam ID. */
     readonly steamId: string;
+    /** The date when the profile was soft-deleted. */
+    readonly deletedAt?: string;
 }
 
 /**
