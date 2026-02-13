@@ -3,6 +3,7 @@ import { BenchmarkView } from "./BenchmarkView";
 import { RankedView } from "./RankedView";
 import { RankedSessionService } from "../services/RankedSessionService";
 import { FocusManagementService } from "../services/FocusManagementService";
+import { IdentityService } from "../services/IdentityService";
 
 /**
  * Interface for navigation trigger elements.
@@ -22,8 +23,8 @@ export interface ViewContainers {
   readonly benchmarksView: HTMLElement;
   /** Container for the Ranked view. */
   readonly rankedView: HTMLElement;
-  /** Container for the Folder view. */
-  readonly folderView: HTMLElement;
+  /** Container for the Account Selection view. */
+  readonly accountSelectionView: HTMLElement;
 }
 
 /**
@@ -38,16 +39,14 @@ export interface NavDependencies {
   readonly rankedSession: RankedSessionService;
   /** The ranked view component. */
   readonly rankedView: RankedView;
-  /** The folder view component. */
-  readonly folderView: import("./FolderView").FolderView;
   /** Service for managing the focused scenario. */
   readonly focusService: FocusManagementService;
+  /** Service for managing user identity. */
+  readonly identityService: IdentityService;
 }
 
 /**
  * Manages application-level navigation and view switching.
- *
- * Currently simplified to handle the Benchmarks view as the primary interface.
  */
 export class NavigationController {
   private readonly _navBenchmarks: HTMLButtonElement;
@@ -55,15 +54,15 @@ export class NavigationController {
 
   private readonly _viewBenchmarks: HTMLElement;
   private readonly _viewRanked: HTMLElement;
-  private readonly _viewFolder: HTMLElement;
+  private readonly _viewAccountSelection: HTMLElement;
 
   private readonly _benchmarkView: BenchmarkView;
-  private readonly _folderView: import("./FolderView").FolderView;
 
   private readonly _appStateService: AppStateService;
   private readonly _rankedSession: RankedSessionService;
   private readonly _rankedView: RankedView;
   private readonly _focusService: FocusManagementService;
+  private readonly _identityService: IdentityService;
 
   /**
    * Initializes the controller with grouped navigation elements and dependencies.
@@ -82,21 +81,17 @@ export class NavigationController {
 
     this._viewBenchmarks = views.benchmarksView;
     this._viewRanked = views.rankedView;
-    this._viewFolder = views.folderView;
+    this._viewAccountSelection = views.accountSelectionView;
 
     this._benchmarkView = dependencies.benchmarkView;
-    this._folderView = dependencies.folderView;
 
     this._appStateService = dependencies.appStateService;
     this._rankedSession = dependencies.rankedSession;
     this._rankedView = dependencies.rankedView;
     this._focusService = dependencies.focusService;
+    this._identityService = dependencies.identityService;
 
     this._rankedSession.onStateChanged((): void => {
-      this._updateButtonStates();
-    });
-
-    this._appStateService.onFolderValidityChanged((): void => {
       this._updateButtonStates();
     });
   }
@@ -121,9 +116,9 @@ export class NavigationController {
   }
 
   private _restoreInitialTab(): void {
-    const isFolderOpen = this._appStateService.getIsFolderViewOpen();
-    if (isFolderOpen) {
-      this._updateVisibleView(this._viewFolder);
+    const hasLinkedAccount = this._identityService.hasLinkedAccount();
+    if (!hasLinkedAccount) {
+      this._updateVisibleView(this._viewAccountSelection);
 
       return;
     }
@@ -138,15 +133,17 @@ export class NavigationController {
   }
 
   private async _switchToBenchmarks(): Promise<void> {
-    if (!this._appStateService.getIsFolderValid()) {
+    const hasLinkedAccount = this._identityService.hasLinkedAccount();
+
+    if (!hasLinkedAccount) {
+      this._updateVisibleView(this._viewAccountSelection);
+
       return;
     }
 
     const isAlreadyActive: boolean =
-      this._appStateService.getActiveTabId() === "nav-benchmarks" &&
-      !this._appStateService.getIsFolderViewOpen();
+      this._appStateService.getActiveTabId() === "nav-benchmarks";
 
-    this._appStateService.setIsFolderViewOpen(false);
     this._appStateService.setActiveTabId("nav-benchmarks");
     this._updateButtonStates();
 
@@ -167,11 +164,14 @@ export class NavigationController {
   }
 
   private async _switchToRanked(): Promise<void> {
-    if (!this._appStateService.getIsFolderValid()) {
+    const hasLinkedAccount = this._identityService.hasLinkedAccount();
+
+    if (!hasLinkedAccount) {
+      this._updateVisibleView(this._viewAccountSelection);
+
       return;
     }
 
-    this._appStateService.setIsFolderViewOpen(false);
     this._appStateService.setActiveTabId("nav-ranked");
     this._updateButtonStates();
 
@@ -180,86 +180,40 @@ export class NavigationController {
   }
 
   /**
-   * Toggles the visibility of the folder view.
+   * Switches to the account selection view.
    */
-  public async toggleFolderView(): Promise<void> {
-    const isCurrentlyOpen: boolean = this._appStateService.getIsFolderViewOpen();
-
-    if (isCurrentlyOpen) {
-      const activeTabId = this._appStateService.getActiveTabId();
-      if (activeTabId === "nav-ranked") {
-        await this._switchToRanked();
-      } else {
-        await this._switchToBenchmarks();
-      }
-    } else {
-      await this._switchToFolder();
-    }
-  }
-
-  /**
-   * Attempts to exit the folder view if conditions for returning are met.
-   *
-   * @returns A promise that resolves to true if the folder view was exited.
-   */
-  public async tryExitFolderView(): Promise<boolean> {
-    if (!this._appStateService.getIsFolderViewOpen()) {
-      return false;
-    }
-
-    const isStatsFolder: boolean =
-      await this._folderView.isFolderValidAndPopulated();
-
-    if (isStatsFolder) {
-      await this.toggleFolderView();
-
-      return true;
-    }
-
-    return false;
-  }
-
-  private async _switchToFolder(): Promise<void> {
-    this._appStateService.setIsFolderViewOpen(true);
-    await this._folderView.render();
-    this._updateVisibleView(this._viewFolder);
+  public switchToAccountSelection(): void {
+    this._updateVisibleView(this._viewAccountSelection);
   }
 
   private _updateVisibleView(visibleView: HTMLElement): void {
     this._viewBenchmarks.classList.add("hidden-view");
     this._viewRanked.classList.add("hidden-view");
-    this._viewFolder.classList.add("hidden-view");
+    this._viewAccountSelection.classList.add("hidden-view");
 
     visibleView.classList.remove("hidden-view");
 
     const isRanked = visibleView === this._viewRanked;
-    const isFolder = visibleView === this._viewFolder;
-
     document.body.classList.toggle("on-ranked-view", isRanked);
-
-    const folderBtn: HTMLElement | null = document.getElementById("header-folder-btn");
-    if (folderBtn) {
-      folderBtn.classList.toggle("active", isFolder);
-    }
 
     this._updateButtonStates();
   }
 
   private _updateButtonStates(): void {
     const activeTabId = this._appStateService.getActiveTabId();
-    const isFolderOpen = this._appStateService.getIsFolderViewOpen();
-    const isFolderValid = this._appStateService.getIsFolderValid();
+    const hasLinkedAccount = this._identityService.hasLinkedAccount();
+    const isAccountSelectionVisible = !this._viewAccountSelection.classList.contains("hidden-view");
 
     this._navBenchmarks.classList.toggle(
       "active",
-      !isFolderOpen && activeTabId === "nav-benchmarks",
+      !isAccountSelectionVisible && activeTabId === "nav-benchmarks",
     );
     this._navRanked.classList.toggle(
       "active",
-      !isFolderOpen && activeTabId === "nav-ranked",
+      !isAccountSelectionVisible && activeTabId === "nav-ranked",
     );
 
-    const isInactive = isFolderOpen && !isFolderValid;
+    const isInactive = !hasLinkedAccount;
 
     this._navBenchmarks.classList.toggle("inactive", isInactive);
     this._navRanked.classList.toggle("inactive", isInactive);

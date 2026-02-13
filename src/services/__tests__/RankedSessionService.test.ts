@@ -180,7 +180,11 @@ function _createMocks(): MockSet {
             getRankedScenarioBest: vi.fn().mockReturnValue({}),
             setRankedPlaylist: vi.fn(),
         } as unknown as SessionService,
-        estimator: { getScenarioEstimate: vi.fn(), recordPlay: vi.fn() } as unknown as RankEstimator,
+        estimator: {
+            getScenarioEstimate: vi.fn(),
+            recordPlay: vi.fn(),
+            applyPenaltyLift: vi.fn()
+        } as unknown as RankEstimator,
         settings: {
             getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
         } as unknown as SessionSettingsService

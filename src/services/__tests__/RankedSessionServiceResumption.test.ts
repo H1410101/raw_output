@@ -43,6 +43,7 @@ function _createResumptionMocks(): MockSet {
         estimator: {
             getScenarioEstimate: vi.fn(),
             recordPlay: vi.fn(),
+            applyPenaltyLift: vi.fn(),
             getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
             evolveScenarioEstimate: vi.fn(),
         } as unknown as RankEstimator,

@@ -13,6 +13,7 @@ import { BenchmarkService } from "../../services/BenchmarkService";
 import { AudioService } from "../../services/AudioService";
 import { CloudflareService } from "../../services/CloudflareService";
 import { IdentityService } from "../../services/IdentityService";
+import { KovaaksApiService } from "../../services/KovaaksApiService";
 import { SettingsSectionRenderer } from "./SettingsSectionRenderer";
 import { BenchmarkScrollController } from "./BenchmarkScrollController";
 import { RankEstimator } from "../../services/RankEstimator";
@@ -31,6 +32,7 @@ export interface BenchmarkSettingsDependencies {
   readonly identityService: IdentityService;
   readonly rankEstimator: RankEstimator;
   readonly cosmeticOverride: CosmeticOverrideService;
+  readonly kovaaksApiService: KovaaksApiService;
 }
 
 /**
@@ -57,12 +59,14 @@ export class BenchmarkSettingsController {
     this._focusService = dependencies.focusService;
     this._benchmarkService = dependencies.benchmarkService;
     this._audioService = dependencies.audioService;
-    this._sectionRenderer = new SettingsSectionRenderer(
-      dependencies.visualSettingsService,
-      dependencies.sessionSettingsService,
-      dependencies.cloudflareService,
-      dependencies.identityService,
-    );
+    this._sectionRenderer = new SettingsSectionRenderer({
+      visualSettingsService: dependencies.visualSettingsService,
+      sessionSettingsService: dependencies.sessionSettingsService,
+      cloudflareService: dependencies.cloudflareService,
+      identityService: dependencies.identityService,
+      kovaaksApiService: dependencies.kovaaksApiService,
+      audioService: dependencies.audioService,
+    });
 
     this._currentVisualSettings = this._visualSettingsService.getSettings();
 
@@ -189,6 +193,13 @@ export class BenchmarkSettingsController {
       card,
       this._currentVisualSettings,
     );
+
+    this._sectionRenderer.appendKovaaksSection(card, () => {
+      // Refresh menu to show new account
+      this.openSettingsMenu();
+    });
+
+    this._sectionRenderer.appendPollingSection(card);
 
     this._sectionRenderer.appendCloudflareSection(card);
   }

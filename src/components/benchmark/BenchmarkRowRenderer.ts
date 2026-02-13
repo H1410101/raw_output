@@ -20,6 +20,7 @@ export interface BenchmarkRowDependencies {
   readonly visualSettings: VisualSettings;
   readonly rankEstimator: RankEstimator;
   readonly cosmeticOverride: CosmeticOverrideService;
+  readonly onScenarioLaunch?: (scenarioName: string) => void;
 }
 
 /**
@@ -44,6 +45,7 @@ export class BenchmarkRowRenderer {
     loadId: number;
   }[] = [];
   private _isProcessingBackground: boolean = false;
+  private readonly _onScenarioLaunch?: (scenarioName: string) => void;
   private static readonly _maxDotCloudBudget: number = 100;
 
   /**
@@ -59,6 +61,7 @@ export class BenchmarkRowRenderer {
     this._visualSettings = dependencies.visualSettings;
     this._rankEstimator = dependencies.rankEstimator;
     this._cosmeticOverrideService = dependencies.cosmeticOverride;
+    this._onScenarioLaunch = dependencies.onScenarioLaunch;
   }
 
   /**
@@ -919,6 +922,10 @@ export class BenchmarkRowRenderer {
 
     this._audioService.playHeavy(1.0);
     this._launchKovaksScenario(state.scenarioName);
+
+    if (this._onScenarioLaunch) {
+      this._onScenarioLaunch(state.scenarioName);
+    }
 
     window.setTimeout((): void => {
       this._resetAfterLaunch(state);

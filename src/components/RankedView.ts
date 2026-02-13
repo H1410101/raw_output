@@ -403,6 +403,7 @@ export class RankedView {
   }
 
   private _handleSessionUpdate(): void {
+
     this.refresh();
   }
 
@@ -649,14 +650,14 @@ export class RankedView {
 
       const attemptsCount = allRuns.filter(run => run.scenarioName === scenarioName).length;
 
-      if (attemptsCount > 0 || state.status === "SUMMARY") {
+      if (attemptsCount > 0) {
         results.push({
           name: scenarioName,
           oldRU,
           newRU,
           gain: Math.max(0, Math.round((newRU - oldRU) * 100)),
           time: state.accumulatedScenarioSeconds[scenarioName] ?? 0,
-          attempts: Math.max(attemptsCount, 1)
+          attempts: attemptsCount
         });
       }
     }
@@ -837,11 +838,16 @@ export class RankedView {
 
     const rankedRuns = this._deps.session.getAllRankedSessionRuns();
     const scenarioRuns = rankedRuns.filter(run => run.scenarioName === scenarioName);
+
     const attempts = scenarioRuns.map(run => ({
       score: run.score,
       timestamp: run.timestamp,
       rankUnit: this._deps.estimator.getScenarioContinuousValue(run.score, scenario)
     }));
+
+    if (attempts.length > 0) {
+
+    }
 
     let achievedRU = undefined;
 

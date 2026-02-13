@@ -153,6 +153,7 @@ export class SessionService {
       timestamp: Date;
     }[],
   ): void {
+
     const updatedScenarioNames: string[] = [];
 
     runs.forEach((run): void => {
@@ -165,6 +166,7 @@ export class SessionService {
 
     this._saveToLocalStorage();
     this._notifySessionUpdate(uniqueUpdatedNames);
+
   }
 
   private _processSingleRun(
@@ -221,11 +223,15 @@ export class SessionService {
   ): void {
     const isExplicitlyInPlaylist = !this._rankedPlaylist || this._rankedPlaylist.has(run.scenarioName);
 
+    // Add a 60s grace period for timestamps to account for clock drift or API sync delays
+    const rankedGracePeriod = 60 * 1000;
+    const isWithinRankedWindow = this._rankedStartTime !== null && runTimestamp >= (this._rankedStartTime - rankedGracePeriod);
+
     if (
-      this._rankedStartTime !== null &&
-      runTimestamp >= this._rankedStartTime &&
+      isWithinRankedWindow &&
       isExplicitlyInPlaylist
     ) {
+
       this._processRankedRunData(run);
 
       this._rankedAllRuns.push({
@@ -233,6 +239,10 @@ export class SessionService {
         score: run.score,
         timestamp: runTimestamp,
       });
+    } else if (this._isRanked) {
+      // Diagnostic for missing scores
+      const reason = !isWithinRankedWindow ? `timestamp outside window (Start: ${this._rankedStartTime}, Run: ${runTimestamp})` : "not in playlist";
+      console.warn(`[Session] Pathway Trace: Run for ${run.scenarioName} (${run.score}) REJECTED from ranked track: ${reason}`);
     }
   }
 
@@ -316,6 +326,15 @@ export class SessionService {
     this._isRanked = false;
     this._rankedPlaylist = null;
     this._saveToLocalStorage();
+  }
+
+  /**
+   * Returns the set of scenario names in the current ranked playlist, or null if no playlist restriction.
+   * 
+   * @returns The ranked playlist set or null.
+   */
+  public getRankedPlaylist(): Set<string> | null {
+    return this._rankedPlaylist;
   }
 
   /**

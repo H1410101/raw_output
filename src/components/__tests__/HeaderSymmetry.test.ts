@@ -25,7 +25,7 @@ describe("Header Symmetry Test", () => {
         const diffWidth = difficultyDiv.getBoundingClientRect().width;
         const rankWidth = rankDiv.getBoundingClientRect().width;
 
-        console.log(`Diff: ${diffWidth}, Rank: ${rankWidth}`);
+
 
         expect(diffWidth).toBeGreaterThan(0);
         expect(rankWidth).toBeGreaterThan(0);

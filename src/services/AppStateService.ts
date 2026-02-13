@@ -128,56 +128,7 @@ export class AppStateService {
   }
 
   /**
-   * Retrieves whether the folder settings view should be open.
-   *
-   * @returns True if the folder view is open.
-   */
-  public getIsFolderViewOpen(): boolean {
-    return this._state.isFolderViewOpen;
-  }
-
-  /**
-   * Persists the open state of the folder settings view.
-   *
-   * @param isOpen - The new visibility state.
-   */
-  public setIsFolderViewOpen(isOpen: boolean): void {
-    this._state.isFolderViewOpen = isOpen;
-
-    this._saveToStorage();
-  }
-
-  private readonly _folderValidityListeners: (() => void)[] = [];
-
-  /**
-   * Retrieves whether the currently selected folder is valid.
-   *
-   * @returns True if the folder is valid.
-   */
-  public getIsFolderValid(): boolean {
-    return this._state.isFolderValid;
-  }
-
-  /**
-   * Updates the folder validity state and notifies listeners.
-   *
-   * @param isValid - The new validity state.
-   */
-  public setIsFolderValid(isValid: boolean): void {
-    if (this._state.isFolderValid === isValid) {
-      return;
-    }
-
-    this._state.isFolderValid = isValid;
-
-    this._saveToStorage();
-    this._notifyFolderValidityListeners();
-  }
-
-  /**
-   * Subscribes to changes in folder validity.
-   *
-   * @param callback - The function to call when validity changes.
+   * @param callback
    */
   public onFolderValidityChanged(callback: () => void): void {
     this._folderValidityListeners.push(callback);

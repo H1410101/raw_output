@@ -9,8 +9,8 @@ import { SessionService } from "../../services/SessionService";
 import { HistoryService } from "../../services/HistoryService";
 import { VisualSettingsService, VisualSettings } from "../../services/VisualSettingsService";
 import { SessionSettingsService } from "../../services/SessionSettingsService";
-import { DirectoryAccessService } from "../../services/DirectoryAccessService";
 import { RankedSessionService } from "../../services/RankedSessionService";
+import { KovaaksApiService } from "../../services/KovaaksApiService";
 import { BenchmarkService } from "../../services/BenchmarkService";
 import { FocusManagementService } from "../../services/FocusManagementService";
 import { AudioService } from "../../services/AudioService";
@@ -60,6 +60,8 @@ export class MockServiceFactory {
             getEstimateForValue: vi.fn().mockReturnValue({ rankName: "Silver", progressToNext: 50, continuousValue: 1.5 }),
             getScenarioContinuousValue: vi.fn().mockReturnValue(1.5),
             applyDailyDecay: vi.fn(),
+            applyPenaltyLift: vi.fn(),
+            recordPlay: vi.fn(),
             onEstimateUpdated: vi.fn(),
             evolveScenarioEstimate: vi.fn(),
             ...overrides
@@ -118,9 +120,9 @@ export class MockServiceFactory {
     private static _createInfrastructureServices(overrides: Record<string, unknown>): Partial<BenchmarkViewServices> {
         return {
             audio: { playLight: vi.fn(), playHeavy: vi.fn(), ...(overrides.audio as Record<string, unknown>) } as unknown as AudioService,
-            directory: this._createDirectoryService(overrides.directory as Record<string, unknown>),
+            kovaaksApi: this._createKovaaksApiService(overrides.kovaaksApi as Record<string, unknown>),
             cloudflare: { ...(overrides.cloudflare as Record<string, unknown>) } as unknown as CloudflareService,
-            identity: { getDeviceId: vi.fn(), isAnalyticsEnabled: vi.fn(), ...(overrides.identity as Record<string, unknown>) } as unknown as IdentityService
+            identity: this._createIdentityService(overrides.identity as Record<string, unknown>)
         };
     }
 
@@ -221,13 +223,30 @@ export class MockServiceFactory {
     }
 
 
-    private static _createDirectoryService(overrides: Record<string, unknown> = {}): DirectoryAccessService {
+    private static _createKovaaksApiService(overrides: Record<string, unknown> = {}): KovaaksApiService {
         return {
-            currentFolderName: "test",
-            originalSelectionName: "test",
-            isStatsFolderSelected: vi.fn().mockReturnValue(true),
+            searchUsers: vi.fn().mockResolvedValue([]),
+            fetchScenarioLastScores: vi.fn().mockResolvedValue([]),
             ...overrides
-        } as unknown as DirectoryAccessService;
+        } as unknown as KovaaksApiService;
+    }
+
+
+    private static _createIdentityService(overrides: Record<string, unknown> = {}): IdentityService {
+        return {
+            getDeviceId: vi.fn().mockReturnValue("test-device-id"),
+            isAnalyticsEnabled: vi.fn().mockReturnValue(false),
+            hasLinkedAccount: vi.fn().mockReturnValue(true),
+            getActiveProfile: vi.fn().mockReturnValue({ username: "test", pfpUrl: "" }),
+            getProfiles: vi.fn().mockReturnValue([]),
+            addProfile: vi.fn(),
+            setActiveProfile: vi.fn(),
+            removeProfile: vi.fn(),
+            onProfilesChanged: vi.fn(),
+            canShowAnalyticsPrompt: vi.fn().mockReturnValue(false),
+            recordAnalyticsPrompt: vi.fn(),
+            ...overrides
+        } as unknown as IdentityService;
     }
 
 

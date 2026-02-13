@@ -24,6 +24,7 @@ import { AudioService } from "../services/AudioService";
 import { CloudflareService } from "../services/CloudflareService";
 import { IdentityService } from "../services/IdentityService";
 import { CosmeticOverrideService } from "../services/CosmeticOverrideService";
+import { KovaaksApiService } from "../services/KovaaksApiService";
 
 /**
  * Core services required by the BenchmarkView.
@@ -42,6 +43,8 @@ export interface BenchmarkViewServices {
   identity: IdentityService;
   rankEstimator: RankEstimator;
   cosmeticOverride: CosmeticOverrideService;
+  kovaaksApi: KovaaksApiService;
+  onScenarioLaunch?: (scenarioName: string) => void;
 }
 
 /**
@@ -72,6 +75,8 @@ export class BenchmarkView {
   private readonly _identityService: IdentityService;
   private readonly _rankEstimator: RankEstimator;
   private readonly _cosmeticOverrideService: CosmeticOverrideService;
+  private readonly _kovaaksApiService: KovaaksApiService;
+  private readonly _onScenarioLaunch?: (scenarioName: string) => void;
 
   private readonly _settingsController: BenchmarkSettingsController;
 
@@ -115,6 +120,8 @@ export class BenchmarkView {
     this._identityService = services.identity;
     this._rankEstimator = services.rankEstimator;
     this._cosmeticOverrideService = services.cosmeticOverride;
+    this._kovaaksApiService = services.kovaaksApi;
+    this._onScenarioLaunch = services.onScenarioLaunch;
 
     this._activeDifficulty = this._determineInitialDifficulty();
     this._settingsController = this._initSettingsController();
@@ -186,12 +193,16 @@ export class BenchmarkView {
   }
 
   private async _renderScenariosView(): Promise<void> {
+    const profile = this._identityService.getActiveProfile();
+    const playerId = profile?.username || "";
+
     const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
       this._activeDifficulty,
     );
 
     const highscores: Record<string, number> =
       await this._historyService.getBatchHighscores(
+        playerId,
         scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
       );
 
@@ -376,6 +387,7 @@ export class BenchmarkView {
       identityService: this._identityService,
       rankEstimator: this._rankEstimator,
       cosmeticOverride: this._cosmeticOverrideService,
+      kovaaksApiService: this._kovaaksApiService,
     });
   }
 
@@ -383,6 +395,9 @@ export class BenchmarkView {
     if (!this._tableComponent) {
       return;
     }
+
+    const profile = this._identityService.getActiveProfile();
+    const playerId = profile?.username || "";
 
     const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
       this._activeDifficulty,
@@ -394,8 +409,9 @@ export class BenchmarkView {
     );
 
     if (scenario) {
-      const highscore: number =
-        await this._historyService.getHighscore(scenarioName);
+      const highscoreRecord =
+        await this._historyService.getHighscore(playerId, scenarioName);
+      const highscore = highscoreRecord ? highscoreRecord.score : 0;
 
       this._tableComponent.updateScenarioRow(scenario, highscore);
     }
@@ -586,6 +602,7 @@ export class BenchmarkView {
       focusService: this._focusService,
       rankEstimator: this._rankEstimator,
       cosmeticOverride: this._cosmeticOverrideService,
+      onScenarioLaunch: this._onScenarioLaunch,
     });
 
     return this._tableComponent.render(scenarios, highscores, this._activeDifficulty);

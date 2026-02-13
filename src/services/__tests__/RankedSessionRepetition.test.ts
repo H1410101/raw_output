@@ -107,6 +107,7 @@ function _setupMocks(): MockSet {
         estimator: {
             getScenarioEstimate: vi.fn(),
             recordPlay: vi.fn(),
+            applyPenaltyLift: vi.fn(),
             getScenarioContinuousValue: vi.fn(),
             evolveScenarioEstimate: vi.fn()
         } as unknown as RankEstimator,

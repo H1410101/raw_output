@@ -1,15 +1,25 @@
+import { PlayerProfile } from "../types/PlayerTypes";
+
 /**
  * Service responsible for managing user identity and privacy preferences.
  * Generates and persists a unique, anonymous device ID and tracks analytics consent.
+ * Also manages multiple Kovaaks player profiles.
  */
 export class IdentityService {
     private static readonly _deviceIdKey: string = "raw_output_device_id";
     private static readonly _analyticsEnabledKey: string = "raw_output_analytics_consent";
     private static readonly _lastAnalyticsPromptKey: string = "raw_output_analytics_last_prompt";
+    private static readonly _playerProfilesKey: string = "raw_output_player_profiles";
+    private static readonly _activeUsernameKey: string = "raw_output_active_username";
 
     private _deviceId: string | null = null;
     private _isAnalyticsEnabled: boolean = false;
     private _lastAnalyticsPromptDate: Date | null = null;
+
+    private _profiles: PlayerProfile[] = [];
+    private _activeUsername: string | null = null;
+
+    private readonly _onProfilesChanged: (() => void)[] = [];
 
     /**
      * Initializes the identity and privacy settings from local storage.
@@ -17,6 +27,7 @@ export class IdentityService {
     public constructor() {
         this._loadAnalyticsConsentStatus();
         this._loadExistingIdentityState();
+        this._loadPlayerProfiles();
     }
 
     /**
@@ -163,5 +174,121 @@ export class IdentityService {
         if (!isNaN(parsedDate.getTime())) {
             this._lastAnalyticsPromptDate = parsedDate;
         }
+    }
+
+    /**
+     * Returns true if at least one Kovaaks profile is currently linked.
+     * 
+     * @returns True if profiles list is not empty.
+     */
+    public hasLinkedAccount(): boolean {
+        return this._profiles.length > 0;
+    }
+
+    /**
+     * Gets the currently active player profile.
+     * 
+     * @returns The active profile or null if none.
+     */
+    public getActiveProfile(): PlayerProfile | null {
+        if (!this._activeUsername) return null;
+
+        return this._profiles.find(profile => profile.username === this._activeUsername) || null;
+    }
+
+    /**
+     * Returns the list of all registered player profiles.
+     * 
+     * @returns The list of profiles.
+     */
+    public getProfiles(): PlayerProfile[] {
+        return [...this._profiles];
+    }
+
+    /**
+     * Adds a new player profile and makes it active.
+     * @param profile
+     */
+    public addProfile(profile: PlayerProfile): void {
+        const exists = this._profiles.some(profile => profile.username === profile.username);
+        if (exists) {
+            this.setActiveProfile(profile.username);
+
+            return;
+        }
+
+        this._profiles.push(profile);
+        this._activeUsername = profile.username;
+        this._persistState();
+        this._notifyProfilesChanged();
+    }
+
+    /**
+     * Sets the active player by username.
+     * @param username
+     */
+    public setActiveProfile(username: string): void {
+        if (this._activeUsername === username) return;
+
+        const profile = this._profiles.find(prof => prof.username === username);
+        if (profile) {
+            this._activeUsername = username;
+            this._persistState();
+            this._notifyProfilesChanged();
+        }
+    }
+
+    /**
+     * Removes a player profile.
+     * @param username
+     */
+    public removeProfile(username: string): void {
+        this._profiles = this._profiles.filter(profile => profile.username !== username);
+
+        if (this._activeUsername === username) {
+            this._activeUsername = this._profiles.length > 0 ? this._profiles[0].username : null;
+        }
+
+        this._persistState();
+        this._notifyProfilesChanged();
+    }
+
+    /**
+     * Subscribes to changes in player profiles or active user.
+     * @param callback
+     */
+    public onProfilesChanged(callback: () => void): void {
+        this._onProfilesChanged.push(callback);
+    }
+
+    private _loadPlayerProfiles(): void {
+        const storedProfiles = localStorage.getItem(IdentityService._playerProfilesKey);
+        if (storedProfiles) {
+            try {
+                this._profiles = JSON.parse(storedProfiles) as PlayerProfile[];
+            } catch {
+                this._profiles = [];
+            }
+        }
+
+        this._activeUsername = localStorage.getItem(IdentityService._activeUsernameKey);
+
+        // Ensure active user exists in profiles
+        if (this._activeUsername && !this._profiles.some(profile => profile.username === this._activeUsername)) {
+            this._activeUsername = this._profiles.length > 0 ? this._profiles[0].username : null;
+        }
+    }
+
+    private _persistState(): void {
+        localStorage.setItem(IdentityService._playerProfilesKey, JSON.stringify(this._profiles));
+        if (this._activeUsername) {
+            localStorage.setItem(IdentityService._activeUsernameKey, this._activeUsername);
+        } else {
+            localStorage.removeItem(IdentityService._activeUsernameKey);
+        }
+    }
+
+    private _notifyProfilesChanged(): void {
+        this._onProfilesChanged.forEach(callback => callback());
     }
 }

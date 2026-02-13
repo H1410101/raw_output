@@ -33,6 +33,7 @@ function createMocks(): MockServices {
         estimator: {
             getScenarioEstimate: vi.fn().mockReturnValue({ continuousValue: 1.0, highestAchieved: 1.0 }),
             recordPlay: vi.fn(),
+            applyPenaltyLift: vi.fn(),
             getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
             evolveScenarioEstimate: vi.fn(),
         } as unknown as RankEstimator,

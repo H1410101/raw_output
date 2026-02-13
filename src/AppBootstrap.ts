@@ -1,18 +1,14 @@
-import { DirectoryAccessService } from "./services/DirectoryAccessService";
-
-import { KovaaksCsvParsingService } from "./services/KovaaksCsvParsingService";
-import { DirectoryMonitoringService } from "./services/DirectoryMonitoringService";
 import { BenchmarkService } from "./services/BenchmarkService";
 import { BenchmarkView } from "./components/BenchmarkView";
-import { FolderView } from "./components/FolderView";
 import { HistoryService } from "./services/HistoryService";
 import { RankService } from "./services/RankService";
 import { SessionService } from "./services/SessionService";
 import { SessionSettingsService } from "./services/SessionSettingsService";
-import { RunIngestionService } from "./services/RunIngestionService";
 import { AppStateService } from "./services/AppStateService";
 import { ApplicationStatusView } from "./components/ui/ApplicationStatusView";
 import { NavigationController } from "./components/NavigationController";
+import { AccountSelectionView } from "./views/AccountSelectionView";
+import { ProfileHeaderComponent } from "./components/ProfileHeaderComponent";
 import { FocusManagementService } from "./services/FocusManagementService";
 import { AboutPopupComponent } from "./components/ui/AboutPopupComponent";
 import { RankedView } from "./components/RankedView";
@@ -29,26 +25,23 @@ import { CosmeticOverrideService } from "./services/CosmeticOverrideService";
 import { DeviceDetectionService, DeviceCategory } from "./services/DeviceDetectionService";
 import { MobileLandingView } from "./components/MobileLandingView";
 import { MobileWarningPopup } from "./components/ui/MobileWarningPopup";
+import { KovaaksApiService } from "./services/KovaaksApiService";
+import { KovaaksPollingManager } from "./services/KovaaksPollingManager";
 
 
 /**
  * Orchestrate service instantiation and dependency wiring.
  */
 export class AppBootstrap {
-  private _directoryService!: DirectoryAccessService;
-  private _csvService!: KovaaksCsvParsingService;
-  private _monitoringService!: DirectoryMonitoringService;
   private _benchmarkService!: BenchmarkService;
   private _historyService!: HistoryService;
   private _rankService!: RankService;
   private _appStateService!: AppStateService;
   private _sessionSettingsService!: SessionSettingsService;
   private _sessionService!: SessionService;
-  private _ingestionService!: RunIngestionService;
   private _focusService!: FocusManagementService;
   private _statusView!: ApplicationStatusView;
   private _benchmarkView!: BenchmarkView;
-  private _folderView!: FolderView;
   private _rankedView!: RankedView;
   private _navigationController!: NavigationController;
   private _visualSettingsService!: VisualSettingsService;
@@ -59,10 +52,13 @@ export class AppBootstrap {
   private _rankEstimator!: RankEstimator;
   private _cosmeticOverrideService!: CosmeticOverrideService;
   private _deviceDetectionService!: DeviceDetectionService;
+  private _kovaaksApiService!: KovaaksApiService;
+  private _kovaaksPollingManager!: KovaaksPollingManager;
+  private _accountSelectionView!: AccountSelectionView;
+  private _profileHeader!: ProfileHeaderComponent;
 
   private _hasPromptedAnalytics: boolean = false;
-  private _isSyncing: boolean = false;
-
+  private readonly _isSyncing: boolean = false;
 
   /**
    * Initializes the application's core logic and UI components.
@@ -75,9 +71,6 @@ export class AppBootstrap {
   }
 
   private _initCoreServices(): void {
-    this._directoryService = new DirectoryAccessService();
-    this._csvService = new KovaaksCsvParsingService();
-    this._monitoringService = new DirectoryMonitoringService();
     this._benchmarkService = new BenchmarkService();
     this._historyService = new HistoryService();
     this._rankService = new RankService();
@@ -87,12 +80,12 @@ export class AppBootstrap {
     this._deviceDetectionService = new DeviceDetectionService();
   }
 
-
   private _initTelemetryServices(): void {
     this._audioService = new AudioService(this._visualSettingsService);
     this._cloudflareService = new CloudflareService();
     this._identityService = new IdentityService();
     this._focusService = new FocusManagementService(this._appStateService);
+    this._kovaaksApiService = new KovaaksApiService();
   }
 
   private _initCoordinationServices(): void {
@@ -131,28 +124,55 @@ export class AppBootstrap {
       benchmarkService: this._benchmarkService,
     });
 
+    this._kovaaksPollingManager = new KovaaksPollingManager({
+      kovaaksApi: this._kovaaksApiService,
+      identity: this._identityService,
+      appState: this._appStateService,
+      visualSettings: this._visualSettingsService,
+      rankedSession: this._rankedSessionService,
+      session: this._sessionService,
+      focus: this._focusService,
+      history: this._historyService,
+      benchmark: this._benchmarkService,
+    });
 
-    this._ingestionService = new RunIngestionService({
-      directoryService: this._directoryService,
-      csvService: this._csvService,
-      historyService: this._historyService,
-      sessionService: this._sessionService,
-      benchmarkService: this._benchmarkService,
+    this._historyService.onScoreRecorded(() => {
+      this._kovaaksPollingManager.notifyLocalActivity();
     });
   }
 
   private _initUIComponents(): void {
     this._statusView = this._createStatusView();
     this._benchmarkView = this._createBenchmarkView();
-    this._folderView = this._createFolderView();
     this._rankedView = this._createRankedView();
+    this._accountSelectionView = this._createAccountSelectionView();
     this._navigationController = this._createNavigationController();
+    this._profileHeader = new ProfileHeaderComponent(
+      this._getRequiredButton("header-profile-btn"),
+      this._identityService,
+      this._navigationController
+    );
   }
 
   /**
    * Triggers initial rendering and system initialization.
    */
   public async initialize(): Promise<void> {
+    this._checkDeviceCompatibility();
+    this._statusView.reportReady();
+    this._tryApplyDailyDecay();
+
+    await this._renderInitialViews();
+    this._checkInitialState();
+
+    this._navigationController.initialize();
+    SettingsUiFactory.setAudioService(this._audioService);
+
+    this._setupGlobalInteractions();
+    this._checkAnalyticsPrompt();
+  }
+
+  private _checkDeviceCompatibility(): void {
     const category: DeviceCategory = this._deviceDetectionService.getDetectedCategory();
 
     if (category === DeviceCategory.MOBILE) {
@@ -162,35 +182,25 @@ export class AppBootstrap {
     if (category === DeviceCategory.SUSPICIOUS) {
       this._showMobileWarning();
     }
+  }
 
-    this._statusView.reportReady();
-    this._tryApplyDailyDecay();
-
-
-    await this._attemptInitialReconnection();
-
+  private async _renderInitialViews(): Promise<void> {
     await this._benchmarkView.render();
-    await this._folderView.render();
     await this._rankedView.render();
+  }
 
-    const lastCheck = await this._historyService.getLastCheckTimestamp();
-    const isFolderSelected = this._directoryService.isStatsFolderSelected();
+  private _checkInitialState(): void {
+    const hasLinkedAccount = this._identityService.hasLinkedAccount();
 
-    if (!isFolderSelected || lastCheck === 0) {
-      this._appStateService.setIsFolderViewOpen(true);
+    if (!hasLinkedAccount) {
+      // Logic for showing account selection will be added here
     }
+  }
 
-    await this._updateFolderValidity();
-
-    this._navigationController.initialize();
-
-    SettingsUiFactory.setAudioService(this._audioService);
-
+  private _setupGlobalInteractions(): void {
     this._setupActionListeners();
     this._setupGlobalButtonSounds();
     this._setupKeyboardShortcuts();
-
-    this._checkAnalyticsPrompt();
   }
 
   private _createStatusView(): ApplicationStatusView {
@@ -210,33 +220,16 @@ export class AppBootstrap {
         session: this._sessionService,
         sessionSettings: this._sessionSettingsService,
         focus: this._focusService,
-        directory: this._directoryService,
         visualSettings: this._visualSettingsService,
         audio: this._audioService,
         cloudflare: this._cloudflareService,
         identity: this._identityService,
         rankEstimator: this._rankEstimator,
         cosmeticOverride: this._cosmeticOverrideService,
+        kovaaksApi: this._kovaaksApiService,
+        onScenarioLaunch: (name) => this._kovaaksPollingManager.notifyBenchmarkLaunched(name),
       },
       this._appStateService,
-    );
-  }
-
-  private _createFolderView(): FolderView {
-    return new FolderView(
-      this._getRequiredElement("view-folder"),
-      {
-        directory: this._directoryService,
-        history: this._historyService,
-        appState: this._appStateService,
-        folderActions: {
-          onLinkFolder: (): Promise<void> =>
-            this._handleManualFolderSelection(),
-          onForceScan: (): Promise<void> => this._handleManualImport(),
-          onUnlinkFolder: (): void => this._handleFolderRemoval(),
-        },
-        isSyncing: (): boolean => this._isSyncing,
-      }
     );
   }
 
@@ -249,16 +242,35 @@ export class AppBootstrap {
       {
         benchmarksView: this._getRequiredElement("view-benchmarks"),
         rankedView: this._getRequiredElement("view-ranked"),
-        folderView: this._getRequiredElement("view-folder"),
+        accountSelectionView: this._getRequiredElement("view-account-selection"),
       },
       {
         benchmarkView: this._benchmarkView,
         appStateService: this._appStateService,
         rankedSession: this._rankedSessionService,
         rankedView: this._rankedView,
-        folderView: this._folderView,
         focusService: this._focusService,
+        identityService: this._identityService,
       },
+    );
+  }
+
+  private _createAccountSelectionView(): AccountSelectionView {
+    return new AccountSelectionView(
+      this._getRequiredElement("view-account-selection"),
+      this._identityService,
+      this._kovaaksApiService,
+      (profile) => {
+        this._identityService.setActiveProfile(profile.username);
+        // After selecting, return to previous or benchmarks
+        const activeTab = this._appStateService.getActiveTabId();
+        if (activeTab === "nav-ranked") {
+          // Use restore logic
+          this._navigationController.initialize();
+        } else {
+          this._navigationController.initialize();
+        }
+      }
     );
   }
 
@@ -274,7 +286,6 @@ export class AppBootstrap {
       visualSettings: this._visualSettingsService,
       sessionSettings: this._sessionSettingsService,
       audio: this._audioService,
-      directory: this._directoryService,
     });
   }
 
@@ -309,7 +320,6 @@ export class AppBootstrap {
   }
 
   private _setupActionListeners(): void {
-
     this._setupHeaderActions();
 
     this._sessionService.onSessionUpdated((): void => {
@@ -343,7 +353,6 @@ export class AppBootstrap {
 
     settingsBtn.addEventListener("click", (): void => {
       this._animateButton(settingsBtn);
-
       this._benchmarkView.openSettings();
     });
 
@@ -351,16 +360,7 @@ export class AppBootstrap {
 
     themeBtn.addEventListener("click", (): void => {
       this._animateButton(themeBtn);
-
       this._benchmarkView.toggleTheme();
-    });
-
-    const folderBtn = this._getRequiredButton("header-folder-btn");
-
-    folderBtn.addEventListener("click", (): void => {
-      this._animateButton(folderBtn);
-
-      this._navigationController.toggleFolderView();
     });
 
     const aboutBtn = this._getRequiredElement("header-about-btn");
@@ -380,131 +380,6 @@ export class AppBootstrap {
     setTimeout((): void => {
       button.classList.remove("clicked");
     }, 50);
-  }
-
-  private async _attemptInitialReconnection(): Promise<void> {
-    const handle: FileSystemDirectoryHandle | null =
-      await this._directoryService.attemptReconnection();
-
-    if (handle) {
-      this._statusView.reportFolderReconnected();
-
-      this._identityService.initializeOnboarding();
-      await this._synchronizeAndMonitor(handle);
-
-      this._benchmarkView.refresh();
-
-      return;
-    }
-
-    this._statusView.reportDisconnected();
-  }
-
-  private async _handleManualFolderSelection(): Promise<void> {
-    let handle: FileSystemDirectoryHandle | null = null;
-
-    if (this._directoryService.hasPersistedHandle()) {
-      handle = await this._directoryService.requestPersistedHandlePermission();
-    }
-
-    if (!handle) {
-      handle = await this._directoryService.requestDirectorySelection();
-    }
-
-    if (handle) {
-      this._statusView.reportFolderLinked();
-
-      this._identityService.initializeOnboarding();
-
-      await this._updateFolderValidity();
-      await this._folderView.render();
-
-      this._isSyncing = true;
-      await this._folderView.render();
-
-      await this._synchronizeAndMonitor(handle);
-
-      this._isSyncing = false;
-      await this._folderView.render();
-
-      this._benchmarkView.refresh();
-      this._rankedView.refresh();
-
-      await this._updateFolderValidity();
-
-      await this._navigationController.tryExitFolderView();
-
-      this._checkAnalyticsPrompt();
-    }
-  }
-
-  private async _handleManualImport(): Promise<void> {
-    this._statusView.reportScanning();
-
-    this._isSyncing = true;
-    await this._folderView.render();
-
-    await this._ingestionService.synchronizeAvailableRuns();
-
-    this._isSyncing = false;
-    await this._folderView.render();
-
-    this._statusView.reportActive();
-
-    this._benchmarkView.refresh();
-    this._rankedView.refresh();
-
-    await this._updateFolderValidity();
-
-    await this._navigationController.tryExitFolderView();
-  }
-
-  private _handleFolderRemoval(): void {
-    this._directoryService.clearStoredHandle();
-
-    this._monitoringService.stopMonitoring();
-
-    this._statusView.reportDisconnected();
-
-    this._benchmarkView.refresh();
-    this._rankedView.refresh();
-
-    void this._updateFolderValidity();
-
-    this._folderView.render();
-  }
-
-  private async _updateFolderValidity(): Promise<void> {
-    const isValid: boolean =
-      await this._folderView.isFolderValidAndPopulated();
-
-    this._appStateService.setIsFolderValid(isValid);
-  }
-
-  private async _synchronizeAndMonitor(
-    handle: FileSystemDirectoryHandle,
-  ): Promise<void> {
-    await this._ingestionService.synchronizeAvailableRuns();
-
-    this._startMonitoring(handle);
-  }
-
-  private _startMonitoring(handle: FileSystemDirectoryHandle): void {
-    this._monitoringService.startMonitoring(handle, async (): Promise<void> => {
-      this._statusView.reportScanning();
-
-      const updatedRuns =
-        await this._ingestionService.synchronizeAvailableRuns();
-
-      if (updatedRuns.length > 0) {
-        this._focusService.focusScenario(
-          updatedRuns[0].scenarioName,
-          "NEW_SCORE",
-        );
-      }
-
-      this._statusView.reportActive();
-    });
   }
 
   private _setupGlobalButtonSounds(): void {
@@ -548,10 +423,6 @@ export class AppBootstrap {
 
       return;
     }
-
-    if (this._appStateService.getIsFolderViewOpen()) {
-      void this._navigationController.tryExitFolderView();
-    }
   }
 
   private _getRequiredElement(elementId: string): HTMLElement {
@@ -592,7 +463,7 @@ export class AppBootstrap {
 
     if (
       this._identityService.canShowAnalyticsPrompt() &&
-      this._directoryService.isStatsFolderSelected()
+      this._identityService.hasLinkedAccount()
     ) {
       const popup: AnalyticsPopupComponent = new AnalyticsPopupComponent(
         this._identityService,

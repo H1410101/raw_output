@@ -24,7 +24,7 @@ describe("RankEstimator: RU Influence Capping Check", (): void => {
         // If NOT capped, Average: (2.0 + 3.0) / 2 = 2.5
         const result = estimator.calculateHolisticEstimateRank("Intermediate");
 
-        console.log("Calculated Continuous Value:", result.continuousValue);
+
 
         // We expect it to be capped now.
         expect(result.continuousValue).toBe(2.0);
