@@ -4,12 +4,14 @@ import { BenchmarkService } from "../BenchmarkService";
 import { SessionService } from "../SessionService";
 import { RankEstimator, ScenarioEstimate } from "../RankEstimator";
 import { SessionSettingsService } from "../SessionSettingsService";
+import { IdentityService } from "../IdentityService";
 
 interface MockSet {
     mockBenchmark: BenchmarkService;
     mockSession: SessionService;
     mockEstimator: RankEstimator;
     mockSettings: SessionSettingsService;
+    mockIdentity: IdentityService;
 }
 
 describe("RankedSessionService: RU Clamping", (): void => {
@@ -18,6 +20,7 @@ describe("RankedSessionService: RU Clamping", (): void => {
     let mockSession: SessionService;
     let mockEstimator: RankEstimator;
     let mockSettings: SessionSettingsService;
+    let mockIdentity: IdentityService;
 
     beforeEach((): void => {
         const mocks: MockSet = _createMocks();
@@ -25,13 +28,15 @@ describe("RankedSessionService: RU Clamping", (): void => {
         mockSession = mocks.mockSession;
         mockEstimator = mocks.mockEstimator;
         mockSettings = mocks.mockSettings;
+        mockIdentity = mocks.mockIdentity;
 
-        service = new RankedSessionService(
-            mockBenchmark,
-            mockSession,
-            mockEstimator,
-            mockSettings
-        );
+        service = new RankedSessionService({
+            benchmarkService: mockBenchmark,
+            sessionService: mockSession,
+            rankEstimator: mockEstimator,
+            sessionSettings: mockSettings,
+            identityService: mockIdentity
+        });
     });
 
     it("should clamp CurrentRU and PeakRU to the max rank in the difficulty", (): void => {
@@ -49,34 +54,61 @@ function _createMocks(): MockSet {
     localStorage.clear();
 
     return {
-        mockBenchmark: {
-            getScenarios: vi.fn(),
-            getRankNames: vi.fn(),
-            getDifficulty: vi.fn().mockReturnValue("Gold"),
-        } as unknown as BenchmarkService,
-        mockSession: {
-            setIsRanked: vi.fn(),
-            onSessionUpdated: vi.fn(),
-            resetSession: vi.fn(),
-            startRankedSession: vi.fn(),
-            stopRankedSession: vi.fn(),
-            getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
-            getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
-            setRankedPlaylist: vi.fn(),
-        } as unknown as SessionService,
-        mockEstimator: {
-            getScenarioEstimate: vi.fn(),
-            recordPlay: vi.fn(),
-            initializePeakRanks: vi.fn(),
-            applyPenaltyLift: vi.fn(),
-        } as unknown as RankEstimator,
-        mockSettings: {
-            getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
-        } as unknown as SessionSettingsService,
+        mockBenchmark: _createBenchmarkMock(),
+        mockSession: _createSessionMock(),
+        mockEstimator: _createEstimatorMock(),
+        mockSettings: _createSettingsMock(),
+        mockIdentity: _createIdentityMock(),
     };
 }
 
-function _setupClampingTest(mockBenchmark: BenchmarkService, mockEstimator: RankEstimator): void {
+function _createBenchmarkMock(): BenchmarkService {
+    return {
+        getScenarios: vi.fn(),
+        getRankNames: vi.fn(),
+        getDifficulty: vi.fn().mockReturnValue("Gold"),
+    } as unknown as BenchmarkService;
+}
+
+function _createSessionMock(): SessionService {
+    return {
+        setIsRanked: vi.fn(),
+        onSessionUpdated: vi.fn(),
+        resetSession: vi.fn(),
+        startRankedSession: vi.fn(),
+        stopRankedSession: vi.fn(),
+        getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
+        getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
+        setRankedPlaylist: vi.fn(),
+    } as unknown as SessionService;
+}
+
+function _createEstimatorMock(): RankEstimator {
+    return {
+        getScenarioEstimate: vi.fn(),
+        recordPlay: vi.fn(),
+        initializePeakRanks: vi.fn(),
+        applyPenaltyLift: vi.fn(),
+    } as unknown as RankEstimator;
+}
+
+function _createSettingsMock(): SessionSettingsService {
+    return {
+        getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
+    } as unknown as SessionSettingsService;
+}
+
+function _createIdentityMock(): IdentityService {
+    return {
+        getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+        onProfilesChanged: vi.fn(),
+    } as unknown as IdentityService;
+}
+
+function _setupClampingTest(
+    mockBenchmark: BenchmarkService,
+    mockEstimator: RankEstimator
+): void {
     const rankNames = ["R1", "R2", "R3", "R4", "R5"];
     (mockBenchmark.getRankNames as Mock).mockReturnValue(rankNames);
 

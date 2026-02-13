@@ -93,17 +93,35 @@ function _createMockMapper(): RankScaleMapper {
 
 
 function _createMockSettings(): VisualSettings {
-    return {
+    const settings: VisualSettings = {
         ..._getDefaultVisualSettings(),
         scalingMode: "Floating",
         dotOpacity: 100,
         highlightLatestRun: true,
         dotJitterIntensity: "Normal",
         allowBackgroundPolling: true,
-    } as any as VisualSettings;
+    };
+
+    return settings;
 }
 
 function _getDefaultVisualSettings(): VisualSettings {
+    const baseSettings = _createBaseVisualSettings();
+    const displaySettings = _createDisplayVisualSettings();
+    const visibilitySettings = _createVisibilityVisualSettings();
+
+    return {
+        ...baseSettings,
+        ...displaySettings,
+        ...visibilitySettings,
+        audioVolume: 80,
+        showIntervalsSettings: true,
+        playAnimationsUnfocused: false,
+        allowBackgroundPolling: true,
+    } as VisualSettings;
+}
+
+function _createBaseVisualSettings(): Partial<VisualSettings> {
     return {
         theme: "dark",
         showDotCloud: true,
@@ -114,6 +132,11 @@ function _getDefaultVisualSettings(): VisualSettings {
         uiScaling: "Normal",
         marginSpacing: "Normal",
         verticalSpacing: "Normal",
+    };
+}
+
+function _createDisplayVisualSettings(): Partial<VisualSettings> {
+    return {
         scenarioFontSize: "Normal",
         rankFontSize: "Normal",
         launchButtonSize: "Normal",
@@ -123,6 +146,11 @@ function _getDefaultVisualSettings(): VisualSettings {
         dotCloudSize: "Normal",
         dotCloudWidth: "Normal",
         visRankFontSize: "Normal",
+    };
+}
+
+function _createVisibilityVisualSettings(): Partial<VisualSettings> {
+    return {
         showSessionBest: true,
         showAllTimeBest: true,
         dotJitterIntensity: "Normal",
@@ -130,9 +158,6 @@ function _getDefaultVisualSettings(): VisualSettings {
         highlightLatestRun: true,
         showRankEstimate: true,
         showRanks: true,
-        audioVolume: 80,
-        showIntervalsSettings: true,
-        playAnimationsUnfocused: false,
     };
 }
 

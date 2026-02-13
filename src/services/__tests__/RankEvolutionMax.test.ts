@@ -19,7 +19,7 @@ describe("RankEstimator: Evolved Value Max Logic", (): void => {
     it("should retain the maximum rank when evolving multiple times in one day", (): void => {
         const scenarioName = "Scen1";
         const initial = _createInitialEstimate();
-        localStorage.setItem("rank_identity_state_v2", JSON.stringify({ [scenarioName]: initial }));
+        localStorage.setItem("rank_identity_state_v2_testuser", JSON.stringify({ [scenarioName]: initial }));
 
         _evolveAndExpect(estimator, scenarioName, 2.0, 1.5);
 

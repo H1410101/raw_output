@@ -198,7 +198,6 @@ export class BenchmarkView {
 
   private async _renderScenariosView(): Promise<void> {
     const profile = this._identityService.getActiveProfile();
-    const playerId = profile?.username || "";
 
     const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
       this._activeDifficulty,
@@ -206,7 +205,7 @@ export class BenchmarkView {
 
     const highscores: Record<string, number> =
       await this._historyService.getBatchHighscores(
-        playerId,
+        profile?.username || "",
         scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
       );
 
@@ -427,7 +426,6 @@ export class BenchmarkView {
     if (!this._tableComponent) return;
 
     const profile = this._identityService.getActiveProfile();
-    const playerId = profile?.username || "";
     const scenarios = this._benchmarkService.getScenarios(this._activeDifficulty);
 
     const scenario: BenchmarkScenario | undefined = scenarios.find(
@@ -435,8 +433,8 @@ export class BenchmarkView {
     );
 
     if (scenario) {
-      const highscoreRecord = await this._historyService.getHighscore(playerId, scenarioName);
-      const highscore = highscoreRecord ? highscoreRecord.score : 0;
+      const username = profile?.username || "";
+      const highscore = await this._historyService.getHighscore(username, scenarioName);
       const kovaaksHighscore = await this._fetchKovaaksHighscoreForScenario(profile, scenarioName);
 
       this._tableComponent.updateScenarioRow(scenario, highscore, kovaaksHighscore);

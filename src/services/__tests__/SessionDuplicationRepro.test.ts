@@ -1,8 +1,10 @@
+
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SessionService } from "../SessionService";
 import { RankService } from "../RankService";
 import { SessionSettingsService } from "../SessionSettingsService";
 import { BenchmarkScenario } from "../../data/benchmarks";
+import { IdentityService } from "../IdentityService";
 
 function createMockService(): SessionService {
     const mockRankService = {
@@ -16,7 +18,12 @@ function createMockService(): SessionService {
         })
     } as unknown as SessionSettingsService;
 
-    return new SessionService(mockRankService, mockSettingsService);
+    const mockIdentityService = {
+        getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+        onProfilesChanged: vi.fn()
+    } as unknown as IdentityService;
+
+    return new SessionService(mockRankService, mockSettingsService, mockIdentityService);
 }
 
 describe("SessionService Duplication Repro: Reset Behavior", (): void => {

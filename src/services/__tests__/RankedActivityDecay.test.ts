@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RankEstimator } from '../RankEstimator';
 import { BenchmarkService } from '../BenchmarkService';
+import { IdentityService } from '../IdentityService';
 
 function setupRankEstimatorWithPenalty(scenario: string, penalty: number): RankEstimator {
     const initialMap = {

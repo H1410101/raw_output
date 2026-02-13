@@ -97,7 +97,6 @@ export class SessionService {
     identityService: IdentityService,
   ) {
     this._rankService = rankService;
-
     this._sessionSettingsService = sessionSettingsService;
     this._identityService = identityService;
 

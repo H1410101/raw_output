@@ -70,38 +70,6 @@ function createMocks(): MockServices {
     };
 }
 
-function _createBenchmarkMock(): BenchmarkService {
-    return {
-        getScenarios: vi.fn().mockReturnValue([
-            { name: "Scenario A", category: "Cat1", subcategory: "Sub1", thresholds: {} },
-            { name: "Scenario B", category: "Cat2", subcategory: "Sub2", thresholds: {} },
-            { name: "Scenario C", category: "Cat3", subcategory: "Sub3", thresholds: {} },
-        ]),
-    } as unknown as BenchmarkService;
-}
-
-function _createSessionMock(): SessionService {
-    return {
-        startRankedSession: vi.fn(),
-        stopRankedSession: vi.fn(),
-        onSessionUpdated: vi.fn(),
-        getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
-        getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
-        getRankedScenarioBest: vi.fn().mockReturnValue({}),
-        setRankedPlaylist: vi.fn(),
-    } as unknown as SessionService;
-}
-
-function _createEstimatorMock(): RankEstimator {
-    return {
-        getScenarioEstimate: vi.fn().mockReturnValue({ continuousValue: 1.0, highestAchieved: 1.0 }),
-        recordPlay: vi.fn(),
-        applyPenaltyLift: vi.fn(),
-        getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
-        evolveScenarioEstimate: vi.fn(),
-    } as unknown as RankEstimator;
-}
-
 let service: RankedSessionService;
 
 function setupService(): void {

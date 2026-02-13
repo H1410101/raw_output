@@ -115,7 +115,6 @@ function _setupMocks(): MockSet {
             getScenarioContinuousValue: vi.fn(),
             evolveScenarioEstimate: vi.fn(),
             initializePeakRanks: vi.fn(),
-            applyPenaltyLift: vi.fn(),
         } as unknown as RankEstimator,
         settings: {
             getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),

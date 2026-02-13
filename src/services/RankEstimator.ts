@@ -376,7 +376,7 @@ export class RankEstimator {
         const changed = this._applyInitialPeaksToMap(map, scenarios, initialPeak, timestamp);
 
         if (changed) {
-            localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
+            localStorage.setItem(this._getStorageKey(), JSON.stringify(map));
         }
     }
 

@@ -1,10 +1,18 @@
+/* eslint-disable */
 import { describe, it, expect, beforeEach, vi, Mock } from "vitest";
 import { RankEstimator, RankEstimateMap, ScenarioEstimate } from "../RankEstimator";
 import { BenchmarkService } from "../BenchmarkService";
+import { IdentityService } from "../IdentityService";
 
-const STORAGE_KEY = "rank_identity_state_v2";
+const STORAGE_KEY = "rank_identity_state_v2_testuser";
 
-const _createMockService = (): Record<string, Mock> => ({
+interface MockBenchmarkService {
+    getAllScenarios: Mock;
+    getRankNames: Mock;
+    getScenarios: Mock;
+}
+
+const _createMockService = (): MockBenchmarkService => ({
     getAllScenarios: vi.fn(),
     getRankNames: vi.fn(),
     getScenarios: vi.fn(),
@@ -12,13 +20,17 @@ const _createMockService = (): Record<string, Mock> => ({
 
 describe("Peak Rank - Median (Odd)", (): void => {
     let estimator: RankEstimator;
-    let mockService: Record<string, Mock>;
+    let mockService: MockBenchmarkService;
 
     beforeEach((): void => {
         vi.clearAllMocks();
         localStorage.clear();
         mockService = _createMockService();
-        estimator = new RankEstimator(mockService as unknown as BenchmarkService);
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn(),
+        } as unknown as IdentityService;
+        estimator = new RankEstimator(mockService as unknown as BenchmarkService, identityService);
     });
 
     it("should handle odd number of played scenarios", (): void => {
@@ -34,13 +46,17 @@ describe("Peak Rank - Median (Odd)", (): void => {
 
 describe("Peak Rank - Median (Even)", (): void => {
     let estimator: RankEstimator;
-    let mockService: Record<string, Mock>;
+    let mockService: MockBenchmarkService;
 
     beforeEach((): void => {
         vi.clearAllMocks();
         localStorage.clear();
         mockService = _createMockService();
-        estimator = new RankEstimator(mockService as unknown as BenchmarkService);
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn(),
+        } as unknown as IdentityService;
+        estimator = new RankEstimator(mockService as unknown as BenchmarkService, identityService);
     });
 
     it("should handle even number of played scenarios", (): void => {
@@ -56,13 +72,17 @@ describe("Peak Rank - Median (Even)", (): void => {
 
 describe("Peak Rank - Formula", (): void => {
     let estimator: RankEstimator;
-    let mockService: Record<string, Mock>;
+    let mockService: MockBenchmarkService;
 
     beforeEach((): void => {
         vi.clearAllMocks();
         localStorage.clear();
         mockService = _createMockService();
-        estimator = new RankEstimator(mockService as unknown as BenchmarkService);
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn(),
+        } as unknown as IdentityService;
+        estimator = new RankEstimator(mockService as unknown as BenchmarkService, identityService);
     });
 
     it("should use min(median, 0.5 * best)", (): void => {
@@ -81,13 +101,17 @@ describe("Peak Rank - Formula", (): void => {
 
 describe("Peak Rank - Stability", (): void => {
     let estimator: RankEstimator;
-    let mockService: Record<string, Mock>;
+    let mockService: MockBenchmarkService;
 
     beforeEach((): void => {
         vi.clearAllMocks();
         localStorage.clear();
         mockService = _createMockService();
-        estimator = new RankEstimator(mockService as unknown as BenchmarkService);
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn(),
+        } as unknown as IdentityService;
+        estimator = new RankEstimator(mockService as unknown as BenchmarkService, identityService);
     });
 
     it("should never lower an existing peak", (): void => {
