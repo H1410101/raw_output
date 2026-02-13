@@ -54,11 +54,10 @@ export class AppBootstrap {
   private _deviceDetectionService!: DeviceDetectionService;
   private _kovaaksApiService!: KovaaksApiService;
   private _kovaaksPollingManager!: KovaaksPollingManager;
-  private _accountSelectionView!: AccountSelectionView;
-  private _profileHeader!: ProfileHeaderComponent;
+
+
 
   private _hasPromptedAnalytics: boolean = false;
-  private readonly _isSyncing: boolean = false;
 
   /**
    * Initializes the application's core logic and UI components.
@@ -145,9 +144,9 @@ export class AppBootstrap {
     this._statusView = this._createStatusView();
     this._benchmarkView = this._createBenchmarkView();
     this._rankedView = this._createRankedView();
-    this._accountSelectionView = this._createAccountSelectionView();
+    this._createAccountSelectionView();
     this._navigationController = this._createNavigationController();
-    this._profileHeader = new ProfileHeaderComponent(
+    new ProfileHeaderComponent(
       this._getRequiredButton("header-profile-btn"),
       this._identityService,
       this._navigationController

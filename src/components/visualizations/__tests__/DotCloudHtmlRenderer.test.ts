@@ -56,7 +56,7 @@ function _runRightEdgeLabelTest(
 
 function _setupMockPositions(mockMapper: RankScaleMapper): void {
     // Mock positions: Start at 0, End at width
-    mockMapper.getHorizontalPosition = (rankUnit: number, minRU: number, maxRU: number, widthValue: number): number => {
+    mockMapper.getHorizontalPosition = (rankUnit: number, _minRU: number, _maxRU: number, widthValue: number): number => {
         if (rankUnit === 1) {
             return 0;
         }
@@ -74,8 +74,8 @@ function _createMockMapper(): RankScaleMapper {
         calculateRankUnit: (score: number): number => score,
         getHorizontalPosition: (
             rankUnit: number,
-            minRU: number,
-            maxRU: number,
+            _minRU: number,
+            _maxRU: number,
             width: number
         ): number => {
             if (rankUnit === 100) {
@@ -99,7 +99,9 @@ function _createMockSettings(): VisualSettings {
         highlightLatestRun: true,
         dotJitterIntensity: "Normal",
         scalingMode: "Standard",
-    } as VisualSettings;
+        allowBackgroundPolling: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any as VisualSettings;
 }
 
 function _createRenderContext(width: number, padding: number, settings: VisualSettings): RenderContext {

@@ -38,7 +38,7 @@ export interface KovaaksScenarioScore {
   readonly attributes: {
     readonly score: number;
     readonly epoch: string;
-    readonly [key: string]: any;
+    readonly [key: string]: unknown;
   };
 }
 

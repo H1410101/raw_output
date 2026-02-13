@@ -197,6 +197,15 @@ export class IdentityService {
     }
 
     /**
+     * Gets the username of the currently active player.
+     * 
+     * @returns The active username or null if none.
+     */
+    public getKovaaksUsername(): string | null {
+        return this._activeUsername;
+    }
+
+    /**
      * Returns the list of all registered player profiles.
      * 
      * @returns The list of profiles.

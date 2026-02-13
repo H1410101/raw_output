@@ -256,7 +256,7 @@ export class KovaaksPollingManager {
             return;
         }
 
-        this._backoffTimer = window.setTimeout(async () => {
+        this._backoffTimer = window.setTimeout(async (): Promise<void> => {
             await this._pollScenario(scenario);
             this._currentBackoffMs *= 1.5;
             this._scheduleBenchmarkBackoff(scenario);
@@ -312,24 +312,24 @@ export class KovaaksPollingManager {
         const username = profile.username;
 
         try {
-            const kovaaksScores = await this._kovaaksApi.fetchScenarioLastScores(username, scenarioName);
+            const kovaaksScores: KovaaksScenarioScore[] = await this._kovaaksApi.fetchScenarioLastScores(username, scenarioName);
             this._logOnChange(scenarioName, kovaaksScores);
 
-            const newScores = await this._filterNewScores(username, scenarioName, kovaaksScores);
+            const newScores: KovaaksScenarioScore[] = await this._filterNewScores(username, scenarioName, kovaaksScores);
 
             if (newScores.length === 0) return;
 
-            const difficulty = this._benchmark.getDifficulty(scenarioName);
-            const scenario = this._findBenchmarkScenario(scenarioName, difficulty);
+            const difficulty: string | null = this._benchmark.getDifficulty(scenarioName);
+            const scenario: BenchmarkScenario | undefined = this._findBenchmarkScenario(scenarioName, difficulty);
 
-            await this._history.recordKovaaksScores(username, scenarioName, newScores.map(s => ({
-                score: s.attributes.score,
-                date: s.attributes.epoch
+            await this._history.recordKovaaksScores(username, scenarioName, newScores.map((score: KovaaksScenarioScore) => ({
+                score: score.attributes.score,
+                date: score.attributes.epoch
             })));
 
             this._focus.focusScenario(scenarioName, "NEW_SCORE");
 
-            this._session.registerMultipleRuns(newScores.map(score => ({
+            this._session.registerMultipleRuns(newScores.map((score: KovaaksScenarioScore) => ({
                 scenarioName,
                 score: score.attributes.score,
                 scenario: scenario || null,
@@ -341,7 +341,7 @@ export class KovaaksPollingManager {
         }
     }
 
-    private _logOnChange(scenarioName: string, scores: any[]): void {
+    private _logOnChange(scenarioName: string, scores: KovaaksScenarioScore[]): void {
         const serialized = JSON.stringify(scores);
         const lastValue = this._lastPollValues.get(scenarioName);
 
@@ -362,7 +362,7 @@ export class KovaaksPollingManager {
             lastTimestamp = 0;
         }
 
-        return scores.filter(score => {
+        return scores.filter((score: KovaaksScenarioScore) => {
             const scoreEpoch = Number(score.attributes?.epoch || 0);
 
             return scoreEpoch > lastTimestamp;
@@ -375,7 +375,7 @@ export class KovaaksPollingManager {
 
         if (!targetDifficulty) return undefined;
 
-        return this._benchmark.getScenarios(targetDifficulty).find(scenarioDef => scenarioDef.name === name);
+        return this._benchmark.getScenarios(targetDifficulty).find((scenarioDef: BenchmarkScenario) => scenarioDef.name === name);
     }
 
     private async _pollInactiveScenarios(): Promise<void> {
@@ -388,8 +388,8 @@ export class KovaaksPollingManager {
         const playlist = this._session.getRankedPlaylist();
 
         const targets = scenarios
-            .map(scenario => scenario.name)
-            .filter(name => {
+            .map((scenario: BenchmarkScenario) => scenario.name)
+            .filter((name: string) => {
                 const isNotActive = name !== activeScenario;
                 const isInPlaylist = !playlist || playlist.has(name);
 
@@ -399,7 +399,7 @@ export class KovaaksPollingManager {
         if (targets.length === 0) return;
 
         try {
-            await Promise.all(targets.map(name => this._pollScenario(name)));
+            await Promise.all(targets.map((name: string) => this._pollScenario(name)));
         } catch (error) {
             console.error(`[KovaaksPolling] Failed batched concurrent poll:`, error);
         }

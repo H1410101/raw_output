@@ -27,6 +27,9 @@ export class AppStateService {
   private static readonly _storageKey: string = "raw_output_app_state";
 
   private readonly _state: AppState;
+  private readonly _tabListeners: (() => void)[] = [];
+  private readonly _difficultyListeners: (() => void)[] = [];
+  private readonly _folderValidityListeners: (() => void)[] = [];
 
   /**
    * Initializes the service by loading state from local storage.
@@ -34,8 +37,6 @@ export class AppStateService {
   public constructor() {
     this._state = this._loadFromStorage();
   }
-
-  private readonly _tabListeners: (() => void)[] = [];
 
   /**
    * Retrieves the ID of the last active navigation tab.
@@ -70,8 +71,6 @@ export class AppStateService {
   private _notifyTabListeners(): void {
     this._tabListeners.forEach((callback: () => void): void => callback());
   }
-
-  private readonly _difficultyListeners: (() => void)[] = [];
 
   /**
    * Retrieves the last selected benchmark difficulty.
@@ -128,17 +127,14 @@ export class AppStateService {
   }
 
   /**
-   * @param callback
+   * Registers a callback for when the folder validity state changes.
+   *
+   * @param callback - The function to call on validity change.
    */
   public onFolderValidityChanged(callback: () => void): void {
     this._folderValidityListeners.push(callback);
   }
 
-  private _notifyFolderValidityListeners(): void {
-    this._folderValidityListeners.forEach(
-      (callback: () => void): void => callback(),
-    );
-  }
 
   /**
    * Retrieves the last persisted scroll position of the benchmark table.

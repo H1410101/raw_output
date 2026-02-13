@@ -207,7 +207,8 @@ export class MockServiceFactory {
             showRankEstimate: true, showRanks: true,
             audioVolume: 80,
             showIntervalsSettings: true,
-            playAnimationsUnfocused: false
+            playAnimationsUnfocused: false,
+            allowBackgroundPolling: true
         };
     }
 

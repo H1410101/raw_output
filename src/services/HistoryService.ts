@@ -39,6 +39,7 @@ export class HistoryService {
 
   private readonly _onScoreRecordedListeners: (() => void)[] = [];
   private readonly _onHighscoreUpdatedListeners: ((scenarioName?: string) => void)[] = [];
+  private _db: IDBDatabase | null = null;
 
   /**
    * Initializes the service and opens the database.
@@ -57,15 +58,15 @@ export class HistoryService {
     playerId: string,
     scores: Omit<RecordedScore, "id" | "playerId">[],
   ): Promise<void> {
-    const db = await this._getDb();
-    const transaction = db.transaction("Scores", "readwrite");
-    const store = transaction.objectStore("Scores");
+    const database: IDBDatabase = await this._getDb();
+    const transaction: IDBTransaction = database.transaction("Scores", "readwrite");
+    const store: IDBObjectStore = transaction.objectStore("Scores");
 
-    const promises = scores.map((score) => {
-      return new Promise<void>((resolve, reject) => {
-        const request = store.add({ ...score, playerId });
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
+    const promises: Promise<void>[] = scores.map((score: Omit<RecordedScore, "id" | "playerId">): Promise<void> => {
+      return new Promise<void>((resolve: () => void, reject: (error: DOMException | null) => void): void => {
+        const request: IDBRequest<IDBValidKey> = store.add({ ...score, playerId });
+        request.onsuccess = (): void => resolve();
+        request.onerror = (): void => reject(request.error);
       });
     });
 
@@ -84,18 +85,18 @@ export class HistoryService {
     playerId: string,
     scenarioName: string,
   ): Promise<RecordedScore[]> {
-    const db = await this._getDb();
-    const transaction = db.transaction("Scores", "readonly");
-    const store = transaction.objectStore("Scores");
-    const index = store.index("scenarioName");
+    const database: IDBDatabase = await this._getDb();
+    const transaction: IDBTransaction = database.transaction("Scores", "readonly");
+    const store: IDBObjectStore = transaction.objectStore("Scores");
+    const index: IDBIndex = store.index("scenarioName");
 
-    return new Promise((resolve, reject) => {
-      const request = index.getAll(scenarioName);
-      request.onsuccess = () => {
-        const results = request.result as RecordedScore[];
-        resolve(results.filter((s) => s.playerId === playerId));
+    return new Promise((resolve: (value: RecordedScore[]) => void, reject: (error: DOMException | null) => void): void => {
+      const request: IDBRequest<RecordedScore[]> = index.getAll(scenarioName) as IDBRequest<RecordedScore[]>;
+      request.onsuccess = (): void => {
+        const results: RecordedScore[] = request.result as RecordedScore[];
+        resolve(results.filter((scoreRecord: RecordedScore): boolean => scoreRecord.playerId === playerId));
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = (): void => reject(request.error);
     });
   }
 
@@ -110,15 +111,15 @@ export class HistoryService {
     playerId: string,
     scenarioName: string,
   ): Promise<Highscore | null> {
-    const db = await this._getDb();
-    const transaction = db.transaction("Highscores", "readonly");
-    const store = transaction.objectStore("Highscores");
-    const index = store.index("playerScenario");
+    const database: IDBDatabase = await this._getDb();
+    const transaction: IDBTransaction = database.transaction("Highscores", "readonly");
+    const store: IDBObjectStore = transaction.objectStore("Highscores");
+    const index: IDBIndex = store.index("playerScenario");
 
-    return new Promise((resolve, reject) => {
-      const request = index.get([playerId, scenarioName]);
-      request.onsuccess = () => resolve((request.result as Highscore) || null);
-      request.onerror = () => reject(request.error);
+    return new Promise((resolve: (value: Highscore | null) => void, reject: (error: DOMException | null) => void): void => {
+      const request: IDBRequest<Highscore | undefined> = index.get([playerId, scenarioName]) as IDBRequest<Highscore | undefined>;
+      request.onsuccess = (): void => resolve((request.result as Highscore) || null);
+      request.onerror = (): void => reject(request.error);
     });
   }
 
@@ -132,23 +133,24 @@ export class HistoryService {
     playerId: string,
     newHighscores: Omit<Highscore, "id" | "playerId">[],
   ): Promise<void> {
-    const db = await this._getDb();
-    const transaction = db.transaction("Highscores", "readwrite");
-    const store = transaction.objectStore("Highscores");
+    const database: IDBDatabase = await this._getDb();
+    const transaction: IDBTransaction = database.transaction("Highscores", "readwrite");
+    const store: IDBObjectStore = transaction.objectStore("Highscores");
 
-    const promises = newHighscores.map((hs) => {
-      const record = { ...hs, playerId };
+    const promises: Promise<void>[] = newHighscores.map(async (highscoreEntry: Omit<Highscore, "id" | "playerId">): Promise<void> => {
+      const record: Omit<Highscore, "id"> = { ...highscoreEntry, playerId };
+      const existing: Highscore | null = await this.getHighscore(playerId, highscoreEntry.scenarioName);
 
-      return new Promise<void>(async (resolve, reject) => {
-        const existing = await this.getHighscore(playerId, hs.scenarioName);
+      return new Promise<void>((resolve: () => void, reject: (error: DOMException | null) => void): void => {
         if (existing) {
-          const request = store.put({ ...record, id: existing.id });
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
+          // eslint-disable-next-line id-length
+          const request: IDBRequest<IDBValidKey> = store.put({ ...record, id: existing.id });
+          request.onsuccess = (): void => resolve();
+          request.onerror = (): void => reject(request.error);
         } else {
-          const request = store.add(record);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
+          const request: IDBRequest<IDBValidKey> = store.add(record);
+          request.onsuccess = (): void => resolve();
+          request.onerror = (): void => reject(request.error);
         }
       });
     });
@@ -168,22 +170,22 @@ export class HistoryService {
     playerId: string,
     scenarioNames: string[],
   ): Promise<Record<string, number>> {
-    const db = await this._getDb();
-    const transaction = db.transaction("Highscores", "readonly");
-    const store = transaction.objectStore("Highscores");
-    const index = store.index("playerScenario");
+    const database: IDBDatabase = await this._getDb();
+    const transaction: IDBTransaction = database.transaction("Highscores", "readonly");
+    const store: IDBObjectStore = transaction.objectStore("Highscores");
+    const index: IDBIndex = store.index("playerScenario");
 
     const results: Record<string, number> = {};
-    const promises = scenarioNames.map((name) => {
-      return new Promise<void>((resolve, reject) => {
-        const request = index.get([playerId, name]);
-        request.onsuccess = () => {
+    const promises: Promise<void>[] = scenarioNames.map((name: string): Promise<void> => {
+      return new Promise<void>((resolve: () => void, reject: (error: DOMException | null) => void): void => {
+        const request: IDBRequest<Highscore | undefined> = index.get([playerId, name]) as IDBRequest<Highscore | undefined>;
+        request.onsuccess = (): void => {
           if (request.result) {
             results[name] = (request.result as Highscore).score;
           }
           resolve();
         };
-        request.onerror = () => reject(request.error);
+        request.onerror = (): void => reject(request.error);
       });
     });
 
@@ -204,26 +206,43 @@ export class HistoryService {
     scenarioName: string,
     scores: { score: number; date: string }[],
   ): Promise<void> {
-    const existing = await this.getScoresForScenario(playerId, scenarioName);
-    const existingDates = new Set(existing.map((s) => s.completionDate));
+    const newScores: Omit<RecordedScore, "id" | "playerId">[] = await this._getNewScoresOnly(playerId, scenarioName, scores);
 
-    const newScores = scores
-      .filter((s) => !existingDates.has(s.date))
-      .map((s) => ({
-        scenarioName,
-        score: s.score,
-        completionDate: s.date,
-      }));
-
-    if (newScores.length === 0) return;
+    if (newScores.length === 0) {
+      return;
+    }
 
     await this.recordMultipleScores(playerId, newScores);
+    await this._updateHighscoreIfHigher(playerId, scenarioName, newScores);
+  }
 
-    const currentHighscore = await this.getHighscore(playerId, scenarioName);
-    const maxNewScore = Math.max(...newScores.map((s) => s.score));
+  private async _getNewScoresOnly(
+    playerId: string,
+    scenarioName: string,
+    scores: { score: number; date: string }[],
+  ): Promise<Omit<RecordedScore, "id" | "playerId">[]> {
+    const existing: RecordedScore[] = await this.getScoresForScenario(playerId, scenarioName);
+    const existingDates: Set<string> = new Set(existing.map((score: RecordedScore): string => score.completionDate));
+
+    return scores
+      .filter((score: { score: number; date: string }): boolean => !existingDates.has(score.date))
+      .map((score: { score: number; date: string }): Omit<RecordedScore, "id" | "playerId"> => ({
+        scenarioName,
+        score: score.score,
+        completionDate: score.date,
+      }));
+  }
+
+  private async _updateHighscoreIfHigher(
+    playerId: string,
+    scenarioName: string,
+    newScores: Omit<RecordedScore, "id" | "playerId">[],
+  ): Promise<void> {
+    const currentHighscore: Highscore | null = await this.getHighscore(playerId, scenarioName);
+    const maxNewScore: number = Math.max(...newScores.map((score: Omit<RecordedScore, "id" | "playerId">): number => score.score));
 
     if (!currentHighscore || maxNewScore > currentHighscore.score) {
-      const bestRun = newScores.find((s) => s.score === maxNewScore);
+      const bestRun: Omit<RecordedScore, "id" | "playerId"> | undefined = newScores.find((score: Omit<RecordedScore, "id" | "playerId">): boolean => score.score === maxNewScore);
       if (bestRun) {
         await this.updateMultipleHighscores(playerId, [
           {
@@ -249,22 +268,23 @@ export class HistoryService {
     scenarioName: string,
     limit: number = 100,
   ): Promise<{ score: number; timestamp: number }[]> {
-    const db = await this._getDb();
-    const transaction = db.transaction("Scores", "readonly");
-    const store = transaction.objectStore("Scores");
-    const index = store.index("scenarioName");
+    const database: IDBDatabase = await this._getDb();
+    const transaction: IDBTransaction = database.transaction("Scores", "readonly");
+    const store: IDBObjectStore = transaction.objectStore("Scores");
+    const index: IDBIndex = store.index("scenarioName");
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve: (value: { score: number; timestamp: number }[]) => void, reject: (error: DOMException | null) => void): void => {
       const scores: { score: number; timestamp: number }[] = [];
-      const request = index.openCursor(IDBKeyRange.only(scenarioName), "prev");
+      const request: IDBRequest<IDBCursorWithValue | null> = index.openCursor(IDBKeyRange.only(scenarioName), "prev");
 
-      request.onsuccess = (event) => {
-        const cursor = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
+      request.onsuccess = (event: Event): void => {
+        const cursor: IDBCursorWithValue | null = (event.target as IDBRequest<IDBCursorWithValue | null>).result;
         if (cursor && scores.length < limit) {
-          if (cursor.value.playerId === playerId) {
+          const scoreRecord: RecordedScore = cursor.value as RecordedScore;
+          if (scoreRecord.playerId === playerId) {
             scores.push({
-              score: cursor.value.score,
-              timestamp: Number(cursor.value.completionDate),
+              score: scoreRecord.score,
+              timestamp: Number(scoreRecord.completionDate),
             });
           }
           cursor.continue();
@@ -272,7 +292,7 @@ export class HistoryService {
           resolve(scores);
         }
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = (): void => reject(request.error);
     });
   }
 
@@ -293,82 +313,84 @@ export class HistoryService {
   }
 
   private _initDatabase(): void {
-    const request = indexedDB.open(
+    const request: IDBOpenDBRequest = indexedDB.open(
       HistoryService._dbName,
       HistoryService._dbVersion,
     );
 
-    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-      const db = request.result;
-      const oldVersion = event.oldVersion;
-      const transaction = request.transaction;
+    request.onupgradeneeded = (event: IDBVersionChangeEvent): void => {
+      const database: IDBDatabase = request.result;
+      const oldVersion: number = event.oldVersion;
+      const transaction: IDBTransaction | null = request.transaction;
 
       if (oldVersion < 4) {
-        this._upgradeToMultiPlayer(db, transaction);
+        this._upgradeToMultiPlayer(database, transaction);
       }
     };
 
-    request.onsuccess = () => {
+    request.onsuccess = (): void => {
       this._db = request.result;
     };
 
-    request.onerror = () => {
+    request.onerror = (): void => {
       console.error("Database error:", request.error);
     };
   }
 
-  private _upgradeToMultiPlayer(db: IDBDatabase, transaction: IDBTransaction | null): void {
-    if (db.objectStoreNames.contains("Scores")) {
-      const scoreStore = transaction!.objectStore("Scores");
+  private _upgradeToMultiPlayer(database: IDBDatabase, transaction: IDBTransaction | null): void {
+    if (database.objectStoreNames.contains("Scores")) {
+      const scoreStore: IDBObjectStore = transaction!.objectStore("Scores");
       if (!scoreStore.indexNames.contains("playerId")) {
         scoreStore.createIndex("playerId", "playerId", { unique: false });
       }
     } else {
-      const scoreStore = db.createObjectStore("Scores", { keyPath: "id", autoIncrement: true });
+      const scoreStore: IDBObjectStore = database.createObjectStore("Scores", { keyPath: "id", autoIncrement: true });
       scoreStore.createIndex("scenarioName", "scenarioName", { unique: false });
       scoreStore.createIndex("playerId", "playerId", { unique: false });
     }
 
-    if (db.objectStoreNames.contains("Highscores")) {
-      db.deleteObjectStore("Highscores");
+    if (database.objectStoreNames.contains("Highscores")) {
+      database.deleteObjectStore("Highscores");
     }
 
-    const hsStore = db.createObjectStore("Highscores", {
+    const highscoreStore: IDBObjectStore = database.createObjectStore("Highscores", {
       keyPath: "id",
       autoIncrement: true,
     });
-    hsStore.createIndex("playerScenario", ["playerId", "scenarioName"], {
+    highscoreStore.createIndex("playerScenario", ["playerId", "scenarioName"], {
       unique: true,
     });
-    hsStore.createIndex("playerId", "playerId", { unique: false });
-    hsStore.createIndex("scenarioName", "scenarioName", { unique: false });
+    highscoreStore.createIndex("playerId", "playerId", { unique: false });
+    highscoreStore.createIndex("scenarioName", "scenarioName", { unique: false });
 
-    if (!db.objectStoreNames.contains("Metadata")) {
-      db.createObjectStore("Metadata", { keyPath: "id" });
+    if (!database.objectStoreNames.contains("Metadata")) {
+      database.createObjectStore("Metadata", { keyPath: "id" });
     }
   }
 
   private async _getDb(): Promise<IDBDatabase> {
-    if (this._db) return this._db;
+    if (this._db) {
+      return this._db;
+    }
 
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(
+    return new Promise((resolve: (value: IDBDatabase) => void, reject: (error: DOMException | null) => void): void => {
+      const request: IDBOpenDBRequest = indexedDB.open(
         HistoryService._dbName,
         HistoryService._dbVersion,
       );
-      request.onsuccess = () => {
+      request.onsuccess = (): void => {
         this._db = request.result;
         resolve(this._db);
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = (): void => reject(request.error);
     });
   }
 
   private _notifyScoreRecorded(): void {
-    this._onScoreRecordedListeners.forEach((cb) => cb());
+    this._onScoreRecordedListeners.forEach((callback: () => void): void => callback());
   }
 
   private _notifyHighscoreUpdated(scenarioName?: string): void {
-    this._onHighscoreUpdatedListeners.forEach((cb) => cb(scenarioName));
+    this._onHighscoreUpdatedListeners.forEach((callback: (scenarioName?: string) => void): void => callback(scenarioName));
   }
 }

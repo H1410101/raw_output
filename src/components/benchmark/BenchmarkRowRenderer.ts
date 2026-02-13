@@ -6,6 +6,7 @@ import { VisualSettings } from "../../services/VisualSettingsService";
 import { AudioService } from "../../services/AudioService";
 import { RankEstimator, EstimatedRank } from "../../services/RankEstimator";
 import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
+import { IdentityService } from "../../services/IdentityService";
 import { DotCloudComponent } from "../visualizations/DotCloudComponent";
 import { ScoreEntry } from "../visualizations/ScoreProcessor";
 
@@ -20,6 +21,7 @@ export interface BenchmarkRowDependencies {
   readonly visualSettings: VisualSettings;
   readonly rankEstimator: RankEstimator;
   readonly cosmeticOverride: CosmeticOverrideService;
+  readonly identityService: IdentityService;
   readonly onScenarioLaunch?: (scenarioName: string) => void;
 }
 
@@ -33,6 +35,7 @@ export class BenchmarkRowRenderer {
   private readonly _audioService: AudioService;
   private readonly _rankEstimator: RankEstimator;
   private readonly _cosmeticOverrideService: CosmeticOverrideService;
+  private readonly _identityService: IdentityService;
   private _visualSettings: VisualSettings;
   private _currentDifficulty: DifficultyTier = "Advanced";
   private readonly _dotCloudRegistry: Map<string, DotCloudComponent> =
@@ -61,6 +64,7 @@ export class BenchmarkRowRenderer {
     this._visualSettings = dependencies.visualSettings;
     this._rankEstimator = dependencies.rankEstimator;
     this._cosmeticOverrideService = dependencies.cosmeticOverride;
+    this._identityService = dependencies.identityService;
     this._onScenarioLaunch = dependencies.onScenarioLaunch;
   }
 
@@ -332,8 +336,11 @@ export class BenchmarkRowRenderer {
     component: DotCloudComponent,
     scenario: BenchmarkScenario,
   ): void {
+    const profile = this._identityService.getActiveProfile();
+    const playerId = profile?.username || "";
+
     this._historyService
-      .getLastScores(scenario.name, 100)
+      .getLastScores(playerId, scenario.name, 100)
       .then((entries: ScoreEntry[]): void => {
         const sessionStart: number | null =
           this._sessionService.sessionStartTimestamp;
@@ -444,9 +451,19 @@ export class BenchmarkRowRenderer {
     ) {
       return;
     }
+    this._fetchAndRenderScores(container, scenario, loadId);
+  }
+
+  private _fetchAndRenderScores(
+    container: HTMLElement,
+    scenario: BenchmarkScenario,
+    loadId: number,
+  ): void {
+    const profile = this._identityService.getActiveProfile();
+    const playerId = profile?.username || "";
 
     this._historyService
-      .getLastScores(scenario.name, 100)
+      .getLastScores(playerId, scenario.name, 100)
       .then((entries: ScoreEntry[]): void => {
         const stillCurrentId: string | undefined = container.dataset.loadId;
 

@@ -9,7 +9,7 @@ import { VisualSettingsService } from "../services/VisualSettingsService";
 import { AudioService } from "../services/AudioService";
 import { RankTimelineComponent, RankTimelineConfiguration, AttemptEntry } from "./visualizations/RankTimelineComponent";
 import { SummaryTimelineComponent } from "./visualizations/SummaryTimelineComponent";
-import { DirectoryAccessService } from "../services/DirectoryAccessService";
+
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { SessionSettingsService } from "../services/SessionSettingsService";
@@ -49,7 +49,7 @@ export interface RankedViewDependencies {
   readonly visualSettings: VisualSettingsService;
   readonly sessionSettings: SessionSettingsService;
   readonly audio: AudioService;
-  readonly directory: DirectoryAccessService;
+
 }
 
 /**
@@ -846,7 +846,7 @@ export class RankedView {
     }));
 
     if (attempts.length > 0) {
-
+      // Logic for future use if needed
     }
 
     let achievedRU = undefined;

@@ -18,7 +18,7 @@ import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsContro
 import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
 
-import { DirectoryAccessService } from "../services/DirectoryAccessService";
+
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 import { AudioService } from "../services/AudioService";
 import { CloudflareService } from "../services/CloudflareService";
@@ -36,7 +36,7 @@ export interface BenchmarkViewServices {
   session: SessionService;
   sessionSettings: SessionSettingsService;
   focus: FocusManagementService;
-  directory: DirectoryAccessService;
+
   visualSettings: VisualSettingsService;
   audio: AudioService;
   cloudflare: CloudflareService;
@@ -272,8 +272,8 @@ export class BenchmarkView {
       }
     });
 
-    this._historyService.onScoreRecorded((scenarioName: string): void => {
-      this._updateSingleScenario(scenarioName);
+    this._historyService.onScoreRecorded((): void => {
+      this._refreshIfVisible();
     });
 
     this._sessionService.onSessionUpdated((updatedNames?: string[]): void => {
@@ -602,6 +602,7 @@ export class BenchmarkView {
       focusService: this._focusService,
       rankEstimator: this._rankEstimator,
       cosmeticOverride: this._cosmeticOverrideService,
+      identityService: this._identityService,
       onScenarioLaunch: this._onScenarioLaunch,
     });
 

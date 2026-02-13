@@ -14,7 +14,7 @@ export class AccountSelectionView {
 
     private _searchTimeout: number | null = null;
     private _lastActiveUsername: string | null = null;
-    private _lastActiveIndex: number | null = null;
+
     private _pendingIndexDelta: number | null = null;
     private _animationCounter: number = 0;
     private _currentAnimationId: number = 0;
@@ -158,7 +158,6 @@ export class AccountSelectionView {
         this._updateNameTransition(nameStage, activeProfile, delta.direction, delta.intermediateProfiles);
 
         this._lastActiveUsername = activeProfile?.username || null;
-        this._lastActiveIndex = activeProfile ? profiles.findIndex(profile => profile.username === activeProfile.username) : null;
     }
 
     private _calculateCarouselDelta(profiles: PlayerProfile[], activeProfile: PlayerProfile | null): {

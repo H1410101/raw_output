@@ -2078,9 +2078,9 @@ h1 {
     width: 6rem;
     height: 6rem;
     border-radius: 50%;
-    border: 3px solid var(--glass-border);
+    border: 0.1875rem solid var(--glass-border);
     object-fit: cover;
-    box-shadow: 0 0 2rem rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 2rem rgba(var(--black-rgb), 0.2);
     transition: border-color 0.3s ease;
 }
 
@@ -2132,7 +2132,7 @@ h1 {
 
 .search-input:focus {
     border-color: var(--accent-color);
-    box-shadow: 0 0 0 4px rgba(var(--accent-color-rgb), 0.1);
+    box-shadow: 0 0 0 0.25rem rgba(var(--accent-color-rgb), 0.1);
 }
 
 .search-icon {

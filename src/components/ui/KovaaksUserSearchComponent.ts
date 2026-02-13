@@ -174,7 +174,7 @@ export class KovaaksUserSearchComponent {
         const isStale = requestId !== this._lastSearchRequestId;
 
         if (isStale) {
-
+            // Request is stale, ignore result
         }
 
         return isStale;
@@ -251,8 +251,11 @@ export class KovaaksUserSearchComponent {
 
     private _selectUser(user: KovaaksUserSearchResult): void {
         this._audio?.playHeavy(0.5);
-        this._identity.setKovaaksUsername(user.username);
-        this._identity.setKovaaksSteamId(user.steamId);
+        this._identity.addProfile({
+            username: user.username,
+            steamId: user.steamId,
+            pfpUrl: user.steamAccountAvatar
+        });
 
         const overlay: HTMLElement | null = document.querySelector(".kovaaks-search-overlay");
         if (overlay) {
