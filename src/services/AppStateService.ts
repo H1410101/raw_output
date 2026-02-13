@@ -1,4 +1,5 @@
 import { DifficultyTier, getAvailableDifficulties } from "../data/benchmarks";
+import { IdentityService } from "./IdentityService";
 
 /**
  * Encapsulates the transient UI state that should persist between sessions.
@@ -26,16 +27,37 @@ export interface AppState {
 export class AppStateService {
   private static readonly _storageKey: string = "raw_output_app_state";
 
-  private readonly _state: AppState;
+  private readonly _identityService: IdentityService;
+  private _state: AppState;
   private readonly _tabListeners: (() => void)[] = [];
   private readonly _difficultyListeners: (() => void)[] = [];
   private readonly _folderValidityListeners: (() => void)[] = [];
 
   /**
    * Initializes the service by loading state from local storage.
+   * @param identityService
    */
-  public constructor() {
+  public constructor(identityService: IdentityService) {
+    this._identityService = identityService;
     this._state = this._loadFromStorage();
+    this._subscribeToProfileChanges();
+  }
+
+  private _subscribeToProfileChanges(): void {
+    this._identityService.onProfilesChanged((): void => {
+      this._state = this._loadFromStorage();
+      this._notifyTabListeners();
+      this._notifyDifficultyListeners();
+    });
+  }
+
+  private _getStorageKey(): string {
+    const username = this._identityService.getKovaaksUsername();
+    if (!username) {
+      return AppStateService._storageKey;
+    }
+
+    return `${AppStateService._storageKey}_${username.toLowerCase()}`;
   }
 
   /**
@@ -179,7 +201,7 @@ export class AppStateService {
   private _loadFromStorage(): AppState {
     try {
       const serializedState: string | null = localStorage.getItem(
-        AppStateService._storageKey,
+        this._getStorageKey(),
       );
 
       if (serializedState) {
@@ -247,7 +269,7 @@ export class AppStateService {
     try {
       const serializedState: string = JSON.stringify(this._state);
 
-      localStorage.setItem(AppStateService._storageKey, serializedState);
+      localStorage.setItem(this._getStorageKey(), serializedState);
     } catch {
       // Ignore storage errors to prevent app crashes
     }

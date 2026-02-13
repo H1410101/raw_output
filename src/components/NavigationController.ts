@@ -126,9 +126,9 @@ export class NavigationController {
     const activeTabId = this._appStateService.getActiveTabId();
 
     if (activeTabId === "nav-ranked") {
-      this._updateVisibleView(this._viewRanked);
+      this._switchToRanked();
     } else {
-      this._updateVisibleView(this._viewBenchmarks);
+      this._switchToBenchmarks();
     }
   }
 
@@ -141,18 +141,12 @@ export class NavigationController {
       return;
     }
 
-    const isAlreadyActive: boolean =
-      this._appStateService.getActiveTabId() === "nav-benchmarks";
-
     this._appStateService.setActiveTabId("nav-benchmarks");
     this._updateButtonStates();
-
     this._updateVisibleView(this._viewBenchmarks);
+    this._highlightCurrentRankedScenario();
 
-    if (!isAlreadyActive) {
-      this._highlightCurrentRankedScenario();
-      await this._benchmarkView.render();
-    }
+    await this._benchmarkView.render();
   }
 
   private _highlightCurrentRankedScenario(): void {
@@ -174,9 +168,9 @@ export class NavigationController {
 
     this._appStateService.setActiveTabId("nav-ranked");
     this._updateButtonStates();
+    this._updateVisibleView(this._viewRanked);
 
     await this._rankedView.render();
-    this._updateVisibleView(this._viewRanked);
   }
 
   /**

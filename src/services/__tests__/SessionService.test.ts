@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach, Mock } from "vitest";
 import { SessionService } from "../SessionService";
 import { RankService } from "../RankService";
 import { SessionSettingsService } from "../SessionSettingsService";
+import { IdentityService } from "../IdentityService";
 import { BenchmarkScenario } from "../../data/benchmarks";
 
 interface SessionMocks {
     mockRankService: { calculateRank: Mock };
     mockSettingsService: { subscribe: Mock };
+    mockIdentityService: { getKovaaksUsername: Mock; onProfilesChanged: Mock };
     settingsCallback: (settings: { sessionTimeoutMinutes: number }) => void;
 }
 
@@ -59,7 +61,8 @@ describe("SessionService Persistence", (): void => {
         const originalId: string | null = service.sessionId;
         const newInstance: SessionService = new SessionService(
             mocks.mockRankService as unknown as RankService,
-            mocks.mockSettingsService as unknown as SessionSettingsService
+            mocks.mockSettingsService as unknown as SessionSettingsService,
+            mocks.mockIdentityService as unknown as IdentityService
         );
         expect(newInstance.sessionId).toBe(originalId);
     });
@@ -158,7 +161,8 @@ function _initSessionTestEnv(): SessionMocks {
 function _createSessionService(mocks: SessionMocks): SessionService {
     return new SessionService(
         mocks.mockRankService as unknown as RankService,
-        mocks.mockSettingsService as unknown as SessionSettingsService
+        mocks.mockSettingsService as unknown as SessionSettingsService,
+        mocks.mockIdentityService as unknown as IdentityService
     );
 }
 
@@ -174,9 +178,15 @@ function _setupSessionMocks(): SessionMocks {
         })
     };
 
+    const mockIdentityService = {
+        getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+        onProfilesChanged: vi.fn()
+    };
+
     return {
         mockRankService,
         mockSettingsService,
+        mockIdentityService,
         settingsCallback: (settings: { sessionTimeoutMinutes: number }): void => capturedCallback(settings)
     };
 }

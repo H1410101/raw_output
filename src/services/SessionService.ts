@@ -4,6 +4,7 @@ import {
   SessionSettings,
   SessionSettingsService,
 } from "./SessionSettingsService";
+import { IdentityService } from "./IdentityService";
 
 /**
  * Listener callback for session state changes.
@@ -47,11 +48,13 @@ export class SessionService {
   private _sessionTimeoutMilliseconds: number = 10 * 60 * 1000;
 
   /** Key for local storage persistence. */
-  private readonly _storageKey: string = "session_service_state";
+  private static readonly _legacyStorageKey: string = "session_service_state";
 
   private readonly _rankService: RankService;
 
   private readonly _sessionSettingsService: SessionSettingsService;
+
+  private readonly _identityService: IdentityService;
 
   private _lastRunTimestamp: number | null = null;
 
@@ -82,21 +85,57 @@ export class SessionService {
   private _expirationTimerId: number | null = null;
 
   /**
-   * Initializes the SessionService with required rank and settings dependencies.
+   * Initializes the session service.
    *
-   * @param rankService - Service for calculating ranks from scores.
-   * @param sessionSettingsService - Service providing session timeout configuration.
+   * @param rankService
+   * @param sessionSettingsService
+   * @param identityService
    */
   public constructor(
     rankService: RankService,
     sessionSettingsService: SessionSettingsService,
+    identityService: IdentityService,
   ) {
     this._rankService = rankService;
 
     this._sessionSettingsService = sessionSettingsService;
+    this._identityService = identityService;
 
     this._subscribeToSettingsUpdates();
+    this._subscribeToProfileChanges();
     this._loadFromLocalStorage();
+  }
+
+  private _subscribeToProfileChanges(): void {
+    this._identityService.onProfilesChanged((): void => {
+      this._resetInternalState();
+      this._loadFromLocalStorage();
+      this._notifySessionUpdate();
+    });
+  }
+
+  private _resetInternalState(): void {
+    this._sessionBestRanks.clear();
+    this._sessionBestPerDifficulty.clear();
+    this._lastRunTimestamp = null;
+    this._sessionStartTimestamp = null;
+    this._sessionId = null;
+    this._allRuns.length = 0;
+    this._rankedStartTime = null;
+    this._rankedBestRanks.clear();
+    this._rankedAllRuns.length = 0;
+    this._rankedPlaylist = null;
+    this._isRanked = false;
+    this._clearExpirationTimer();
+  }
+
+  private _getStorageKey(): string {
+    const username = this._identityService.getKovaaksUsername();
+    if (!username) {
+      return SessionService._legacyStorageKey;
+    }
+
+    return `${SessionService._legacyStorageKey}_${username.toLowerCase()}`;
   }
 
   /**
@@ -649,11 +688,11 @@ export class SessionService {
       rankedPlaylist: this._rankedPlaylist ? Array.from(this._rankedPlaylist) : null,
     };
 
-    localStorage.setItem(this._storageKey, JSON.stringify(state));
+    localStorage.setItem(this._getStorageKey(), JSON.stringify(state));
   }
 
   private _loadFromLocalStorage(): void {
-    const raw: string | null = localStorage.getItem(this._storageKey);
+    const raw: string | null = localStorage.getItem(this._getStorageKey());
     if (!raw) {
       return;
     }
@@ -681,7 +720,7 @@ export class SessionService {
 
       this._scheduleExpirationCheck();
     } catch {
-      localStorage.removeItem(this._storageKey);
+      localStorage.removeItem(this._getStorageKey());
     }
   }
 

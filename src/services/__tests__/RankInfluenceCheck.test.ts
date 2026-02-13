@@ -1,19 +1,29 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { RankEstimator, ScenarioEstimate } from "../RankEstimator";
-import { BenchmarkService } from "../BenchmarkService";
+import { BenchmarkService } from '../BenchmarkService';
+import { IdentityService } from '../IdentityService';
 import { BenchmarkScenario } from "../../data/benchmarks";
 
 describe("RankEstimator: RU Influence Capping Check", (): void => {
-    it("should check if a scenario's influence on holistic rank is capped at maximum rank", (): void => {
-        // 1. Setup mock scenarios with thresholds
-        const mockScenarios = _createMockScenarios();
+    let rankEstimator: RankEstimator;
 
+    beforeEach(() => {
+        localStorage.clear();
+        const mockScenarios = _createMockScenarios();
         const mockBenchmarkService = {
             getScenarios: vi.fn().mockReturnValue(mockScenarios),
             getRankNames: vi.fn().mockReturnValue(["rank1", "rank2"]),
         } as unknown as BenchmarkService;
 
-        const estimator = new RankEstimator(mockBenchmarkService);
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue(null),
+            onProfilesChanged: vi.fn(),
+        } as unknown as IdentityService;
+        rankEstimator = new RankEstimator(mockBenchmarkService, identityService);
+    });
+
+    it("should check if a scenario's influence on holistic rank is capped at maximum rank", (): void => {
+        // 1. Setup mock scenarios with thresholds (now done in beforeEach for BenchmarkService)
 
         // 2. Mock estimates in localStorage
         const estimates = _createMockEstimates();
@@ -22,7 +32,7 @@ describe("RankEstimator: RU Influence Capping Check", (): void => {
         // 3. Calculate holistic estimate
         // If capped, Scenario 2 should count as 2.0. Average: (2.0 + 2.0) / 2 = 2.0
         // If NOT capped, Average: (2.0 + 3.0) / 2 = 2.5
-        const result = estimator.calculateHolisticEstimateRank("Intermediate");
+        const result = rankEstimator.calculateHolisticEstimateRank("Intermediate");
 
 
 

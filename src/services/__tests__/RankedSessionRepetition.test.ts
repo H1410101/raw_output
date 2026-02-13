@@ -5,12 +5,14 @@ import { SessionService } from "../SessionService";
 import { RankEstimator } from "../RankEstimator";
 import { BenchmarkScenario } from "../../data/benchmarks";
 import { SessionSettingsService } from "../SessionSettingsService";
+import { IdentityService } from "../IdentityService";
 
 interface MockSet {
     benchmark: BenchmarkService;
     session: SessionService;
     estimator: RankEstimator;
     settings: SessionSettingsService;
+    identity: IdentityService;
 }
 
 describe("RankedSessionService: Resumption Behavior", (): void => {
@@ -19,7 +21,7 @@ describe("RankedSessionService: Resumption Behavior", (): void => {
 
     beforeEach((): void => {
         mocks = _setupMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
 
     it("should retain the same sequence on same-day resumption", (): void => {
@@ -44,7 +46,7 @@ describe("RankedSessionService: Persistence Behavior", (): void => {
 
     beforeEach((): void => {
         mocks = _setupMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
 
     it("should maintain persistent targets across difficulty switches", (): void => {
@@ -113,7 +115,11 @@ function _setupMocks(): MockSet {
         } as unknown as RankEstimator,
         settings: {
             getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
-        } as unknown as SessionSettingsService
+        } as unknown as SessionSettingsService,
+        identity: {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn()
+        } as unknown as IdentityService
     };
 }
 

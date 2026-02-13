@@ -73,16 +73,16 @@ export class AppBootstrap {
     this._benchmarkService = new BenchmarkService();
     this._historyService = new HistoryService();
     this._rankService = new RankService();
-    this._appStateService = new AppStateService();
     this._sessionSettingsService = new SessionSettingsService();
     this._visualSettingsService = new VisualSettingsService();
     this._deviceDetectionService = new DeviceDetectionService();
   }
 
   private _initTelemetryServices(): void {
+    this._identityService = new IdentityService();
+    this._appStateService = new AppStateService(this._identityService);
     this._audioService = new AudioService(this._visualSettingsService);
     this._cloudflareService = new CloudflareService();
-    this._identityService = new IdentityService();
     this._focusService = new FocusManagementService(this._appStateService);
     this._kovaaksApiService = new KovaaksApiService();
   }
@@ -96,16 +96,18 @@ export class AppBootstrap {
     this._sessionService = new SessionService(
       this._rankService,
       this._sessionSettingsService,
+      this._identityService,
     );
 
-    this._rankEstimator = new RankEstimator(this._benchmarkService);
+    this._rankEstimator = new RankEstimator(this._benchmarkService, this._identityService);
 
-    this._rankedSessionService = new RankedSessionService(
-      this._benchmarkService,
-      this._sessionService,
-      this._rankEstimator,
-      this._sessionSettingsService,
-    );
+    this._rankedSessionService = new RankedSessionService({
+      benchmarkService: this._benchmarkService,
+      sessionService: this._sessionService,
+      rankEstimator: this._rankEstimator,
+      sessionSettings: this._sessionSettingsService,
+      identityService: this._identityService,
+    });
 
     this._cosmeticOverrideService = new CosmeticOverrideService(
       this._appStateService,

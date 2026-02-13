@@ -1,4 +1,8 @@
 import { PlayerProfile } from "../types/PlayerTypes";
+import {
+    KovaaksUserSearchResult,
+} from "../types/KovaaksApiTypes";
+import { KovaaksApiService } from "./KovaaksApiService";
 import { HistoryService } from "./HistoryService";
 
 /**
@@ -29,6 +33,7 @@ export class IdentityService {
         this._loadAnalyticsConsentStatus();
         this._loadExistingIdentityState();
         this._loadPlayerProfiles();
+        this._repairProfiles();
     }
 
     /**
@@ -368,7 +373,39 @@ export class IdentityService {
         }
     }
 
-    private _notifyProfilesChanged(): void {
+    private async _notifyProfilesChanged(): Promise<void> {
         this._onProfilesChanged.forEach(callback => callback());
+    }
+
+    private async _repairProfiles(): Promise<void> {
+        let changed = false;
+        const apiService = new KovaaksApiService();
+
+        for (let i = 0; i < this._profiles.length; i++) {
+            const profile = this._profiles[i];
+            if (!profile.steamId) {
+                try {
+                    console.log(`[IdentityService] Repairing missing steamId for ${profile.username}...`);
+                    const searchResults = await apiService.searchUsers(profile.username);
+                    const match = searchResults.find((user: KovaaksUserSearchResult): boolean => user.username === profile.username);
+
+                    if (match && match.steamId) {
+                        this._profiles[i] = {
+                            ...profile,
+                            steamId: match.steamId
+                        };
+                        changed = true;
+                        console.log(`[IdentityService] Repaired ${profile.username} with steamId: ${match.steamId}`);
+                    }
+                } catch (error) {
+                    console.warn(`[IdentityService] Failed to repair profile ${profile.username}:`, error);
+                }
+            }
+        }
+
+        if (changed) {
+            this._persistState();
+            this._notifyProfilesChanged();
+        }
     }
 }

@@ -3,6 +3,7 @@ import {
     KovaaksUserSearchResult,
     KovaaksActivityEvent,
     KovaaksScenarioScore,
+    KovaaksBenchmarkResponse,
 } from "../types/KovaaksApiTypes";
 
 /**
@@ -75,6 +76,28 @@ export class KovaaksApiService {
         return this._fetchFromApi<KovaaksUserProfile>("/user/profile/by-username", {
             username,
         });
+    }
+
+    /**
+     * Fetches all-time highscores for a specific benchmark and player.
+     * 
+     * @param steamId - The player's Steam ID.
+     * @param benchmarkId - The Kovaaks benchmark ID.
+     * @returns A promise resolving to the benchmark progress response.
+     */
+    public async fetchBenchmarkHighscores(
+        steamId: string,
+        benchmarkId: string,
+    ): Promise<KovaaksBenchmarkResponse> {
+        return this._fetchFromApi<KovaaksBenchmarkResponse>(
+            "/benchmarks/player-progress-rank-benchmark",
+            {
+                benchmarkId,
+                steamId,
+                page: "0",
+                max: "100",
+            }
+        );
     }
 
     private async _fetchFromApi<T>(

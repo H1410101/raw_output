@@ -73,13 +73,15 @@ export class BenchmarkRowRenderer {
    *
    * @param scenario - The benchmark scenario data.
    * @param highscore - The all-time highscore for this scenario.
-   * @param difficulty
+   * @param difficulty - The benchmark difficulty tier.
+   * @param kovaaksHighscore - The global all-time highscore from Kovaaks API.
    * @returns The constructed row HTMLElement.
    */
   public renderRow(
     scenario: BenchmarkScenario,
     highscore: number,
     difficulty: DifficultyTier = "Advanced",
+    kovaaksHighscore: number = 0,
   ): HTMLElement {
     this._currentDifficulty = difficulty;
     const rowElement: HTMLElement = this._createRowContainer(scenario);
@@ -90,7 +92,7 @@ export class BenchmarkRowRenderer {
       rowElement.appendChild(this._createDotCloudCell(scenario));
     }
 
-    this._appendRankBadgesIfEnabled(rowElement, scenario, highscore);
+    this._appendRankBadgesIfEnabled(rowElement, scenario, highscore, kovaaksHighscore);
 
     rowElement.appendChild(this._createPlayButton(scenario.name));
     this._addRowClickListeners(rowElement, scenario);
@@ -127,18 +129,29 @@ export class BenchmarkRowRenderer {
    *
    * @param rowElement - The existing HTMLElement of the row.
    * @param scenario - The scenario data to apply.
-   * @param highscore - The current all-time highscore.
-   * @param difficulty
+   * @param updateData - The data to update the row with.
+   * @param updateData.highscore - The scenario all-time highscore.
+   * @param updateData.difficulty - The benchmark difficulty tier.
+   * @param updateData.kovaaksHighscore - The global all-time highscore.
    */
   public updateRow(
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
-    highscore: number,
-    difficulty: DifficultyTier = "Advanced",
+    updateData: {
+      highscore: number;
+      difficulty?: DifficultyTier;
+      kovaaksHighscore?: number;
+    },
   ): void {
+    const {
+      highscore,
+      difficulty = "Advanced",
+      kovaaksHighscore = 0,
+    } = updateData;
+
     this._currentDifficulty = difficulty;
     if (this._visualSettings.showRanks) {
-      this._updateRankBadges(rowElement, scenario, highscore);
+      this._updateRankBadges(rowElement, scenario, highscore, kovaaksHighscore);
       if (this._visualSettings.showRankEstimate) {
         this._updateRankEstimateBadge(rowElement, scenario);
       }
@@ -181,18 +194,21 @@ export class BenchmarkRowRenderer {
    * @param rowElement - The row HTMLElement to append badges to.
    * @param scenario - The benchmark scenario data.
    * @param highscore - The all-time highscore for the scenario.
+   * @param kovaaksHighscore - The global all-time highscore from Kovaaks API.
    */
   private _appendRankBadgesIfEnabled(
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
     highscore: number,
+    kovaaksHighscore: number,
   ): void {
     if (!this._visualSettings.showRanks) {
       return;
     }
 
     if (this._visualSettings.showAllTimeBest) {
-      rowElement.appendChild(this._createRankBadge(scenario, highscore));
+      const bestScore = Math.max(highscore, kovaaksHighscore);
+      rowElement.appendChild(this._createRankBadge(scenario, bestScore));
     }
 
     if (this._visualSettings.showSessionBest) {
@@ -227,18 +243,21 @@ export class BenchmarkRowRenderer {
    * @param rowElement - The row HTMLElement.
    * @param scenario - The benchmark scenario data.
    * @param highscore - The current all-time highscore.
+   * @param kovaaksHighscore - The global all-time highscore from Kovaaks API.
    */
   private _updateRankBadges(
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
     highscore: number,
+    kovaaksHighscore: number,
   ): void {
     const allTimeBadge: HTMLElement | null = rowElement.querySelector(
       ".rank-badge-container:not(.session-badge) .badge-content",
     );
 
     if (allTimeBadge) {
-      this._fillBadgeContent(allTimeBadge, scenario, highscore);
+      const bestScore = Math.max(highscore, kovaaksHighscore);
+      this._fillBadgeContent(allTimeBadge, scenario, bestScore);
     }
 
     this._updateSessionBadge(rowElement, scenario);

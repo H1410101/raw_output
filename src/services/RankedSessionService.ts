@@ -3,6 +3,7 @@ import { SessionService, SessionRankRecord } from "./SessionService";
 import { BenchmarkScenario } from "../data/benchmarks";
 import { RankEstimator } from "./RankEstimator";
 import { SessionSettingsService } from "./SessionSettingsService";
+import { IdentityService } from "./IdentityService";
 
 export type RankedSessionStatus = "IDLE" | "ACTIVE" | "COMPLETED" | "SUMMARY";
 
@@ -53,6 +54,17 @@ interface PersistentRankedState {
 }
 
 /**
+ * Dependencies required by the RankedSessionService.
+ */
+export interface RankedSessionServiceDependencies {
+    readonly benchmarkService: BenchmarkService;
+    readonly sessionService: SessionService;
+    readonly rankEstimator: RankEstimator;
+    readonly sessionSettings: SessionSettingsService;
+    readonly identityService: IdentityService;
+}
+
+/**
  * Service managing deterministic "Ranked Runs" with guided progression.
  */
 export class RankedSessionService {
@@ -60,7 +72,8 @@ export class RankedSessionService {
     private readonly _sessionService: SessionService;
     private readonly _rankEstimator: RankEstimator;
     private readonly _sessionSettings: SessionSettingsService;
-    private readonly _storageKey: string = "ranked_session_state_v2";
+    private readonly _identityService: IdentityService;
+    private static readonly _legacyStorageKey: string = "ranked_session_state_v2";
 
     private _status: RankedSessionStatus = "IDLE";
     private _difficulty: string | null = null;
@@ -84,27 +97,37 @@ export class RankedSessionService {
     private readonly _onStateChanged: (() => void)[] = [];
 
     /**
-     * Initializes the service.
+     * Initializes the service with its required dependencies.
      *
-     * @param benchmarkService - Service for accessing benchmark data.
-     * @param sessionService - Service for session lifecycle.
-     * @param rankEstimator - Service for rank identity and selection metrics.
-     * @param sessionSettings - Service for accessing session configuration.
+     * @param dependencies - The set of service dependencies.
      */
-    public constructor(
-        benchmarkService: BenchmarkService,
-        sessionService: SessionService,
-        rankEstimator: RankEstimator,
-        sessionSettings: SessionSettingsService,
-    ) {
-        this._benchmarkService = benchmarkService;
-        this._sessionService = sessionService;
-        this._rankEstimator = rankEstimator;
-        this._sessionSettings = sessionSettings;
+    public constructor(dependencies: RankedSessionServiceDependencies) {
+        this._benchmarkService = dependencies.benchmarkService;
+        this._sessionService = dependencies.sessionService;
+        this._rankEstimator = dependencies.rankEstimator;
+        this._sessionSettings = dependencies.sessionSettings;
+        this._identityService = dependencies.identityService;
 
         this._loadFromLocalStorage();
         this._subscribeToSessionEvents();
+        this._subscribeToProfileChanges();
         this._startTicker();
+    }
+
+    private _subscribeToProfileChanges(): void {
+        this._identityService.onProfilesChanged((): void => {
+            this._loadFromLocalStorage();
+            this._notifyListeners();
+        });
+    }
+
+    private _getStorageKey(): string {
+        const username = this._identityService.getKovaaksUsername();
+        if (!username) {
+            return RankedSessionService._legacyStorageKey;
+        }
+
+        return `${RankedSessionService._legacyStorageKey}_${username.toLowerCase()}`;
     }
 
     private _startTicker(): void {
@@ -778,7 +801,7 @@ export class RankedSessionService {
     private _saveToLocalStorage(): void {
         this._snapshotCurrentDifficultyState();
 
-        const state = {
+        const state: PersistentRankedState = {
             status: this._status,
             difficulty: this._difficulty,
             startTime: this._startTime,
@@ -787,38 +810,62 @@ export class RankedSessionService {
             difficultyStates: this._difficultyStates,
         };
 
-        localStorage.setItem(this._storageKey, JSON.stringify(state));
+        localStorage.setItem(this._getStorageKey(), JSON.stringify(state));
     }
 
     private _loadFromLocalStorage(): void {
-        const raw: string | null = localStorage.getItem(this._storageKey);
+        const key = this._getStorageKey();
+        const raw: string | null = localStorage.getItem(key);
         if (!raw) {
+            this._resetToIdle();
+
             return;
         }
 
         try {
             const state = JSON.parse(raw) as PersistentRankedState;
-            this._status = state.status;
-            this._difficulty = state.difficulty;
-            this._startTime = state.startTime;
-            this._rankedSessionId = state.rankedSessionId || null;
-            this._scenarioStartTime = state.scenarioStartTime || null;
-            this._difficultyStates = state.difficultyStates || {};
-
-            if (this._difficulty && this._difficultyStates[this._difficulty]) {
-                const difficultyState = this._difficultyStates[this._difficulty];
-                this._sequence = difficultyState.sequence || [];
-                this._currentIndex = difficultyState.currentIndex || 0;
-                this._initialGauntletComplete = difficultyState.initialGauntletComplete || false;
-                this._playedScenarios = new Set(difficultyState.playedScenarios || []);
-                this._initialEstimates = difficultyState.initialEstimates || {};
-                this._previousSessionRanks = difficultyState.previousSessionRanks || {};
-                this._lastSessionAchievements = difficultyState.lastSessionAchievements || {};
-                this._accumulatedScenarioSeconds = new Map(Object.entries(difficultyState.accumulatedScenarioSeconds || {}));
-                this._sessionService.setRankedPlaylist(this._sequence);
-            }
+            this._applyPersistentState(state);
         } catch {
-            localStorage.removeItem(this._storageKey);
+            this._resetToIdle();
+        }
+    }
+
+    private _resetToIdle(): void {
+        this._status = "IDLE";
+        this._difficulty = null;
+        this._startTime = null;
+        this._rankedSessionId = null;
+        this._scenarioStartTime = null;
+        this._sequence = [];
+        this._currentIndex = 0;
+        this._initialGauntletComplete = false;
+        this._playedScenarios = new Set();
+        this._initialEstimates = {};
+        this._previousSessionRanks = {};
+        this._lastSessionAchievements = {};
+        this._accumulatedScenarioSeconds = new Map();
+        this._difficultyStates = {};
+    }
+
+    private _applyPersistentState(state: PersistentRankedState): void {
+        this._status = state.status;
+        this._difficulty = state.difficulty;
+        this._startTime = state.startTime;
+        this._rankedSessionId = state.rankedSessionId;
+        this._scenarioStartTime = state.scenarioStartTime;
+        this._difficultyStates = state.difficultyStates || {};
+
+        if (this._difficulty && this._difficultyStates[this._difficulty]) {
+            this._applyDifficultyStateSnapshot(this._difficultyStates[this._difficulty]);
+        } else {
+            this._sequence = [];
+            this._currentIndex = 0;
+            this._initialGauntletComplete = false;
+            this._playedScenarios = new Set();
+            this._initialEstimates = {};
+            this._previousSessionRanks = {};
+            this._lastSessionAchievements = {};
+            this._accumulatedScenarioSeconds = new Map();
         }
     }
 

@@ -2,6 +2,7 @@ import { expect, test, afterEach } from "vitest";
 import { BenchmarkView, BenchmarkViewServices } from "../BenchmarkView";
 
 import { AppStateService } from "../../services/AppStateService";
+import { IdentityService } from "../../services/IdentityService";
 import { MockServiceFactory } from "./MockServiceFactory";
 
 test("difficultyTabsArePresentInBenchmarkView", async (): Promise<void> => {
@@ -10,7 +11,12 @@ test("difficultyTabsArePresentInBenchmarkView", async (): Promise<void> => {
     const dashboardContainer: HTMLDivElement = _prepareDashboardHost();
     document.body.appendChild(dashboardContainer);
 
-    const appState: AppStateService = new AppStateService();
+    const identityService = {
+        getKovaaksUsername: (): string | null => "testuser",
+        onProfilesChanged: (): void => { }
+    } as unknown as IdentityService;
+
+    const appState: AppStateService = new AppStateService(identityService);
     const mockServices: BenchmarkViewServices = MockServiceFactory.createViewDependencies({
         appState,
         session: { isSessionActive: (): boolean => true }

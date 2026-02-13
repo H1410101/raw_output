@@ -11,9 +11,12 @@ function setupRankEstimatorWithPenalty(scenario: string, penalty: number): RankE
         }
     };
 
-    localStorage.setItem('rank_identity_state_v2', JSON.stringify(initialMap));
+    localStorage.setItem('rank_identity_state_v2_testuser', JSON.stringify(initialMap));
 
-    return new RankEstimator(new BenchmarkService());
+    return new RankEstimator(new BenchmarkService(), {
+        getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+        onProfilesChanged: vi.fn()
+    } as unknown as IdentityService);
 }
 
 describe('RankEstimator Penalty Lift: Time vs Activity', () => {

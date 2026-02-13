@@ -1,16 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { RankEstimator, ScenarioEstimate } from "../RankEstimator";
 import { BenchmarkService } from "../BenchmarkService";
+import { IdentityService } from "../IdentityService";
 
 describe("RankEstimator: Evolved Value Max Logic", (): void => {
     let estimator: RankEstimator;
     let benchmarkService: BenchmarkService;
+    let identityService: IdentityService;
 
     beforeEach((): void => {
         vi.clearAllMocks();
         localStorage.clear();
         benchmarkService = { getRankNames: vi.fn() } as unknown as BenchmarkService;
-        estimator = new RankEstimator(benchmarkService);
+        identityService = { getKovaaksUsername: vi.fn().mockReturnValue("testuser") } as unknown as IdentityService;
+        estimator = new RankEstimator(benchmarkService, identityService);
     });
 
     it("should retain the maximum rank when evolving multiple times in one day", (): void => {

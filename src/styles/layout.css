@@ -8,6 +8,7 @@ html {}
 
 :root {
     /* Palette and Functional Tokens moved to palette.css */
+    --header-total-offset: 6rem;
 }
 
 body {
@@ -480,6 +481,12 @@ h1 {
 
 .ranked-view {
     justify-content: center;
+}
+
+.ranked-view::after {
+    content: "";
+    flex: 0 1 var(--header-total-offset);
+    pointer-events: none;
 }
 
 .ranked-view-container {
@@ -2026,6 +2033,12 @@ h1 {
     gap: 3rem;
     max-width: 60rem;
     margin: 0 auto;
+}
+
+.account-selection-view::after {
+    content: "";
+    flex: 0 1 var(--header-total-offset);
+    pointer-events: none;
 }
 
 .account-selection-header {

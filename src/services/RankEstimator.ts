@@ -1,5 +1,6 @@
 import { BenchmarkScenario } from "../data/benchmarks";
 import { BenchmarkService } from "./BenchmarkService";
+import { IdentityService } from "./IdentityService";
 
 export interface EstimatedRank {
     readonly rankName: string;
@@ -31,7 +32,8 @@ export type RankEstimateMap = Record<string, ScenarioEstimate>;
  * Implements the "Rank Mechanics Specification v4.3".
  */
 export class RankEstimator {
-    private static readonly _estimateKey: string = "rank_identity_state_v2";
+    private static readonly _legacyEstimateKey: string = "rank_identity_state_v2";
+    private readonly _identityService: IdentityService;
 
 
 
@@ -48,21 +50,38 @@ export class RankEstimator {
      * Initializes the estimator.
      *
      * @param benchmarkService - Service for accessing benchmark definitions.
+     * @param identityService
      */
     public constructor(
         benchmarkService: BenchmarkService,
+        identityService: IdentityService,
     ) {
         this._benchmarkService = benchmarkService;
+        this._identityService = identityService;
     }
 
     /**
+     * Gets the storage key for the current active profile.
+     *
+     * @returns The profile-specific storage key.
+     */
+    private _getStorageKey(): string {
+        const username = this._identityService.getKovaaksUsername();
+        if (!username) {
+            return RankEstimator._legacyEstimateKey;
+        }
+
+        return `${RankEstimator._legacyEstimateKey}_${username.toLowerCase()}`;
+    }
+
     /**
      * Retrieves the current persistent rank estimate map.
      *
      * @returns The full rank estimate map from storage.
      */
     public getRankEstimateMap(): RankEstimateMap {
-        const raw: string | null = localStorage.getItem(RankEstimator._estimateKey);
+        const key = this._getStorageKey();
+        const raw: string | null = localStorage.getItem(key);
 
         if (raw) {
             try {
@@ -75,7 +94,6 @@ export class RankEstimator {
         return {};
     }
 
-    /**
     /**
      * Retrieves the rank estimate for a specific scenario.
      *
@@ -191,7 +209,7 @@ export class RankEstimator {
             lastDecayed: current.lastDecayed,
         };
 
-        localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
+        localStorage.setItem(this._getStorageKey(), JSON.stringify(map));
 
         this._notifyListeners(scenarioName);
     }
@@ -217,7 +235,7 @@ export class RankEstimator {
             lastDecayed: current.lastDecayed,
         };
 
-        localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
+        localStorage.setItem(this._getStorageKey(), JSON.stringify(map));
         this._notifyListeners(scenarioName);
     }
 
@@ -226,41 +244,35 @@ export class RankEstimator {
      * This occurs at most once per day, triggered by ranked session activity.
      */
     public applyPenaltyLift(): void {
-        const liftKey = "rank_penalty_lift_date";
         const today = new Date().toISOString().split("T")[0];
-        const lastLift = localStorage.getItem(liftKey);
+        const username = this._identityService.getKovaaksUsername();
+        const liftKey = username ? `rank_penalty_lift_date_${username.toLowerCase()}` : "rank_penalty_lift_date";
 
-        if (lastLift === today) {
-            return;
-        }
+        if (localStorage.getItem(liftKey) === today) return;
 
-        const map: RankEstimateMap = this.getRankEstimateMap();
-        let changed = false;
-
-        for (const scenarioName in map) {
-            const estimate = map[scenarioName];
-            if (estimate.penalty > 0) {
-                const newPenalty = Math.max(0, estimate.penalty - 0.5);
-                map[scenarioName] = {
-                    ...estimate,
-                    penalty: newPenalty,
-                };
-                changed = true;
-            }
-        }
+        const map = this.getRankEstimateMap();
+        const changed = this._reduceAllPenalties(map);
 
         if (changed) {
-            localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(map));
-            // Trigger listeners for all scenarios that changed
-            for (const scenarioName in map) {
-                this._notifyListeners(scenarioName);
-            }
+            localStorage.setItem(this._getStorageKey(), JSON.stringify(map));
+            Object.keys(map).forEach(name => this._notifyListeners(name));
         }
 
         localStorage.setItem(liftKey, today);
     }
 
+    private _reduceAllPenalties(map: RankEstimateMap): boolean {
+        let changed = false;
+        for (const scenarioName in map) {
+            const estimate = map[scenarioName];
+            if (estimate.penalty > 0) {
+                map[scenarioName] = { ...estimate, penalty: Math.max(0, estimate.penalty - 0.5) };
+                changed = true;
+            }
+        }
 
+        return changed;
+    }
 
     /**
      * Subscribes to changes in rank estimates.
@@ -363,7 +375,7 @@ export class RankEstimator {
         }
 
         if (hasChanges) {
-            localStorage.setItem(RankEstimator._estimateKey, JSON.stringify(updatedMap));
+            localStorage.setItem(this._getStorageKey(), JSON.stringify(updatedMap));
         }
     }
 

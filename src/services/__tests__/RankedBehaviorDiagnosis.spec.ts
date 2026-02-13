@@ -7,6 +7,7 @@ import { BenchmarkService } from '../BenchmarkService';
 import { SessionSettingsService } from '../SessionSettingsService';
 import { RankService } from '../RankService';
 import { BenchmarkScenario } from '../../data/benchmarks';
+import { IdentityService } from '../IdentityService';
 
 // Mock dependencies
 const mockLocalStorage = ((): { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void; removeItem: (key: string) => void; clear: () => void } => {
@@ -66,15 +67,23 @@ describe('Ranked Session Diagnosis', () => {
             getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60, sessionTimeoutMinutes: 10 })
         } as unknown as SessionSettingsService;
 
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn()
+        } as unknown as IdentityService;
+
         const rankService = new RankService();
-        sessionService = new SessionService(rankService, sessionSettings);
-        rankEstimator = new RankEstimator(mockBenchmarkService);
-        rankedSessionService = new RankedSessionService(
-            mockBenchmarkService,
+        sessionService = new SessionService(rankService, sessionSettings, identityService);
+        rankEstimator = new RankEstimator(mockBenchmarkService, identityService);
+        const sessionSettingsService = sessionSettings;
+
+        rankedSessionService = new RankedSessionService({
+            benchmarkService: mockBenchmarkService,
             sessionService,
             rankEstimator,
-            sessionSettings
-        );
+            sessionSettings: sessionSettingsService,
+            identityService
+        });
 
         // Initialize estimates to 0
         const initialEstimates: Record<string, { continuousValue: number; highestAchieved: number; lastUpdated: string }> = {};

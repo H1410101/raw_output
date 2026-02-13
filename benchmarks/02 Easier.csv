@@ -1,3 +1,4 @@
+# Benchmark ID: 686
 Category,Subcategory,Scenario,Lemming,Hare,Ermine,Penguin,Fox,Mammoth,Orca,Seal
 Control Tracking,Arm,WhisphereRawControl Larger + Slowed,5500,6700,7800,8700,9600,10500,11400,12500
 Control Tracking,Arm,Whisphere 80%,6300,7700,9000,10000,11000,12000,13000,14500

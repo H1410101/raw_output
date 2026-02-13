@@ -4,43 +4,61 @@ import { BenchmarkService } from "../BenchmarkService";
 import { SessionService } from "../SessionService";
 import { RankEstimator } from "../RankEstimator";
 import { SessionSettingsService } from "../SessionSettingsService";
+import { IdentityService } from "../IdentityService";
 
 interface MockServices {
     benchmark: BenchmarkService;
     session: SessionService;
     estimator: RankEstimator;
     settings: SessionSettingsService;
+    identity: IdentityService;
 }
 
 function createMocks(): MockServices {
     return {
-        benchmark: {
-            getScenarios: vi.fn().mockReturnValue([
-                { name: "Scenario A", category: "Cat1", subcategory: "Sub1", thresholds: {} },
-                { name: "Scenario B", category: "Cat2", subcategory: "Sub2", thresholds: {} },
-                { name: "Scenario C", category: "Cat3", subcategory: "Sub3", thresholds: {} },
-            ]),
-        } as unknown as BenchmarkService,
-        session: {
-            startRankedSession: vi.fn(),
-            stopRankedSession: vi.fn(),
-            onSessionUpdated: vi.fn(),
-            getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
-            getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
-            getRankedScenarioBest: vi.fn().mockReturnValue({}),
-            setRankedPlaylist: vi.fn(),
-        } as unknown as SessionService,
-        estimator: {
-            getScenarioEstimate: vi.fn().mockReturnValue({ continuousValue: 1.0, highestAchieved: 1.0 }),
-            recordPlay: vi.fn(),
-            applyPenaltyLift: vi.fn(),
-            getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
-            evolveScenarioEstimate: vi.fn(),
-        } as unknown as RankEstimator,
+        benchmark: _createBenchmarkMock(),
+        session: _createSessionMock(),
+        estimator: _createEstimatorMock(),
         settings: {
             getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
         } as unknown as SessionSettingsService,
+        identity: {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn()
+        } as unknown as IdentityService,
     };
+}
+
+function _createBenchmarkMock(): BenchmarkService {
+    return {
+        getScenarios: vi.fn().mockReturnValue([
+            { name: "Scenario A", category: "Cat1", subcategory: "Sub1", thresholds: {} },
+            { name: "Scenario B", category: "Cat2", subcategory: "Sub2", thresholds: {} },
+            { name: "Scenario C", category: "Cat3", subcategory: "Sub3", thresholds: {} },
+        ]),
+    } as unknown as BenchmarkService;
+}
+
+function _createSessionMock(): SessionService {
+    return {
+        startRankedSession: vi.fn(),
+        stopRankedSession: vi.fn(),
+        onSessionUpdated: vi.fn(),
+        getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
+        getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
+        getRankedScenarioBest: vi.fn().mockReturnValue({}),
+        setRankedPlaylist: vi.fn(),
+    } as unknown as SessionService;
+}
+
+function _createEstimatorMock(): RankEstimator {
+    return {
+        getScenarioEstimate: vi.fn().mockReturnValue({ continuousValue: 1.0, highestAchieved: 1.0 }),
+        recordPlay: vi.fn(),
+        applyPenaltyLift: vi.fn(),
+        getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
+        evolveScenarioEstimate: vi.fn(),
+    } as unknown as RankEstimator;
 }
 
 let service: RankedSessionService;
@@ -49,7 +67,13 @@ function setupService(): void {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-20T10:00:00Z"));
     const mocks = createMocks();
-    service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+    service = new RankedSessionService({
+        benchmarkService: mocks.benchmark,
+        sessionService: mocks.session,
+        rankEstimator: mocks.estimator,
+        sessionSettings: mocks.settings,
+        identityService: mocks.identity
+    });
 }
 
 function teardownService(): void {
@@ -94,7 +118,13 @@ describe("Ranked Timer Persistence", (): void => {
         const runData = [{ scenarioName: "Scenario A", score: 100, timestamp: Date.now() + 1000 }];
         (mocks.session.getAllRankedSessionRuns as Mock).mockReturnValue(runData);
 
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+        service = new RankedSessionService({
+            benchmarkService: mocks.benchmark,
+            sessionService: mocks.session,
+            rankEstimator: mocks.estimator,
+            sessionSettings: mocks.settings,
+            identityService: mocks.identity
+        });
 
         service.startSession("Gold");
         vi.advanceTimersByTime(60000);

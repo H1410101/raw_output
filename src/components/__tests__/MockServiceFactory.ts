@@ -135,6 +135,7 @@ export class MockServiceFactory {
             getAvailableDifficulties: vi.fn().mockReturnValue(["Advanced"]),
             getRankNames: vi.fn().mockReturnValue(["Bronze", "Silver", "Gold"]),
             getDifficulty: vi.fn().mockReturnValue("Advanced"),
+            getBenchmarkId: vi.fn().mockReturnValue("benchmark-123"),
             isPeak: vi.fn().mockReturnValue(false),
             ...overrides
         } as unknown as BenchmarkService;

@@ -6,6 +6,7 @@ import {
   getRankNamesForDifficulty,
   isPeakBenchmark,
   BenchmarkScenario,
+  getBenchmarkId as getBenchmarkIdFromData,
 } from "../data/benchmarks";
 
 /**
@@ -59,5 +60,15 @@ export class BenchmarkService {
    */
   public isPeak(difficulty: DifficultyTier): boolean {
     return isPeakBenchmark(difficulty);
+  }
+
+  /**
+   * Retrieves the benchmark ID associated with a difficulty tier.
+   *
+   * @param difficulty - The difficulty tier.
+   * @returns The benchmark ID or null if not found.
+   */
+  public getBenchmarkId(difficulty: DifficultyTier): string | null {
+    return getBenchmarkIdFromData(difficulty);
   }
 }
