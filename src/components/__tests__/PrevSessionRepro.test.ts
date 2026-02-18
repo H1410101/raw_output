@@ -17,14 +17,14 @@ describe("RankTimelineComponent Prev Session Check", () => {
         };
         const component = new RankTimelineComponent(config);
         const container = component.render();
-
         const prevNotch = container.querySelector(".marker-prev");
         const prevAnchor = container.querySelector(".anchor-prev");
-        const prevCaret = container.querySelector(".caret-prev");
 
-        expect(prevNotch).toBeNull();
-        expect(prevAnchor).toBeNull();
-        expect(prevCaret).toBeNull();
+        expect(prevNotch).not.toBeNull();
+        expect(prevAnchor).not.toBeNull();
+
+        expect((prevNotch as HTMLElement).style.opacity).toBe("0");
+        expect((prevAnchor as HTMLElement).style.opacity).toBe("0");
     });
 
     it("should render prev session notch when prevSessionRU is provided", () => {

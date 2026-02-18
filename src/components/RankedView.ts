@@ -284,6 +284,7 @@ export class RankedView {
     const state: RankedSessionState = this._deps.rankedSession.state;
     const scenarioName = this._getActiveScenarioName(state);
 
+
     if (this._shouldPerformQuickUpdate(state, scenarioName)) {
       this._performQuickUpdate(scenarioName!);
 
@@ -393,18 +394,9 @@ export class RankedView {
       this.refresh();
     });
 
-    this._deps.session.onSessionUpdated((): void => {
-      this._handleSessionUpdate();
-    });
-
     this._deps.sessionSettings.subscribe((): void => {
       this.refresh();
     });
-  }
-
-  private _handleSessionUpdate(): void {
-
-    this.refresh();
   }
 
   private _attachRankPopupListener(container: HTMLElement, rankName: string): void {
@@ -1151,6 +1143,7 @@ export class RankedView {
   }
 
   private _tickHold(state: LaunchHoldState): void {
+
     state.progress -= RankedView._depleteStep;
 
     if (state.progress <= 0) {
