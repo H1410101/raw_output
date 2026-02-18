@@ -197,6 +197,13 @@ export class AccountSelectionView {
         const profiles = this._getFilteredProfiles();
         const activeProfile = this._deps.identityService.getActiveProfile();
 
+        if (this._previewUsername) {
+            const hasPreviewInResults = profiles.some(prof => prof.username === this._previewUsername);
+            if (!hasPreviewInResults) {
+                this._previewUsername = null;
+            }
+        }
+
         if (profiles.length === 0) {
             this._handleEmptySelection(track, nameStage);
 
@@ -277,7 +284,7 @@ export class AccountSelectionView {
 
         const displayName = (isSearching && this._previewUsername)
             ? profiles.find(prof => prof.username === this._previewUsername)
-            : activeProfile;
+            : (isSearching ? profiles.find(prof => prof.username === activeProfile?.username) : activeProfile);
 
         this._updateNameTransition({
             nameStage,
