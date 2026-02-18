@@ -252,7 +252,13 @@ export class AccountSelectionView {
         const newDelta = this._calculateCarouselDelta(profiles, activeProfile);
 
         this._updatePfpItems(track, profiles, activeProfile, newDelta.explicitDiff);
-        this._updateNameTransition(nameStage, profiles[0], newDelta.direction, newDelta.intermediateProfiles);
+        this._updateNameTransition({
+            nameStage,
+            active: profiles[0],
+            direction: newDelta.direction,
+            intermediate: newDelta.intermediateProfiles,
+            animate: newDelta.explicitDiff !== null
+        });
         this._lastActiveUsername = this._previewUsername;
 
         return true;
@@ -273,7 +279,13 @@ export class AccountSelectionView {
             ? profiles.find(prof => prof.username === this._previewUsername)
             : activeProfile;
 
-        this._updateNameTransition(nameStage, displayName || null, delta.direction, delta.intermediateProfiles);
+        this._updateNameTransition({
+            nameStage,
+            active: displayName || null,
+            direction: delta.direction,
+            intermediate: delta.intermediateProfiles,
+            animate: delta.explicitDiff !== null
+        });
 
         this._lastActiveUsername = (isSearching && this._previewUsername)
             ? this._previewUsername
@@ -612,14 +624,21 @@ export class AccountSelectionView {
         }
     }
 
-    private _updateNameTransition(
-        nameStage: HTMLElement,
-        active: PlayerProfile | null,
-        direction: "up" | "down",
-        intermediate: PlayerProfile[] = []
-    ): void {
-        const animId = ++this._animationCounter;
-        this._currentAnimationId = animId;
+    private _updateNameTransition(options: {
+        nameStage: HTMLElement;
+        active: PlayerProfile | null;
+        direction: "up" | "down";
+        intermediate?: PlayerProfile[];
+        animate?: boolean;
+    }): void {
+        const { nameStage, active, direction, intermediate = [], animate = true } = options;
+        this._currentAnimationId = ++this._animationCounter;
+
+        if (!animate) {
+            this._performInstantNameUpdate(nameStage, active);
+
+            return;
+        }
 
         const names = [...intermediate.map(prof => prof.username), active?.username || ""];
         const stepDuration = 200 / names.length;
@@ -629,11 +648,19 @@ export class AccountSelectionView {
             nameStage,
             names,
             direction,
-            animId,
+            animId: this._currentAnimationId,
             stepDuration,
             startTime,
             stepIndex: 0
         });
+    }
+
+    private _performInstantNameUpdate(nameStage: HTMLElement, active: PlayerProfile | null): void {
+        nameStage.innerHTML = `
+            <span class="active-profile-name current">
+                ${active?.username || ""}
+            </span>
+        `;
     }
 
     private _runNameSequence(options: {
