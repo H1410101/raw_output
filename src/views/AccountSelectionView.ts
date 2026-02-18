@@ -227,6 +227,7 @@ export class AccountSelectionView {
         track.innerHTML = `<p class="text-dim">No profiles found</p>`;
         nameStage.innerHTML = "";
         this._lastProfileCount = 0;
+        this._updateStageWidth(0);
     }
 
     private _reconcileCarouselState(track: HTMLElement, profiles: SearchResultProfile[]): void {
@@ -393,7 +394,7 @@ export class AccountSelectionView {
             ? (totalProfiles / 2) * 5 + 1
             : ((totalProfiles - 1) / 2) * 5 + 1;
 
-        const calculatedWidthRem = (maxVisibleOffset * 2) + 3;
+        const calculatedWidthRem = Math.max((maxVisibleOffset * 2) + 3, 15);
 
         // Adaptive width capped by parent
         const parentWidthPx = stage.parentElement?.clientWidth || 0;
