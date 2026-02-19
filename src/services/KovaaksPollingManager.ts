@@ -369,41 +369,44 @@ export class KovaaksPollingManager {
 
     private async _pollScenario(scenarioName: string): Promise<void> {
         const profile = this._identity.getActiveProfile();
-        if (!profile) {
-            return;
-        }
-
-        const username = profile.username;
+        if (!profile) return;
 
         try {
-            const kovaaksScores: KovaaksScenarioScore[] = await this._kovaaksApi.fetchScenarioLastScores(username, scenarioName);
-
+            const kovaaksScores = await this._kovaaksApi.fetchScenarioLastScores(profile.username, scenarioName);
             this._logOnChange(scenarioName, kovaaksScores);
 
-            const newScores: KovaaksScenarioScore[] = await this._filterNewScores(username, scenarioName, kovaaksScores);
-
+            const newScores = await this._filterNewScores(profile.username, scenarioName, kovaaksScores);
             if (newScores.length === 0) return;
 
-            const difficulty: string | null = this._benchmark.getDifficulty(scenarioName);
-            const scenario: BenchmarkScenario | undefined = this._findBenchmarkScenario(scenarioName, difficulty);
-
-            await this._history.recordKovaaksScores(username, scenarioName, newScores.map((score: KovaaksScenarioScore) => ({
-                score: score.attributes.score,
-                date: score.attributes.epoch
-            })));
-
-            this._focus.focusScenario(scenarioName, "NEW_SCORE");
-
-            this._session.registerMultipleRuns(newScores.map((score: KovaaksScenarioScore) => ({
-                scenarioName,
-                score: score.attributes.score,
-                scenario: scenario || null,
-                difficulty,
-                timestamp: new Date(Number(score.attributes.epoch))
-            })));
+            await this._processNewScores(profile.username, scenarioName, newScores);
         } catch (error) {
             console.error(`[KovaaksPolling] Failed to poll scenario ${scenarioName}: `, error);
         }
+    }
+
+    private async _processNewScores(username: string, scenarioName: string, newScores: KovaaksScenarioScore[]): Promise<void> {
+        const difficulty = this._benchmark.getDifficulty(scenarioName);
+        const scenario = this._findBenchmarkScenario(scenarioName, difficulty);
+
+        await this._history.recordKovaaksScores(username, scenarioName, newScores.map((score: KovaaksScenarioScore) => ({
+            score: score.attributes.score,
+            date: score.attributes.epoch
+        })));
+
+        await this._history.updateMultipleHighscores(username, newScores.map((score: KovaaksScenarioScore) => ({
+            scenarioName,
+            score: score.attributes.score
+        })));
+
+        this._focus.focusScenario(scenarioName, "NEW_SCORE");
+
+        this._session.registerMultipleRuns(newScores.map((score: KovaaksScenarioScore) => ({
+            scenarioName,
+            score: score.attributes.score,
+            scenario: scenario || null,
+            difficulty,
+            timestamp: new Date(Number(score.attributes.epoch))
+        })));
     }
 
     private _logOnChange(scenarioName: string, scores: KovaaksScenarioScore[]): void {

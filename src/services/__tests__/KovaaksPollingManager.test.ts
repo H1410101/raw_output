@@ -98,6 +98,41 @@ describe("KovaaksPollingManager: Tab/Profile Triggers", () => {
     });
 });
 
+describe("KovaaksPollingManager: Score Registration", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        dependencies = _createMockDependencies();
+    });
+
+    afterEach(() => {
+        _teardown();
+    });
+
+    it("should update highscores when new scores are polled", async () => {
+        const manager = new KovaaksPollingManager(dependencies);
+        const newScore = {
+            attributes: {
+                score: 100,
+                epoch: "2000"
+            }
+        };
+
+        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockResolvedValue([newScore]);
+        (dependencies.history.getLastScores as Mock).mockResolvedValue([]);
+
+        // @ts-expect-error - accessing private method for testing
+        await manager._pollScenario("Scenario A");
+
+        expect(dependencies.history.recordKovaaksScores).toHaveBeenCalled();
+        expect(dependencies.history.updateMultipleHighscores).toHaveBeenCalledWith(
+            "testuser",
+            [{ scenarioName: "Scenario A", score: 100 }]
+        );
+        expect(dependencies.session.registerMultipleRuns).toHaveBeenCalled();
+        expect(dependencies.focus.focusScenario).toHaveBeenCalledWith("Scenario A", "NEW_SCORE");
+    });
+});
+
 function _teardown(): void {
     vi.restoreAllMocks();
     vi.useRealTimers();
@@ -161,25 +196,30 @@ function _createRankedSessionMock(): RankedSessionService {
 
 function _createSessionMock(): SessionService {
     return {
-        getRankedPlaylist: vi.fn().mockReturnValue(null)
+        getRankedPlaylist: vi.fn().mockReturnValue(null),
+        registerMultipleRuns: vi.fn()
     } as unknown as SessionService;
 }
 
 function _createFocusMock(): FocusManagementService {
     return {
         subscribe: vi.fn(),
-        getFocusState: vi.fn().mockReturnValue(null)
+        getFocusState: vi.fn().mockReturnValue(null),
+        focusScenario: vi.fn()
     } as unknown as FocusManagementService;
 }
 
 function _createHistoryMock(): HistoryService {
     return {
-        getLastScores: vi.fn().mockResolvedValue([])
+        getLastScores: vi.fn().mockResolvedValue([]),
+        recordKovaaksScores: vi.fn().mockResolvedValue(undefined),
+        updateMultipleHighscores: vi.fn().mockResolvedValue(undefined)
     } as unknown as HistoryService;
 }
 
 function _createBenchmarkMock(): BenchmarkService {
     return {
-        getScenarios: vi.fn().mockReturnValue([{ name: "Scenario A" }, { name: "Scenario B" }])
+        getScenarios: vi.fn().mockReturnValue([{ name: "Scenario A" }, { name: "Scenario B" }]),
+        getDifficulty: vi.fn().mockReturnValue("Intermediate")
     } as unknown as BenchmarkService;
 }
