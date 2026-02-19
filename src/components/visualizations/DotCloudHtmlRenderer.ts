@@ -669,7 +669,7 @@ export class DotCloudHtmlRenderer {
         const populationRatio: number = 0.25 + (0.75 * config.context.scores.length) / 100;
 
         const localMax: number = jitterRange * multiplier * densityRatio * populationRatio;
-        const seed: number = config.context.timestamps[config.scoreIndex] ?? config.scoreIndex;
+        const seed: number = config.context.timestamps[config.scoreIndex];
 
         return this._seededRandom(seed) * localMax;
     }

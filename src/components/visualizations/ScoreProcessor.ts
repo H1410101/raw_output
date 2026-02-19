@@ -20,7 +20,10 @@ export class ScoreProcessor {
   public static processTemporalScores(entries: ScoreEntry[]): ScoreEntry[] {
     const validEntries: ScoreEntry[] = entries.filter(
       (entry: ScoreEntry): boolean =>
-        typeof entry.score === "number" && !isNaN(entry.score),
+        typeof entry.score === "number" &&
+        !isNaN(entry.score) &&
+        typeof entry.timestamp === "number" &&
+        !isNaN(entry.timestamp),
     );
 
     if (validEntries.length === 0) {
