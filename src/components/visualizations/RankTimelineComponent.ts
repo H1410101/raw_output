@@ -265,10 +265,6 @@ export class RankTimelineComponent {
         return this._container;
     }
 
-    private _removeStaleAnchors(): void {
-        const anchors = this._container.querySelectorAll(".timeline-marker-anchor.offscreen");
-        anchors.forEach(anchor => anchor.remove());
-    }
 
 
     private _renderContentLayers(): void {
