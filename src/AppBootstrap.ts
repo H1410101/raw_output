@@ -163,10 +163,10 @@ export class AppBootstrap {
     this._statusView.reportReady();
     this._tryApplyDailyDecay();
 
+    this._navigationController.initialize();
     await this._renderInitialViews();
     this._checkInitialState();
 
-    this._navigationController.initialize();
     SettingsUiFactory.setAudioService(this._audioService);
 
     this._setupGlobalInteractions();
@@ -189,8 +189,10 @@ export class AppBootstrap {
   }
 
   private async _renderInitialViews(): Promise<void> {
-    await this._benchmarkView.render();
-    await this._rankedView.render();
+    await Promise.all([
+      this._benchmarkView.render(),
+      this._rankedView.render(),
+    ]);
   }
 
   private _checkInitialState(): void {
