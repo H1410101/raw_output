@@ -155,14 +155,45 @@ describe("RankTimelineComponent Logic", () => {
         };
         const component = new RankTimelineComponent(config);
         const container = component.render();
-        container.style.width = "1000px";
+        // Mock viewport size and layout properties to allow collision detection to run
+        const viewport = container.querySelector(".timeline-viewport") as HTMLElement;
+        Object.defineProperty(viewport, "getBoundingClientRect", {
+            value: () => ({ width: 1000, height: 100, left: 0, top: 0, right: 1000, bottom: 100 })
+        });
+
+        // Mock font size for buffer calculation
+        document.documentElement.style.fontSize = "16px";
 
         document.body.appendChild(container);
+
+        // Mock getBoundingClientRect and offsetWidth for notches, anchors and labels
+        const managedMarkers = (component as any)._managedMarkers;
+        managedMarkers.forEach((marker: any) => {
+            // 1000px width * percent
+            const left = parseFloat(marker.anchor.style.left) * 10;
+
+            const mockRect = {
+                width: 100,
+                height: 20,
+                left: left,
+                right: left + 100,
+                top: 0,
+                bottom: 20,
+            } as any;
+
+            marker.notch.getBoundingClientRect = (): DOMRect => mockRect;
+            marker.anchor.getBoundingClientRect = (): DOMRect => mockRect;
+            marker.labelElement.getBoundingClientRect = (): DOMRect => mockRect;
+            Object.defineProperty(marker.labelElement, "offsetWidth", { value: 100, configurable: true });
+        });
+
+        // Force a sync to make markers visible (opacity 1)
+        (component as any)._syncMarkers();
 
         component.resolveCollisions();
 
         const labels = Array.from(container.querySelectorAll(".timeline-marker-label")) as HTMLElement[];
-        const someShifted = labels.some(label => label.style.transform.includes("translateX"));
+        const someShifted = labels.some(label => label.style.transform && label.style.transform.includes("translateX"));
         expect(someShifted).toBe(true);
 
         // Cleanup

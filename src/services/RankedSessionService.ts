@@ -299,6 +299,7 @@ export class RankedSessionService {
 
         this._rankEstimator.initializePeakRanks();
         this._initializeNewSession(difficulty);
+        this._notifyListeners();
     }
 
     private _prepareSessionStart(difficulty: string): void {
@@ -603,8 +604,6 @@ export class RankedSessionService {
         const pool: BenchmarkScenario[] = scenarios.filter((scenario: BenchmarkScenario) => !excludeScenarios.includes(scenario.name));
 
         if (pool.length < 3) {
-            console.log(`[Ranked] Pool too small (${pool.length}), using fallback batch`);
-
             return this._getFallbackBatch(pool);
         }
 
@@ -635,12 +634,8 @@ export class RankedSessionService {
         return [strongMetric.scenario.name, weakMetric.scenario.name, midMetric.scenario.name];
     }
 
-    private _logTopCandidates(type: string, candidates: { metric: ScenarioMetric; weight: number }[]): void {
-        console.log(`[Ranked] Top 3 ${type} Candidates:`);
-        candidates.slice(0, 3).forEach((candidate, index) => {
-            const metric = candidate.metric;
-            console.log(`  ${index + 1}. ${metric.scenario.name} (Peak: ${metric.peak.toFixed(2)}, Current: ${metric.current.toFixed(2)}, Gap: ${metric.gap.toFixed(2)}, Penalty: ${metric.penalty.toFixed(2)}) -> Weight: ${candidate.weight.toFixed(2)}`);
-        });
+    private _logTopCandidates(): void {
+        // No-op - logs removed after diagnosis
     }
 
     private _getFallbackBatch(pool: BenchmarkScenario[]): string[] {
@@ -723,9 +718,9 @@ export class RankedSessionService {
                         }
                     });
                 }
-            }
 
-            this._notifyListeners();
+                this._notifyListeners("session_update_event");
+            }
         });
     }
 

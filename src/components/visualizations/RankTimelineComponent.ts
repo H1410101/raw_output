@@ -71,6 +71,18 @@ export class RankTimelineComponent {
         caretRight: HTMLElement;
     }[] = [];
 
+    private readonly _tickElements: { tick: HTMLElement; labelElement: HTMLElement | null }[] = [];
+
+    private readonly _markerElements: Map<string, {
+        notch: HTMLElement;
+        anchor: HTMLElement;
+        caretLeft: HTMLElement;
+        caretRight: HTMLElement;
+        labelElement: HTMLElement | null;
+    }> = new Map();
+
+    private _renderedAttemptCount: number = 0;
+
     private _markerSyncId: number | null = null;
 
     private static _overlay: HTMLElement | null = null;
@@ -120,6 +132,58 @@ export class RankTimelineComponent {
 
         const thresholdValues = Object.values(config.thresholds).sort((a: number, b: number) => a - b);
         this._mapper = new RankScaleMapper(thresholdValues, 100);
+
+        this._initializeStructure();
+    }
+
+    private _initializeStructure(): void {
+        this._initializeTicks();
+        this._initializeMarkers();
+    }
+
+    private _initializeTicks(): void {
+        for (let i = 0; i <= 25; i++) {
+            const tick = document.createElement("div");
+            tick.className = "timeline-tick";
+            this._ticksLayer.appendChild(tick);
+
+            const labelElement = document.createElement("div");
+            labelElement.className = "timeline-tick-label";
+            this._ticksLayer.appendChild(labelElement);
+
+            this._tickElements.push({ tick, labelElement });
+        }
+    }
+
+    private _initializeMarkers(): void {
+        const types: ("target" | "achieved" | "expected" | "prev")[] = ["target", "achieved", "expected", "prev"];
+
+        types.forEach(type => {
+            const notch = document.createElement("div");
+            notch.className = `timeline-marker marker-${type}`;
+            notch.style.opacity = "0";
+            this._markersLayer.appendChild(notch);
+
+            const anchor = document.createElement("div");
+            anchor.className = `timeline-marker-anchor anchor-${type}`;
+            anchor.style.opacity = "0";
+            this._markersLayer.appendChild(anchor);
+
+            const labelElement = document.createElement("div");
+            labelElement.className = `timeline-marker-label label-${type}`;
+            anchor.appendChild(labelElement);
+
+            const caretLeft = this._createCaret("", type, true);
+            const caretRight = this._createCaret("", type, false);
+
+            this._markerElements.set(type, {
+                notch,
+                anchor,
+                caretLeft,
+                caretRight,
+                labelElement
+            });
+        });
     }
 
     /**
@@ -189,8 +253,6 @@ export class RankTimelineComponent {
      * @returns The container element.
      */
     public render(immediate: boolean = false, paused: boolean = false): HTMLElement {
-        this._prepareRenderingComponents();
-
         const { minRU } = this._calculateViewBounds();
         const windowSize = this._config.rangeWindow ?? 7.5;
 
@@ -201,17 +263,6 @@ export class RankTimelineComponent {
         this._finalizeRenderSync(immediate, paused);
 
         return this._container;
-    }
-
-    private _prepareRenderingComponents(): void {
-        this._clearLayerContents();
-        this._removeStaleAnchors();
-    }
-
-    private _clearLayerContents(): void {
-        this._ticksLayer.innerHTML = "";
-        this._attemptsLayer.innerHTML = "";
-        this._markersLayer.innerHTML = "";
     }
 
     private _removeStaleAnchors(): void {
@@ -240,7 +291,9 @@ export class RankTimelineComponent {
             (a, b) => this._config.thresholds[a] - this._config.thresholds[b]
         );
 
-        for (let i = 0; i <= 25; i++) {
+        const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
+
+        this._tickElements.forEach((elements, i) => {
             const matchingRank = rankNames.find((name: string) => {
                 const score = this._config.thresholds[name];
                 const rankUnit = this._mapper.calculateRankUnit(score);
@@ -249,29 +302,17 @@ export class RankTimelineComponent {
             });
 
             const labelText = matchingRank || (i === 0 ? "Unranked" : "");
-            this._renderRankTick(i, labelText);
-        }
-    }
+            const leftPercent = i * unitWidth;
 
-    private _renderRankTick(rankUnit: number, label: string): void {
-        const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
-        const leftPercent = rankUnit * unitWidth;
+            elements.tick.style.left = `${leftPercent}%`;
+            elements.tick.classList.toggle("minor", !labelText);
 
-        const tick = document.createElement("div");
-        tick.className = "timeline-tick";
-        if (!label) {
-            tick.classList.add("minor");
-        }
-        tick.style.left = `${leftPercent}%`;
-        this._ticksLayer.appendChild(tick);
-
-        if (label) {
-            const text = document.createElement("div");
-            text.className = "timeline-tick-label";
-            text.innerText = label;
-            text.style.left = `${leftPercent}%`;
-            this._ticksLayer.appendChild(text);
-        }
+            if (elements.labelElement) {
+                elements.labelElement.innerText = labelText;
+                elements.labelElement.style.left = `${leftPercent}%`;
+                elements.labelElement.style.opacity = labelText ? "1" : "0";
+            }
+        });
     }
 
     private _renderMarkers(): void {
@@ -279,55 +320,94 @@ export class RankTimelineComponent {
         const achievedRU = this._config.achievedRU;
         const expectedRU = this._config.expectedRU;
 
-        // Clear managed markers
-        this._managedMarkers.forEach((marker) => {
-            marker.caretLeft.remove();
-            marker.caretRight.remove();
-        });
         this._managedMarkers = [];
 
-        // Collect all potential markers
-        if (targetRU !== undefined && targetRU !== null) {
-            this._setupManagedMarker(targetRU, this._config.targetLabel || "Target", "target");
+        // All markers are persistent, we just decide which ones to show/position
+        const types: ("target" | "achieved" | "expected" | "prev")[] = ["target", "achieved", "expected", "prev"];
+
+        types.forEach(type => {
+            let rankUnit: number | undefined;
+            let label: string = "";
+
+            if (type === "target" && targetRU !== undefined && targetRU !== null) {
+                rankUnit = targetRU;
+                label = this._config.targetLabel || "Target";
+            } else if (type === "achieved" && achievedRU !== undefined) {
+                rankUnit = achievedRU;
+                label = this._config.achievedLabel || "Achieved";
+            } else if (type === "prev" && this._config.prevSessionRU !== undefined) {
+                rankUnit = this._config.prevSessionRU;
+                label = this._config.prevSessionLabel || "Prev Session";
+            } else if (type === "expected" && expectedRU !== undefined && expectedRU !== null && expectedRU > (achievedRU ?? -Infinity)) {
+                rankUnit = expectedRU;
+                label = "";
+            }
+
+            this._updateManagedMarker(rankUnit, label, type);
+        });
+    }
+
+    private _updateManagedMarker(rankUnit: number | undefined, label: string, type: "target" | "achieved" | "expected" | "prev"): void {
+        const elements = this._markerElements.get(type);
+        if (!elements) return;
+
+        if (rankUnit === undefined) {
+            this._hideMarkerElements(elements);
+
+            return;
         }
-        if (achievedRU !== undefined) {
-            this._setupManagedMarker(achievedRU, this._config.achievedLabel || "Achieved", "achieved");
+
+        const windowSize = this._config.rangeWindow ?? 7.5;
+        const percent = rankUnit * (100 / windowSize);
+
+        elements.notch.style.left = `${percent}%`;
+        elements.anchor.style.left = `${percent}%`;
+
+        if (elements.labelElement) {
+            elements.labelElement.innerText = label.toUpperCase();
         }
-        if (this._config.prevSessionRU !== undefined) {
-            this._setupManagedMarker(this._config.prevSessionRU, this._config.prevSessionLabel || "Prev Session", "prev");
-        }
-        if (expectedRU !== undefined && expectedRU !== null && expectedRU > (achievedRU ?? -Infinity)) {
-            this._setupManagedMarker(expectedRU, "", "expected");
+
+        this._registerManagedMarker(rankUnit, label, type, elements);
+
+        if (type === "achieved") {
+            this._setupAchievedInteractions(elements.notch, rankUnit);
         }
     }
 
-    private _setupManagedMarker(rankUnit: number, label: string, type: "target" | "achieved" | "expected" | "prev"): void {
-        const windowSize = this._config.rangeWindow ?? 7.5;
-        const unitWidth = 100 / windowSize;
-        const percent = rankUnit * unitWidth;
+    private _hideMarkerElements(elements: {
+        notch: HTMLElement;
+        anchor: HTMLElement;
+        caretLeft: HTMLElement;
+        caretRight: HTMLElement;
+    }): void {
+        elements.notch.style.opacity = "0";
+        elements.anchor.style.opacity = "0";
+        elements.caretLeft.style.opacity = "0";
+        elements.caretRight.style.opacity = "0";
+    }
 
-        const notch = this._createNotch(percent, type);
-        const anchor = this._createAnchor(percent, type, label);
-
-        const caretLeft = this._createCaret(label, type, true);
-        const caretRight = this._createCaret(label, type, false);
-
+    private _registerManagedMarker(
+        rankUnit: number,
+        label: string,
+        type: "target" | "achieved" | "expected" | "prev",
+        elements: {
+            notch: HTMLElement;
+            anchor: HTMLElement;
+            labelElement: HTMLElement | null;
+            caretLeft: HTMLElement;
+            caretRight: HTMLElement;
+        }
+    ): void {
         this._managedMarkers.push({
             rankUnit,
             type,
             label,
-            notch,
-            anchor,
-            labelElement: anchor.querySelector(".timeline-marker-label"),
-            caretLeft,
-            caretRight,
+            notch: elements.notch,
+            anchor: elements.anchor,
+            labelElement: elements.labelElement,
+            caretLeft: elements.caretLeft,
+            caretRight: elements.caretRight,
         });
-
-        if (type === "achieved") {
-            this._setupAchievedInteractions(notch, rankUnit);
-        }
-
-        this._trackLabelAnchors();
     }
 
     private _setupAchievedInteractions(notch: HTMLElement, rankUnit: number): void {
@@ -338,35 +418,6 @@ export class RankTimelineComponent {
         if (entry) {
             this._setupAttemptInteractions(notch, entry);
         }
-    }
-
-    private _createNotch(percent: number, type: string): HTMLElement {
-        const notch = document.createElement("div");
-        notch.className = `timeline-marker marker-${type}`;
-        notch.style.left = `${percent}%`;
-        this._markersLayer.appendChild(notch);
-
-        return notch;
-    }
-
-    private _createAnchor(percent: number, type: string, label: string): HTMLElement {
-        const anchor = document.createElement("div");
-        anchor.className = `timeline-marker-anchor anchor-${type}`;
-        anchor.style.left = `${percent}%`;
-        this._markersLayer.appendChild(anchor);
-
-        if (label) {
-            const labelElement = document.createElement("div");
-            labelElement.className = `timeline-marker-label label-${type}`;
-            labelElement.innerText = label.toUpperCase();
-            anchor.appendChild(labelElement);
-        }
-
-        return anchor;
-    }
-
-    private _trackLabelAnchors(): void {
-        // Reserved for potential use
     }
 
     private _createCaret(label: string, type: string, isLeft: boolean): HTMLElement {
@@ -405,14 +456,20 @@ export class RankTimelineComponent {
 
     private _renderAttempts(): void {
         const attempts = this._config.attempts;
-        if (!attempts || attempts.length === 0) return;
+        if (!attempts || attempts.length <= this._renderedAttemptCount) {
+            // Either no attempts or nothing new to render
+            return;
+        }
 
         const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
         const opacity = (this._config.settings.dotOpacity ?? 40) / 100;
         const sorted = [...attempts].sort((a, b) => b.rankUnit - a.rankUnit);
         const top3Threshold = sorted.length >= 3 ? sorted[2].rankUnit : (sorted[sorted.length - 1]?.rankUnit ?? -Infinity);
 
-        attempts.forEach((entry: AttemptEntry) => {
+        // Only process attempts from index _renderedAttemptCount onwards
+        const newAttempts = attempts.slice(this._renderedAttemptCount);
+
+        newAttempts.forEach((entry: AttemptEntry) => {
             // Skip rendering attempt notch if it corresponds to the achieved RU
             if (this._config.achievedRU !== undefined && Math.abs(entry.rankUnit - this._config.achievedRU) < 0.001) {
                 return;
@@ -429,6 +486,8 @@ export class RankTimelineComponent {
 
             this._attemptsLayer.appendChild(notch);
         });
+
+        this._renderedAttemptCount = attempts.length;
     }
 
     private _setupAttemptInteractions(notch: HTMLElement, entry: AttemptEntry): void {

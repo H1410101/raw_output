@@ -202,9 +202,10 @@ export class SessionService {
 
     const uniqueUpdatedNames: string[] = [...new Set(updatedScenarioNames)];
 
-    this._saveToLocalStorage();
-    this._notifySessionUpdate(uniqueUpdatedNames);
-
+    if (uniqueUpdatedNames.length > 0) {
+      this._saveToLocalStorage();
+      this._notifySessionUpdate(uniqueUpdatedNames);
+    }
   }
 
   private _processSingleRun(
