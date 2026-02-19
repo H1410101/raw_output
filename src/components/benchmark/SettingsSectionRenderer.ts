@@ -297,7 +297,7 @@ export class SettingsSectionRenderer {
 
   private _createSessionIntervalSlider(): HTMLElement {
     const sessionSettings = this._sessionSettingsService.getSettings();
-    const options: number[] = [1, 5, 10, 15, 30, 45, 60, 90, 120];
+    const options: number[] = [2, 3, 5, 8, 10, 15];
 
     return SettingsUiFactory.createSlider({
       label: "Session Interval",
@@ -314,7 +314,7 @@ export class SettingsSectionRenderer {
 
   private _createRankedIntervalSlider(): HTMLElement {
     const sessionSettings = this._sessionSettingsService.getSettings();
-    const options: number[] = [1, 5, 10, 15, 30, 45, 60, 90, 120];
+    const options: number[] = [2, 3, 5, 8, 10, 15];
 
     return SettingsUiFactory.createSlider({
       label: "Ranked Interval",
