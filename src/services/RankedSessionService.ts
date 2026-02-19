@@ -613,7 +613,7 @@ export class RankedSessionService {
         if (strongCandidates.length === 0) {
             return this._getFallbackBatch(pool);
         }
-        this._logTopCandidates("Strong", strongCandidates);
+        this._logTopCandidates();
         const strongMetric = strongCandidates[0].metric;
 
         metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== strongMetric.scenario.name);
@@ -622,13 +622,13 @@ export class RankedSessionService {
         if (weakCandidates.length === 0) {
             return [strongMetric.scenario.name, ...this._getFallbackBatch(pool.filter((scenario: BenchmarkScenario) => scenario.name !== strongMetric.scenario.name))];
         }
-        this._logTopCandidates("Weak", weakCandidates);
+        this._logTopCandidates();
         const weakMetric = weakCandidates[0].metric;
 
         metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== weakMetric.scenario.name);
 
         const midCandidates = this._getWeightedMidScenarios(metrics, [strongMetric, weakMetric]);
-        this._logTopCandidates("Mid", midCandidates);
+        this._logTopCandidates();
         const midMetric = midCandidates[0].metric;
 
         return [strongMetric.scenario.name, weakMetric.scenario.name, midMetric.scenario.name];
@@ -719,7 +719,7 @@ export class RankedSessionService {
                     });
                 }
 
-                this._notifyListeners("session_update_event");
+                this._notifyListeners();
             }
         });
     }
