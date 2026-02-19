@@ -371,7 +371,7 @@ export class AboutPopupComponent {
 
         const acknowledgement: HTMLParagraphElement = document.createElement("p");
         acknowledgement.innerHTML =
-            "<strong>Pinguefy</strong> for responding on Discord within 2 minutes to tell me there was no established theme colour for Raw Input aimers. Thanks Pinguefy, your responsiveness is honestly crazy.<br>I may or may not have made myself sound unnecessarily suspicious for my own amusement.";
+            "<strong>Pinguefy</strong> for responding on Discord within 2 minutes to tell me there was no established theme colour for Raw Input aimers. Thanks Pinguefy, your responsiveness is honestly crazy.<br>I may or may not have made myself sound unnecessarily suspicious for my own amusement.<br>Also thanks Pinguefy for letting me know that recent scores can be pulled from the official-unofficial Kovaaks web backend.";
 
         const linkGroup: HTMLDivElement = document.createElement("div");
         linkGroup.className = "about-icon-group";
