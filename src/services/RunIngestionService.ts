@@ -134,7 +134,7 @@ export class RunIngestionService {
   private async _updateHighscoresForNewRuns(
     sortedHandles: FileHandleWithDate[],
   ): Promise<void> {
-    const lastCheck: number =
+    const lastCheck =
       await this._historyService.getLastCheckTimestamp();
 
     const newHandles: FileHandleWithDate[] = sortedHandles

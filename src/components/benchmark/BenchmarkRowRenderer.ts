@@ -163,16 +163,19 @@ export class BenchmarkRowRenderer {
   }
 
   private _ensureDotCloudInjected(rowElement: HTMLElement, scenario: BenchmarkScenario): void {
-    if (this._dotCloudRegistry.has(scenario.name)) {
-      this._updateDotCloud(scenario);
+    const existingComponent = this._dotCloudRegistry.get(scenario.name);
+    if (existingComponent) {
+      this._refreshComponentData(existingComponent, scenario);
     } else {
       const container = rowElement.querySelector(".dot-cloud-container") as HTMLElement;
       if (container) {
-        const loadId = parseInt(container.dataset.loadId || "0", 10);
+        const loadId = ++this._loadCounter;
+        container.dataset.loadId = loadId.toString();
         this._loadDotCloudData(container, scenario, loadId, true);
       }
     }
   }
+
 
   /**
    * Creates the main container for a scenario row.
@@ -332,49 +335,37 @@ export class BenchmarkRowRenderer {
   }
 
   /**
-   * Updates the dot cloud visualization for a given scenario.
-   *
-   * @param scenario - The benchmark scenario data.
-   */
-  private _updateDotCloud(scenario: BenchmarkScenario): void {
-    const component: DotCloudComponent | undefined = this._dotCloudRegistry.get(
-      scenario.name,
-    );
-    if (component) {
-      this._refreshComponentData(component, scenario);
-    }
-  }
-
-  /**
    * Refreshes the data for a dot cloud component.
    *
    * @param component - The DotCloudComponent instance.
    * @param scenario - The benchmark scenario data.
    */
-  private _refreshComponentData(
+  private async _refreshComponentData(
     component: DotCloudComponent,
     scenario: BenchmarkScenario,
-  ): void {
+  ): Promise<void> {
     const profile = this._identityService.getActiveProfile();
     const playerId = profile?.username || "";
 
-    this._historyService
-      .getLastScores(playerId, scenario.name, 100)
-      .then((entries: ScoreEntry[]): void => {
-        const sessionStart: number | null =
-          this._sessionService.sessionStartTimestamp;
-        const isLatestInSession: boolean =
-          sessionStart !== null &&
-          entries.length > 0 &&
-          entries[0].timestamp >= sessionStart;
+    const entries = await this._historyService.getLastScores(
+      playerId,
+      scenario.name,
+      100,
+    );
 
-        component.updateData({
-          entries,
-          thresholds: scenario.thresholds,
-          isLatestInSession,
-          rankInterval: this._calculateAverageRankInterval(scenario),
-        });
-      });
+    const sessionStart: number | null =
+      this._sessionService.sessionStartTimestamp;
+    const isLatestInSession: boolean =
+      sessionStart !== null &&
+      entries.length > 0 &&
+      entries[0].timestamp >= sessionStart;
+
+    component.updateData({
+      entries,
+      thresholds: scenario.thresholds,
+      isLatestInSession,
+      rankInterval: this._calculateAverageRankInterval(scenario),
+    });
   }
 
   /**
@@ -473,24 +464,26 @@ export class BenchmarkRowRenderer {
     this._fetchAndRenderScores(container, scenario, loadId);
   }
 
-  private _fetchAndRenderScores(
+  private async _fetchAndRenderScores(
     container: HTMLElement,
     scenario: BenchmarkScenario,
     loadId: number,
-  ): void {
+  ): Promise<void> {
     const profile = this._identityService.getActiveProfile();
     const playerId = profile?.username || "";
 
-    this._historyService
-      .getLastScores(playerId, scenario.name, 100)
-      .then((entries: ScoreEntry[]): void => {
-        const stillCurrentId: string | undefined = container.dataset.loadId;
+    const entries = await this._historyService.getLastScores(
+      playerId,
+      scenario.name,
+      100,
+    );
 
-        if (entries.length > 0 && stillCurrentId === loadId.toString()) {
-          this._injectDotCloudVisualization(container, scenario, entries);
-          this._removeFromPending(loadId);
-        }
-      });
+    const stillCurrentId: string | undefined = container.dataset.loadId;
+
+    if (entries.length > 0 && stillCurrentId === loadId.toString()) {
+      this._injectDotCloudVisualization(container, scenario, entries);
+      this._removeFromPending(loadId);
+    }
   }
 
   private _removeFromPending(loadId: number): void {
@@ -549,24 +542,52 @@ export class BenchmarkRowRenderer {
     scenario: BenchmarkScenario,
     entries: ScoreEntry[],
   ): void {
-    const averageRankInterval: number =
-      this._calculateAverageRankInterval(scenario);
+    const data = this._prepareDotCloudData(scenario, entries);
+    const { isLatestInSession, rankInterval: averageRankInterval } = data;
 
-    const sessionStart: number | null =
-      this._sessionService.sessionStartTimestamp;
+    let dotCloud = this._dotCloudRegistry.get(scenario.name);
+
+    if (dotCloud) {
+      dotCloud.updateData({
+        entries,
+        thresholds: scenario.thresholds,
+        isLatestInSession,
+        rankInterval: averageRankInterval,
+      });
+    } else {
+      dotCloud = new DotCloudComponent({
+        entries,
+        thresholds: scenario.thresholds,
+        settings: this._visualSettings,
+        isLatestInSession,
+        rankInterval: averageRankInterval,
+      });
+
+      this._dotCloudRegistry.set(scenario.name, dotCloud);
+      container.replaceWith(dotCloud.render());
+    }
+  }
+
+  private _prepareDotCloudData(
+    scenario: BenchmarkScenario,
+    entries: ScoreEntry[],
+  ): {
+    entries: ScoreEntry[];
+    thresholds: Record<string, number>;
+    isLatestInSession: boolean;
+    rankInterval: number;
+  } {
+    const averageRankInterval: number = this._calculateAverageRankInterval(scenario);
+    const sessionStart: number | null = this._sessionService.sessionStartTimestamp;
     const isLatestInSession: boolean =
-      sessionStart !== null && entries[0].timestamp >= sessionStart;
+      sessionStart !== null && entries.length > 0 && entries[0].timestamp >= sessionStart;
 
-    const dotCloud: DotCloudComponent = new DotCloudComponent({
+    return {
       entries,
       thresholds: scenario.thresholds,
-      settings: this._visualSettings,
       isLatestInSession,
       rankInterval: averageRankInterval,
-    });
-
-    this._dotCloudRegistry.set(scenario.name, dotCloud);
-    container.replaceWith(dotCloud.render());
+    };
   }
 
   /**

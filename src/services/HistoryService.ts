@@ -1,3 +1,8 @@
+export interface KovaaksHighscoreCache {
+  categories: Record<string, unknown>;
+  timestamp: number;
+}
+
 /**
  * Responsibility: Manage and persist user highscores for scenarios using IndexedDB.
  */
@@ -10,7 +15,9 @@ export class HistoryService {
 
   private readonly _metadataStoreName: string = "Metadata";
 
-  private readonly _databaseVersion: number = 4;
+  private readonly _kovaaksHighscoreCacheStoreName: string = "KovaaksHighscoreCache";
+
+  private readonly _databaseVersion: number = 6;
 
   private _db: IDBDatabase | null = null;
 
@@ -155,8 +162,8 @@ export class HistoryService {
           this._databaseVersion,
         );
 
-        request.onupgradeneeded = (): void => {
-          this._handleDatabaseUpgrade(request.result);
+        request.onupgradeneeded = (event: IDBVersionChangeEvent): void => {
+          this._handleDatabaseUpgrade(request.result, request.transaction!, event.oldVersion);
         };
 
         request.onsuccess = (): void => resolve(request.result);
@@ -166,37 +173,74 @@ export class HistoryService {
     );
   }
 
-  private _handleDatabaseUpgrade(database: IDBDatabase): void {
-    if (database.objectStoreNames.contains(this._highscoreStoreName)) {
-      database.deleteObjectStore(this._highscoreStoreName);
+  private _handleDatabaseUpgrade(database: IDBDatabase, transaction: IDBTransaction, oldVersion: number): void {
+    this._upgradeHighscoreStore(database, transaction, oldVersion);
+    this._upgradeScoreStore(database, transaction, oldVersion);
+    this._upgradeMetadataStore(database);
+    this._upgradeCacheStore(database);
+  }
+
+  private _upgradeHighscoreStore(database: IDBDatabase, transaction: IDBTransaction, oldVersion: number): void {
+    if (!database.objectStoreNames.contains(this._highscoreStoreName)) {
+      const highscoreStore = database.createObjectStore(this._highscoreStoreName, {
+        keyPath: ["username", "scenarioName"],
+      });
+      highscoreStore.createIndex("username", "username", { unique: false });
+    } else if (oldVersion < 6) {
+      transaction.objectStore(this._highscoreStoreName).clear();
+    }
+  }
+
+  private _upgradeScoreStore(database: IDBDatabase, transaction: IDBTransaction, oldVersion: number): void {
+    if (!database.objectStoreNames.contains(this._scoresStoreName)) {
+      const scoreStore = database.createObjectStore(this._scoresStoreName, {
+        keyPath: "id",
+        autoIncrement: true,
+      });
+
+      scoreStore.createIndex("scenarioName", "scenarioName", { unique: false });
+      scoreStore.createIndex("username", "username", { unique: false });
+      scoreStore.createIndex("username_scenario", ["username", "scenarioName", "timestamp"], {
+        unique: false,
+      });
+    } else {
+      this._migrateScoreStore(transaction, oldVersion);
+    }
+  }
+
+  private _migrateScoreStore(transaction: IDBTransaction, oldVersion: number): void {
+    const scoreStore = transaction.objectStore(this._scoresStoreName);
+
+    if (oldVersion < 6) {
+      scoreStore.clear();
     }
 
-    const highscoreStore = database.createObjectStore(this._highscoreStoreName, {
-      keyPath: ["username", "scenarioName"],
-    });
-    // Create an index for efficiently querying all highscores for a user if needed in future
-    highscoreStore.createIndex("username", "username", { unique: false });
-
-
-    if (database.objectStoreNames.contains(this._scoresStoreName)) {
-      // If we are upgrading from v3 to v4, we need to add username to scores
-      // For simplicity in this dev environment, we will recreate the store to ensure clean schema
-      // In production, we would migrate data.
-      database.deleteObjectStore(this._scoresStoreName);
+    if (scoreStore.indexNames.contains("username_scenario")) {
+      const index = scoreStore.index("username_scenario");
+      if (Array.isArray(index.keyPath) && index.keyPath.length === 2) {
+        scoreStore.deleteIndex("username_scenario");
+        scoreStore.createIndex("username_scenario", ["username", "scenarioName", "timestamp"], {
+          unique: false,
+        });
+      }
+    } else {
+      scoreStore.createIndex("username_scenario", ["username", "scenarioName", "timestamp"], {
+        unique: false,
+      });
     }
+  }
 
-    const scoreStore = database.createObjectStore(this._scoresStoreName, {
-      keyPath: "id",
-      autoIncrement: true,
-    });
-
-    scoreStore.createIndex("scenarioName", "scenarioName", { unique: false });
-    scoreStore.createIndex("username", "username", { unique: false });
-    scoreStore.createIndex("username_scenario", ["username", "scenarioName"], { unique: false });
-
-
+  private _upgradeMetadataStore(database: IDBDatabase): void {
     if (!database.objectStoreNames.contains(this._metadataStoreName)) {
       database.createObjectStore(this._metadataStoreName);
+    }
+  }
+
+  private _upgradeCacheStore(database: IDBDatabase): void {
+    if (!database.objectStoreNames.contains(this._kovaaksHighscoreCacheStoreName)) {
+      database.createObjectStore(this._kovaaksHighscoreCacheStoreName, {
+        keyPath: ["steamId", "benchmarkId"],
+      });
     }
   }
 
@@ -535,7 +579,7 @@ export class HistoryService {
         const scores: { score: number; timestamp: number }[] = [];
 
         const request: IDBRequest<IDBCursorWithValue | null> = index.openCursor(
-          IDBKeyRange.only([username, scenarioName]),
+          IDBKeyRange.bound([username, scenarioName, 0], [username, scenarioName, Infinity]),
           "prev",
         );
 
@@ -570,7 +614,11 @@ export class HistoryService {
 
       cursor.continue();
     } else {
-      resolve(scores);
+      if (typeof resolve === "function") {
+        resolve(scores);
+      } else {
+        console.error("[HistoryService] resolve is not a function!", { resolve, type: typeof resolve, scores });
+      }
     }
   }
 
@@ -692,12 +740,81 @@ export class HistoryService {
           username,
           scenarioName,
           score: scoreItem.score,
-          timestamp: new Date(scoreItem.date).getTime()
+          timestamp: this._parseTimestamp(scoreItem.date)
         });
       });
 
       transaction.oncomplete = (): void => resolve();
       transaction.onerror = (): void => reject(transaction.error);
+    });
+  }
+
+  private _parseTimestamp(date: string | number): number {
+    const num = Number(date);
+    if (!isNaN(num)) {
+      return num;
+    }
+
+    return new Date(date).getTime();
+  }
+
+  /**
+   * Retrieves cached Kovaaks highscores for a specific benchmark and player.
+   *
+   * @param steamId - The player's Steam ID.
+   * @param benchmarkId - The Kovaaks benchmark ID.
+   * @returns A promise resolving to the cached data if found and valid.
+   */
+  public async getCachedKovaaksHighscores(
+    steamId: string,
+    benchmarkId: string,
+  ): Promise<KovaaksHighscoreCache | null> {
+    const database: IDBDatabase = await this._getDatabase();
+
+    return new Promise((resolve, reject): void => {
+      const transaction = database.transaction(this._kovaaksHighscoreCacheStoreName, "readonly");
+      const store = transaction.objectStore(this._kovaaksHighscoreCacheStoreName);
+      const request = store.get([steamId, benchmarkId]);
+
+      request.onsuccess = (): void => {
+        resolve((request.result as KovaaksHighscoreCache) || null);
+      };
+
+      request.onerror = (): void => reject(request.error);
+    });
+  }
+
+  /**
+   * Caches Kovaaks highscores for a specific benchmark and player.
+   *
+   * @param steamId - The player's Steam ID.
+   * @param benchmarkId - The Kovaaks benchmark ID.
+   * @param categories - The benchmark categories data from API.
+   */
+  public async cacheKovaaksHighscores(
+    steamId: string,
+    benchmarkId: string,
+    categories: Record<string, unknown>,
+  ): Promise<void> {
+    const database: IDBDatabase = await this._getDatabase();
+
+    return new Promise((resolve, reject): void => {
+      const transaction = database.transaction(this._kovaaksHighscoreCacheStoreName, "readwrite");
+      const store = transaction.objectStore(this._kovaaksHighscoreCacheStoreName);
+
+      const cacheEntry: KovaaksHighscoreCache = {
+        categories,
+        timestamp: Date.now(),
+      };
+
+      const request = store.put({
+        ...cacheEntry,
+        steamId,
+        benchmarkId,
+      });
+
+      request.onsuccess = (): void => resolve();
+      request.onerror = (): void => reject(request.error);
     });
   }
 }

@@ -251,7 +251,7 @@ export class DotCloudComponent {
       getComputedStyle(document.documentElement).fontSize,
     );
 
-    return {
+    const context: RenderContext = {
       scores: this._recentEntries.map((entry: ScoreEntry): number => entry.score),
       timestamps: this._recentEntries.map(
         (entry: ScoreEntry): number => entry.timestamp,
@@ -273,6 +273,8 @@ export class DotCloudComponent {
       },
       paddingLeft: padding,
     };
+
+    return context;
   }
 
   private _calculateDynamicBounds(width: number): {

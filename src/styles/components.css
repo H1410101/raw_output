@@ -446,6 +446,7 @@
 .dot-cloud-dot {
     position: absolute;
     border-radius: 50%;
+    clip-path: circle(50%);
     background: rgba(var(--vis-dot-rgb), var(--dot-opacity, 0.4));
     border: none;
     box-shadow: inset 0 0 0 1px rgba(var(--vis-dot-rgb), 0.05);
