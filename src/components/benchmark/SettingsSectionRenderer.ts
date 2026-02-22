@@ -7,6 +7,21 @@ import { ScalingLevel } from "../../services/ScalingService";
 import { SessionSettingsService } from "../../services/SessionSettingsService";
 import { CloudflareService, HealthCheckResponse } from "../../services/CloudflareService";
 import { IdentityService } from "../../services/IdentityService";
+import { KovaaksUserSearchComponent } from "../ui/KovaaksUserSearchComponent";
+import { KovaaksApiService } from "../../services/KovaaksApiService";
+import { AudioService } from "../../services/AudioService";
+
+/**
+ * Configuration dependencies for SettingsSectionRenderer.
+ */
+export interface SettingsSectionRendererDependencies {
+  readonly visualSettingsService: VisualSettingsService;
+  readonly sessionSettingsService: SessionSettingsService;
+  readonly cloudflareService: CloudflareService;
+  readonly identityService: IdentityService;
+  readonly kovaaksApiService: KovaaksApiService;
+  readonly audioService: AudioService;
+}
 
 /**
  * Responsible for rendering specific sections of the settings menu.
@@ -16,6 +31,8 @@ export class SettingsSectionRenderer {
   private readonly _sessionSettingsService: SessionSettingsService;
   private readonly _cloudflareService: CloudflareService;
   private readonly _identityService: IdentityService;
+  private readonly _kovaaksApiService: KovaaksApiService;
+  private readonly _audioService: AudioService;
 
   private static readonly _scalingOptions: ScalingLevel[] = [
     "Min",
@@ -28,21 +45,15 @@ export class SettingsSectionRenderer {
   /**
    * Initializes the renderer with required services.
    *
-   * @param visualSettingsService - Service for managing visual configuration.
-   * @param sessionSettingsService - Service for managing session-specific settings.
-   * @param cloudflareService - Service for Cloudflare Edge interactions.
-   * @param identityService - Service for managing user identity and privacy.
+   * @param dependencies - Object holding required services.
    */
-  public constructor(
-    visualSettingsService: VisualSettingsService,
-    sessionSettingsService: SessionSettingsService,
-    cloudflareService: CloudflareService,
-    identityService: IdentityService,
-  ) {
-    this._visualSettingsService = visualSettingsService;
-    this._sessionSettingsService = sessionSettingsService;
-    this._cloudflareService = cloudflareService;
-    this._identityService = identityService;
+  public constructor(dependencies: SettingsSectionRendererDependencies) {
+    this._visualSettingsService = dependencies.visualSettingsService;
+    this._sessionSettingsService = dependencies.sessionSettingsService;
+    this._cloudflareService = dependencies.cloudflareService;
+    this._identityService = dependencies.identityService;
+    this._kovaaksApiService = dependencies.kovaaksApiService;
+    this._audioService = dependencies.audioService;
   }
 
   /**
@@ -286,7 +297,7 @@ export class SettingsSectionRenderer {
 
   private _createSessionIntervalSlider(): HTMLElement {
     const sessionSettings = this._sessionSettingsService.getSettings();
-    const options: number[] = [1, 5, 10, 15, 30, 45, 60, 90, 120];
+    const options: number[] = [2, 3, 5, 8, 10, 15];
 
     return SettingsUiFactory.createSlider({
       label: "Session Interval",
@@ -303,7 +314,7 @@ export class SettingsSectionRenderer {
 
   private _createRankedIntervalSlider(): HTMLElement {
     const sessionSettings = this._sessionSettingsService.getSettings();
-    const options: number[] = [1, 5, 10, 15, 30, 45, 60, 90, 120];
+    const options: number[] = [2, 3, 5, 8, 10, 15];
 
     return SettingsUiFactory.createSlider({
       label: "Ranked Interval",
@@ -529,9 +540,65 @@ export class SettingsSectionRenderer {
    * @param container - The element to append settings to.
    */
   public appendCloudflareSection(container: HTMLElement): void {
-    container.appendChild(SettingsUiFactory.createGroupTitle("Anonymous Feedback"));
-
     this._appendScoreFeedbackGroup(container);
+  }
+
+  /**
+   * Builds and appends the Polling settings section.
+   *
+   * @param container - The element to append settings to.
+   */
+  public appendPollingSection(container: HTMLElement): void {
+    container.appendChild(SettingsUiFactory.createGroupTitle("Background Intelligence"));
+
+    const settings = this._visualSettingsService.getSettings();
+
+    container.appendChild(
+      SettingsUiFactory.createToggle(
+        "Background Updates",
+        settings.allowBackgroundPolling,
+        (val: boolean): void =>
+          this._visualSettingsService.updateSetting("allowBackgroundPolling", val),
+      ),
+    );
+  }
+
+  /**
+   * Builds and appends the Kovaaks Account settings section.
+   *
+   * @param container - The element to append settings to.
+   * @param onAccountChanged - Callback for when the linked profile changes.
+   */
+  public appendKovaaksSection(
+    container: HTMLElement,
+    onAccountChanged: () => void,
+  ): void {
+    container.appendChild(SettingsUiFactory.createGroupTitle("Kovaaks Account"));
+
+    const currentUsername = this._identityService.getKovaaksUsername();
+
+    container.appendChild(
+      SettingsUiFactory.createReadOnlyField(
+        "Current Profile",
+        currentUsername || "None (Guest)",
+      ),
+    );
+
+    container.appendChild(
+      SettingsUiFactory.createActionButton(
+        currentUsername ? "Change Profile" : "Link Profile",
+        "Search Players",
+        () => {
+          const search = new KovaaksUserSearchComponent(
+            this._kovaaksApiService,
+            this._identityService,
+            this._audioService
+          );
+          search.subscribeToClose(onAccountChanged);
+          search.render();
+        }
+      )
+    );
   }
 
   private _appendScoreFeedbackGroup(container: HTMLElement): void {

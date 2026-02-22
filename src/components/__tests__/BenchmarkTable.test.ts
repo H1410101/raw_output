@@ -302,6 +302,7 @@ function _instantiateBenchmarkTable(dependencyContainer: MockViewDependencies): 
         focusService: dependencyContainer.focus,
         rankEstimator: dependencyContainer.rankEstimator,
         cosmeticOverride: { isActiveFor: () => false } as unknown as CosmeticOverrideService,
+        identityService: dependencyContainer.identity,
     });
 }
 

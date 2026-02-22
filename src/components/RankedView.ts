@@ -9,7 +9,7 @@ import { VisualSettingsService } from "../services/VisualSettingsService";
 import { AudioService } from "../services/AudioService";
 import { RankTimelineComponent, RankTimelineConfiguration, AttemptEntry } from "./visualizations/RankTimelineComponent";
 import { SummaryTimelineComponent } from "./visualizations/SummaryTimelineComponent";
-import { DirectoryAccessService } from "../services/DirectoryAccessService";
+
 import { RankedHelpPopupComponent } from "./ui/RankedHelpPopupComponent";
 import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { SessionSettingsService } from "../services/SessionSettingsService";
@@ -49,7 +49,7 @@ export interface RankedViewDependencies {
   readonly visualSettings: VisualSettingsService;
   readonly sessionSettings: SessionSettingsService;
   readonly audio: AudioService;
-  readonly directory: DirectoryAccessService;
+
 }
 
 /**
@@ -284,6 +284,7 @@ export class RankedView {
     const state: RankedSessionState = this._deps.rankedSession.state;
     const scenarioName = this._getActiveScenarioName(state);
 
+
     if (this._shouldPerformQuickUpdate(state, scenarioName)) {
       this._performQuickUpdate(scenarioName!);
 
@@ -393,17 +394,9 @@ export class RankedView {
       this.refresh();
     });
 
-    this._deps.session.onSessionUpdated((): void => {
-      this._handleSessionUpdate();
-    });
-
     this._deps.sessionSettings.subscribe((): void => {
       this.refresh();
     });
-  }
-
-  private _handleSessionUpdate(): void {
-    this.refresh();
   }
 
   private _attachRankPopupListener(container: HTMLElement, rankName: string): void {
@@ -606,29 +599,49 @@ export class RankedView {
     const summaryData: { name: string; oldRU: number; newRU: number; gain: number; time: number; attempts: number }[] = this._calculateSummaryData();
 
     return `
-      <div class="ranked-info-top">
-          <span class="now-playing">SUMMARY</span>
-          <h2 class="ranked-scenario-name">Session Results</h2>
-      </div>
+      ${this._renderSummaryHeader()}
       <div class="summary-content-wrapper summary-scroll-container">
           <div class="scenarios-list summary-scrollable">
               ${summaryData.length === 0 ? '<p class="no-scenarios">No rank gains this session.</p>' : ""}
           </div>
-          <div class="custom-scroll-thumb">
-              <div class="grip-container">
-                  <div class="thumb-grip grip-0"></div>
-                  <div class="thumb-grip grip-1"></div>
-                  <div class="thumb-grip grip-2"></div>
-              </div>
+          ${this._renderSummaryScrollThumb()}
+      </div>
+      ${this._renderSummaryControls()}
+    `;
+  }
+
+  private _renderSummaryHeader(): string {
+    return `
+      <div class="ranked-info-top">
+          <span class="now-playing">SUMMARY</span>
+          <h2 class="ranked-scenario-name">Session Results</h2>
+      </div>
+    `;
+  }
+
+  private _renderSummaryScrollThumb(): string {
+    return `
+      <div class="custom-scroll-thumb">
+          <div class="grip-container">
+              <div class="thumb-grip grip-0"></div>
+              <div class="thumb-grip grip-1"></div>
+              <div class="thumb-grip grip-2"></div>
           </div>
       </div>
+    `;
+  }
+
+  private _renderSummaryControls(): string {
+    return `
       <div class="media-controls">
           <div class="hud-group left"></div>
-          <div class="controls-left"></div>
-          <div class="difficulty-tabs">
+          <div></div> <!-- Spacer for Help btn -->
+          <div></div> <!-- Spacer for Back btn -->
+          <div class="difficulty-tabs" style="grid-column: 4;">
               <button class="tab-button active" id="finish-ranked-btn">Back to hub</button>
           </div>
-          <div class="controls-right"></div>
+          <div></div> <!-- Spacer for Next btn -->
+          <div></div> <!-- Spacer for End btn -->
           <div class="hud-group right"></div>
       </div>
     `;
@@ -649,14 +662,14 @@ export class RankedView {
 
       const attemptsCount = allRuns.filter(run => run.scenarioName === scenarioName).length;
 
-      if (attemptsCount > 0 || state.status === "SUMMARY") {
+      if (attemptsCount > 0) {
         results.push({
           name: scenarioName,
           oldRU,
           newRU,
           gain: Math.max(0, Math.round((newRU - oldRU) * 100)),
           time: state.accumulatedScenarioSeconds[scenarioName] ?? 0,
-          attempts: Math.max(attemptsCount, 1)
+          attempts: attemptsCount
         });
       }
     }
@@ -709,9 +722,10 @@ export class RankedView {
       </div>
       <div class="media-controls">
           <div class="hud-group left" style="visibility: hidden;"></div>
-          <div class="controls-left" style="visibility: hidden;"></div>
+          <div></div> <!-- Help -->
+          <div></div> <!-- Back -->
           
-          <div style="display: flex; justify-content: center; align-items: center; gap: 1.5rem; padding-bottom: 0.35rem;">
+          <div style="grid-column: 4; display: flex; justify-content: center; align-items: center; gap: 1.5rem; padding-bottom: 0.35rem;">
               <button class="media-btn secondary destructive" id="end-ranked-btn">
                   <div class="button-fill"></div>
                   <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
@@ -721,7 +735,8 @@ export class RankedView {
               </button>
           </div>
 
-          <div class="controls-right" style="visibility: hidden;"></div>
+          <div></div> <!-- Next -->
+          <div></div> <!-- End -->
           <div class="hud-group right" style="visibility: hidden;"></div>
       </div>
     `;
@@ -837,11 +852,16 @@ export class RankedView {
 
     const rankedRuns = this._deps.session.getAllRankedSessionRuns();
     const scenarioRuns = rankedRuns.filter(run => run.scenarioName === scenarioName);
+
     const attempts = scenarioRuns.map(run => ({
       score: run.score,
       timestamp: run.timestamp,
       rankUnit: this._deps.estimator.getScenarioContinuousValue(run.score, scenario)
     }));
+
+    if (attempts.length > 0) {
+      // Logic for future use if needed
+    }
 
     let achievedRU = undefined;
 
@@ -900,28 +920,24 @@ export class RankedView {
 
   private _renderLeftControls(state: RankedSessionState): string {
     return `
-      <div class="controls-left">
-          <button class="media-btn secondary" id="ranked-help-btn">
-              <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
-          </button>
-          <button class="media-btn secondary" id="ranked-back-btn" ${state.currentIndex === 0 ? "disabled" : ""}>
-              <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-          </button>
-      </div>
+      <button class="media-btn secondary" id="ranked-help-btn" style="grid-column: 2;">
+          <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+      </button>
+      <button class="media-btn secondary" id="ranked-back-btn" style="grid-column: 3;" ${state.currentIndex === 0 ? "disabled" : ""}>
+          <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+      </button>
     `;
   }
 
   private _renderRightControls(): string {
     return `
-      <div class="controls-right">
-          <button class="media-btn secondary" id="next-ranked-btn">
-              <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-          </button>
-          <button class="media-btn secondary destructive" id="end-ranked-btn">
-              <div class="button-fill"></div>
-              <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-          </button>
-      </div>
+      <button class="media-btn secondary" id="next-ranked-btn" style="grid-column: 5;">
+          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      </button>
+      <button class="media-btn secondary destructive" id="end-ranked-btn" style="grid-column: 6;">
+          <div class="button-fill"></div>
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
     `;
   }
 
@@ -1127,6 +1143,7 @@ export class RankedView {
   }
 
   private _tickHold(state: LaunchHoldState): void {
+
     state.progress -= RankedView._depleteStep;
 
     if (state.progress <= 0) {

@@ -18,12 +18,15 @@ import { BenchmarkSettingsController } from "./benchmark/BenchmarkSettingsContro
 import { RankPopupComponent } from "./ui/RankPopupComponent";
 import { PeakWarningPopupComponent } from "./ui/PeakWarningPopupComponent";
 
-import { DirectoryAccessService } from "../services/DirectoryAccessService";
+
 import { BenchmarkScenario, DifficultyTier } from "../data/benchmarks";
 import { AudioService } from "../services/AudioService";
 import { CloudflareService } from "../services/CloudflareService";
 import { IdentityService } from "../services/IdentityService";
 import { CosmeticOverrideService } from "../services/CosmeticOverrideService";
+import { KovaaksApiService } from "../services/KovaaksApiService";
+import { PlayerProfile } from "../types/PlayerTypes";
+import { KovaaksBenchmarkCategory } from "../types/KovaaksApiTypes";
 
 /**
  * Core services required by the BenchmarkView.
@@ -35,13 +38,15 @@ export interface BenchmarkViewServices {
   session: SessionService;
   sessionSettings: SessionSettingsService;
   focus: FocusManagementService;
-  directory: DirectoryAccessService;
+
   visualSettings: VisualSettingsService;
   audio: AudioService;
   cloudflare: CloudflareService;
   identity: IdentityService;
   rankEstimator: RankEstimator;
   cosmeticOverride: CosmeticOverrideService;
+  kovaaksApi: KovaaksApiService;
+  onScenarioLaunch?: (scenarioName: string) => void;
 }
 
 /**
@@ -72,6 +77,8 @@ export class BenchmarkView {
   private readonly _identityService: IdentityService;
   private readonly _rankEstimator: RankEstimator;
   private readonly _cosmeticOverrideService: CosmeticOverrideService;
+  private readonly _kovaaksApiService: KovaaksApiService;
+  private readonly _onScenarioLaunch?: (scenarioName: string) => void;
 
   private readonly _settingsController: BenchmarkSettingsController;
 
@@ -115,6 +122,8 @@ export class BenchmarkView {
     this._identityService = services.identity;
     this._rankEstimator = services.rankEstimator;
     this._cosmeticOverrideService = services.cosmeticOverride;
+    this._kovaaksApiService = services.kovaaksApi;
+    this._onScenarioLaunch = services.onScenarioLaunch;
 
     this._activeDifficulty = this._determineInitialDifficulty();
     this._settingsController = this._initSettingsController();
@@ -171,6 +180,9 @@ export class BenchmarkView {
       return;
     }
 
+    // Clear stale flag as we are rendering now
+    this._isStale = false;
+
     this._isRendering = true;
 
     try {
@@ -186,19 +198,112 @@ export class BenchmarkView {
   }
 
   private async _renderScenariosView(): Promise<void> {
+    const profile = this._identityService.getActiveProfile();
+
     const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
       this._activeDifficulty,
     );
 
-    const highscores: Record<string, number> =
-      await this._historyService.getBatchHighscores(
-        scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
-      );
+    // Fetch local highscores immediately for first paint
+    const highscores = await this._historyService.getBatchHighscores(
+      profile?.username || "",
+      scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
+    );
 
     this._clearAndPrepareMount();
     this._updateHeaderButtonStates();
-    this._renderBenchmarkTable(scenarios, highscores);
+    this._renderBenchmarkTable(scenarios, highscores, {});
     this._showView();
+
+    // Background enrichment
+    this._enrichBenchmarkData(scenarios, profile, highscores);
+  }
+
+  private async _enrichBenchmarkData(
+    scenarios: BenchmarkScenario[],
+    profile: PlayerProfile | null,
+    localHighscores: Record<string, number>,
+  ): Promise<void> {
+    const currentDifficulty = this._activeDifficulty;
+
+    await this._applyCachedHighscores(scenarios, profile, localHighscores);
+
+    const freshKovaaksHighscores = await this._fetchKovaaksHighscores(profile);
+
+    this._applyHighscoresToTable(scenarios, currentDifficulty, localHighscores, freshKovaaksHighscores);
+  }
+
+  private async _applyCachedHighscores(
+    scenarios: BenchmarkScenario[],
+    profile: PlayerProfile | null,
+    localHighscores: Record<string, number>,
+  ): Promise<void> {
+    const difficulty = this._activeDifficulty;
+    const benchmarkId = this._benchmarkService.getBenchmarkId(difficulty);
+    const steamId = profile?.steamId;
+
+    if (!steamId || !benchmarkId) return;
+
+    const cache = await this._historyService.getCachedKovaaksHighscores(steamId, benchmarkId);
+    if (cache && this._activeDifficulty === difficulty) {
+      const kovaaksHighscores = this._processKovaaksCategories(
+        cache.categories as Record<string, KovaaksBenchmarkCategory>,
+      );
+      this._applyHighscoresToTable(scenarios, difficulty, localHighscores, kovaaksHighscores);
+    }
+  }
+
+  private _applyHighscoresToTable(
+    scenarios: BenchmarkScenario[],
+    difficulty: DifficultyTier,
+    localHighscores: Record<string, number>,
+    kovaaksHighscores: Record<string, number>,
+  ): void {
+    if (this._activeDifficulty !== difficulty || !this._tableComponent) {
+      return;
+    }
+
+    scenarios.forEach((scenario: BenchmarkScenario): void => {
+      const score = localHighscores[scenario.name] || 0;
+      const kovaaksScore = kovaaksHighscores[scenario.name] || 0;
+      this._tableComponent?.updateScenarioRow(scenario, score, kovaaksScore);
+    });
+  }
+
+  private _processKovaaksCategories(
+    categories: Record<string, KovaaksBenchmarkCategory>,
+  ): Record<string, number> {
+    const kovaaksHighscores: Record<string, number> = {};
+
+    if (!categories) {
+      return kovaaksHighscores;
+    }
+
+    Object.values(categories).forEach((category: KovaaksBenchmarkCategory) => {
+      Object.entries(category.scenarios).forEach(([name, details]) => {
+        kovaaksHighscores[name] = details.score / 100;
+      });
+    });
+
+    return kovaaksHighscores;
+  }
+
+  private async _fetchKovaaksHighscores(profile: PlayerProfile | null): Promise<Record<string, number>> {
+    const benchmarkId = this._benchmarkService.getBenchmarkId(this._activeDifficulty);
+    const steamId = profile?.steamId;
+
+    if (!benchmarkId || !steamId) return {};
+
+    try {
+      const response = await this._kovaaksApiService.fetchBenchmarkHighscores(steamId, benchmarkId);
+      await this._historyService.cacheKovaaksHighscores(steamId, benchmarkId, response.categories);
+
+      return this._processKovaaksCategories(response.categories);
+    } catch (error) {
+      console.error("Failed to fetch Kovaaks highscores:", error);
+
+      return {};
+    }
   }
 
   /**
@@ -249,18 +354,15 @@ export class BenchmarkView {
 
     this._subscribeToFocusUpdates();
 
+    this._identityService.onProfilesChanged((): void => {
+      this.refresh();
+    });
+
     window.addEventListener("resize", this._handleWindowResize);
   }
 
   private _subscribeToScoreUpdates(): void {
-    this._historyService.onHighscoreUpdated((scenarioName?: string): void => {
-      if (scenarioName) {
-        this._updateSingleScenario(scenarioName);
-      } else {
-        this._refreshIfVisible();
-      }
-    });
-
+    // We only update the holistic rank here if we don't have a specific scenario update
     this._historyService.onScoreRecorded((scenarioName: string): void => {
       this._updateSingleScenario(scenarioName);
     });
@@ -330,9 +432,10 @@ export class BenchmarkView {
   private _renderBenchmarkTable(
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
+    kovaaksHighscores: Record<string, number> = {},
   ): void {
     this._mountPoint.appendChild(
-      this._createViewContainer(scenarios, highscores),
+      this._createViewContainer(scenarios, highscores, kovaaksHighscores),
     );
 
     this._restoreScrollPosition();
@@ -376,33 +479,69 @@ export class BenchmarkView {
       identityService: this._identityService,
       rankEstimator: this._rankEstimator,
       cosmeticOverride: this._cosmeticOverrideService,
+      kovaaksApiService: this._kovaaksApiService,
     });
   }
 
   private async _updateSingleScenario(scenarioName: string): Promise<void> {
-    if (!this._tableComponent) {
-      return;
-    }
+    if (!this._tableComponent) return;
 
-    const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
-      this._activeDifficulty,
-    );
+    const profile = this._identityService.getActiveProfile();
+    const scenarios = this._benchmarkService.getScenarios(this._activeDifficulty);
 
     const scenario: BenchmarkScenario | undefined = scenarios.find(
-      (benchmarkScenario: BenchmarkScenario): boolean =>
-        benchmarkScenario.name === scenarioName,
+      (benchmarkScenario: BenchmarkScenario): boolean => benchmarkScenario.name === scenarioName,
     );
 
     if (scenario) {
-      const highscore: number =
-        await this._historyService.getHighscore(scenarioName);
+      const username = profile?.username || "";
+      const highscore = await this._historyService.getHighscore(username, scenarioName);
+      const kovaaksHighscore = await this._fetchKovaaksHighscoreForScenario(profile, scenarioName);
 
-      this._tableComponent.updateScenarioRow(scenario, highscore);
+      this._tableComponent.updateScenarioRow(scenario, highscore, kovaaksHighscore);
     }
   }
 
+  private async _fetchKovaaksHighscoreForScenario(
+    profile: PlayerProfile | null,
+    name: string,
+  ): Promise<number> {
+    const benchmarkId = this._benchmarkService.getBenchmarkId(this._activeDifficulty);
+    const steamId = profile?.steamId;
+
+    if (!benchmarkId || !steamId) return 0;
+
+    try {
+      // Use the highscore cache to avoid redundant full-benchmark API calls
+      const cache = await this._historyService.getCachedKovaaksHighscores(steamId, benchmarkId);
+      if (cache) {
+        const categories = cache.categories as Record<string, KovaaksBenchmarkCategory>;
+        for (const category of Object.values(categories)) {
+          if (category.scenarios[name]) {
+            return category.scenarios[name].score / 100;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch Kovaaks highscore for scenario from cache:", error);
+    }
+
+    return 0;
+  }
+
+  private _isStale: boolean = false;
+
   private _refreshIfVisible(): void {
     if (this._mountPoint.classList.contains("hidden-view")) {
+      this._isStale = true;
+
+      return;
+    }
+
+    if (this._isStale) {
+      this._isStale = false;
+      this.render();
+
       return;
     }
 
@@ -423,6 +562,7 @@ export class BenchmarkView {
   private _createViewContainer(
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
+    kovaaksHighscores: Record<string, number>,
   ): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
 
@@ -430,7 +570,7 @@ export class BenchmarkView {
 
     container.appendChild(this._createHeaderControls());
 
-    container.appendChild(this._createTableElement(scenarios, highscores));
+    container.appendChild(this._createTableElement(scenarios, highscores, kovaaksHighscores));
 
     return container;
   }
@@ -562,19 +702,20 @@ export class BenchmarkView {
 
 
 
-  private async _handleDifficultyChange(
+  private _handleDifficultyChange(
     difficulty: DifficultyTier,
-  ): Promise<void> {
+  ): void {
     this._activeDifficulty = difficulty;
 
     this._appStateService.setBenchmarkDifficulty(difficulty);
 
-    await this.render();
+    this.render();
   }
 
   private _createTableElement(
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
+    kovaaksHighscores: Record<string, number>,
   ): HTMLElement {
     this._tableComponent = new BenchmarkTableComponent({
       historyService: this._historyService,
@@ -586,8 +727,10 @@ export class BenchmarkView {
       focusService: this._focusService,
       rankEstimator: this._rankEstimator,
       cosmeticOverride: this._cosmeticOverrideService,
+      identityService: this._identityService,
+      onScenarioLaunch: this._onScenarioLaunch,
     });
 
-    return this._tableComponent.render(scenarios, highscores, this._activeDifficulty);
+    return this._tableComponent.render(scenarios, highscores, this._activeDifficulty, kovaaksHighscores);
   }
 }

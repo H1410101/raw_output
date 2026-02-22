@@ -1,4 +1,5 @@
 import { DifficultyTier, getAvailableDifficulties } from "../data/benchmarks";
+import { IdentityService } from "./IdentityService";
 
 /**
  * Encapsulates the transient UI state that should persist between sessions.
@@ -26,16 +27,38 @@ export interface AppState {
 export class AppStateService {
   private static readonly _storageKey: string = "raw_output_app_state";
 
-  private readonly _state: AppState;
+  private readonly _identityService: IdentityService;
+  private _state: AppState;
+  private readonly _tabListeners: (() => void)[] = [];
+  private readonly _difficultyListeners: (() => void)[] = [];
+  private readonly _folderValidityListeners: (() => void)[] = [];
 
   /**
    * Initializes the service by loading state from local storage.
+   * @param identityService
    */
-  public constructor() {
+  public constructor(identityService: IdentityService) {
+    this._identityService = identityService;
     this._state = this._loadFromStorage();
+    this._subscribeToProfileChanges();
   }
 
-  private readonly _tabListeners: (() => void)[] = [];
+  private _subscribeToProfileChanges(): void {
+    this._identityService.onProfilesChanged((): void => {
+      this._state = this._loadFromStorage();
+      this._notifyTabListeners();
+      this._notifyDifficultyListeners();
+    });
+  }
+
+  private _getStorageKey(): string {
+    const username = this._identityService.getKovaaksUsername();
+    if (!username) {
+      return AppStateService._storageKey;
+    }
+
+    return `${AppStateService._storageKey}_${username.toLowerCase()}`;
+  }
 
   /**
    * Retrieves the ID of the last active navigation tab.
@@ -70,8 +93,6 @@ export class AppStateService {
   private _notifyTabListeners(): void {
     this._tabListeners.forEach((callback: () => void): void => callback());
   }
-
-  private readonly _difficultyListeners: (() => void)[] = [];
 
   /**
    * Retrieves the last selected benchmark difficulty.
@@ -128,66 +149,14 @@ export class AppStateService {
   }
 
   /**
-   * Retrieves whether the folder settings view should be open.
+   * Registers a callback for when the folder validity state changes.
    *
-   * @returns True if the folder view is open.
-   */
-  public getIsFolderViewOpen(): boolean {
-    return this._state.isFolderViewOpen;
-  }
-
-  /**
-   * Persists the open state of the folder settings view.
-   *
-   * @param isOpen - The new visibility state.
-   */
-  public setIsFolderViewOpen(isOpen: boolean): void {
-    this._state.isFolderViewOpen = isOpen;
-
-    this._saveToStorage();
-  }
-
-  private readonly _folderValidityListeners: (() => void)[] = [];
-
-  /**
-   * Retrieves whether the currently selected folder is valid.
-   *
-   * @returns True if the folder is valid.
-   */
-  public getIsFolderValid(): boolean {
-    return this._state.isFolderValid;
-  }
-
-  /**
-   * Updates the folder validity state and notifies listeners.
-   *
-   * @param isValid - The new validity state.
-   */
-  public setIsFolderValid(isValid: boolean): void {
-    if (this._state.isFolderValid === isValid) {
-      return;
-    }
-
-    this._state.isFolderValid = isValid;
-
-    this._saveToStorage();
-    this._notifyFolderValidityListeners();
-  }
-
-  /**
-   * Subscribes to changes in folder validity.
-   *
-   * @param callback - The function to call when validity changes.
+   * @param callback - The function to call on validity change.
    */
   public onFolderValidityChanged(callback: () => void): void {
     this._folderValidityListeners.push(callback);
   }
 
-  private _notifyFolderValidityListeners(): void {
-    this._folderValidityListeners.forEach(
-      (callback: () => void): void => callback(),
-    );
-  }
 
   /**
    * Retrieves the last persisted scroll position of the benchmark table.
@@ -232,7 +201,7 @@ export class AppStateService {
   private _loadFromStorage(): AppState {
     try {
       const serializedState: string | null = localStorage.getItem(
-        AppStateService._storageKey,
+        this._getStorageKey(),
       );
 
       if (serializedState) {
@@ -300,7 +269,7 @@ export class AppStateService {
     try {
       const serializedState: string = JSON.stringify(this._state);
 
-      localStorage.setItem(AppStateService._storageKey, serializedState);
+      localStorage.setItem(this._getStorageKey(), serializedState);
     } catch {
       // Ignore storage errors to prevent app crashes
     }

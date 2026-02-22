@@ -240,18 +240,18 @@ export class DotCloudComponent {
     const drawableWidth: number = Math.max(0, this._containerWidth - padding * 2);
 
     const renderContext: RenderContext =
-      this._assembleRenderContext(drawableWidth);
+      this._assembleRenderContext(drawableWidth, padding);
 
     this._renderer.draw(renderContext);
     this._container.style.padding = `0 ${padding}rem`;
   }
 
-  private _assembleRenderContext(width: number): RenderContext {
+  private _assembleRenderContext(width: number, padding: number): RenderContext {
     const rootFontSize: number = parseFloat(
       getComputedStyle(document.documentElement).fontSize,
     );
 
-    return {
+    const context: RenderContext = {
       scores: this._recentEntries.map((entry: ScoreEntry): number => entry.score),
       timestamps: this._recentEntries.map(
         (entry: ScoreEntry): number => entry.timestamp,
@@ -271,7 +271,10 @@ export class DotCloudComponent {
         dotRadius: this._dotRadius,
         rootFontSize,
       },
+      paddingLeft: padding,
     };
+
+    return context;
   }
 
   private _calculateDynamicBounds(width: number): {

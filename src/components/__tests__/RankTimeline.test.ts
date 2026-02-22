@@ -155,14 +155,45 @@ describe("RankTimelineComponent Logic", () => {
         };
         const component = new RankTimelineComponent(config);
         const container = component.render();
-        container.style.width = "1000px";
+        // Mock viewport size and layout properties to allow collision detection to run
+        const viewport = container.querySelector(".timeline-viewport") as HTMLElement;
+        Object.defineProperty(viewport, "getBoundingClientRect", {
+            value: () => ({ width: 1000, height: 100, left: 0, top: 0, right: 1000, bottom: 100 })
+        });
+
+        // Mock font size for buffer calculation
+        document.documentElement.style.fontSize = "16px";
 
         document.body.appendChild(container);
+
+        // Mock getBoundingClientRect and offsetWidth for notches, anchors and labels
+        const managedMarkers = (component as any)._managedMarkers;
+        managedMarkers.forEach((marker: any) => {
+            // 1000px width * percent
+            const left = parseFloat(marker.anchor.style.left) * 10;
+
+            const mockRect = {
+                width: 100,
+                height: 20,
+                left: left,
+                right: left + 100,
+                top: 0,
+                bottom: 20,
+            } as any;
+
+            marker.notch.getBoundingClientRect = (): DOMRect => mockRect;
+            marker.anchor.getBoundingClientRect = (): DOMRect => mockRect;
+            marker.labelElement.getBoundingClientRect = (): DOMRect => mockRect;
+            Object.defineProperty(marker.labelElement, "offsetWidth", { value: 100, configurable: true });
+        });
+
+        // Force a sync to make markers visible (opacity 1)
+        (component as any)._syncMarkers();
 
         component.resolveCollisions();
 
         const labels = Array.from(container.querySelectorAll(".timeline-marker-label")) as HTMLElement[];
-        const someShifted = labels.some(label => label.style.transform.includes("translateX"));
+        const someShifted = labels.some(label => label.style.transform && label.style.transform.includes("translateX"));
         expect(someShifted).toBe(true);
 
         // Cleanup
@@ -192,7 +223,7 @@ describe("RankTimelineComponent Logic", () => {
 
     });
 
-    it("should render notches for all runs, highlighting top 3", () => {
+    it("should render notches for all runs, highlighting top 3, skipping achieved redundant", () => {
         const config: RankTimelineConfiguration = {
             thresholds: mockThresholds,
             settings: mockSettings,
@@ -201,6 +232,7 @@ describe("RankTimelineComponent Logic", () => {
             // Top 3 are 5, 4, 3
             attempts: [
                 { score: 100, timestamp: Date.now(), rankUnit: 1 },
+                // Matches achievedRU, should be skipped
                 { score: 200, timestamp: Date.now(), rankUnit: 2 },
                 { score: 300, timestamp: Date.now(), rankUnit: 3 },
                 { score: 400, timestamp: Date.now(), rankUnit: 4 },
@@ -210,16 +242,21 @@ describe("RankTimelineComponent Logic", () => {
         const component = new RankTimelineComponent(config);
         const container = component.render();
 
-        const allNotches = container.querySelectorAll(".marker-attempt");
-        expect(allNotches.length).toBe(5);
+        const allAttempts = container.querySelectorAll(".marker-attempt");
+        // Total 5 attempts, but one matches achievedRU, so only 4 rendered in attempts layer
+        expect(allAttempts.length).toBe(4);
 
         const accentNotches = container.querySelectorAll(".marker-attempt:not(.secondary)");
         // Should have 3 accent notches for 5, 4, 3
         expect(accentNotches.length).toBe(3);
 
         const secondaryNotches = container.querySelectorAll(".marker-attempt.secondary");
-        // Should have 2 secondary notches for 2, 1
-        expect(secondaryNotches.length).toBe(2);
+        // Should have 1 secondary notch for 1 (2 is skipped)
+        expect(secondaryNotches.length).toBe(1);
+
+        // Verify achieved notch also exists and is NOT a marker-attempt (it's marker-achieved)
+        const achievedNotch = container.querySelector(".marker-achieved");
+        expect(achievedNotch).toBeTruthy();
     });
 
     it("should use scrollAnchorRU for view bounds if provided", () => {
@@ -297,5 +334,36 @@ describe("RankTimelineComponent Logic", () => {
 
         // Verify it spawns from the viewport left edge (80% in scroller-space)
         expect(parseFloat(progressLine.style.left)).toBeCloseTo(80.0, 1);
+    });
+
+    it("should NOT render ticks or labels for RU < 0", () => {
+        const config: RankTimelineConfiguration = {
+            thresholds: mockThresholds,
+            settings: mockSettings,
+            targetRU: 0,
+            achievedRU: 0
+        };
+        const component = new RankTimelineComponent(config);
+        const container = component.render();
+
+        const ticks = container.querySelectorAll(".timeline-tick") as NodeListOf<HTMLElement>;
+        const labels = container.querySelectorAll(".timeline-tick-label") as NodeListOf<HTMLElement>;
+
+        // All ticks should be at left >= 0%
+        ticks.forEach(tick => {
+            const left = parseFloat(tick.style.left);
+            expect(left).toBeGreaterThanOrEqual(0);
+        });
+
+        // All labels should be at left >= 0%
+        labels.forEach(label => {
+            const left = parseFloat(label.style.left);
+            expect(left).toBeGreaterThanOrEqual(0);
+        });
+
+        // Should have unranked label at 0
+        const unrankedLabel = Array.from(labels).find(label => label.innerText === "Unranked");
+        expect(unrankedLabel).toBeTruthy();
+        expect(parseFloat(unrankedLabel!.style.left)).toBe(0);
     });
 });

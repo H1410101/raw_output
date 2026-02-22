@@ -5,12 +5,14 @@ import { SessionService } from "../SessionService";
 import { RankEstimator, ScenarioEstimate } from "../RankEstimator";
 import { BenchmarkScenario } from "../../data/benchmarks";
 import { SessionSettingsService } from "../SessionSettingsService";
+import { IdentityService } from "../IdentityService";
 
 interface MockSet {
     benchmark: BenchmarkService;
     session: SessionService;
     estimator: RankEstimator;
     settings: SessionSettingsService;
+    identity: IdentityService;
 }
 
 function _createBenchmarkMock(): BenchmarkService {
@@ -43,12 +45,18 @@ function _createResumptionMocks(): MockSet {
         estimator: {
             getScenarioEstimate: vi.fn(),
             recordPlay: vi.fn(),
+            applyPenaltyLift: vi.fn(),
             getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
             evolveScenarioEstimate: vi.fn(),
+            initializePeakRanks: vi.fn(),
         } as unknown as RankEstimator,
         settings: {
             getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
-        } as unknown as SessionSettingsService
+        } as unknown as SessionSettingsService,
+        identity: {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn()
+        } as unknown as IdentityService
     };
 }
 
@@ -57,7 +65,7 @@ describe("RankedSessionService Resumption (Basic)", () => {
     let mocks: MockSet;
     beforeEach(() => {
         mocks = _createResumptionMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
     it("should resume a session from today if started with same difficulty", () => {
         const scenarios = _createPool();
@@ -82,7 +90,7 @@ describe("RankedSessionService Resumption (Difficulty)", () => {
     let mocks: MockSet;
     beforeEach(() => {
         mocks = _createResumptionMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
     it("should start a new session if diff difficulty is requested", () => {
         const goldScenarios = _createPool();
@@ -104,7 +112,7 @@ describe("RankedSessionService Resumption (Jumping)", () => {
     let mocks: MockSet;
     beforeEach(() => {
         mocks = _createResumptionMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
     it("should jump to scenario after last played even if some were skipped", () => {
         const scenarios = _createPool();
@@ -125,7 +133,7 @@ describe("RankedSessionService Resumption (Extension)", () => {
     let mocks: MockSet;
     beforeEach(() => {
         mocks = _createResumptionMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
     it("should extend session if all gauntlet scenarios were played", () => {
         const scenarios = _createPool();

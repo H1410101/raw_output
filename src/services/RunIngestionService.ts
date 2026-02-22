@@ -4,6 +4,7 @@ import { DirectoryAccessService } from "./DirectoryAccessService";
 import { HistoryService } from "./HistoryService";
 import { KovaaksCsvParsingService } from "./KovaaksCsvParsingService";
 import { SessionService } from "./SessionService";
+import { IdentityService } from "./IdentityService";
 import { BenchmarkScenario } from "../data/benchmarks";
 
 interface FileHandleWithDate {
@@ -25,6 +26,8 @@ export class RunIngestionService {
 
   private readonly _sessionService: SessionService;
 
+  private readonly _identityService: IdentityService;
+
   private readonly _benchmarkService: BenchmarkService;
 
   private readonly _parsedRunsCache: Map<string, KovaaksChallengeRun> =
@@ -43,6 +46,7 @@ export class RunIngestionService {
    * @param services.historyService - Service for history persistence.
    * @param services.sessionService - Service for session management.
    * @param services.benchmarkService - Service for benchmark data.
+   * @param services.identityService - Service for user identity.
    */
   public constructor(services: {
     directoryService: DirectoryAccessService;
@@ -50,12 +54,14 @@ export class RunIngestionService {
     historyService: HistoryService;
     sessionService: SessionService;
     benchmarkService: BenchmarkService;
+    identityService: IdentityService;
   }) {
     this._directoryService = services.directoryService;
     this._csvService = services.csvService;
     this._historyService = services.historyService;
     this._sessionService = services.sessionService;
     this._benchmarkService = services.benchmarkService;
+    this._identityService = services.identityService;
   }
 
   /**
@@ -75,8 +81,6 @@ export class RunIngestionService {
     }
 
     await this._updateHighscoresForNewRuns(csvHandlesWithDates);
-
-    await this._rebuildLatestSession(csvHandlesWithDates);
 
     await this._updateLastCheckTimestamp(csvHandlesWithDates);
 
@@ -113,25 +117,28 @@ export class RunIngestionService {
   private _mapAndSortHandlesByDate(
     handles: FileSystemFileHandle[],
   ): FileHandleWithDate[] {
-    return handles
+    const csvItems = handles
       .filter((handle: FileSystemFileHandle): boolean =>
         handle.name.toLowerCase().endsWith(".csv"),
       )
       .map((handle: FileSystemFileHandle) => ({
         handle,
         date: this._csvService.extractDateFromFilename(handle.name),
-      }))
-      .sort((a, b): number => b.date.getTime() - a.date.getTime());
+      }));
+
+    return csvItems.sort((a: FileHandleWithDate, b: FileHandleWithDate): number =>
+      b.date.getTime() - a.date.getTime(),
+    );
   }
 
   private async _updateHighscoresForNewRuns(
     sortedHandles: FileHandleWithDate[],
   ): Promise<void> {
-    const lastCheck: number =
+    const lastCheck =
       await this._historyService.getLastCheckTimestamp();
 
     const newHandles: FileHandleWithDate[] = sortedHandles
-      .filter((item): boolean => item.date.getTime() > lastCheck)
+      .filter((item: FileHandleWithDate): boolean => item.date.getTime() > lastCheck)
       .reverse();
 
     await this._processHighscoreBatches(newHandles);
@@ -144,19 +151,26 @@ export class RunIngestionService {
 
     for (let i: number = 0; i < handles.length; i += batchSize) {
       const batch: FileHandleWithDate[] = handles.slice(i, i + batchSize);
+      await this._processSingleBatch(batch);
+    }
+  }
 
-      const parsedRuns: (KovaaksChallengeRun | null)[] = await Promise.all(
-        batch.map(
-          (item: FileHandleWithDate): Promise<KovaaksChallengeRun | null> =>
-            this._parseRunFromFile(item.handle),
-        ),
-      );
+  private async _processSingleBatch(
+    batch: FileHandleWithDate[],
+  ): Promise<void> {
+    const parsedRuns: (KovaaksChallengeRun | null)[] = await Promise.all(
+      batch.map(
+        (item: FileHandleWithDate): Promise<KovaaksChallengeRun | null> =>
+          this._parseRunFromFile(item.handle),
+      ),
+    );
 
-      const validRuns: KovaaksChallengeRun[] = parsedRuns.filter(
-        (run: KovaaksChallengeRun | null): run is KovaaksChallengeRun =>
-          run !== null,
-      );
+    const validRuns: KovaaksChallengeRun[] = parsedRuns.filter(
+      (run: KovaaksChallengeRun | null): run is KovaaksChallengeRun =>
+        run !== null,
+    );
 
+    if (validRuns.length > 0) {
       await this._persistRunsInBatch(validRuns);
     }
   }
@@ -166,59 +180,29 @@ export class RunIngestionService {
       return;
     }
 
-    const scoresToRecord = runs.map((run) => ({
+    const scoresToRecord = runs.map((run: KovaaksChallengeRun) => ({
       scenarioName: run.scenarioName,
       score: run.score,
       timestamp: run.completionDate.getTime(),
     }));
 
-    const highscoresToUpdate = runs.map((run) => ({
+    const highscoresToUpdate = runs.map((run: KovaaksChallengeRun) => ({
       scenarioName: run.scenarioName,
       score: run.score,
     }));
 
-    await this._historyService.recordMultipleScores(scoresToRecord);
+    const username = this._identityService.getKovaaksUsername();
+    if (!username) return;
 
-    await this._historyService.updateMultipleHighscores(highscoresToUpdate);
+    await this._historyService.recordMultipleScores(username, scoresToRecord);
+
+    await this._historyService.updateMultipleHighscores(username, highscoresToUpdate);
+
+    const sessionRuns = runs.map((run: KovaaksChallengeRun) => this._createSessionRunRecord(run));
+
+    this._sessionService.registerMultipleRuns(sessionRuns);
   }
 
-  private async _rebuildLatestSession(
-    sortedHandles: FileHandleWithDate[],
-  ): Promise<void> {
-    const sessionItems = this._identifyLatestSessionItems(sortedHandles);
-
-    this._sessionService.resetSession(true);
-
-    const runsToRegister = await this._parseSessionRuns(sessionItems);
-
-    this._sessionService.registerMultipleRuns(runsToRegister);
-  }
-
-  private async _parseSessionRuns(sessionItems: FileHandleWithDate[]): Promise<
-    {
-      scenarioName: string;
-      score: number;
-      scenario: BenchmarkScenario | null;
-      difficulty: string | null;
-      timestamp: Date;
-    }[]
-  > {
-    const runs: (KovaaksChallengeRun | null)[] = await Promise.all(
-      [...sessionItems]
-        .reverse()
-        .map(
-          (item: FileHandleWithDate): Promise<KovaaksChallengeRun | null> =>
-            this._parseRunFromFile(item.handle),
-        ),
-    );
-
-    return runs
-      .filter(
-        (run: KovaaksChallengeRun | null): run is KovaaksChallengeRun =>
-          run !== null,
-      )
-      .map((run: KovaaksChallengeRun) => this._createSessionRunRecord(run));
-  }
 
   private _createSessionRunRecord(run: KovaaksChallengeRun): {
     scenarioName: string;
@@ -231,14 +215,13 @@ export class RunIngestionService {
       run.scenarioName,
     );
 
-    const scenario: BenchmarkScenario | undefined = difficulty
-      ? this._benchmarkService
-        .getScenarios(difficulty)
-        .find(
-          (benchmarkScenario: BenchmarkScenario) =>
-            benchmarkScenario.name === run.scenarioName,
-        )
-      : undefined;
+    const scenarios = difficulty
+      ? this._benchmarkService.getScenarios(difficulty)
+      : [];
+
+    const scenario = scenarios.find(
+      (benchmarkScenario: BenchmarkScenario): boolean => benchmarkScenario.name === run.scenarioName,
+    );
 
     return {
       scenarioName: run.scenarioName,
@@ -247,56 +230,6 @@ export class RunIngestionService {
       difficulty,
       timestamp: run.completionDate,
     };
-  }
-
-  private _identifyLatestSessionItems(
-    sortedHandles: FileHandleWithDate[],
-  ): FileHandleWithDate[] {
-    const isRanked = this._sessionService.isRanked;
-
-    if (
-      sortedHandles.length === 0 ||
-      (!isRanked && this._isMostRecentRunExpired(sortedHandles[0]))
-    ) {
-      return [];
-    }
-
-    return this._collectContiguousSessionItems(sortedHandles);
-  }
-
-  private _isMostRecentRunExpired(mostRecent: FileHandleWithDate): boolean {
-    const elapsed: number = Date.now() - mostRecent.date.getTime();
-
-    return elapsed > this._sessionService.sessionTimeoutMilliseconds;
-  }
-
-  private _collectContiguousSessionItems(
-    sortedHandles: FileHandleWithDate[],
-  ): FileHandleWithDate[] {
-    const sessionItems: FileHandleWithDate[] = [sortedHandles[0]];
-
-    const isRanked = this._sessionService.isRanked;
-    const rankedStartTime = this._sessionService.rankedStartTime ?? 0;
-
-    for (let i: number = 1; i < sortedHandles.length; i++) {
-      const runDate = sortedHandles[i].date.getTime();
-      const gap: number =
-        sortedHandles[i - 1].date.getTime() - runDate;
-
-      const isBeyondTimeout = gap > this._sessionService.sessionTimeoutMilliseconds;
-
-      if (isBeyondTimeout) {
-        // If we're beyond timeout, we stop UNLESS we are in a ranked run
-        // and the current run is still after the ranked floor.
-        if (!isRanked || runDate < rankedStartTime) {
-          break;
-        }
-      }
-
-      sessionItems.push(sortedHandles[i]);
-    }
-
-    return sessionItems;
   }
 
   private async _parseLatestRuns(
@@ -332,8 +265,7 @@ export class RunIngestionService {
       return cachedRun;
     }
 
-    const run: KovaaksChallengeRun | null =
-      await this._performFileParsing(handle);
+    const run = await this._performFileParsing(handle);
 
     if (run) {
       this._parsedRunsCache.set(handle.name, run);
@@ -347,14 +279,12 @@ export class RunIngestionService {
   ): Promise<KovaaksChallengeRun | null> {
     try {
       const file: File = await handle.getFile();
-
       const content: string = await file.text();
-
-      const parsed: Partial<KovaaksChallengeRun> | null =
-        this._csvService.parseKovaakCsv(content, handle.name);
+      const parsed = this._csvService.parseKovaakCsv(content, handle.name);
 
       if (
-        !parsed?.scenarioName ||
+        !parsed ||
+        !parsed.scenarioName ||
         parsed.score === undefined ||
         !parsed.completionDate
       ) {
@@ -369,9 +299,17 @@ export class RunIngestionService {
         difficulty: this._benchmarkService.getDifficulty(parsed.scenarioName),
       };
     } catch (error: unknown) {
-      console.error(`Failed to parse file: ${handle.name}`, error);
+      this._handleParsingError(handle.name, error);
 
       return null;
+    }
+  }
+
+  private _handleParsingError(filename: string, error: unknown): void {
+    if (error instanceof Error) {
+      console.error(`Failed to parse file: ${filename}`, error.message);
+    } else {
+      console.error(`Failed to parse file: ${filename}`, String(error));
     }
   }
 

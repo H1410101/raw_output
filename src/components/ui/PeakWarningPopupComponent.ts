@@ -131,7 +131,7 @@ export class PeakWarningPopupComponent {
         container.appendChild(proofStandardsParagraph);
 
         const transparencyParagraph: HTMLParagraphElement = document.createElement("p");
-        transparencyParagraph.textContent = "Raw Output is a website that reads files from your computer. This can be easily cheated. I faked files while making this website for the sake of development.";
+        transparencyParagraph.textContent = "Raw Output pulls scores from Kovaaks, and unfortunately such scores can currently be cheated.";
         container.appendChild(transparencyParagraph);
     }
 

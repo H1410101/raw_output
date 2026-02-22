@@ -5,12 +5,14 @@ import { SessionService } from "../SessionService";
 import { RankEstimator } from "../RankEstimator";
 import { BenchmarkScenario } from "../../data/benchmarks";
 import { SessionSettingsService } from "../SessionSettingsService";
+import { IdentityService } from "../IdentityService";
 
 interface MockSet {
     benchmark: BenchmarkService;
     session: SessionService;
     estimator: RankEstimator;
     settings: SessionSettingsService;
+    identity: IdentityService;
 }
 
 describe("RankedSessionService: Resumption Behavior", (): void => {
@@ -19,7 +21,7 @@ describe("RankedSessionService: Resumption Behavior", (): void => {
 
     beforeEach((): void => {
         mocks = _setupMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
 
     it("should retain the same sequence on same-day resumption", (): void => {
@@ -44,7 +46,7 @@ describe("RankedSessionService: Persistence Behavior", (): void => {
 
     beforeEach((): void => {
         mocks = _setupMocks();
-        service = new RankedSessionService(mocks.benchmark, mocks.session, mocks.estimator, mocks.settings);
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
 
     it("should maintain persistent targets across difficulty switches", (): void => {
@@ -76,7 +78,9 @@ describe("RankedSessionService: Persistence Behavior", (): void => {
 function _createBenchmarkMock(): BenchmarkService {
     return {
         getScenarios: vi.fn(),
-        getRankNames: vi.fn(),
+        getRankNames: vi.fn().mockImplementation((diff: string) => {
+            return diff === "Gold" ? ["G1", "G2", "G3", "G4", "G5"] : ["S1", "S2", "S3", "S4", "S5"];
+        }),
         getDifficulty: vi.fn().mockImplementation((name: string) => {
             return (name.includes("Gold") || name === "Scen1") ? "Gold" : "Silver";
         }),
@@ -107,12 +111,18 @@ function _setupMocks(): MockSet {
         estimator: {
             getScenarioEstimate: vi.fn(),
             recordPlay: vi.fn(),
+            applyPenaltyLift: vi.fn(),
             getScenarioContinuousValue: vi.fn(),
-            evolveScenarioEstimate: vi.fn()
+            evolveScenarioEstimate: vi.fn(),
+            initializePeakRanks: vi.fn(),
         } as unknown as RankEstimator,
         settings: {
             getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
-        } as unknown as SessionSettingsService
+        } as unknown as SessionSettingsService,
+        identity: {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn()
+        } as unknown as IdentityService
     };
 }
 

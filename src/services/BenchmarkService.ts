@@ -6,6 +6,7 @@ import {
   getRankNamesForDifficulty,
   isPeakBenchmark,
   BenchmarkScenario,
+  getBenchmarkId as getBenchmarkIdFromData,
 } from "../data/benchmarks";
 
 /**
@@ -59,5 +60,38 @@ export class BenchmarkService {
    */
   public isPeak(difficulty: DifficultyTier): boolean {
     return isPeakBenchmark(difficulty);
+  }
+
+  /**
+   * Retrieves the benchmark ID associated with a difficulty tier.
+   *
+   * @param difficulty - The difficulty tier.
+   * @returns The benchmark ID or null if not found.
+   */
+  public getBenchmarkId(difficulty: DifficultyTier): string | null {
+    return getBenchmarkIdFromData(difficulty);
+  }
+
+  /**
+   * Retrieves all scenarios from all difficulty tiers.
+   *
+   * @returns An array of unique scenarios.
+   */
+  public getAllScenarios(): BenchmarkScenario[] {
+    const difficulties = this.getAvailableDifficulties();
+    const allScenarios: BenchmarkScenario[] = [];
+    const seenNames = new Set<string>();
+
+    for (const difficulty of difficulties) {
+      const scenarios = this.getScenarios(difficulty);
+      for (const scenario of scenarios) {
+        if (!seenNames.has(scenario.name)) {
+          allScenarios.push(scenario);
+          seenNames.add(scenario.name);
+        }
+      }
+    }
+
+    return allScenarios;
   }
 }

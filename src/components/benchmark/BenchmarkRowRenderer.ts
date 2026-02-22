@@ -6,6 +6,7 @@ import { VisualSettings } from "../../services/VisualSettingsService";
 import { AudioService } from "../../services/AudioService";
 import { RankEstimator, EstimatedRank } from "../../services/RankEstimator";
 import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
+import { IdentityService } from "../../services/IdentityService";
 import { DotCloudComponent } from "../visualizations/DotCloudComponent";
 import { ScoreEntry } from "../visualizations/ScoreProcessor";
 
@@ -20,6 +21,8 @@ export interface BenchmarkRowDependencies {
   readonly visualSettings: VisualSettings;
   readonly rankEstimator: RankEstimator;
   readonly cosmeticOverride: CosmeticOverrideService;
+  readonly identityService: IdentityService;
+  readonly onScenarioLaunch?: (scenarioName: string) => void;
 }
 
 /**
@@ -32,6 +35,7 @@ export class BenchmarkRowRenderer {
   private readonly _audioService: AudioService;
   private readonly _rankEstimator: RankEstimator;
   private readonly _cosmeticOverrideService: CosmeticOverrideService;
+  private readonly _identityService: IdentityService;
   private _visualSettings: VisualSettings;
   private _currentDifficulty: DifficultyTier = "Advanced";
   private readonly _dotCloudRegistry: Map<string, DotCloudComponent> =
@@ -44,6 +48,7 @@ export class BenchmarkRowRenderer {
     loadId: number;
   }[] = [];
   private _isProcessingBackground: boolean = false;
+  private readonly _onScenarioLaunch?: (scenarioName: string) => void;
   private static readonly _maxDotCloudBudget: number = 100;
 
   /**
@@ -59,6 +64,8 @@ export class BenchmarkRowRenderer {
     this._visualSettings = dependencies.visualSettings;
     this._rankEstimator = dependencies.rankEstimator;
     this._cosmeticOverrideService = dependencies.cosmeticOverride;
+    this._identityService = dependencies.identityService;
+    this._onScenarioLaunch = dependencies.onScenarioLaunch;
   }
 
   /**
@@ -66,13 +73,15 @@ export class BenchmarkRowRenderer {
    *
    * @param scenario - The benchmark scenario data.
    * @param highscore - The all-time highscore for this scenario.
-   * @param difficulty
+   * @param difficulty - The benchmark difficulty tier.
+   * @param kovaaksHighscore - The global all-time highscore from Kovaaks API.
    * @returns The constructed row HTMLElement.
    */
   public renderRow(
     scenario: BenchmarkScenario,
     highscore: number,
     difficulty: DifficultyTier = "Advanced",
+    kovaaksHighscore: number = 0,
   ): HTMLElement {
     this._currentDifficulty = difficulty;
     const rowElement: HTMLElement = this._createRowContainer(scenario);
@@ -83,7 +92,7 @@ export class BenchmarkRowRenderer {
       rowElement.appendChild(this._createDotCloudCell(scenario));
     }
 
-    this._appendRankBadgesIfEnabled(rowElement, scenario, highscore);
+    this._appendRankBadgesIfEnabled(rowElement, scenario, highscore, kovaaksHighscore);
 
     rowElement.appendChild(this._createPlayButton(scenario.name));
     this._addRowClickListeners(rowElement, scenario);
@@ -120,18 +129,29 @@ export class BenchmarkRowRenderer {
    *
    * @param rowElement - The existing HTMLElement of the row.
    * @param scenario - The scenario data to apply.
-   * @param highscore - The current all-time highscore.
-   * @param difficulty
+   * @param updateData - The data to update the row with.
+   * @param updateData.highscore - The scenario all-time highscore.
+   * @param updateData.difficulty - The benchmark difficulty tier.
+   * @param updateData.kovaaksHighscore - The global all-time highscore.
    */
   public updateRow(
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
-    highscore: number,
-    difficulty: DifficultyTier = "Advanced",
+    updateData: {
+      highscore: number;
+      difficulty?: DifficultyTier;
+      kovaaksHighscore?: number;
+    },
   ): void {
+    const {
+      highscore,
+      difficulty = "Advanced",
+      kovaaksHighscore = 0,
+    } = updateData;
+
     this._currentDifficulty = difficulty;
     if (this._visualSettings.showRanks) {
-      this._updateRankBadges(rowElement, scenario, highscore);
+      this._updateRankBadges(rowElement, scenario, highscore, kovaaksHighscore);
       if (this._visualSettings.showRankEstimate) {
         this._updateRankEstimateBadge(rowElement, scenario);
       }
@@ -143,16 +163,19 @@ export class BenchmarkRowRenderer {
   }
 
   private _ensureDotCloudInjected(rowElement: HTMLElement, scenario: BenchmarkScenario): void {
-    if (this._dotCloudRegistry.has(scenario.name)) {
-      this._updateDotCloud(scenario);
+    const existingComponent = this._dotCloudRegistry.get(scenario.name);
+    if (existingComponent) {
+      this._refreshComponentData(existingComponent, scenario);
     } else {
       const container = rowElement.querySelector(".dot-cloud-container") as HTMLElement;
       if (container) {
-        const loadId = parseInt(container.dataset.loadId || "0", 10);
+        const loadId = ++this._loadCounter;
+        container.dataset.loadId = loadId.toString();
         this._loadDotCloudData(container, scenario, loadId, true);
       }
     }
   }
+
 
   /**
    * Creates the main container for a scenario row.
@@ -174,18 +197,21 @@ export class BenchmarkRowRenderer {
    * @param rowElement - The row HTMLElement to append badges to.
    * @param scenario - The benchmark scenario data.
    * @param highscore - The all-time highscore for the scenario.
+   * @param kovaaksHighscore - The global all-time highscore from Kovaaks API.
    */
   private _appendRankBadgesIfEnabled(
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
     highscore: number,
+    kovaaksHighscore: number,
   ): void {
     if (!this._visualSettings.showRanks) {
       return;
     }
 
     if (this._visualSettings.showAllTimeBest) {
-      rowElement.appendChild(this._createRankBadge(scenario, highscore));
+      const bestScore = Math.max(highscore, kovaaksHighscore);
+      rowElement.appendChild(this._createRankBadge(scenario, bestScore));
     }
 
     if (this._visualSettings.showSessionBest) {
@@ -220,18 +246,21 @@ export class BenchmarkRowRenderer {
    * @param rowElement - The row HTMLElement.
    * @param scenario - The benchmark scenario data.
    * @param highscore - The current all-time highscore.
+   * @param kovaaksHighscore - The global all-time highscore from Kovaaks API.
    */
   private _updateRankBadges(
     rowElement: HTMLElement,
     scenario: BenchmarkScenario,
     highscore: number,
+    kovaaksHighscore: number,
   ): void {
     const allTimeBadge: HTMLElement | null = rowElement.querySelector(
       ".rank-badge-container:not(.session-badge) .badge-content",
     );
 
     if (allTimeBadge) {
-      this._fillBadgeContent(allTimeBadge, scenario, highscore);
+      const bestScore = Math.max(highscore, kovaaksHighscore);
+      this._fillBadgeContent(allTimeBadge, scenario, bestScore);
     }
 
     this._updateSessionBadge(rowElement, scenario);
@@ -306,46 +335,37 @@ export class BenchmarkRowRenderer {
   }
 
   /**
-   * Updates the dot cloud visualization for a given scenario.
-   *
-   * @param scenario - The benchmark scenario data.
-   */
-  private _updateDotCloud(scenario: BenchmarkScenario): void {
-    const component: DotCloudComponent | undefined = this._dotCloudRegistry.get(
-      scenario.name,
-    );
-    if (component) {
-      this._refreshComponentData(component, scenario);
-    }
-  }
-
-  /**
    * Refreshes the data for a dot cloud component.
    *
    * @param component - The DotCloudComponent instance.
    * @param scenario - The benchmark scenario data.
    */
-  private _refreshComponentData(
+  private async _refreshComponentData(
     component: DotCloudComponent,
     scenario: BenchmarkScenario,
-  ): void {
-    this._historyService
-      .getLastScores(scenario.name, 100)
-      .then((entries: ScoreEntry[]): void => {
-        const sessionStart: number | null =
-          this._sessionService.sessionStartTimestamp;
-        const isLatestInSession: boolean =
-          sessionStart !== null &&
-          entries.length > 0 &&
-          entries[0].timestamp >= sessionStart;
+  ): Promise<void> {
+    const profile = this._identityService.getActiveProfile();
+    const playerId = profile?.username || "";
 
-        component.updateData({
-          entries,
-          thresholds: scenario.thresholds,
-          isLatestInSession,
-          rankInterval: this._calculateAverageRankInterval(scenario),
-        });
-      });
+    const entries = await this._historyService.getLastScores(
+      playerId,
+      scenario.name,
+      100,
+    );
+
+    const sessionStart: number | null =
+      this._sessionService.sessionStartTimestamp;
+    const isLatestInSession: boolean =
+      sessionStart !== null &&
+      entries.length > 0 &&
+      entries[0].timestamp >= sessionStart;
+
+    component.updateData({
+      entries,
+      thresholds: scenario.thresholds,
+      isLatestInSession,
+      rankInterval: this._calculateAverageRankInterval(scenario),
+    });
   }
 
   /**
@@ -441,17 +461,29 @@ export class BenchmarkRowRenderer {
     ) {
       return;
     }
+    this._fetchAndRenderScores(container, scenario, loadId);
+  }
 
-    this._historyService
-      .getLastScores(scenario.name, 100)
-      .then((entries: ScoreEntry[]): void => {
-        const stillCurrentId: string | undefined = container.dataset.loadId;
+  private async _fetchAndRenderScores(
+    container: HTMLElement,
+    scenario: BenchmarkScenario,
+    loadId: number,
+  ): Promise<void> {
+    const profile = this._identityService.getActiveProfile();
+    const playerId = profile?.username || "";
 
-        if (entries.length > 0 && stillCurrentId === loadId.toString()) {
-          this._injectDotCloudVisualization(container, scenario, entries);
-          this._removeFromPending(loadId);
-        }
-      });
+    const entries = await this._historyService.getLastScores(
+      playerId,
+      scenario.name,
+      100,
+    );
+
+    const stillCurrentId: string | undefined = container.dataset.loadId;
+
+    if (entries.length > 0 && stillCurrentId === loadId.toString()) {
+      this._injectDotCloudVisualization(container, scenario, entries);
+      this._removeFromPending(loadId);
+    }
   }
 
   private _removeFromPending(loadId: number): void {
@@ -510,24 +542,52 @@ export class BenchmarkRowRenderer {
     scenario: BenchmarkScenario,
     entries: ScoreEntry[],
   ): void {
-    const averageRankInterval: number =
-      this._calculateAverageRankInterval(scenario);
+    const data = this._prepareDotCloudData(scenario, entries);
+    const { isLatestInSession, rankInterval: averageRankInterval } = data;
 
-    const sessionStart: number | null =
-      this._sessionService.sessionStartTimestamp;
+    let dotCloud = this._dotCloudRegistry.get(scenario.name);
+
+    if (dotCloud) {
+      dotCloud.updateData({
+        entries,
+        thresholds: scenario.thresholds,
+        isLatestInSession,
+        rankInterval: averageRankInterval,
+      });
+    } else {
+      dotCloud = new DotCloudComponent({
+        entries,
+        thresholds: scenario.thresholds,
+        settings: this._visualSettings,
+        isLatestInSession,
+        rankInterval: averageRankInterval,
+      });
+
+      this._dotCloudRegistry.set(scenario.name, dotCloud);
+      container.replaceWith(dotCloud.render());
+    }
+  }
+
+  private _prepareDotCloudData(
+    scenario: BenchmarkScenario,
+    entries: ScoreEntry[],
+  ): {
+    entries: ScoreEntry[];
+    thresholds: Record<string, number>;
+    isLatestInSession: boolean;
+    rankInterval: number;
+  } {
+    const averageRankInterval: number = this._calculateAverageRankInterval(scenario);
+    const sessionStart: number | null = this._sessionService.sessionStartTimestamp;
     const isLatestInSession: boolean =
-      sessionStart !== null && entries[0].timestamp >= sessionStart;
+      sessionStart !== null && entries.length > 0 && entries[0].timestamp >= sessionStart;
 
-    const dotCloud: DotCloudComponent = new DotCloudComponent({
+    return {
       entries,
       thresholds: scenario.thresholds,
-      settings: this._visualSettings,
       isLatestInSession,
       rankInterval: averageRankInterval,
-    });
-
-    this._dotCloudRegistry.set(scenario.name, dotCloud);
-    container.replaceWith(dotCloud.render());
+    };
   }
 
   /**
@@ -919,6 +979,10 @@ export class BenchmarkRowRenderer {
 
     this._audioService.playHeavy(1.0);
     this._launchKovaksScenario(state.scenarioName);
+
+    if (this._onScenarioLaunch) {
+      this._onScenarioLaunch(state.scenarioName);
+    }
 
     window.setTimeout((): void => {
       this._resetAfterLaunch(state);

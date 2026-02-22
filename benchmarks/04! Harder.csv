@@ -1,3 +1,4 @@
+# Benchmark ID: 688
 Category,Subcategory,Scenario,Wool,Linen,Velvet,Chiffon,Satin,Silk
 Control Tracking,Arm,WhisphereRawControl 30% Small,7100,7700,8300,8900,9900,11000
 Control Tracking,Arm,Whisphere Small & Slow,14000,15250,16500,18000,19500,20500
@@ -18,7 +19,7 @@ Reactive Tracking,Speed,Polarized Hell 20% Slower,2550,2700,2850,3000,3150,3300
 Reactive Tracking,Reading,Air Pure,884,890,895,900,905,909
 Reactive Tracking,Reading,Air Voltaic Invincible 4,2800,3150,3450,3700,3900,4100
 Flick Tech,Speed,Pokeball Frenzy Auto TE Wide,3550,3725,3850,4000,4100,4200
-Flick Tech,Speed,1w2ts reload,106,114,121,127,133,138
+Flick Tech,Speed,1w2ts Reload,106,114,121,127,133,138
 Flick Tech,Speed,voxTargetSwitch 2 20% Smaller,103,111,116,121,127,133
 Flick Tech,Stability,beanTS 30% Smaller,119,127,134,139,143,147
 Flick Tech,Stability,FloatTS Angelic,94,100,105,110,114,118

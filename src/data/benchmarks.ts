@@ -1,4 +1,5 @@
 const PEAK_BENCHMARKS: Set<string> = new Set();
+const BENCHMARK_IDS: Map<string, string> = new Map();
 
 const benchmarkFiles: Record<string, string> = import.meta.glob(
   "../../benchmarks/*.csv",
@@ -54,7 +55,7 @@ function _parseCsvLine(line: string): string[] {
 function _extractScenariosFromCsv(csvContent: string): BenchmarkScenario[] {
   const lines: string[] = csvContent
     .split(/\r?\n/)
-    .filter((line: string): boolean => line.trim() !== "");
+    .filter((line: string): boolean => line.trim() !== "" && !line.startsWith("#"));
 
   if (lines.length <= 1) {
     return [];
@@ -67,6 +68,17 @@ function _extractScenariosFromCsv(csvContent: string): BenchmarkScenario[] {
   return lines.slice(1).map((line: string): BenchmarkScenario => {
     return _parseScenarioRow(line, thresholdKeys);
   });
+}
+
+function _parseBenchmarkId(csvContent: string): string | null {
+  const lines: string[] = csvContent.split(/\r?\n/);
+  const metadataRow = lines.find(line => line.startsWith("# Benchmark ID:"));
+
+  if (!metadataRow) {
+    return null;
+  }
+
+  return metadataRow.replace("# Benchmark ID:", "").trim();
 }
 
 function _parseScenarioRow(
@@ -126,6 +138,11 @@ function _initializeBenchmarkData(): Record<
 
     if (tierName !== null) {
       map[tierName] = _extractScenariosFromCsv(content);
+
+      const benchmarkId = _parseBenchmarkId(content);
+      if (benchmarkId) {
+        BENCHMARK_IDS.set(tierName, benchmarkId);
+      }
     }
   }
 
@@ -208,6 +225,16 @@ export const getScenariosByDifficulty = (
   const scenarios: BenchmarkScenario[] | undefined = BENCHMARK_MAP[difficulty];
 
   return scenarios ? [...scenarios] : [];
+};
+
+/**
+ * Retrieves the benchmark ID associated with a difficulty tier.
+ * 
+ * @param difficulty - The difficulty tier.
+ * @returns The benchmark ID or null if not found.
+ */
+export const getBenchmarkId = (difficulty: DifficultyTier): string | null => {
+  return BENCHMARK_IDS.get(difficulty) || null;
 };
 
 /**

@@ -29,6 +29,7 @@ export interface VisualSettings {
   audioVolume: number;
   showIntervalsSettings: boolean;
   playAnimationsUnfocused: boolean;
+  allowBackgroundPolling: boolean;
 }
 
 /**
@@ -186,6 +187,7 @@ export class VisualSettingsService {
       audioVolume: 80,
       showIntervalsSettings: true,
       playAnimationsUnfocused: false,
+      allowBackgroundPolling: true,
     };
   }
 

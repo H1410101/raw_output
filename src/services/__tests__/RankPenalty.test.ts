@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { RankEstimator } from '../RankEstimator';
 import { BenchmarkService } from '../BenchmarkService';
+import { IdentityService } from '../IdentityService';
+import { vi } from 'vitest';
 
 describe('RankEstimator Daily Penalty', () => {
     let rankEstimator: RankEstimator;
@@ -8,7 +10,11 @@ describe('RankEstimator Daily Penalty', () => {
 
     beforeEach(() => {
         localStorage.clear();
-        rankEstimator = new RankEstimator(new BenchmarkService());
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn(),
+        } as unknown as IdentityService;
+        rankEstimator = new RankEstimator(new BenchmarkService(), identityService);
     });
 
     it('should apply a 0.05 RU penalty per day', () => {
@@ -22,7 +28,7 @@ describe('RankEstimator Daily Penalty', () => {
                 lastPlayed: yesterday.toISOString(), lastDecayed: yesterday.toISOString(),
             }
         };
-        localStorage.setItem('rank_identity_state_v2', JSON.stringify(initialMap));
+        localStorage.setItem('rank_identity_state_v2_testuser', JSON.stringify(initialMap));
 
         rankEstimator.applyDailyDecay();
         expect(rankEstimator.getRankEstimateMap()[scenario].continuousValue).toBeCloseTo(3.95, 3);
@@ -32,7 +38,11 @@ describe('RankEstimator Daily Penalty', () => {
 describe('RankEstimator Persistence', () => {
     it('should apply penalty even if played today, if not taxed recently', () => {
         localStorage.clear();
-        const rankEstimator = new RankEstimator(new BenchmarkService());
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn(),
+        } as unknown as IdentityService;
+        const rankEstimator = new RankEstimator(new BenchmarkService(), identityService);
         const twoDaysAgo = new Date(Date.now() - 2.1 * 24 * 60 * 60 * 1000);
         const oneHourAgo = new Date(Date.now() - 1 * 60 * 60 * 1000);
 
@@ -43,7 +53,7 @@ describe('RankEstimator Persistence', () => {
                 lastPlayed: oneHourAgo.toISOString(), lastDecayed: twoDaysAgo.toISOString(),
             }
         };
-        localStorage.setItem('rank_identity_state_v2', JSON.stringify(initialMap));
+        localStorage.setItem('rank_identity_state_v2_testuser', JSON.stringify(initialMap));
 
         rankEstimator.applyDailyDecay();
 
@@ -55,7 +65,11 @@ describe('RankEstimator Persistence', () => {
 describe('RankEstimator Floor Constraint', () => {
     it('should respect the floor (peak - 2.0)', () => {
         localStorage.clear();
-        const rankEstimator = new RankEstimator(new BenchmarkService());
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn(),
+        } as unknown as IdentityService;
+        const rankEstimator = new RankEstimator(new BenchmarkService(), identityService);
         const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
 
         const initialMap = {
@@ -65,7 +79,7 @@ describe('RankEstimator Floor Constraint', () => {
                 lastPlayed: tenDaysAgo.toISOString(), lastDecayed: tenDaysAgo.toISOString(),
             }
         };
-        localStorage.setItem('rank_identity_state_v2', JSON.stringify(initialMap));
+        localStorage.setItem('rank_identity_state_v2_testuser', JSON.stringify(initialMap));
 
         rankEstimator.applyDailyDecay();
         expect(rankEstimator.getRankEstimateMap().scenarioA.continuousValue).toBe(3.0);
@@ -75,7 +89,11 @@ describe('RankEstimator Floor Constraint', () => {
 describe('RankEstimator Time Boundaries', () => {
     it('should handle fractional days correctly', () => {
         localStorage.clear();
-        const rankEstimator = new RankEstimator(new BenchmarkService());
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn(),
+        } as unknown as IdentityService;
+        const rankEstimator = new RankEstimator(new BenchmarkService(), identityService);
         const timeAgo = new Date(Date.now() - 1.5 * 24 * 60 * 60 * 1000);
 
         const initialMap = {
@@ -85,7 +103,7 @@ describe('RankEstimator Time Boundaries', () => {
                 lastPlayed: timeAgo.toISOString(), lastDecayed: timeAgo.toISOString(),
             }
         };
-        localStorage.setItem('rank_identity_state_v2', JSON.stringify(initialMap));
+        localStorage.setItem('rank_identity_state_v2_testuser', JSON.stringify(initialMap));
 
         rankEstimator.applyDailyDecay();
         expect(rankEstimator.getRankEstimateMap().scenarioA.continuousValue).toBeCloseTo(3.925, 3);
@@ -95,7 +113,11 @@ describe('RankEstimator Time Boundaries', () => {
 describe('RankEstimator Min Time', () => {
     it('should not apply penalty if less than 1 day has passed', () => {
         localStorage.clear();
-        const rankEstimator = new RankEstimator(new BenchmarkService());
+        const identityService = {
+            getKovaaksUsername: vi.fn().mockReturnValue("testuser"),
+            onProfilesChanged: vi.fn(),
+        } as unknown as IdentityService;
+        const rankEstimator = new RankEstimator(new BenchmarkService(), identityService);
         const timeAgo = new Date(Date.now() - 0.5 * 24 * 60 * 60 * 1000);
 
         const initialMap = {
@@ -105,7 +127,7 @@ describe('RankEstimator Min Time', () => {
                 lastPlayed: timeAgo.toISOString(), lastDecayed: timeAgo.toISOString(),
             }
         };
-        localStorage.setItem('rank_identity_state_v2', JSON.stringify(initialMap));
+        localStorage.setItem('rank_identity_state_v2_testuser', JSON.stringify(initialMap));
 
         rankEstimator.applyDailyDecay();
         expect(rankEstimator.getRankEstimateMap().scenarioA.continuousValue).toBe(4.0);

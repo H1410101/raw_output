@@ -6,12 +6,14 @@ import { RankEstimator, ScenarioEstimate } from "../RankEstimator";
 import { BenchmarkScenario } from "../../data/benchmarks";
 
 import { SessionSettingsService } from "../SessionSettingsService";
+import { IdentityService } from "../IdentityService";
 
 interface MockSet {
     benchmark: BenchmarkService;
     session: SessionService;
     estimator: RankEstimator;
     settings: SessionSettingsService;
+    identity: IdentityService;
 }
 
 describe("RankedSessionService: Lifecycle", (): void => {
@@ -20,12 +22,7 @@ describe("RankedSessionService: Lifecycle", (): void => {
 
     beforeEach((): void => {
         mocks = _createMocks();
-        service = new RankedSessionService(
-            mocks.benchmark,
-            mocks.session,
-            mocks.estimator,
-            mocks.settings
-        );
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
 
     it("should generate a sequence of 3 scenarios using Strong-Weak-Mid logic", (): void => {
@@ -47,12 +44,7 @@ describe("RankedSessionService: Activity", (): void => {
 
     beforeEach((): void => {
         mocks = _createMocks();
-        service = new RankedSessionService(
-            mocks.benchmark,
-            mocks.session,
-            mocks.estimator,
-            mocks.settings
-        );
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
 
     it("should correctly report activity status", (): void => {
@@ -138,12 +130,7 @@ describe("RankedSessionService: Diversity", (): void => {
 
     beforeEach((): void => {
         mocks = _createMocks();
-        service = new RankedSessionService(
-            mocks.benchmark,
-            mocks.session,
-            mocks.estimator,
-            mocks.settings
-        );
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
 
     it("should handle diversity check (penalty for similar categories)", (): void => {
@@ -159,37 +146,75 @@ describe("RankedSessionService: Diversity", (): void => {
     });
 });
 
+function _createBenchmarkMock(): BenchmarkService {
+    return {
+        getScenarios: vi.fn(),
+        getRankNames: vi.fn().mockReturnValue("Gold"),
+        getDifficulty: vi.fn().mockReturnValue("Gold"),
+        getAvailableDifficulties: vi.fn().mockReturnValue(["Gold", "Platinum"]),
+    } as unknown as BenchmarkService;
+}
+
+function _createSessionMock(): SessionService {
+    return {
+        setIsRanked: vi.fn(),
+        onSessionUpdated: vi.fn(),
+        resetSession: vi.fn(),
+        startRankedSession: vi.fn(),
+        stopRankedSession: vi.fn(),
+        getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
+        getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
+        getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
+        getRankedScenarioBest: vi.fn().mockReturnValue({}),
+        setRankedPlaylist: vi.fn(),
+    } as unknown as SessionService;
+}
+
+function _createEstimatorMock(): RankEstimator {
+    return {
+        getScenarioEstimate: vi.fn(),
+        recordPlay: vi.fn(),
+        applyPenaltyLift: vi.fn(),
+        getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
+        evolveScenarioEstimate: vi.fn(),
+        initializePeakRanks: vi.fn(),
+    } as unknown as RankEstimator;
+}
+
+function _createSettingsMock(): SessionSettingsService {
+    return {
+        getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
+    } as unknown as SessionSettingsService;
+}
+
+function _createIdentityMock(): IdentityService {
+    return {
+        getKovaaksUsername: vi.fn().mockReturnValue("TestUser"),
+        onProfilesChanged: vi.fn(),
+    } as unknown as IdentityService;
+}
+
 function _createMocks(): MockSet {
     vi.clearAllMocks();
     localStorage.clear();
 
-    return {
-        benchmark: {
-            getScenarios: vi.fn(),
-            getDifficulty: vi.fn().mockReturnValue("Gold"),
-        } as unknown as BenchmarkService,
-        session: {
-            setIsRanked: vi.fn(),
-            onSessionUpdated: vi.fn(),
-            resetSession: vi.fn(),
-            startRankedSession: vi.fn(),
-            stopRankedSession: vi.fn(),
-            getAllScenarioSessionBests: vi.fn().mockReturnValue([]),
-            getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
-            getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
-            getRankedScenarioBest: vi.fn().mockReturnValue({}),
-            setRankedPlaylist: vi.fn(),
-        } as unknown as SessionService,
-        estimator: { getScenarioEstimate: vi.fn(), recordPlay: vi.fn() } as unknown as RankEstimator,
-        settings: {
-            getSettings: vi.fn().mockReturnValue({ rankedIntervalMinutes: 60 }),
-        } as unknown as SessionSettingsService
+    const mocks: MockSet = {
+        benchmark: _createBenchmarkMock(),
+        session: _createSessionMock(),
+        estimator: _createEstimatorMock(),
+        settings: _createSettingsMock(),
+        identity: _createIdentityMock()
     };
+
+    _mockEstimates(mocks.estimator, {});
+
+    return mocks;
 }
 
 function _mockEstimates(estimator: RankEstimator, estimates: Record<string, Partial<ScenarioEstimate>>): void {
+    const defaultEstimate: ScenarioEstimate = { continuousValue: -1, highestAchieved: -1, lastUpdated: "", penalty: 0, lastPlayed: "", lastDecayed: "" };
     (estimator.getScenarioEstimate as Mock).mockImplementation((name: string) => {
-        return estimates[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "", penalty: 0, lastPlayed: "" };
+        return estimates[name] || defaultEstimate;
     });
 }
 
@@ -265,12 +290,13 @@ function _setupStandardSession(service: RankedSessionService, mocks: MockSet): v
 }
 
 function _createRankedService(mocks: MockSet): RankedSessionService {
-    return new RankedSessionService(
-        mocks.benchmark,
-        mocks.session,
-        mocks.estimator,
-        mocks.settings
-    );
+    return new RankedSessionService({
+        benchmarkService: mocks.benchmark,
+        sessionService: mocks.session,
+        rankEstimator: mocks.estimator,
+        sessionSettings: mocks.settings,
+        identityService: mocks.identity,
+    });
 }
 
 type SessionUpdateListener = (updatedScenarioNames?: string[]) => void;

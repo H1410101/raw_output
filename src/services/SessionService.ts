@@ -4,6 +4,7 @@ import {
   SessionSettings,
   SessionSettingsService,
 } from "./SessionSettingsService";
+import { IdentityService } from "./IdentityService";
 
 /**
  * Listener callback for session state changes.
@@ -47,11 +48,13 @@ export class SessionService {
   private _sessionTimeoutMilliseconds: number = 10 * 60 * 1000;
 
   /** Key for local storage persistence. */
-  private readonly _storageKey: string = "session_service_state";
+  private static readonly _legacyStorageKey: string = "session_service_state";
 
   private readonly _rankService: RankService;
 
   private readonly _sessionSettingsService: SessionSettingsService;
+
+  private readonly _identityService: IdentityService;
 
   private _lastRunTimestamp: number | null = null;
 
@@ -82,21 +85,56 @@ export class SessionService {
   private _expirationTimerId: number | null = null;
 
   /**
-   * Initializes the SessionService with required rank and settings dependencies.
+   * Initializes the session service.
    *
-   * @param rankService - Service for calculating ranks from scores.
-   * @param sessionSettingsService - Service providing session timeout configuration.
+   * @param rankService
+   * @param sessionSettingsService
+   * @param identityService
    */
   public constructor(
     rankService: RankService,
     sessionSettingsService: SessionSettingsService,
+    identityService: IdentityService,
   ) {
     this._rankService = rankService;
-
     this._sessionSettingsService = sessionSettingsService;
+    this._identityService = identityService;
 
     this._subscribeToSettingsUpdates();
+    this._subscribeToProfileChanges();
     this._loadFromLocalStorage();
+  }
+
+  private _subscribeToProfileChanges(): void {
+    this._identityService.onProfilesChanged((): void => {
+      this._resetInternalState();
+      this._loadFromLocalStorage();
+      this._notifySessionUpdate();
+    });
+  }
+
+  private _resetInternalState(): void {
+    this._sessionBestRanks.clear();
+    this._sessionBestPerDifficulty.clear();
+    this._lastRunTimestamp = null;
+    this._sessionStartTimestamp = null;
+    this._sessionId = null;
+    this._allRuns.length = 0;
+    this._rankedStartTime = null;
+    this._rankedBestRanks.clear();
+    this._rankedAllRuns.length = 0;
+    this._rankedPlaylist = null;
+    this._isRanked = false;
+    this._clearExpirationTimer();
+  }
+
+  private _getStorageKey(): string {
+    const username = this._identityService.getKovaaksUsername();
+    if (!username) {
+      return SessionService._legacyStorageKey;
+    }
+
+    return `${SessionService._legacyStorageKey}_${username.toLowerCase()}`;
   }
 
   /**
@@ -153,6 +191,7 @@ export class SessionService {
       timestamp: Date;
     }[],
   ): void {
+
     const updatedScenarioNames: string[] = [];
 
     runs.forEach((run): void => {
@@ -163,8 +202,10 @@ export class SessionService {
 
     const uniqueUpdatedNames: string[] = [...new Set(updatedScenarioNames)];
 
-    this._saveToLocalStorage();
-    this._notifySessionUpdate(uniqueUpdatedNames);
+    if (uniqueUpdatedNames.length > 0) {
+      this._saveToLocalStorage();
+      this._notifySessionUpdate(uniqueUpdatedNames);
+    }
   }
 
   private _processSingleRun(
@@ -178,6 +219,10 @@ export class SessionService {
     updatedScenarioNames: string[],
   ): void {
     const runTimestamp = run.timestamp.getTime();
+
+    if (this._isDuplicateRun(run.scenarioName, run.score, runTimestamp)) {
+      return;
+    }
 
     this._updateSessionState(runTimestamp);
 
@@ -209,6 +254,32 @@ export class SessionService {
     });
   }
 
+  private _isDuplicateRun(
+    scenarioName: string,
+    score: number,
+    timestamp: number,
+  ): boolean {
+    const targetSecond = Math.floor(timestamp / 1000);
+
+    const isInAllRuns = this._allRuns.some(
+      (run) =>
+        run.scenarioName === scenarioName &&
+        run.score === score &&
+        Math.floor(run.timestamp / 1000) === targetSecond,
+    );
+
+    if (isInAllRuns) {
+      return true;
+    }
+
+    return this._rankedAllRuns.some(
+      (run) =>
+        run.scenarioName === scenarioName &&
+        run.score === score &&
+        Math.floor(run.timestamp / 1000) === targetSecond,
+    );
+  }
+
   private _routeToRankedTrack(
     run: {
       scenarioName: string;
@@ -221,11 +292,15 @@ export class SessionService {
   ): void {
     const isExplicitlyInPlaylist = !this._rankedPlaylist || this._rankedPlaylist.has(run.scenarioName);
 
+    // Add a 60s grace period for timestamps to account for clock drift or API sync delays
+    const rankedGracePeriod = 60 * 1000;
+    const isWithinRankedWindow = this._rankedStartTime !== null && runTimestamp >= (this._rankedStartTime - rankedGracePeriod);
+
     if (
-      this._rankedStartTime !== null &&
-      runTimestamp >= this._rankedStartTime &&
+      isWithinRankedWindow &&
       isExplicitlyInPlaylist
     ) {
+
       this._processRankedRunData(run);
 
       this._rankedAllRuns.push({
@@ -233,6 +308,10 @@ export class SessionService {
         score: run.score,
         timestamp: runTimestamp,
       });
+    } else if (this._isRanked) {
+      // Diagnostic for missing scores
+      const reason = !isWithinRankedWindow ? `timestamp outside window (Start: ${this._rankedStartTime}, Run: ${runTimestamp})` : "not in playlist";
+      console.warn(`[Session] Pathway Trace: Run for ${run.scenarioName} (${run.score}) REJECTED from ranked track: ${reason}`);
     }
   }
 
@@ -316,6 +395,15 @@ export class SessionService {
     this._isRanked = false;
     this._rankedPlaylist = null;
     this._saveToLocalStorage();
+  }
+
+  /**
+   * Returns the set of scenario names in the current ranked playlist, or null if no playlist restriction.
+   * 
+   * @returns The ranked playlist set or null.
+   */
+  public getRankedPlaylist(): Set<string> | null {
+    return this._rankedPlaylist;
   }
 
   /**
@@ -430,9 +518,7 @@ export class SessionService {
     this._allRuns.length = 0;
 
     if (!preserveRanked) {
-      this._rankedBestRanks.clear();
-      this._rankedAllRuns.length = 0;
-      this._rankedPlaylist = null;
+      this._isRanked = false;
     }
 
     this._clearExpirationTimer();
@@ -632,11 +718,11 @@ export class SessionService {
       rankedPlaylist: this._rankedPlaylist ? Array.from(this._rankedPlaylist) : null,
     };
 
-    localStorage.setItem(this._storageKey, JSON.stringify(state));
+    localStorage.setItem(this._getStorageKey(), JSON.stringify(state));
   }
 
   private _loadFromLocalStorage(): void {
-    const raw: string | null = localStorage.getItem(this._storageKey);
+    const raw: string | null = localStorage.getItem(this._getStorageKey());
     if (!raw) {
       return;
     }
@@ -664,7 +750,7 @@ export class SessionService {
 
       this._scheduleExpirationCheck();
     } catch {
-      localStorage.removeItem(this._storageKey);
+      localStorage.removeItem(this._getStorageKey());
     }
   }
 

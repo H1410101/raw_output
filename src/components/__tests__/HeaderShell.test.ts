@@ -48,7 +48,7 @@ describe("Header Action Order", (): void => {
     it("should maintain correct action button order (header.ctrl.ext.order)", (): void => {
         const actionGroup: Element = document.querySelector(".header-actions")!;
         const buttons: NodeListOf<Element> = actionGroup.querySelectorAll(".header-action-btn");
-        expect(buttons[0].id).toBe("header-folder-btn");
+        expect(buttons[0].id).toBe("header-profile-btn");
         expect(buttons[1].id).toBe("header-theme-btn");
         expect(buttons[2].id).toBe("header-settings-btn");
     });
@@ -98,7 +98,7 @@ function _setupShellDOM(): void {
                     <button class="nav-item" id="nav-ranked">Ranked</button>
                 </nav>
                 <div class="header-actions">
-                    <button class="header-action-btn" id="header-folder-btn"></button>
+                    <button class="header-action-btn" id="header-profile-btn"></button>
                     <button class="header-action-btn" id="header-theme-btn"></button>
                     <button class="header-action-btn" id="header-settings-btn"></button>
                 </div>

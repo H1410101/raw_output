@@ -1,3 +1,4 @@
+# Benchmark ID: 687
 Category,Subcategory,Scenario,Cinnabar,Vermillion,Saffron,Celadon,Cerulean,Lavender,Indigo,Fuchsia
 Control Tracking,Arm,WhisphereRawControl,5300,6700,7600,8800,10000,10900,11800,13000
 Control Tracking,Arm,Whisphere,5750,8250,10750,13250,15250,17250,19250,20500

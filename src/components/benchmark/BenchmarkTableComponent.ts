@@ -13,6 +13,7 @@ import { AudioService } from "../../services/AudioService";
 import { SCALING_FACTORS } from "../../services/ScalingService";
 import { RankEstimator } from "../../services/RankEstimator";
 import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
+import { IdentityService } from "../../services/IdentityService";
 
 /**
  * Collection of services and settings required for BenchmarkTableComponent.
@@ -27,6 +28,8 @@ export interface BenchmarkTableDependencies {
   readonly focusService: FocusManagementService;
   readonly rankEstimator: RankEstimator;
   readonly cosmeticOverride: CosmeticOverrideService;
+  readonly identityService: IdentityService;
+  readonly onScenarioLaunch?: (scenarioName: string) => void;
 }
 
 /**
@@ -59,6 +62,8 @@ export class BenchmarkTableComponent {
       visualSettings: dependencies.visualSettings,
       rankEstimator: dependencies.rankEstimator,
       cosmeticOverride: dependencies.cosmeticOverride,
+      identityService: dependencies.identityService,
+      onScenarioLaunch: dependencies.onScenarioLaunch,
     });
     this._nameWidthManager = new ScenarioNameWidthManager();
   }
@@ -67,14 +72,16 @@ export class BenchmarkTableComponent {
    * Renders the complete benchmark table structure.
    *
    * @param scenarios - The list of scenarios to display.
-   * @param highscores - A map of all-time highscores.
-   * @param difficulty
+   * @param highscores - A map of local all-time highscores.
+   * @param difficulty - The current benchmark difficulty tier.
+   * @param kovaaksHighscores - Optional map of global all-time highscores from Kovaaks API.
    * @returns The root container of the table.
    */
   public render(
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
     difficulty: string = "Advanced",
+    kovaaksHighscores: Record<string, number> = {},
   ): HTMLElement {
     this._difficulty = difficulty;
     const tableContainer: HTMLDivElement = document.createElement("div");
@@ -97,7 +104,7 @@ export class BenchmarkTableComponent {
 
     this._clearExistingRows();
     this._updateNameColumnWidth(scenarios);
-    this._appendCategorizedContent(scrollArea, scenarios, highscores);
+    this._appendCategorizedContent(scrollArea, scenarios, highscores, kovaaksHighscores);
     this._initializeControllers(tableContainer, scrollArea, scrollThumb);
 
     tableContainer.appendChild(scrollArea);
@@ -139,14 +146,16 @@ export class BenchmarkTableComponent {
    *
    * @param scenario - The scenario data.
    * @param highscore - The current highscore.
+   * @param kovaaksHighscore
    */
   public updateScenarioRow(
     scenario: BenchmarkScenario,
     highscore: number,
+    kovaaksHighscore: number = 0,
   ): void {
     const row: HTMLElement | undefined = this._rowElements.get(scenario.name);
     if (row) {
-      this._rowRenderer.updateRow(row, scenario, highscore, this._difficulty);
+      this._rowRenderer.updateRow(row, scenario, { highscore, difficulty: this._difficulty, kovaaksHighscore });
     }
   }
 
@@ -207,6 +216,7 @@ export class BenchmarkTableComponent {
     container: HTMLElement,
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
+    kovaaksHighscores: Record<string, number>,
   ): void {
     const scenarioGroups: Map<
       string,
@@ -222,6 +232,7 @@ export class BenchmarkTableComponent {
           categoryName,
           subcategories,
           highscores,
+          kovaaksHighscores,
         );
         container.appendChild(categoryElement);
       },
@@ -259,6 +270,7 @@ export class BenchmarkTableComponent {
     name: string,
     subcategories: Map<string, BenchmarkScenario[]>,
     highscores: Record<string, number>,
+    kovaaksHighscores: Record<string, number>,
   ): HTMLElement {
     const groupElement: HTMLDivElement = document.createElement("div");
     const subcategoryContainer: HTMLDivElement = document.createElement("div");
@@ -267,7 +279,7 @@ export class BenchmarkTableComponent {
     subcategoryContainer.className = "subcategory-container";
 
     groupElement.appendChild(this._createVerticalLabel(name, "category"));
-    this._appendSubcategories(subcategoryContainer, subcategories, highscores);
+    this._appendSubcategories(subcategoryContainer, subcategories, highscores, kovaaksHighscores);
     groupElement.appendChild(subcategoryContainer);
 
     return groupElement;
@@ -277,6 +289,7 @@ export class BenchmarkTableComponent {
     container: HTMLElement,
     subcategories: Map<string, BenchmarkScenario[]>,
     highscores: Record<string, number>,
+    kovaaksHighscores: Record<string, number>,
   ): void {
     subcategories.forEach(
       (scenarios: BenchmarkScenario[], subName: string): void => {
@@ -284,6 +297,7 @@ export class BenchmarkTableComponent {
           subName,
           scenarios,
           highscores,
+          kovaaksHighscores,
         );
         container.appendChild(subGroup);
       },
@@ -294,6 +308,7 @@ export class BenchmarkTableComponent {
     name: string,
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
+    kovaaksHighscores: Record<string, number>,
   ): HTMLElement {
     const subGroup: HTMLDivElement = document.createElement("div");
     const listElement: HTMLDivElement = document.createElement("div");
@@ -303,7 +318,7 @@ export class BenchmarkTableComponent {
 
     subGroup.appendChild(this._createVerticalLabel(name, "subcategory"));
     subGroup.appendChild(this._createSubcategoryHeader());
-    this._appendScenarios(listElement, scenarios, highscores);
+    this._appendScenarios(listElement, scenarios, highscores, kovaaksHighscores);
     subGroup.appendChild(listElement);
 
     return subGroup;
@@ -313,10 +328,12 @@ export class BenchmarkTableComponent {
     container: HTMLElement,
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
+    kovaaksHighscores: Record<string, number>,
   ): void {
     scenarios.forEach((scenario: BenchmarkScenario): void => {
       const score: number = highscores[scenario.name] || 0;
-      const row: HTMLElement = this._rowRenderer.renderRow(scenario, score, this._difficulty);
+      const kovaaksScore: number = kovaaksHighscores[scenario.name] || 0;
+      const row: HTMLElement = this._rowRenderer.renderRow(scenario, score, this._difficulty, kovaaksScore);
 
       this._rowElements.set(scenario.name, row);
       container.appendChild(row);
@@ -386,3 +403,4 @@ export class BenchmarkTableComponent {
     return container;
   }
 }
+
