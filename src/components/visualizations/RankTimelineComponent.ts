@@ -201,10 +201,16 @@ export class RankTimelineComponent {
      * @param paused - If true, renders the initial state but waits for play() to animate.
      */
     public update(config: RankTimelineConfiguration, immediate: boolean = false, paused: boolean = false): void {
+        const achievedRUChanged = config.achievedRU !== this._config.achievedRU;
         this._config = config;
 
         const thresholdValues = Object.values(config.thresholds).sort((a: number, b: number) => a - b);
         this._mapper = new RankScaleMapper(thresholdValues, 100);
+
+        if (achievedRUChanged) {
+            this._attemptsLayer.innerHTML = "";
+            this._renderedAttemptCount = 0;
+        }
 
         this.render(immediate, paused);
     }
@@ -465,9 +471,15 @@ export class RankTimelineComponent {
         // Only process attempts from index _renderedAttemptCount onwards
         const newAttempts = attempts.slice(this._renderedAttemptCount);
 
+        let skippedAchievedInBatch = false;
+
         newAttempts.forEach((entry: AttemptEntry) => {
             // Skip rendering attempt notch if it corresponds to the achieved RU
-            if (this._config.achievedRU !== undefined && Math.abs(entry.rankUnit - this._config.achievedRU) < 0.001) {
+            // We only skip ONE such entry to handle duplicate scores correctly
+            const isAchieved = this._config.achievedRU !== undefined && Math.abs(entry.rankUnit - this._config.achievedRU) < 0.001;
+            if (isAchieved && !skippedAchievedInBatch) {
+                skippedAchievedInBatch = true;
+
                 return;
             }
 
