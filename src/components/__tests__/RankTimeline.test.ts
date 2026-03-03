@@ -231,12 +231,12 @@ describe("RankTimelineComponent Logic", () => {
             achievedRU: 2,
             // Top 3 are 5, 4, 3
             attempts: [
-                { score: 100, timestamp: Date.now(), rankUnit: 1 },
+                { score: 100, timestamp: 1000, rankUnit: 1 },
                 // Matches achievedRU, should be skipped
-                { score: 200, timestamp: Date.now(), rankUnit: 2 },
-                { score: 300, timestamp: Date.now(), rankUnit: 3 },
-                { score: 400, timestamp: Date.now(), rankUnit: 4 },
-                { score: 500, timestamp: Date.now(), rankUnit: 5 }
+                { score: 200, timestamp: 2000, rankUnit: 2 },
+                { score: 300, timestamp: 3000, rankUnit: 3 },
+                { score: 400, timestamp: 4000, rankUnit: 4 },
+                { score: 500, timestamp: 5000, rankUnit: 5 }
             ]
         };
         const component = new RankTimelineComponent(config);

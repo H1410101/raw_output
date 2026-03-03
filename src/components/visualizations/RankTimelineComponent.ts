@@ -82,6 +82,8 @@ export class RankTimelineComponent {
     }> = new Map();
 
     private _renderedAttemptCount: number = 0;
+    private readonly _attemptNotchMap: Map<number, HTMLElement> = new Map();
+    private _top3Timestamps: number[] = [];
 
     private _markerSyncId: number | null = null;
 
@@ -210,6 +212,8 @@ export class RankTimelineComponent {
         if (achievedRUChanged) {
             this._attemptsLayer.innerHTML = "";
             this._renderedAttemptCount = 0;
+            this._attemptNotchMap.clear();
+            this._top3Timestamps = [];
         }
 
         this.render(immediate, paused);
@@ -458,41 +462,65 @@ export class RankTimelineComponent {
 
     private _renderAttempts(): void {
         const attempts = this._config.attempts;
-        if (!attempts || attempts.length <= this._renderedAttemptCount) {
-            // Either no attempts or nothing new to render
+        if (!attempts || attempts.length === 0) {
             return;
         }
 
         const unitWidth = 100 / (this._config.rangeWindow ?? 7.5);
         const opacity = (this._config.settings.dotOpacity ?? 40) / 100;
+
+        // Calculate top 3 from all attempts
         const sorted = [...attempts].sort((a, b) => b.rankUnit - a.rankUnit);
-        const top3Threshold = sorted.length >= 3 ? sorted[2].rankUnit : (sorted[sorted.length - 1]?.rankUnit ?? -Infinity);
+        const newTop3Timestamps = sorted.slice(0, 3).map(a => a.timestamp);
 
-        // Only process attempts from index _renderedAttemptCount onwards
+        // Surgical update: Demote those that fell out of top 3
+        this._top3Timestamps.forEach(timestamp => {
+            if (!newTop3Timestamps.includes(timestamp)) {
+                const notch = this._attemptNotchMap.get(timestamp);
+                if (notch) {
+                    notch.classList.add("secondary");
+                }
+            }
+        });
+
+        this._renderNewAttempts(attempts, newTop3Timestamps, unitWidth, opacity);
+        this._top3Timestamps = newTop3Timestamps;
+    }
+
+    private _renderNewAttempts(
+        attempts: AttemptEntry[],
+        newTop3Timestamps: number[],
+        unitWidth: number,
+        opacity: number
+    ): void {
+        if (attempts.length <= this._renderedAttemptCount) {
+            return;
+        }
+
         const newAttempts = attempts.slice(this._renderedAttemptCount);
-
         let skippedAchievedInBatch = false;
 
         newAttempts.forEach((entry: AttemptEntry) => {
-            // Skip rendering attempt notch if it corresponds to the achieved RU
-            // We only skip ONE such entry to handle duplicate scores correctly
             const isAchieved = this._config.achievedRU !== undefined && Math.abs(entry.rankUnit - this._config.achievedRU) < 0.001;
+
             if (isAchieved && !skippedAchievedInBatch) {
                 skippedAchievedInBatch = true;
 
                 return;
             }
 
-            const isTop3 = entry.rankUnit >= top3Threshold;
+            const isTop3 = newTop3Timestamps.includes(entry.timestamp);
             const notch = document.createElement("div");
             notch.className = "timeline-marker marker-attempt";
+
             if (!isTop3) notch.classList.add("secondary");
+
             notch.style.left = `${entry.rankUnit * unitWidth}%`;
             notch.style.opacity = opacity.toString();
 
             this._setupAttemptInteractions(notch, entry);
-
             this._attemptsLayer.appendChild(notch);
+            this._attemptNotchMap.set(entry.timestamp, notch);
         });
 
         this._renderedAttemptCount = attempts.length;
