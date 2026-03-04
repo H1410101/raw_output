@@ -92,6 +92,10 @@ export class BenchmarkView {
 
   private _isInitialRender: boolean = true;
 
+  private readonly _pendingUpdateIds: Map<string, number> = new Map();
+
+  private _updateCounter: number = 0;
+
   private readonly _handleWindowResize: () => void = (): void => {
     this._refreshIfVisible();
   };
@@ -486,20 +490,38 @@ export class BenchmarkView {
   private async _updateSingleScenario(scenarioName: string): Promise<void> {
     if (!this._tableComponent) return;
 
+    const updateId: number = ++this._updateCounter;
+    this._pendingUpdateIds.set(scenarioName, updateId);
+
+    const scenario: BenchmarkScenario | undefined =
+      this._findScenarioByName(scenarioName);
+
+    if (!scenario) return;
+
     const profile = this._identityService.getActiveProfile();
-    const scenarios = this._benchmarkService.getScenarios(this._activeDifficulty);
+    const username: string = profile?.username || "";
 
-    const scenario: BenchmarkScenario | undefined = scenarios.find(
-      (benchmarkScenario: BenchmarkScenario): boolean => benchmarkScenario.name === scenarioName,
+    const highscore: number = await this._historyService.getHighscore(username, scenarioName);
+    if (this._isStaleUpdate(scenarioName, updateId)) return;
+
+    const kovaaksHighscore: number = await this._fetchKovaaksHighscoreForScenario(profile, scenarioName);
+    if (this._isStaleUpdate(scenarioName, updateId)) return;
+
+    this._tableComponent?.updateScenarioRow(scenario, highscore, kovaaksHighscore);
+  }
+
+  private _findScenarioByName(scenarioName: string): BenchmarkScenario | undefined {
+    const scenarios: BenchmarkScenario[] =
+      this._benchmarkService.getScenarios(this._activeDifficulty);
+
+    return scenarios.find(
+      (benchmarkScenario: BenchmarkScenario): boolean =>
+        benchmarkScenario.name === scenarioName,
     );
+  }
 
-    if (scenario) {
-      const username = profile?.username || "";
-      const highscore = await this._historyService.getHighscore(username, scenarioName);
-      const kovaaksHighscore = await this._fetchKovaaksHighscoreForScenario(profile, scenarioName);
-
-      this._tableComponent.updateScenarioRow(scenario, highscore, kovaaksHighscore);
-    }
+  private _isStaleUpdate(scenarioName: string, updateId: number): boolean {
+    return this._pendingUpdateIds.get(scenarioName) !== updateId;
   }
 
   private async _fetchKovaaksHighscoreForScenario(
