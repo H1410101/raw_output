@@ -77,8 +77,16 @@ export class KovaaksPollingManager {
         this._history = dependencies.history;
         this._benchmark = dependencies.benchmark;
 
+        this._restorePersistedSessionState();
         this._setupListeners();
         this._rescheduleAll();
+    }
+
+    private _restorePersistedSessionState(): void {
+        if (this._session.isSessionActive()) {
+            this._suspectedActiveSession = true;
+            this._lastBenchmarkActivity = Date.now();
+        }
     }
 
     /**

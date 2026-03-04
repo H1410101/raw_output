@@ -215,7 +215,8 @@ function _createRankedSessionMock(): RankedSessionService {
 function _createSessionMock(): SessionService {
     return {
         getRankedPlaylist: vi.fn().mockReturnValue(null),
-        registerMultipleRuns: vi.fn()
+        registerMultipleRuns: vi.fn(),
+        isSessionActive: vi.fn().mockReturnValue(false)
     } as unknown as SessionService;
 }
 
