@@ -390,7 +390,7 @@ export class KovaaksPollingManager {
 
         await this._history.recordKovaaksScores(username, scenarioName, newScores.map((score: KovaaksScenarioScore) => ({
             score: score.attributes.score,
-            date: score.attributes.epoch
+            date: this._parseEpochToMs(score.attributes.epoch).toString()
         })));
 
         await this._history.updateMultipleHighscores(username, newScores.map((score: KovaaksScenarioScore) => ({
@@ -405,7 +405,7 @@ export class KovaaksPollingManager {
             score: score.attributes.score,
             scenario: scenario || null,
             difficulty,
-            timestamp: new Date(Number(score.attributes.epoch))
+            timestamp: new Date(this._parseEpochToMs(score.attributes.epoch))
         })));
     }
 
@@ -432,7 +432,7 @@ export class KovaaksPollingManager {
         }
 
         return scores.filter((score: KovaaksScenarioScore) => {
-            const scoreEpoch = Number(score.attributes?.epoch);
+            const scoreEpoch = this._parseEpochToMs(score.attributes?.epoch);
             const scoreValue = Number(score.attributes?.score);
 
             // Strict validation: Reject if timestamp or score is missing or NaN
@@ -444,6 +444,24 @@ export class KovaaksPollingManager {
 
             return isNew;
         });
+    }
+
+    private _parseEpochToMs(epoch: string | number | undefined): number {
+        if (epoch === undefined || epoch === null || epoch === "") {
+            return NaN;
+        }
+
+        const num = Number(epoch);
+        if (isNaN(num)) {
+            return NaN;
+        }
+
+        // If the number is below 10,000,000,000 (year 2286 in seconds), it's likely in seconds.
+        if (num > 0 && num < 10000000000) {
+            return num * 1000;
+        }
+
+        return num;
     }
 
     private _findBenchmarkScenario(name: string, difficulty: string | null): BenchmarkScenario | undefined {

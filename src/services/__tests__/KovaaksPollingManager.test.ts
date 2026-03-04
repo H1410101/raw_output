@@ -98,37 +98,55 @@ describe("KovaaksPollingManager: Tab/Profile Triggers", () => {
     });
 });
 
-describe("KovaaksPollingManager: Score Registration", () => {
+const setupPoll = async (manager: KovaaksPollingManager): Promise<void> => {
+    const newScore = { attributes: { score: 100, epoch: "2000" } };
+    (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockResolvedValue([newScore]);
+    (dependencies.history.getLastScores as Mock).mockResolvedValue([]);
+    // @ts-expect-error - accessing private method for testing
+    await manager._pollScenario("Scenario A");
+};
+
+describe("KovaaksPollingManager: Score Recording", () => {
     beforeEach(() => {
         vi.useFakeTimers();
         dependencies = _createMockDependencies();
     });
 
-    afterEach(() => {
-        _teardown();
+    afterEach(_teardown);
+
+    it("should record scores and update highscores", async () => {
+        const manager = new KovaaksPollingManager(dependencies);
+        await setupPoll(manager);
+
+        expect(dependencies.history.recordKovaaksScores).toHaveBeenCalledWith(
+            "testuser", "Scenario A", [{ score: 100, date: "2000000" }]
+        );
+        expect(dependencies.history.updateMultipleHighscores).toHaveBeenCalledWith(
+            "testuser", [{ scenarioName: "Scenario A", score: 100 }]
+        );
+    });
+});
+
+describe("KovaaksPollingManager: Run Registration", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        dependencies = _createMockDependencies();
     });
 
-    it("should update highscores when new scores are polled", async () => {
+    afterEach(_teardown);
+
+    it("should register runs and focus scenario", async () => {
         const manager = new KovaaksPollingManager(dependencies);
-        const newScore = {
-            attributes: {
-                score: 100,
-                epoch: "2000"
-            }
+        await setupPoll(manager);
+
+        const expectedRun = {
+            scenarioName: "Scenario A",
+            score: 100,
+            scenario: { name: "Scenario A" },
+            difficulty: "Intermediate",
+            timestamp: new Date(2000000)
         };
-
-        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockResolvedValue([newScore]);
-        (dependencies.history.getLastScores as Mock).mockResolvedValue([]);
-
-        // @ts-expect-error - accessing private method for testing
-        await manager._pollScenario("Scenario A");
-
-        expect(dependencies.history.recordKovaaksScores).toHaveBeenCalled();
-        expect(dependencies.history.updateMultipleHighscores).toHaveBeenCalledWith(
-            "testuser",
-            [{ scenarioName: "Scenario A", score: 100 }]
-        );
-        expect(dependencies.session.registerMultipleRuns).toHaveBeenCalled();
+        expect(dependencies.session.registerMultipleRuns).toHaveBeenCalledWith([expectedRun]);
         expect(dependencies.focus.focusScenario).toHaveBeenCalledWith("Scenario A", "NEW_SCORE");
     });
 });
