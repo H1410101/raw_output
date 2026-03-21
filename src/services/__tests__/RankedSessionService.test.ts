@@ -25,7 +25,7 @@ describe("RankedSessionService: Lifecycle", (): void => {
         service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
     });
 
-    it("should generate a sequence of 3 scenarios using Strong-Weak-Mid logic", (): void => {
+    it("should generate a sequence of 3 scenarios using Weak-Strong-Diverse logic", (): void => {
         const scenarios: BenchmarkScenario[] = _createDiversePool();
         const estimates: Record<string, Partial<ScenarioEstimate>> = _createDiverseEstimates();
 
@@ -240,19 +240,9 @@ function _createDiverseEstimates(): Record<string, Partial<ScenarioEstimate>> {
 
 function _assertDiverseSequence(sequence: string[]): void {
     expect(sequence).toHaveLength(3);
-    // Slot 1: Strong (Max Gap). Gap: Clicking (2.0), others 0.
     expect(sequence[0]).toBe("scenClicking1");
-
-    const remainder: string[] = sequence.slice(1);
-    // Slot 2: Weak (Min Score). Flick (0), Control (0.5), Track1 (2), Track2 (2.5).
-    // Min is Flick (0).
-    expect(remainder).toContain("scenFlick1");
-
-    // Slot 3: Mid (Max Gap - Penalty).
-    // Remaining: Control (Gap 0), Track1 (Gap 0), Track2 (Gap 0).
-    // Penalties: Categories differ from Clicking and Flick.
-    // So all 0. Picks first available: scenTracking1.
-    expect(remainder).toContain("scenTracking1");
+    expect(sequence[1]).toBe("scenControl1");
+    expect(sequence[2]).toBe("scenFlick1");
 }
 
 function _createCollidingPool(): BenchmarkScenario[] {
@@ -275,8 +265,8 @@ function _createCollidingEstimates(): Record<string, Partial<ScenarioEstimate>> 
 
 function _assertCollidingSequence(sequence: string[]): void {
     expect(sequence[0]).toBe("targetStrong");
-    expect(sequence[1]).toBe("weakTrack1");
-    expect(sequence[2]).toBe("weakFlick1");
+    expect(sequence[1]).toBe("weakFlick1");
+    expect(sequence[2]).toBe("weakTrack1");
 }
 
 function _setupStandardSession(service: RankedSessionService, mocks: MockSet): void {

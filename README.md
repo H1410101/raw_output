@@ -26,6 +26,11 @@ Look for `_docs.md` files within the `src` directories (e.g., `src/components/_d
 
 Follow these steps to run the project locally:
 
+0. **Use Node 20+**:
+   ```bash
+   node -v
+   ```
+
 1. **Install Dependencies**:
    ```bash
    npm install
@@ -38,3 +43,8 @@ Follow these steps to run the project locally:
 
 3. **Access the App**:
    Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+## Testing
+
+- `npm test`: Runs the default Vitest suite in `jsdom` using a Node 20 wrapper.
+- `npm run test:browser`: Runs the suite with Playwright-backed browser mode enabled.

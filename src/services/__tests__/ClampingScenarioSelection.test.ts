@@ -39,13 +39,13 @@ describe("RankedSessionService: RU Clamping", (): void => {
         });
     });
 
-    it("should clamp CurrentRU and PeakRU to the max rank in the difficulty", (): void => {
+    it("should preserve overrank maintenance value in the strong slot", (): void => {
         _setupClampingTest(mockBenchmark, mockEstimator);
 
         service.startSession("Gold");
 
-        // With clamp: scenB (5.8) should be chosen as the strongest over the clamped scenA (5.0).
-        expect(service.state.sequence[0]).toBe("scenB");
+        expect(service.state.sequence[0]).toBe("scenD");
+        expect(service.state.sequence[1]).toBe("scenA");
     });
 });
 

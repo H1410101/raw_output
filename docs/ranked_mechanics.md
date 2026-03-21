@@ -83,32 +83,47 @@ $$ I_{\text{new}} = I_{\text{old}} + \alpha \cdot (R_{\text{session}} - I_{\text
 
 ---
 
-## 3. Scenario Selection Protocol: "Strong-Weak-Mid"
+## 3. Scenario Selection Protocol: "Weak-Strong-Diverse"
 
 **Principle: Balanced Progression**
-To maximize engagement and improvement, training oscillates between "Pushing Limits" (Strong), "Correcting Weakness" (Weak), and "Consolidating Gains" (Mid).
+To maximize engagement and improvement, training first addresses the user's weakest scenario, then preserves high-end capacity, then expands variety pressure across the session.
 
 A session consists of **3-Scenario Batches**, generated deterministically based on the player's current Identity Map.
 
 #### The Selection Logic
-1.  **Slot 1: The "Strong" (Push Limits)**
-    -   **Goal**: Challenge the user at or slightly above their peak capability.
-    -   **Metric**: Maximize $Score = \min(R_{current} + \text{Gap}, R_{peak}) + \text{Gap}$
-        -   Where $\text{Gap} = R_{peak} - R_{current}$.
-    -   **Disqualification**: If $R_{current} > R_{peak}$ (Beyond Achievement), the scenario is skipped to avoid redundancy.
+Define:
 
-2.  **Slot 2: The "Weak" (Correction)**
-    -   **Goal**: Address scenarios where performance lags significantly behind potential.
-    -   **Metric**: Minimize $Score = \max(R_{current} - \text{Gap}, 0)$
-    -   **Interpretation**: Favors scenarios where $R_{current} \le \frac{1}{2} R_{peak}$.
+- $\text{VisibleGap} = \max(0, \min(R_{peak}, R_{max}) - R_{current})$
+- $\text{OverrankGap} = \max(0, R_{peak} - R_{max})$
+- $\text{ScaledGap} = \text{VisibleGap} + 0.5 \cdot \text{OverrankGap}$
 
-3.  **Slot 3: The "Mid" (Consolidation)**
-    -   **Goal**: Bridge the gap between current and peak performance while maintaining variety.
-    -   **Metric**: Maximize $Score = \max(R_{current} + \text{Gap}, R_{peak}) - R_{current} - \text{Penalty}$
-        -   Simplifies to: $\text{Gap} - \text{Penalty}$.
-    -   **Diversity Penalty**:
-        -   **Same Subcategory** as any chosen scenario: $+0.5$.
-        -   **Same Category** as any chosen scenario: $+0.25$.
+This preserves maintenance value for over-cap scenarios while acknowledging that the current benchmark cannot reliably train above $R_{max}$.
+
+The session accumulates **diversity points** against all previously selected scenarios in **selection order**:
+
+- Earlier batches before later batches.
+- Within each batch: Slot 2, then Slot 1, then Slot 3.
+
+Per prior scenario, diversity points are non-stacking:
+
+- `0` if different category.
+- `0.5` if same category.
+- `1.0` if same subcategory.
+- `2.5` if same scenario.
+
+1.  **Slot 2: The "Weak" (Correction Anchor)**
+    -   **Goal**: Address scenarios where current performance lags behind attainable performance.
+    -   **Metric**: Maximize $Score = \text{ScaledGap} - R_{current} - \text{Penalty}$
+
+2.  **Slot 1: The "Strong" (Ceiling / Maintenance Push)**
+    -   **Goal**: Prefer large remaining upside while still respecting prior selections.
+    -   **Metric**: Maximize $Score = \text{ScaledGap} - \text{Penalty} - \text{Diversity}$
+    -   **Note**: Because over-cap gap contributes at half weight, this slot naturally doubles as the catch-all maintenance slot for overrank scenarios.
+
+3.  **Slot 3: The "Diverse" (Variety Pressure)**
+    -   **Goal**: Minimize repetition over the full ranked run.
+    -   **Primary Rule**: Minimize accumulated `Diversity`.
+    -   **Tiebreaker**: Maximize $Score = \text{ScaledGap} - \text{Penalty}$
 
 **Session Result Calculation**:
-The "Achieved Rank" displayed at the end of the session is calculated as the average of the rank units achieved in the **1st (Strong)** and **3rd (Mid)** scenarios.
+The "Achieved Rank" displayed at the end of the session is calculated as the average of the rank units achieved in the **2nd (Strong)** and **3rd (Diverse)** scenarios.

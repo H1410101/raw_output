@@ -49,6 +49,8 @@ Orchestrates the ingestion of CSV performance data from the local file system. I
 ### `RankedSessionService`
 Manages the "Ranked Run" experience, which includes a guided sequence of scenarios and a timed session. It consumes data exclusively from the Ranked track of `SessionService`.
 - **Persistence**: Automatically persists session state per difficulty to `localStorage`. This allows for same-day resumption, switching between difficulties without losing progress, and maintaining consistent daily targets (initial ranks) for fair rank evolution scoring. It triggers `RankEstimator.initializePeakRanks()` at the start of a session.
+- **Selection Model**: Builds each batch in `Weak -> Strong -> Diverse` order. The weak slot maximizes `scaledGap - current - penalty`, the strong slot maximizes `scaledGap - penalty - diversity`, and the diverse slot minimizes accumulated diversity before tiebreaking on `scaledGap - penalty`.
+- **Overrank Handling**: Uses `scaledGap = visibleGap + 0.5 * overrankGap` so over-cap scenarios still surface for maintenance without dominating all picks.
 - **Relies on**: `BenchmarkService`, `SessionService`, `RankEstimator`, `SessionSettingsService`
 
 ### `RankEstimator`
@@ -106,4 +108,4 @@ graph TD
 
 ## Internal Files and API
 
-The `RankedSessionService` listens for updates from the `SessionService`. When new scores are recorded, the `RankedSessionService` resets its internal run timer. It ensures that the `RankedView` only shows improvements made within the context of an active ranked run.
+The `RankedSessionService` listens for updates from the `SessionService`. When new scores are recorded, the `RankedSessionService` resets its internal run timer. Diversity pressure accumulates across the full ranked sequence in selection order, so later batches naturally broaden scenario coverage instead of repeating the same category lanes.

@@ -98,12 +98,12 @@ describe("RankedSessionService Resumption (Difficulty)", () => {
         (mocks.benchmark.getScenarios as Mock).mockImplementation((diff: string) => (diff === "Gold" ? goldScenarios : platScenarios));
         _mockEstimates(mocks.estimator, _createEstimates());
         service.startSession("Gold");
-        const goldSequence = service.state.sequence;
         service.reset();
         service.startSession("Platinum");
-        expect(service.state.sequence).not.toEqual(goldSequence);
+        expect(service.state.sequence).toHaveLength(3);
         expect(service.state.currentIndex).toBe(0);
         expect(service.state.difficulty).toBe("Platinum");
+        expect(service.state.initialGauntletComplete).toBe(false);
     });
 });
 

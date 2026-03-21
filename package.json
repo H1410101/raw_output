@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc && vite build",
@@ -11,12 +14,13 @@
     "prepare": "husky",
     "dev:edge": "wrangler pages dev --proxy 5173",
     "dev:full": "npm run build && wrangler pages dev",
-    "lint": "eslint . && npm run lint:colors && npm run lint:scaling",
-    "lint:fix": "eslint . --fix",
-    "lint:colors": "node scripts/verify_palette_usage.js",
-    "lint:scaling": "node scripts/verify_scaling.js",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "lint": "npm exec --package=node@20 -- node ./node_modules/eslint/bin/eslint.js . && npm run lint:colors && npm run lint:scaling",
+    "lint:fix": "npm exec --package=node@20 -- node ./node_modules/eslint/bin/eslint.js . --fix",
+    "lint:colors": "npm exec --package=node@20 -- node scripts/verify_palette_usage.js",
+    "lint:scaling": "npm exec --package=node@20 -- node scripts/verify_scaling.js",
+    "test": "npm exec --package=node@20 -- node ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "npm exec --package=node@20 -- node ./node_modules/vitest/vitest.mjs",
+    "test:browser": "VITEST_BROWSER=1 npm exec --package=node@20 -- node ./node_modules/vitest/vitest.mjs run"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.0.0",

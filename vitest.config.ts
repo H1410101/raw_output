@@ -1,11 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 
+const enableBrowser = process.env.VITEST_BROWSER === '1';
+
 export default defineConfig({
   test: {
     globals: true,
+    environment: 'jsdom',
     browser: {
-      enabled: true,
+      enabled: enableBrowser,
       provider: playwright(),
       instances: [
         {

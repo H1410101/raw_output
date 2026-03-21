@@ -23,6 +23,11 @@ Global test setup file executed before each test suite.
 - **Cleanups**: Resets all mocks between tests to ensure isolation.
 - **Extensions**: Adds custom matchers if any.
 
+### `vitest.config.ts`
+Primary test configuration.
+- **Default Mode**: Runs in `jsdom` so local service and component tests do not require Playwright browsers.
+- **Browser Mode**: Enabled only when `VITEST_BROWSER=1`, preserving the browser runner for cases that need it.
+
 # Internal Documentation
 
 ## Internal Interactions Diagram
@@ -40,3 +45,4 @@ graph TD
 ## Internal Files and API
 
 - `mocks/`: Specialized mocks for browser APIs (like File System Access API) that JSDOM doesn't support natively.
+- Local CLI test commands wrap Vitest in a Node 20 runtime because the toolchain requires a newer Node version than the base container provides.
