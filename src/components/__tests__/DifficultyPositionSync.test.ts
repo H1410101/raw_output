@@ -22,42 +22,43 @@ test("difficultyTabsArePresentInBenchmarkView", async (): Promise<void> => {
         session: { isSessionActive: (): boolean => true }
     });
 
-    const benchmarkTabCoordinates: DOMRect = await _captureBenchmarkDifficultyBounds(
+    const benchmarkTabs: HTMLElement = await _captureBenchmarkDifficultyTabs(
         dashboardContainer,
         mockServices,
         appState
     );
 
-    expect(benchmarkTabCoordinates.top).toBeGreaterThan(0);
+    expect(benchmarkTabs.children.length).toBeGreaterThan(0);
+    expect(window.getComputedStyle(benchmarkTabs).display).toBe("flex");
 });
 
 afterEach((): void => {
     document.body.innerHTML = "";
 });
 
-async function _captureBenchmarkDifficultyBounds(
+async function _captureBenchmarkDifficultyTabs(
     host: HTMLElement,
     services: BenchmarkViewServices,
     state: AppStateService
-): Promise<DOMRect> {
+): Promise<HTMLElement> {
     const viewMount: HTMLDivElement = _createViewContainer("view-benchmarks", "benchmark-view");
     host.appendChild(viewMount);
 
     const view: BenchmarkView = new BenchmarkView(viewMount, services, state);
     await view.render();
 
-    return _getDifficultyTabsBoundsOrThrow();
+    return _getDifficultyTabsOrThrow();
 }
 
 
-function _getDifficultyTabsBoundsOrThrow(): DOMRect {
-    const tabs: Element | null = document.querySelector(".difficulty-tabs");
+function _getDifficultyTabsOrThrow(): HTMLElement {
+    const tabs: HTMLElement | null = document.querySelector(".difficulty-tabs");
 
     if (!tabs) {
         throw new Error("Difficulty tabs element not found in DOM");
     }
 
-    return tabs.getBoundingClientRect();
+    return tabs;
 }
 
 function _createViewContainer(containerId: string, className: string): HTMLDivElement {

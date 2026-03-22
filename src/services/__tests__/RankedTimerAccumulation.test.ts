@@ -47,6 +47,7 @@ function _createEstimatorMock(): RankEstimator {
             lastPlayed: "",
             lastDecayed: ""
         }),
+        calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: "Gold", color: "", progressToNext: 0, continuousValue: 2.0 }),
         recordPlay: vi.fn(),
         getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
         evolveScenarioEstimate: vi.fn(),

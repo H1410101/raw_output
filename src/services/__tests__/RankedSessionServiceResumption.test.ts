@@ -46,6 +46,7 @@ function _createResumptionMocks(): MockSet {
             getScenarioEstimate: vi.fn(),
             recordPlay: vi.fn(),
             applyPenaltyLift: vi.fn(),
+            calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: "Gold", color: "", progressToNext: 0, continuousValue: 2.0 }),
             getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
             evolveScenarioEstimate: vi.fn(),
             initializePeakRanks: vi.fn(),
@@ -154,7 +155,7 @@ describe("RankedSessionService Resumption (Extension)", () => {
 function _mockEstimates(estimator: RankEstimator, estimates: Record<string, Partial<ScenarioEstimate>>): void {
     (estimator.getScenarioEstimate as Mock).mockImplementation((name: string) => {
 
-        return estimates[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "", penalty: 0, lastPlayed: "" };
+        return estimates[name] || { continuousValue: -1, highestAchieved: -1, lastUpdated: "", penalty: 0, lastPlayed: "", lastDecayed: "" };
     });
 }
 

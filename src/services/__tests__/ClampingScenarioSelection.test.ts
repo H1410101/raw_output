@@ -89,6 +89,7 @@ function _createEstimatorMock(): RankEstimator {
         recordPlay: vi.fn(),
         initializePeakRanks: vi.fn(),
         applyPenaltyLift: vi.fn(),
+        calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: "R4", color: "", progressToNext: 0, continuousValue: 4.5 }),
     } as unknown as RankEstimator;
 }
 

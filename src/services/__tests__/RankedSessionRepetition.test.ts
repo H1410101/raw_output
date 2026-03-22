@@ -112,6 +112,7 @@ function _setupMocks(): MockSet {
             getScenarioEstimate: vi.fn(),
             recordPlay: vi.fn(),
             applyPenaltyLift: vi.fn(),
+            calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: "Gold", color: "", progressToNext: 0, continuousValue: 2.0 }),
             getScenarioContinuousValue: vi.fn(),
             evolveScenarioEstimate: vi.fn(),
             initializePeakRanks: vi.fn(),

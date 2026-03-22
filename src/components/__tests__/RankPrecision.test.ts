@@ -126,8 +126,17 @@ function _getRankProperties(element: HTMLElement): RankLayoutProperties {
 
     return {
         weight,
-        color: computed.color
+        color: _resolveCssVarColor(computed.color)
     };
+}
+
+function _resolveCssVarColor(colorValue: string): string {
+    const match = colorValue.match(/^var\((--[^)]+)\)$/);
+    if (!match) {
+        return colorValue;
+    }
+
+    return window.getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim() || colorValue;
 }
 
 function _setupGlobalStyles(): void {

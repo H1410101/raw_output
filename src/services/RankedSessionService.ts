@@ -600,9 +600,10 @@ export class RankedSessionService {
             return this._getFallbackBatch(pool);
         }
 
-        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool, maxRank);
+        const overallRank = this._rankEstimator.calculateHolisticEstimateRank(difficulty).continuousValue;
+        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool, maxRank, overallRank);
 
-        const previouslySelected = this._getPreviouslySelectedMetrics(scenarios, maxRank, this._sequence);
+        const previouslySelected = this._getPreviouslySelectedMetrics(scenarios, maxRank, overallRank, this._sequence);
 
         const weakCandidates = this._getWeightedWeakScenarios(metrics);
         if (weakCandidates.length === 0) {
@@ -642,7 +643,7 @@ export class RankedSessionService {
             .map((scenario: BenchmarkScenario) => scenario.name);
     }
 
-    private _calculateScenarioMetrics(pool: BenchmarkScenario[], maxRank: number): ScenarioMetric[] {
+    private _calculateScenarioMetrics(pool: BenchmarkScenario[], maxRank: number, overallRank: number): ScenarioMetric[] {
         return pool.map((scenario: BenchmarkScenario) => {
             const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
             const rawCurrent: number = estimate.continuousValue === -1 ? 0 : estimate.continuousValue;
@@ -653,7 +654,12 @@ export class RankedSessionService {
             const peak = rawPeak;
             const visibleGap = Math.max(0, Math.min(peak, maxRank) - current);
             const overrankGap = Math.max(0, peak - maxRank);
-            const scaledGap = visibleGap + 0.5 * overrankGap;
+            const scenarioGap = visibleGap + 0.5 * overrankGap;
+            const fallbackTarget = peak > 0
+                ? Math.max(peak - 2, 0, overallRank)
+                : Math.max(overallRank, 0);
+            const fallbackGap = Math.max(0, fallbackTarget - current);
+            const scaledGap = Math.max(scenarioGap, fallbackGap);
 
             return {
                 scenario,
@@ -668,6 +674,7 @@ export class RankedSessionService {
     private _getPreviouslySelectedMetrics(
         scenarios: BenchmarkScenario[],
         maxRank: number,
+        overallRank: number,
         selectedScenarioNames: string[]
     ): ScenarioMetric[] {
         const scenarioLookup = new Map(scenarios.map((scenario: BenchmarkScenario) => [scenario.name, scenario]));
@@ -675,7 +682,7 @@ export class RankedSessionService {
         return selectedScenarioNames
             .map((name: string) => scenarioLookup.get(name))
             .filter((scenario): scenario is BenchmarkScenario => scenario !== undefined)
-            .map((scenario: BenchmarkScenario) => this._calculateScenarioMetrics([scenario], maxRank)[0]);
+            .map((scenario: BenchmarkScenario) => this._calculateScenarioMetrics([scenario], maxRank, overallRank)[0]);
     }
 
     private _getWeightedStrongScenarios(

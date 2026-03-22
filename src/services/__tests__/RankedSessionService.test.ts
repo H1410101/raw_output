@@ -36,6 +36,14 @@ describe("RankedSessionService: Lifecycle", (): void => {
 
         _assertDiverseSequence(service.state.sequence);
     });
+
+    it("should use the overall-rank floor for scenarios with weak or missing highscores", (): void => {
+        _setupFallbackGapTest(mocks);
+
+        service.startSession("Gold");
+
+        expect(service.state.sequence[0]).toBe("unestablished");
+    });
 });
 
 describe("RankedSessionService: Activity", (): void => {
@@ -175,6 +183,7 @@ function _createEstimatorMock(): RankEstimator {
         getScenarioEstimate: vi.fn(),
         recordPlay: vi.fn(),
         applyPenaltyLift: vi.fn(),
+        calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: "Gold", color: "", progressToNext: 0, continuousValue: 2.0 }),
         getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
         evolveScenarioEstimate: vi.fn(),
         initializePeakRanks: vi.fn(),
@@ -240,9 +249,9 @@ function _createDiverseEstimates(): Record<string, Partial<ScenarioEstimate>> {
 
 function _assertDiverseSequence(sequence: string[]): void {
     expect(sequence).toHaveLength(3);
-    expect(sequence[0]).toBe("scenClicking1");
-    expect(sequence[1]).toBe("scenControl1");
-    expect(sequence[2]).toBe("scenFlick1");
+    expect(sequence[0]).toBe("scenFlick1");
+    expect(sequence[1]).toBe("scenClicking1");
+    expect(sequence[2]).toBe("scenControl1");
 }
 
 function _createCollidingPool(): BenchmarkScenario[] {
@@ -252,6 +261,24 @@ function _createCollidingPool(): BenchmarkScenario[] {
         { name: "weakTrack2", category: "Reactive Tracking", subcategory: "s3", thresholds: {} },
         { name: "weakFlick1", category: "Flick Tech", subcategory: "s4", thresholds: {} },
     ];
+}
+
+function _setupFallbackGapTest(mocks: MockSet): void {
+    const scenarios: BenchmarkScenario[] = [
+        { name: "established", category: "Dynamic Clicking", subcategory: "s1", thresholds: {} },
+        { name: "unestablished", category: "Flick Tech", subcategory: "s2", thresholds: {} },
+        { name: "supportA", category: "Reactive Tracking", subcategory: "s3", thresholds: {} },
+        { name: "supportB", category: "Control Tracking", subcategory: "s4", thresholds: {} },
+    ];
+
+    (mocks.benchmark.getScenarios as Mock).mockReturnValue(scenarios);
+    (mocks.estimator.calculateHolisticEstimateRank as Mock).mockReturnValue({ continuousValue: 2.5 });
+    _mockEstimates(mocks.estimator, {
+        established: { continuousValue: 1.5, highestAchieved: 4.5 },
+        unestablished: { continuousValue: 0, highestAchieved: 0 },
+        supportA: { continuousValue: 1.2, highestAchieved: 1.2 },
+        supportB: { continuousValue: 1.1, highestAchieved: 1.1 },
+    });
 }
 
 function _createCollidingEstimates(): Record<string, Partial<ScenarioEstimate>> {
@@ -264,9 +291,9 @@ function _createCollidingEstimates(): Record<string, Partial<ScenarioEstimate>> 
 }
 
 function _assertCollidingSequence(sequence: string[]): void {
-    expect(sequence[0]).toBe("targetStrong");
-    expect(sequence[1]).toBe("weakFlick1");
-    expect(sequence[2]).toBe("weakTrack1");
+    expect(sequence[0]).toBe("weakTrack1");
+    expect(sequence[1]).toBe("targetStrong");
+    expect(sequence[2]).toBe("weakFlick1");
 }
 
 function _setupStandardSession(service: RankedSessionService, mocks: MockSet): void {

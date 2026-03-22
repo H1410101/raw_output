@@ -54,10 +54,10 @@ export class MockServiceFactory {
     public static createRankEstimatorMock(overrides: Record<string, unknown> = {}): RankEstimator {
         return {
             getRankEstimateMap: vi.fn().mockReturnValue({}),
-            getScenarioEstimate: vi.fn().mockReturnValue({ continuousValue: 1.5, highestAchieved: 1.5, lastUpdated: "" }),
-            calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: "Silver", progressToNext: 50, continuousValue: 1.5 }),
-            calculateOverallRank: vi.fn().mockReturnValue({ rankName: "Silver", progressToNext: 50, continuousValue: 1.5 }),
-            getEstimateForValue: vi.fn().mockReturnValue({ rankName: "Silver", progressToNext: 50, continuousValue: 1.5 }),
+            getScenarioEstimate: vi.fn().mockReturnValue({ continuousValue: 1.5, highestAchieved: 1.5, lastUpdated: "", penalty: 0, lastPlayed: "", lastDecayed: "" }),
+            calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: "Silver", color: "", progressToNext: 50, continuousValue: 1.5 }),
+            calculateOverallRank: vi.fn().mockReturnValue({ rankName: "Silver", color: "", progressToNext: 50, continuousValue: 1.5 }),
+            getEstimateForValue: vi.fn().mockReturnValue({ rankName: "Silver", color: "", progressToNext: 50, continuousValue: 1.5 }),
             getScenarioContinuousValue: vi.fn().mockReturnValue(1.5),
             applyDailyDecay: vi.fn(),
             applyPenaltyLift: vi.fn(),

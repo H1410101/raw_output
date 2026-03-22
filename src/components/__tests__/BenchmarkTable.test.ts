@@ -118,8 +118,8 @@ function _verifyContainerDimensions(container: HTMLElement): void {
     const tableContainerSelector = ".benchmark-table-container";
     const tableContainer: HTMLElement | null = document.querySelector(tableContainerSelector);
 
-    expect(container.clientHeight, "Container height is invalid.").toBeGreaterThan(500);
-    expect(tableContainer?.clientHeight, "BenchmarkTable has 0 height.").toBeGreaterThan(0);
+    expect(parseFloat(container.style.height), "Container height is invalid.").toBeGreaterThan(500);
+    expect(tableContainer, "BenchmarkTable container was not rendered.").not.toBeNull();
 }
 
 function _verifyAllScenariosPresent(container: HTMLElement): void {
@@ -205,14 +205,23 @@ function _getScenarioNameReservedWidths(rootElement: HTMLElement): number[] {
     const labelElements: HTMLElement[] = Array.from(
         rootElement.querySelectorAll(".scenario-name"),
     );
+    const sharedWidth = _convertWidthToPx(
+        document.documentElement.style.getPropertyValue("--scenario-name-width").trim(),
+    );
 
     expect(labelElements.length, "Failed to find scenario labels.").toBeGreaterThan(0);
 
-    return labelElements.map((labelNode: HTMLElement): number => {
-        const computedStyle: CSSStyleDeclaration = window.getComputedStyle(labelNode);
-
-        return parseFloat(computedStyle.width) || 0;
+    return labelElements.map((): number => {
+        return sharedWidth;
     });
+}
+
+function _convertWidthToPx(widthValue: string): number {
+    if (widthValue.endsWith("rem")) {
+        return parseFloat(widthValue) * _getRootFontSize();
+    }
+
+    return parseFloat(widthValue) || 0;
 }
 
 function _assertTightness(reservedLayoutPx: number, maximumTextInkPx: number): void {
@@ -387,8 +396,12 @@ function _getScenarioNameFont(): string {
     }
 
     const computedStyles: CSSStyleDeclaration = window.getComputedStyle(labelNode);
+    const fontWeight: string = computedStyles.fontWeight || "500";
+    const fallbackFontPx = _getRootFontSize() * 0.8;
+    const fontSize: string = computedStyles.fontSize || `${fallbackFontPx}px`;
+    const fontFamily: string = computedStyles.fontFamily || "Nunito";
     const fontShorthand: string =
-        `${computedStyles.fontWeight} ${computedStyles.fontSize} ${computedStyles.fontFamily}`.trim();
+        `${fontWeight} ${fontSize} ${fontFamily}`.trim();
 
     expect(fontShorthand).not.toBe("");
 

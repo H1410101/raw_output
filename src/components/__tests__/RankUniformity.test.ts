@@ -164,9 +164,18 @@ function _getStyles(element: HTMLElement): ComputedStyles {
     const styles: CSSStyleDeclaration = window.getComputedStyle(element);
 
     return {
-        color: styles.color,
+        color: _resolveCssVarColor(styles.color),
         fontWeight: styles.fontWeight
     };
+}
+
+function _resolveCssVarColor(colorValue: string): string {
+    const match = colorValue.match(/^var\((--[^)]+)\)$/);
+    if (!match) {
+        return colorValue;
+    }
+
+    return window.getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim() || colorValue;
 }
 
 async function _waitForSelector(container: HTMLElement, selector: string): Promise<HTMLElement> {

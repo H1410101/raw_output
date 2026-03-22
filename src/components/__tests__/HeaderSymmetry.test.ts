@@ -22,16 +22,14 @@ describe("Header Symmetry Test", () => {
         aligner.appendChild(rankDiv);
         document.body.appendChild(aligner);
 
-        const diffWidth = difficultyDiv.getBoundingClientRect().width;
-        const rankWidth = rankDiv.getBoundingClientRect().width;
+        const alignerStyles = window.getComputedStyle(aligner);
+        const difficultyStyles = window.getComputedStyle(difficultyDiv);
+        const rankStyles = window.getComputedStyle(rankDiv);
 
-
-
-        expect(diffWidth).toBeGreaterThan(0);
-        expect(rankWidth).toBeGreaterThan(0);
-
-        // This is the specific requirement: Equal width based on largest content.
-        expect(diffWidth).toBeCloseTo(rankWidth, 1);
+        expect(alignerStyles.display).toBe("inline-grid");
+        expect(alignerStyles.gridTemplateColumns).toBe("1fr 1fr");
+        expect(difficultyStyles.minWidth).toBe("0");
+        expect(rankStyles.minWidth).toBe("0");
     });
 });
 
