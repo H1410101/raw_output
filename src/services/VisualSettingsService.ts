@@ -1,5 +1,18 @@
 import { ScalingLevel, SCALING_FACTORS } from "./ScalingService";
 
+const BOOLEAN_SETTING_KEYS = [
+  "showDotCloud", "showSessionBest", "showAllTimeBest", "showRankNotches",
+  "highlightLatestRun", "showRankEstimate", "showRanks", "showIntervalsSettings",
+  "playAnimationsUnfocused", "allowBackgroundPolling",
+] as const;
+
+const SCALING_SETTING_KEYS = [
+  "dotSize", "visDotSize", "uiScaling", "marginSpacing", "verticalSpacing",
+  "scenarioFontSize", "rankFontSize", "launchButtonSize", "headerFontSize",
+  "labelFontSize", "categorySpacing", "dotCloudSize", "dotCloudWidth",
+  "visRankFontSize", "dotJitterIntensity",
+] as const;
+
 export interface VisualSettings {
   theme: "dark" | "light";
   showDotCloud: boolean;
@@ -67,6 +80,8 @@ export class VisualSettingsService {
     key: K,
     value: VisualSettings[K],
   ): void {
+    if (this._currentSettings[key] === value) return;
+
     this._currentSettings[key] = value;
     this._applyCssVariables(this._currentSettings);
     this._saveToStorage();
@@ -151,13 +166,51 @@ export class VisualSettingsService {
       );
 
       if (stored) {
-        return { ...this._getDefaults(), ...JSON.parse(stored) };
+        return this._parseSettings(JSON.parse(stored) as unknown);
       }
     } catch (error: unknown) {
       void error;
     }
 
     return this._getDefaults();
+  }
+
+  private _parseSettings(value: unknown): VisualSettings {
+    const settings: VisualSettings = this._getDefaults();
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return settings;
+
+    const stored = value as Record<string, unknown>;
+    this._applyBooleanSettings(settings, stored);
+    this._applyScalingSettings(settings, stored);
+    if (stored.theme === "dark" || stored.theme === "light") settings.theme = stored.theme;
+    if (stored.scalingMode === "Aligned" || stored.scalingMode === "Floating") {
+      settings.scalingMode = stored.scalingMode;
+    }
+    settings.dotOpacity = this._boundedNumber(stored.dotOpacity, settings.dotOpacity, 0, 100);
+    settings.audioVolume = this._boundedNumber(stored.audioVolume, settings.audioVolume, 0, 100);
+
+    return settings;
+  }
+
+  private _applyBooleanSettings(settings: VisualSettings, stored: Record<string, unknown>): void {
+    BOOLEAN_SETTING_KEYS.forEach((key): void => {
+      if (typeof stored[key] === "boolean") settings[key] = stored[key];
+    });
+  }
+
+  private _applyScalingSettings(settings: VisualSettings, stored: Record<string, unknown>): void {
+    SCALING_SETTING_KEYS.forEach((key): void => {
+      const value: unknown = stored[key];
+      if (typeof value === "string" && Object.hasOwn(SCALING_FACTORS, value)) {
+        settings[key] = value as ScalingLevel;
+      }
+    });
+  }
+
+  private _boundedNumber(value: unknown, fallback: number, minimum: number, maximum: number): number {
+    return typeof value === "number" && Number.isFinite(value)
+      ? Math.max(minimum, Math.min(maximum, value))
+      : fallback;
   }
 
   private _getDefaults(): VisualSettings {

@@ -94,7 +94,7 @@ export class AnalyticsPopupComponent {
     private _createDescription(): HTMLElement {
         const description: HTMLParagraphElement = document.createElement("p");
         description.textContent =
-            "Sending your scores to Raw Output allows me to balance rank difficulties, develop modifications to benchmarks, and more. I would really appreciate it!\nOnly the score number is sent.";
+            "Enabling Score Feedback sends a randomly generated device ID; session ID and date; scenario names and best scores; ranked status; and, for ranked sessions, a ranked session ID, difficulty, completion status, up to three attempt scores, and target, ending, and high-score rank estimates. This score feedback does not include your Kovaaks username.";
         description.style.color = "var(--text-dim)";
         description.style.lineHeight = "1.6";
         description.style.fontSize = "0.95rem";

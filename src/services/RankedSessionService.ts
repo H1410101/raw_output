@@ -1,7 +1,7 @@
 import { BenchmarkService } from "./BenchmarkService";
 import { SessionService, SessionRankRecord } from "./SessionService";
 import { BenchmarkScenario } from "../data/benchmarks";
-import { RankEstimator } from "./RankEstimator";
+import { RankEstimateMap, RankEstimator, ScenarioEstimateEvolution } from "./RankEstimator";
 import { SessionSettingsService } from "./SessionSettingsService";
 import { IdentityService } from "./IdentityService";
 
@@ -31,6 +31,17 @@ interface ScenarioMetric {
     peak: number;
     scaledGap: number;
     penalty: number;
+}
+
+interface ScenarioMetricContext {
+    readonly maxRank: number;
+    readonly overallRank: number;
+    readonly estimateMap: RankEstimateMap;
+}
+
+interface GeneratedScenarioBatch {
+    readonly names: string[];
+    readonly estimateMap: RankEstimateMap;
 }
 
 interface DifficultySessionState {
@@ -291,15 +302,12 @@ export class RankedSessionService {
 
         this._prepareSessionStart(difficulty);
         if (this._difficultyStates[difficulty]) {
-            this._rankEstimator.initializePeakRanks();
             this._resumeExistingSession();
 
             return;
         }
 
-        this._rankEstimator.initializePeakRanks();
         this._initializeNewSession(difficulty);
-        this._notifyListeners();
     }
 
     private _prepareSessionStart(difficulty: string): void {
@@ -331,11 +339,11 @@ export class RankedSessionService {
         this._accumulatedScenarioSeconds.clear();
 
         const batch = this._generateNextBatch(difficulty, []);
-        this._sequence.push(...batch);
+        this._sequence.push(...batch.names);
 
         this._sessionService.startRankedSession(Date.now());
         this._sessionService.setRankedPlaylist(this._sequence);
-        this._recordInitialEstimates(batch);
+        this._recordInitialEstimates(batch.names, batch.estimateMap);
         this._scenarioStartTime = new Date().toISOString();
 
         this._saveToLocalStorage();
@@ -351,7 +359,10 @@ export class RankedSessionService {
         this._status = "ACTIVE";
         this._startTime = new Date().toISOString();
 
-        this._jumpToNextUnplayedScenario();
+        const extended = this._jumpToNextUnplayedScenario();
+        if (!extended) {
+            this._rankEstimator.initializePeakRanks();
+        }
         if (this._status === "ACTIVE") {
             this._scenarioStartTime = new Date().toISOString();
         }
@@ -388,7 +399,7 @@ export class RankedSessionService {
         this._accumulatedScenarioSeconds = new Map(Object.entries(state.accumulatedScenarioSeconds));
     }
 
-    private _jumpToNextUnplayedScenario(): void {
+    private _jumpToNextUnplayedScenario(): boolean {
         let maxPlayedIndex = -1;
         for (let i = 0; i < this._sequence.length; i++) {
             if (this._playedScenarios.has(this._sequence[i])) {
@@ -401,10 +412,14 @@ export class RankedSessionService {
         if (this._currentIndex >= this._sequence.length) {
             if (this._initialGauntletComplete || this._currentIndex >= 3) {
                 this.extendSession();
+
+                return true;
             } else {
                 this._status = "COMPLETED";
             }
         }
+
+        return false;
     }
 
     /**
@@ -439,7 +454,12 @@ export class RankedSessionService {
 
         if (this._currentIndex >= this._sequence.length) {
             if (this._initialGauntletComplete) {
+                const canExtend = this._difficulty !== null && this._startTime !== null;
                 this.extendSession();
+
+                if (canExtend) {
+                    return;
+                }
             } else {
                 this._status = "COMPLETED";
             }
@@ -462,11 +482,11 @@ export class RankedSessionService {
         const excludeList = this._sequence.slice(-3);
         const batch = this._generateNextBatch(this._difficulty, excludeList);
 
-        this._sequence.push(...batch);
+        this._sequence.push(...batch.names);
         this._status = "ACTIVE";
 
         this._sessionService.setRankedPlaylist(this._sequence);
-        this._recordInitialEstimates(batch);
+        this._recordInitialEstimates(batch.names, batch.estimateMap);
         this._snapshotScenarioTime();
         this._scenarioStartTime = new Date().toISOString();
 
@@ -583,55 +603,60 @@ export class RankedSessionService {
     }
 
     /**
-     * Generates a deterministic batch of three scenarios using Weak-Strong-Diverse selection order.
+     * Generates a deterministic batch in primary-secondary-coverage order.
      *
      * @param difficulty - The difficulty tier to pull scenarios from.
      * @param excludeScenarios - List of scenario names to exclude from the batch.
-     * @returns An array containing exactly three scenario names, or fewer if the pool is exhausted.
+     * @returns The selected names and the estimate snapshot used to select them.
      */
-    private _generateNextBatch(difficulty: string, excludeScenarios: string[]): string[] {
+    private _generateNextBatch(difficulty: string, excludeScenarios: string[]): GeneratedScenarioBatch {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
         const rankNames: string[] = this._benchmarkService.getRankNames(difficulty);
-        const maxRank: number = rankNames.length;
+        const estimateMap: RankEstimateMap = this._rankEstimator.getRankEstimateMap();
 
         const pool: BenchmarkScenario[] = scenarios.filter((scenario: BenchmarkScenario) => !excludeScenarios.includes(scenario.name));
-
         if (pool.length < 3) {
-            return this._getFallbackBatch(pool);
+            this._rankEstimator.initializePeakRanks(estimateMap);
+
+            return { names: this._getFallbackBatch(pool), estimateMap };
         }
 
-        const overallRank = this._rankEstimator.calculateHolisticEstimateRank(difficulty).continuousValue;
-        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool, maxRank, overallRank);
+        const overallRank = this._rankEstimator.calculateHolisticEstimateRank(difficulty, estimateMap).continuousValue;
+        const context: ScenarioMetricContext = { maxRank: rankNames.length, overallRank, estimateMap };
 
-        const previouslySelected = this._getPreviouslySelectedMetrics(scenarios, maxRank, overallRank, this._sequence);
-
-        const weakCandidates = this._getWeightedWeakScenarios(metrics);
-        if (weakCandidates.length === 0) {
-            return this._getFallbackBatch(pool);
-        }
-        this._logTopCandidates();
-        const weakMetric = weakCandidates[0].metric;
-
-        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== weakMetric.scenario.name);
-
-        const strongCandidates = this._getWeightedStrongScenarios(metrics, [...previouslySelected, weakMetric]);
-        if (strongCandidates.length === 0) {
-            return [weakMetric.scenario.name, ...this._getFallbackBatch(pool.filter((scenario: BenchmarkScenario) => scenario.name !== weakMetric.scenario.name))];
-        }
-        this._logTopCandidates();
-        const strongMetric = strongCandidates[0].metric;
-
-        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== strongMetric.scenario.name);
-
-        const diverseCandidates = this._getWeightedDiverseScenarios(metrics, [...previouslySelected, weakMetric, strongMetric]);
-        this._logTopCandidates();
-        const diverseMetric = diverseCandidates[0].metric;
-
-        return [weakMetric.scenario.name, strongMetric.scenario.name, diverseMetric.scenario.name];
+        return { names: this._selectWeightedBatch(scenarios, pool, context), estimateMap };
     }
 
-    private _logTopCandidates(): void {
-        // No-op - logs removed after diagnosis
+    private _selectWeightedBatch(
+        scenarios: BenchmarkScenario[],
+        pool: BenchmarkScenario[],
+        context: ScenarioMetricContext
+    ): string[] {
+        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool, context);
+        const previouslySelected = this._getPreviouslySelectedMetrics(scenarios, this._sequence, context);
+        const primaryCandidates = this._getPrimaryCandidates(metrics);
+        if (primaryCandidates.length === 0) {
+            return this._getFallbackBatch(pool);
+        }
+        const primaryMetric = primaryCandidates[0].metric;
+
+        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== primaryMetric.scenario.name);
+        const secondaryCandidates = this._getSecondaryCandidates(metrics, [...previouslySelected, primaryMetric]);
+        if (secondaryCandidates.length === 0) {
+            const fallback = this._getFallbackBatch(pool.filter((scenario: BenchmarkScenario) => scenario.name !== primaryMetric.scenario.name));
+
+            return [primaryMetric.scenario.name, ...fallback];
+        }
+        const secondaryMetric = secondaryCandidates[0].metric;
+
+        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== secondaryMetric.scenario.name);
+        const coverageCandidates = this._getCoverageCandidates(
+            metrics,
+            [...previouslySelected, primaryMetric, secondaryMetric],
+        );
+        const coverageMetric = coverageCandidates[0].metric;
+
+        return [primaryMetric.scenario.name, secondaryMetric.scenario.name, coverageMetric.scenario.name];
     }
 
     private _getFallbackBatch(pool: BenchmarkScenario[]): string[] {
@@ -643,21 +668,21 @@ export class RankedSessionService {
             .map((scenario: BenchmarkScenario) => scenario.name);
     }
 
-    private _calculateScenarioMetrics(pool: BenchmarkScenario[], maxRank: number, overallRank: number): ScenarioMetric[] {
+    private _calculateScenarioMetrics(pool: BenchmarkScenario[], context: ScenarioMetricContext): ScenarioMetric[] {
         return pool.map((scenario: BenchmarkScenario) => {
-            const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
+            const estimate = this._rankEstimator.getScenarioEstimate(scenario.name, context.estimateMap);
             const rawCurrent: number = estimate.continuousValue === -1 ? 0 : estimate.continuousValue;
             const rawPeak: number = estimate.highestAchieved === -1 ? 0 : estimate.highestAchieved;
             const penalty: number = estimate.penalty || 0;
 
             const current = rawCurrent;
             const peak = rawPeak;
-            const visibleGap = Math.max(0, Math.min(peak, maxRank) - current);
-            const overrankGap = Math.max(0, peak - maxRank);
+            const visibleGap = Math.max(0, Math.min(peak, context.maxRank) - current);
+            const overrankGap = Math.max(0, peak - context.maxRank);
             const scenarioGap = visibleGap + 0.5 * overrankGap;
             const fallbackTarget = peak > 0
-                ? Math.max(peak - 2, 0, overallRank)
-                : Math.max(overallRank, 0);
+                ? Math.max(peak - 2, 0, context.overallRank)
+                : Math.max(context.overallRank, 0);
             const fallbackGap = Math.max(0, fallbackTarget - current);
             const scaledGap = Math.max(scenarioGap, fallbackGap);
 
@@ -673,19 +698,18 @@ export class RankedSessionService {
 
     private _getPreviouslySelectedMetrics(
         scenarios: BenchmarkScenario[],
-        maxRank: number,
-        overallRank: number,
-        selectedScenarioNames: string[]
+        selectedScenarioNames: string[],
+        context: ScenarioMetricContext
     ): ScenarioMetric[] {
         const scenarioLookup = new Map(scenarios.map((scenario: BenchmarkScenario) => [scenario.name, scenario]));
 
         return selectedScenarioNames
             .map((name: string) => scenarioLookup.get(name))
             .filter((scenario): scenario is BenchmarkScenario => scenario !== undefined)
-            .map((scenario: BenchmarkScenario) => this._calculateScenarioMetrics([scenario], maxRank, overallRank)[0]);
+            .map((scenario: BenchmarkScenario) => this._calculateScenarioMetrics([scenario], context)[0]);
     }
 
-    private _getWeightedStrongScenarios(
+    private _getSecondaryCandidates(
         metrics: ScenarioMetric[],
         selectedMetrics: ScenarioMetric[]
     ): { metric: ScenarioMetric; weight: number }[] {
@@ -698,13 +722,13 @@ export class RankedSessionService {
             .sort((a, b) => b.weight - a.weight || a.metric.scenario.name.localeCompare(b.metric.scenario.name));
     }
 
-    private _getWeightedWeakScenarios(metrics: ScenarioMetric[]): { metric: ScenarioMetric; weight: number }[] {
+    private _getPrimaryCandidates(metrics: ScenarioMetric[]): { metric: ScenarioMetric; weight: number }[] {
         return metrics
             .map(metric => ({ metric, weight: metric.scaledGap - metric.current - metric.penalty }))
             .sort((a, b) => b.weight - a.weight || a.metric.scenario.name.localeCompare(b.metric.scenario.name));
     }
 
-    private _getWeightedDiverseScenarios(metrics: ScenarioMetric[], selectedMetrics: ScenarioMetric[]): { metric: ScenarioMetric; diversity: number; weight: number }[] {
+    private _getCoverageCandidates(metrics: ScenarioMetric[], selectedMetrics: ScenarioMetric[]): { metric: ScenarioMetric; diversity: number; weight: number }[] {
         return metrics.map(metric => {
             const diversity = this._calculateAccumulatedDiversity(metric, selectedMetrics);
             const weight = metric.scaledGap - metric.penalty;
@@ -766,26 +790,55 @@ export class RankedSessionService {
 
         const allRuns = this._sessionService.getAllRankedSessionRuns();
         const scenarios = this._benchmarkService.getScenarios(difficulty);
+        const scenarioLookup = this._indexScenariosByName(scenarios);
+        const scoresByScenario = this._groupScoresByScenario(allRuns);
+        const evolutions: ScenarioEstimateEvolution[] = [];
 
-        this._playedScenarios.forEach(scenarioName => {
-            const scenario = scenarios.find((ref) => ref.name === scenarioName);
-            if (!scenario) return;
+        for (const scenarioName of this._playedScenarios) {
+            const scenario = scenarioLookup.get(scenarioName);
+            if (!scenario) continue;
 
-            const runs = allRuns
-                .filter((run) => run.scenarioName === scenarioName)
-                .map((run) => run.score);
+            const scores = scoresByScenario.get(scenarioName);
+            if (!scores || scores.length === 0) continue;
 
-            if (runs.length === 0) return;
-
-            const sorted = runs.sort((a, b) => b - a);
+            const sorted = scores.sort((scoreA, scoreB) => scoreB - scoreA);
             const effectiveScore = sorted.length >= 3 ? sorted[2] : 0;
 
             const sessionValue = this._rankEstimator.getScenarioContinuousValue(effectiveScore, scenario);
             const initialValue = this._initialEstimates[scenarioName];
             this._lastSessionAchievements[scenarioName] = sessionValue;
+            evolutions.push({ scenarioName, sessionRank: sessionValue, initialValue });
+        }
 
-            this._rankEstimator.evolveScenarioEstimate(scenarioName, sessionValue, initialValue);
-        });
+        this._rankEstimator.evolveScenarioEstimates(evolutions);
+    }
+
+    private _indexScenariosByName(scenarios: BenchmarkScenario[]): Map<string, BenchmarkScenario> {
+        const scenarioLookup = new Map<string, BenchmarkScenario>();
+        for (const scenario of scenarios) {
+            if (!scenarioLookup.has(scenario.name)) {
+                scenarioLookup.set(scenario.name, scenario);
+            }
+        }
+
+        return scenarioLookup;
+    }
+
+    private _groupScoresByScenario(
+        runs: readonly { readonly scenarioName: string; readonly score: number }[]
+    ): Map<string, number[]> {
+        const scoresByScenario = new Map<string, number[]>();
+
+        for (const run of runs) {
+            const scores = scoresByScenario.get(run.scenarioName);
+            if (scores) {
+                scores.push(run.score);
+            } else {
+                scoresByScenario.set(run.scenarioName, [run.score]);
+            }
+        }
+
+        return scoresByScenario;
     }
 
     private _resetTimerOnScore(): void {
@@ -879,10 +932,10 @@ export class RankedSessionService {
         }
     }
 
-    private _recordInitialEstimates(scenarioNames: string[]): void {
+    private _recordInitialEstimates(scenarioNames: string[], estimateMap: RankEstimateMap): void {
         for (const name of scenarioNames) {
             if (!(name in this._initialEstimates)) {
-                this._initialEstimates[name] = this._rankEstimator.getScenarioEstimate(name).continuousValue;
+                this._initialEstimates[name] = this._rankEstimator.getScenarioEstimate(name, estimateMap).continuousValue;
             }
         }
     }

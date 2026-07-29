@@ -15,6 +15,38 @@ import { RankEstimator } from "../../services/RankEstimator";
 import { CosmeticOverrideService } from "../../services/CosmeticOverrideService";
 import { IdentityService } from "../../services/IdentityService";
 
+const STRUCTURAL_SETTING_KEYS = [
+  "showDotCloud",
+  "showRanks",
+  "showAllTimeBest",
+  "showSessionBest",
+  "showRankEstimate",
+  "scenarioFontSize",
+] as const;
+
+const DOT_CLOUD_SETTING_KEYS = [
+  "dotOpacity",
+  "scalingMode",
+  "visDotSize",
+  "dotJitterIntensity",
+  "showRankNotches",
+  "highlightLatestRun",
+  "dotCloudSize",
+  "dotCloudWidth",
+  "visRankFontSize",
+] as const;
+
+const LAYOUT_SETTING_KEYS = [
+  "uiScaling",
+  "marginSpacing",
+  "verticalSpacing",
+  "rankFontSize",
+  "launchButtonSize",
+  "headerFontSize",
+  "labelFontSize",
+  "categorySpacing",
+] as const;
+
 /**
  * Collection of services and settings required for BenchmarkTableComponent.
  */
@@ -41,6 +73,7 @@ export class BenchmarkTableComponent {
   private readonly _appStateService: AppStateService;
   private readonly _rowElements: Map<string, HTMLElement> = new Map();
   private _labelPositioner: BenchmarkLabelPositioner | null = null;
+  private _scrollController: BenchmarkScrollController | null = null;
   private readonly _nameWidthManager: ScenarioNameWidthManager;
   private readonly _audioService: AudioService;
   private _difficulty: string = "Advanced";
@@ -118,8 +151,15 @@ export class BenchmarkTableComponent {
    */
   public destroy(): void {
     this._rowRenderer.destroyAll();
-    this._labelPositioner?.destroy();
+    this._destroyControllers();
     this._clearExistingRows();
+  }
+
+  private _destroyControllers(): void {
+    this._scrollController?.destroy();
+    this._scrollController = null;
+    this._labelPositioner?.destroy();
+    this._labelPositioner = null;
   }
 
   /**
@@ -136,9 +176,29 @@ export class BenchmarkTableComponent {
    * @returns True if a full re-render is required due to structural changes.
    */
   public updateVisualSettings(settings: VisualSettings): boolean {
+    const previousSettings: VisualSettings = this._visualSettings;
+    const requiresFullRender: boolean = STRUCTURAL_SETTING_KEYS.some(
+      (key): boolean => previousSettings[key] !== settings[key],
+    );
+    const requiresDotCloudUpdate: boolean = DOT_CLOUD_SETTING_KEYS.some(
+      (key): boolean => previousSettings[key] !== settings[key],
+    );
+    const requiresLayoutRefresh: boolean = LAYOUT_SETTING_KEYS.some(
+      (key): boolean => previousSettings[key] !== settings[key],
+    );
     this._visualSettings = settings;
 
-    return true;
+    if (requiresDotCloudUpdate) {
+      this._rowRenderer.updateVisualSettings(settings);
+    }
+    if (requiresDotCloudUpdate || requiresLayoutRefresh) this._refreshLayoutControllers();
+
+    return requiresFullRender;
+  }
+
+  private _refreshLayoutControllers(): void {
+    this._scrollController?.refreshLayout();
+    this._labelPositioner?.refreshLayout();
   }
 
   /**
@@ -198,16 +258,16 @@ export class BenchmarkTableComponent {
     scrollArea: HTMLElement,
     thumb: HTMLElement,
   ): void {
-    const controller: BenchmarkScrollController =
-      new BenchmarkScrollController({
-        scrollContainer: scrollArea,
-        scrollThumb: thumb,
-        hoverContainer: container,
-        appStateService: this._appStateService,
-        audioService: this._audioService,
-      });
+    this._destroyControllers();
+    this._scrollController = new BenchmarkScrollController({
+      scrollContainer: scrollArea,
+      scrollThumb: thumb,
+      hoverContainer: container,
+      appStateService: this._appStateService,
+      audioService: this._audioService,
+    });
 
-    controller.initialize();
+    this._scrollController.initialize();
     this._labelPositioner = new BenchmarkLabelPositioner(scrollArea);
     this._labelPositioner.initialize();
   }

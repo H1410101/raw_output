@@ -13,6 +13,7 @@ export interface SessionSettings {
  */
 export class SessionSettingsService {
   private static readonly _storageKey: string = "session_settings";
+  private static readonly _maximumIntervalMinutes: number = 24 * 60;
 
   private _currentSettings: SessionSettings;
 
@@ -44,6 +45,10 @@ export class SessionSettingsService {
     key: K,
     value: SessionSettings[K],
   ): void {
+    if (!this._isValidInterval(value) || this._currentSettings[key] === value) {
+      return;
+    }
+
     this._currentSettings[key] = value;
 
     this._saveToStorage();
@@ -77,16 +82,33 @@ export class SessionSettingsService {
       );
 
       if (storedSettings) {
-        return {
-          ...this._getDefaults(),
-          ...JSON.parse(storedSettings),
-        };
+        return this._parseSettings(JSON.parse(storedSettings) as unknown);
       }
     } catch {
       // Fallback to defaults on corruption or access error
     }
 
     return this._getDefaults();
+  }
+
+  private _parseSettings(value: unknown): SessionSettings {
+    const settings: SessionSettings = this._getDefaults();
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return settings;
+
+    const storedSettings = value as Record<string, unknown>;
+    if (this._isValidInterval(storedSettings.sessionTimeoutMinutes)) {
+      settings.sessionTimeoutMinutes = storedSettings.sessionTimeoutMinutes;
+    }
+    if (this._isValidInterval(storedSettings.rankedIntervalMinutes)) {
+      settings.rankedIntervalMinutes = storedSettings.rankedIntervalMinutes;
+    }
+
+    return settings;
+  }
+
+  private _isValidInterval(value: unknown): value is number {
+    return typeof value === "number" && Number.isFinite(value) && value > 0 &&
+      value <= SessionSettingsService._maximumIntervalMinutes;
   }
 
   private _getDefaults(): SessionSettings {

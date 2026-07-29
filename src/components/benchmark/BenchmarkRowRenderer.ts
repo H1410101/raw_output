@@ -40,7 +40,11 @@ export class BenchmarkRowRenderer {
   private _currentDifficulty: DifficultyTier = "Advanced";
   private readonly _dotCloudRegistry: Map<string, DotCloudComponent> =
     new Map();
+  private readonly _activeLoadIds: Set<number> = new Set();
+  private readonly _refreshIds: Map<string, number> = new Map();
+  private readonly _loadObservers: Map<number, IntersectionObserver> = new Map();
   private _loadCounter: number = 0;
+  private _lifecycleVersion: number = 0;
 
   private readonly _pendingBackgroundLoads: {
     container: HTMLElement;
@@ -95,7 +99,7 @@ export class BenchmarkRowRenderer {
     this._appendRankBadgesIfEnabled(rowElement, scenario, highscore, kovaaksHighscore);
 
     rowElement.appendChild(this._createPlayButton(scenario.name));
-    this._addRowClickListeners(rowElement, scenario);
+    this._addRowClickListeners(rowElement);
 
     return rowElement;
   }
@@ -104,12 +108,18 @@ export class BenchmarkRowRenderer {
    * Cleans up all active dot cloud components and popups managed by this renderer.
    */
   public destroyAll(): void {
+    this._lifecycleVersion++;
     this._dotCloudRegistry.forEach((component: DotCloudComponent): void => {
       component.destroy();
     });
 
     this._dotCloudRegistry.clear();
+    this._activeLoadIds.clear();
+    this._refreshIds.clear();
+    this._loadObservers.forEach((observer: IntersectionObserver): void => observer.disconnect());
+    this._loadObservers.clear();
     this._pendingBackgroundLoads.length = 0;
+    this._isProcessingBackground = false;
   }
 
   /**
@@ -165,7 +175,9 @@ export class BenchmarkRowRenderer {
   private _ensureDotCloudInjected(rowElement: HTMLElement, scenario: BenchmarkScenario): void {
     const existingComponent = this._dotCloudRegistry.get(scenario.name);
     if (existingComponent) {
-      this._refreshComponentData(existingComponent, scenario);
+      void this._refreshComponentData(existingComponent, scenario).catch(
+        (error: unknown): void => console.error("Failed to refresh dot cloud:", error),
+      );
     } else {
       const container = rowElement.querySelector(".dot-cloud-container") as HTMLElement;
       if (container) {
@@ -227,16 +239,13 @@ export class BenchmarkRowRenderer {
    * Adds click listeners to the row element.
    *
    * @param rowElement - The row HTMLElement.
-   * @param scenario - The benchmark scenario data.
    */
   private _addRowClickListeners(
     rowElement: HTMLElement,
-    scenario: BenchmarkScenario,
   ): void {
     rowElement.addEventListener("click", (): void => {
       rowElement.classList.toggle("selected");
       this._audioService.playLight(0.6);
-      this._dotCloudRegistry.get(scenario.name)?.requestUpdate();
     });
   }
 
@@ -344,6 +353,10 @@ export class BenchmarkRowRenderer {
     component: DotCloudComponent,
     scenario: BenchmarkScenario,
   ): Promise<void> {
+    const refreshId: number = ++this._loadCounter;
+    const lifecycleVersion: number = this._lifecycleVersion;
+    this._refreshIds.set(scenario.name, refreshId);
+
     const profile = this._identityService.getActiveProfile();
     const playerId = profile?.username || "";
 
@@ -352,6 +365,10 @@ export class BenchmarkRowRenderer {
       scenario.name,
       100,
     );
+
+    if (!this._isCurrentRefresh(scenario.name, refreshId, lifecycleVersion, component)) {
+      return;
+    }
 
     const sessionStart: number | null =
       this._sessionService.sessionStartTimestamp;
@@ -366,6 +383,17 @@ export class BenchmarkRowRenderer {
       isLatestInSession,
       rankInterval: this._calculateAverageRankInterval(scenario),
     });
+  }
+
+  private _isCurrentRefresh(
+    scenarioName: string,
+    refreshId: number,
+    lifecycleVersion: number,
+    component: DotCloudComponent,
+  ): boolean {
+    return lifecycleVersion === this._lifecycleVersion &&
+      this._refreshIds.get(scenarioName) === refreshId &&
+      this._dotCloudRegistry.get(scenarioName) === component;
   }
 
   /**
@@ -412,11 +440,18 @@ export class BenchmarkRowRenderer {
     scenario: BenchmarkScenario,
     loadId: number,
   ): void {
+    const lifecycleVersion: number = this._lifecycleVersion;
     const observer: IntersectionObserver = new IntersectionObserver(
       (entries: IntersectionObserverEntry[]): void => {
+        if (lifecycleVersion !== this._lifecycleVersion) {
+          this._disconnectLoadObserver(loadId);
+
+          return;
+        }
+
         entries.forEach((entry: IntersectionObserverEntry): void => {
           if (entry.isIntersecting) {
-            observer.disconnect();
+            this._disconnectLoadObserver(loadId);
             this._loadDotCloudData(container, scenario, loadId, true);
           }
         });
@@ -424,6 +459,7 @@ export class BenchmarkRowRenderer {
       { rootMargin: "1000px" },
     );
 
+    this._loadObservers.set(loadId, observer);
     observer.observe(container);
 
     this._pendingBackgroundLoads.push({ container, scenario, loadId });
@@ -448,8 +484,10 @@ export class BenchmarkRowRenderer {
 
     if (
       currentId !== loadId.toString() ||
-      this._dotCloudRegistry.has(scenario.name)
+      this._dotCloudRegistry.has(scenario.name) ||
+      this._activeLoadIds.has(loadId)
     ) {
+      this._disconnectLoadObserver(loadId);
       this._removeFromPending(loadId);
 
       return;
@@ -461,13 +499,35 @@ export class BenchmarkRowRenderer {
     ) {
       return;
     }
-    this._fetchAndRenderScores(container, scenario, loadId);
+
+    this._disconnectLoadObserver(loadId);
+    this._startDotCloudLoad(container, scenario, loadId);
+  }
+
+  private _startDotCloudLoad(
+    container: HTMLElement,
+    scenario: BenchmarkScenario,
+    loadId: number,
+  ): void {
+    this._activeLoadIds.add(loadId);
+    void this._fetchAndRenderScores(container, scenario, loadId, this._lifecycleVersion)
+      .catch((error: unknown): void => console.error("Failed to load dot cloud:", error))
+      .finally((): void => {
+        this._activeLoadIds.delete(loadId);
+        this._removeFromPending(loadId);
+      });
+  }
+
+  private _disconnectLoadObserver(loadId: number): void {
+    this._loadObservers.get(loadId)?.disconnect();
+    this._loadObservers.delete(loadId);
   }
 
   private async _fetchAndRenderScores(
     container: HTMLElement,
     scenario: BenchmarkScenario,
     loadId: number,
+    lifecycleVersion: number,
   ): Promise<void> {
     const profile = this._identityService.getActiveProfile();
     const playerId = profile?.username || "";
@@ -478,11 +538,13 @@ export class BenchmarkRowRenderer {
       100,
     );
 
-    const stillCurrentId: string | undefined = container.dataset.loadId;
+    const isCurrent: boolean =
+      lifecycleVersion === this._lifecycleVersion &&
+      this._activeLoadIds.has(loadId) &&
+      container.dataset.loadId === loadId.toString();
 
-    if (entries.length > 0 && stillCurrentId === loadId.toString()) {
+    if (entries.length > 0 && isCurrent) {
       this._injectDotCloudVisualization(container, scenario, entries);
-      this._removeFromPending(loadId);
     }
   }
 
@@ -502,8 +564,13 @@ export class BenchmarkRowRenderer {
     }
 
     this._isProcessingBackground = true;
+    const lifecycleVersion: number = this._lifecycleVersion;
 
     const processNext = (): void => {
+      if (lifecycleVersion !== this._lifecycleVersion) {
+        return;
+      }
+
       if (
         this._pendingBackgroundLoads.length === 0 ||
         this._dotCloudRegistry.size >= BenchmarkRowRenderer._maxDotCloudBudget
@@ -572,8 +639,6 @@ export class BenchmarkRowRenderer {
     scenario: BenchmarkScenario,
     entries: ScoreEntry[],
   ): {
-    entries: ScoreEntry[];
-    thresholds: Record<string, number>;
     isLatestInSession: boolean;
     rankInterval: number;
   } {
@@ -583,8 +648,6 @@ export class BenchmarkRowRenderer {
       sessionStart !== null && entries.length > 0 && entries[0].timestamp >= sessionStart;
 
     return {
-      entries,
-      thresholds: scenario.thresholds,
       isLatestInSession,
       rankInterval: averageRankInterval,
     };

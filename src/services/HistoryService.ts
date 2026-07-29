@@ -3,6 +3,11 @@ export interface KovaaksHighscoreCache {
   timestamp: number;
 }
 
+interface ScoreRecordedSubscription {
+  readonly callback: (scenarioName: string) => void;
+  readonly includeImported: boolean;
+}
+
 /**
  * Responsibility: Manage and persist user highscores for scenarios using IndexedDB.
  */
@@ -17,15 +22,20 @@ export class HistoryService {
 
   private readonly _kovaaksHighscoreCacheStoreName: string = "KovaaksHighscoreCache";
 
-  private readonly _databaseVersion: number = 6;
+  private readonly _databaseVersion: number = 7;
 
   private _db: IDBDatabase | null = null;
+
+  private _databasePromise: Promise<IDBDatabase> | null = null;
+
+  private _legacyClaimPromise: Promise<void> | null = null;
+
+  private _legacyClaimComplete: boolean = false;
 
   private readonly _highscoreCallbacks: ((scenarioName?: string) => void)[] =
     [];
 
-  private readonly _scoreRecordedCallbacks: ((scenarioName: string) => void)[] =
-    [];
+  private readonly _scoreRecordedCallbacks: ScoreRecordedSubscription[] = [];
 
   /**
    * Registers a callback to be executed when a highscore is updated.
@@ -40,9 +50,17 @@ export class HistoryService {
    * Registers a callback to be executed when any new score is recorded.
    *
    * @param callback - The function to invoke on new score records.
+   * @param options - Controls whether API history imports trigger the callback.
+   * @param options.includeImported - Whether imported API history should trigger the callback.
    */
-  public onScoreRecorded(callback: (scenarioName: string) => void): void {
-    this._scoreRecordedCallbacks.push(callback);
+  public onScoreRecorded(
+    callback: (scenarioName: string) => void,
+    options: { readonly includeImported?: boolean } = {},
+  ): void {
+    this._scoreRecordedCallbacks.push({
+      callback,
+      includeImported: options.includeImported !== false,
+    });
   }
 
   /**
@@ -56,7 +74,7 @@ export class HistoryService {
     username: string,
     scenarioName: string,
   ): Promise<number> {
-    const database: IDBDatabase = await this._getDatabase();
+    const database: IDBDatabase = await this._getDatabaseForUser(username);
 
     return new Promise(
       (
@@ -117,7 +135,7 @@ export class HistoryService {
     scenarioName: string,
     score: number,
   ): Promise<void> {
-    const database: IDBDatabase = await this._getDatabase();
+    const database: IDBDatabase = await this._getDatabaseForUser(username);
 
     return new Promise(
       (resolve: () => void, reject: (reason: unknown) => void): void => {
@@ -128,15 +146,15 @@ export class HistoryService {
 
         const store = transaction.objectStore(this._highscoreStoreName);
 
-        const request: IDBRequest = store.put({
+        store.put({
           username,
           scenarioName,
           score
         });
 
-        request.onsuccess = (): void => resolve();
-
-        request.onerror = (): void => reject(request.error);
+        transaction.oncomplete = (): void => resolve();
+        transaction.onerror = (): void => reject(transaction.error);
+        transaction.onabort = (): void => reject(transaction.error);
       },
     );
   }
@@ -146,9 +164,86 @@ export class HistoryService {
       return this._db;
     }
 
-    this._db = await this._initializeDatabase();
+    const databasePromise: Promise<IDBDatabase> =
+      this._databasePromise ?? this._initializeDatabase();
+    this._databasePromise = databasePromise;
 
-    return this._db;
+    try {
+      const database: IDBDatabase = await databasePromise;
+      this._db = database;
+      database.onversionchange = (): void => {
+        database.close();
+        if (this._db === database) this._db = null;
+      };
+
+      return database;
+    } finally {
+      if (this._databasePromise === databasePromise) {
+        this._databasePromise = null;
+      }
+    }
+  }
+
+  private async _getDatabaseForUser(username: string): Promise<IDBDatabase> {
+    const database: IDBDatabase = await this._getDatabase();
+    if (username.trim() === "" || username === "__legacy__" || this._legacyClaimComplete) return database;
+
+    const claim: Promise<void> = this._legacyClaimPromise ?? this._claimLegacyData(database, username);
+    this._legacyClaimPromise = claim;
+    try {
+      await claim;
+      this._legacyClaimComplete = true;
+    } finally {
+      if (this._legacyClaimPromise === claim) this._legacyClaimPromise = null;
+    }
+
+    return database;
+  }
+
+  private _claimLegacyData(database: IDBDatabase, username: string): Promise<void> {
+    return new Promise((resolve, reject): void => {
+      const transaction: IDBTransaction = database.transaction(
+        [this._highscoreStoreName, this._scoresStoreName],
+        "readwrite",
+      );
+      this._claimLegacyHighscores(transaction.objectStore(this._highscoreStoreName), username);
+      this._claimLegacyScores(transaction.objectStore(this._scoresStoreName), username);
+      transaction.oncomplete = (): void => resolve();
+      transaction.onerror = (): void => reject(transaction.error);
+      transaction.onabort = (): void => reject(transaction.error);
+    });
+  }
+
+  private _claimLegacyHighscores(store: IDBObjectStore, username: string): void {
+    const request = store.index("username").openCursor(IDBKeyRange.only("__legacy__"));
+    request.onsuccess = (): void => {
+      const cursor: IDBCursorWithValue | null = request.result;
+      if (!cursor) return;
+
+      const legacy = cursor.value as { scenarioName: string; score: number };
+      const existingRequest = store.get([username, legacy.scenarioName]);
+      existingRequest.onsuccess = (): void => {
+        const existing = existingRequest.result as { score: number } | undefined;
+        store.put({
+          username,
+          scenarioName: legacy.scenarioName,
+          score: Math.max(existing?.score ?? 0, legacy.score),
+        });
+        cursor.delete();
+        cursor.continue();
+      };
+    };
+  }
+
+  private _claimLegacyScores(store: IDBObjectStore, username: string): void {
+    const request = store.index("username").openCursor(IDBKeyRange.only("__legacy__"));
+    request.onsuccess = (): void => {
+      const cursor: IDBCursorWithValue | null = request.result;
+      if (!cursor) return;
+
+      cursor.update({ ...(cursor.value as object), username });
+      cursor.continue();
+    };
   }
 
   private _initializeDatabase(): Promise<IDBDatabase> {
@@ -157,41 +252,140 @@ export class HistoryService {
         resolve: (value: IDBDatabase) => void,
         reject: (reason: unknown) => void,
       ): void => {
+        let blocked = false;
         const request: IDBOpenDBRequest = indexedDB.open(
           this._databaseName,
           this._databaseVersion,
         );
 
-        request.onupgradeneeded = (event: IDBVersionChangeEvent): void => {
-          this._handleDatabaseUpgrade(request.result, request.transaction!, event.oldVersion);
+        request.onupgradeneeded = (): void => {
+          this._handleDatabaseUpgrade(request.result, request.transaction!);
         };
 
-        request.onsuccess = (): void => resolve(request.result);
+        request.onsuccess = (): void => {
+          if (blocked) {
+            request.result.close();
+
+            return;
+          }
+
+          resolve(request.result);
+        };
+
+        request.onblocked = (): void => {
+          blocked = true;
+          reject(new Error("History database upgrade is blocked by another open tab"));
+        };
 
         request.onerror = (): void => reject(request.error);
       },
     );
   }
 
-  private _handleDatabaseUpgrade(database: IDBDatabase, transaction: IDBTransaction, oldVersion: number): void {
-    this._upgradeHighscoreStore(database, transaction, oldVersion);
-    this._upgradeScoreStore(database, transaction, oldVersion);
+  private _handleDatabaseUpgrade(database: IDBDatabase, transaction: IDBTransaction): void {
+    this._upgradeHighscoreStore(database, transaction);
+    this._upgradeScoreStore(database, transaction);
     this._upgradeMetadataStore(database);
     this._upgradeCacheStore(database);
   }
 
-  private _upgradeHighscoreStore(database: IDBDatabase, transaction: IDBTransaction, oldVersion: number): void {
+  private _upgradeHighscoreStore(database: IDBDatabase, transaction: IDBTransaction): void {
     if (!database.objectStoreNames.contains(this._highscoreStoreName)) {
-      const highscoreStore = database.createObjectStore(this._highscoreStoreName, {
-        keyPath: ["username", "scenarioName"],
-      });
-      highscoreStore.createIndex("username", "username", { unique: false });
-    } else if (oldVersion < 6) {
-      transaction.objectStore(this._highscoreStoreName).clear();
+      this._createHighscoreStore(database);
+
+      return;
+    }
+
+    const store: IDBObjectStore = transaction.objectStore(this._highscoreStoreName);
+    const hasCompositeKey: boolean = Array.isArray(store.keyPath) &&
+      store.keyPath.join("\u0000") === "username\u0000scenarioName";
+    if (!hasCompositeKey) {
+      this._migrateLegacyHighscores(database, store);
+    } else if (!store.indexNames.contains("username")) {
+      store.createIndex("username", "username", { unique: false });
     }
   }
 
-  private _upgradeScoreStore(database: IDBDatabase, transaction: IDBTransaction, oldVersion: number): void {
+  private _createHighscoreStore(database: IDBDatabase): IDBObjectStore {
+    const store = database.createObjectStore(this._highscoreStoreName, {
+      keyPath: ["username", "scenarioName"],
+    });
+    store.createIndex("username", "username", { unique: false });
+
+    return store;
+  }
+
+  private _migrateLegacyHighscores(database: IDBDatabase, legacyStore: IDBObjectStore): void {
+    const records = new Map<string, { username: string; scenarioName: string; score: number }>();
+    const request: IDBRequest<IDBCursorWithValue | null> = legacyStore.openCursor();
+    request.onsuccess = (): void => {
+      const cursor: IDBCursorWithValue | null = request.result;
+      if (cursor) {
+        const record = this._readLegacyHighscore(cursor);
+        if (record) {
+          const key: string = `${record.username}\u0000${record.scenarioName}`;
+          const existing = records.get(key);
+          if (!existing || record.score > existing.score) records.set(key, record);
+        }
+        cursor.continue();
+
+        return;
+      }
+
+      database.deleteObjectStore(this._highscoreStoreName);
+      const targetStore: IDBObjectStore = this._createHighscoreStore(database);
+      records.forEach((record): void => {
+        targetStore.put(record);
+      });
+    };
+  }
+
+  private _readLegacyHighscore(
+    cursor: IDBCursorWithValue,
+  ): { username: string; scenarioName: string; score: number } | null {
+    const value: unknown = cursor.value as unknown;
+    const stored = typeof value === "object" && value !== null
+      ? value as Record<string, unknown>
+      : null;
+    const username: string = typeof stored?.username === "string"
+      ? stored.username
+      : this._getLegacyUsername();
+    const scenarioName: string = typeof stored?.scenarioName === "string"
+      ? stored.scenarioName
+      : String(cursor.key);
+    const score: number = typeof stored?.score === "number" ? stored.score : Number(value);
+
+    return scenarioName && Number.isFinite(score) ? { username, scenarioName, score } : null;
+  }
+
+  private _getLegacyUsername(): string {
+    const activeUsername: string | null = localStorage.getItem("raw_output_active_username");
+
+    try {
+      const profiles: unknown = JSON.parse(localStorage.getItem("raw_output_player_profiles") ?? "[]");
+      if (Array.isArray(profiles) && profiles.length > 0) {
+        const usernames: string[] = profiles.flatMap((profile: unknown): string[] => {
+          if (typeof profile !== "object" || profile === null) return [];
+
+          const record = profile as Record<string, unknown>;
+
+          return typeof record.username === "string" && record.username !== "" &&
+            typeof record.deletedAt !== "string" ? [record.username] : [];
+        });
+        const activeMatch: string | undefined = activeUsername
+          ? usernames.find((username: string): boolean => username.toLowerCase() === activeUsername.toLowerCase())
+          : undefined;
+
+        return activeMatch ?? usernames[0] ?? "__legacy__";
+      }
+    } catch {
+      // Preserve otherwise unassignable data under an explicit legacy identity.
+    }
+
+    return "__legacy__";
+  }
+
+  private _upgradeScoreStore(database: IDBDatabase, transaction: IDBTransaction): void {
     if (!database.objectStoreNames.contains(this._scoresStoreName)) {
       const scoreStore = database.createObjectStore(this._scoresStoreName, {
         keyPath: "id",
@@ -204,15 +398,19 @@ export class HistoryService {
         unique: false,
       });
     } else {
-      this._migrateScoreStore(transaction, oldVersion);
+      this._migrateScoreStore(transaction);
     }
   }
 
-  private _migrateScoreStore(transaction: IDBTransaction, oldVersion: number): void {
+  private _migrateScoreStore(transaction: IDBTransaction): void {
     const scoreStore = transaction.objectStore(this._scoresStoreName);
 
-    if (oldVersion < 6) {
-      scoreStore.clear();
+    if (!scoreStore.indexNames.contains("scenarioName")) {
+      scoreStore.createIndex("scenarioName", "scenarioName", { unique: false });
+    }
+    if (!scoreStore.indexNames.contains("username")) {
+      scoreStore.createIndex("username", "username", { unique: false });
+      this._assignLegacyScoreUsernames(scoreStore);
     }
 
     if (scoreStore.indexNames.contains("username_scenario")) {
@@ -228,6 +426,21 @@ export class HistoryService {
         unique: false,
       });
     }
+  }
+
+  private _assignLegacyScoreUsernames(scoreStore: IDBObjectStore): void {
+    const username: string = this._getLegacyUsername();
+    const request: IDBRequest<IDBCursorWithValue | null> = scoreStore.openCursor();
+    request.onsuccess = (): void => {
+      const cursor: IDBCursorWithValue | null = request.result;
+      if (!cursor) return;
+
+      const value = cursor.value as Record<string, unknown>;
+      if (typeof value.username !== "string" || value.username === "") {
+        cursor.update({ ...value, username });
+      }
+      cursor.continue();
+    };
   }
 
   private _upgradeMetadataStore(database: IDBDatabase): void {
@@ -255,7 +468,7 @@ export class HistoryService {
     username: string,
     scenarioNames: string[],
   ): Promise<Record<string, number>> {
-    const database: IDBDatabase = await this._getDatabase();
+    const database: IDBDatabase = await this._getDatabaseForUser(username);
 
     return new Promise(
       (
@@ -348,7 +561,7 @@ export class HistoryService {
     username: string,
     scores: { scenarioName: string; score: number; timestamp: number }[],
   ): Promise<void> {
-    const database: IDBDatabase = await this._getDatabase();
+    const database: IDBDatabase = await this._getDatabaseForUser(username);
 
     return new Promise(
       (resolve: () => void, reject: (reason: unknown) => void): void =>
@@ -391,12 +604,13 @@ export class HistoryService {
 
   private _notifyScoreRecorded(
     scores: { scenarioName: string; score: number; timestamp: number }[],
+    imported: boolean = false,
   ): void {
-    scores.forEach((scoreRecord): void => {
-      this._scoreRecordedCallbacks.forEach(
-        (callback: (scenarioName: string) => void): void =>
-          callback(scoreRecord.scenarioName),
-      );
+    const scenarioNames = new Set(scores.map((scoreRecord): string => scoreRecord.scenarioName));
+    scenarioNames.forEach((scenarioName: string): void => {
+      this._scoreRecordedCallbacks.forEach((subscription: ScoreRecordedSubscription): void => {
+        if (!imported || subscription.includeImported) subscription.callback(scenarioName);
+      });
     });
   }
 
@@ -411,7 +625,7 @@ export class HistoryService {
     username: string,
     updates: { scenarioName: string; score: number }[],
   ): Promise<void> {
-    const database: IDBDatabase = await this._getDatabase();
+    const database: IDBDatabase = await this._getDatabaseForUser(username);
 
     const maxScoresPerScenario: Map<string, number> =
       this._deduplicateUpdates(updates);
@@ -508,14 +722,13 @@ export class HistoryService {
    * @param score - The numeric score achieved.
    * @param timestamp - The time of the run.
    */
-  // eslint-disable-next-line max-lines-per-function
   public async recordScore(
     username: string,
     scenarioName: string,
     score: number,
     timestamp: number,
   ): Promise<void> {
-    const database: IDBDatabase = await this._getDatabase();
+    const database: IDBDatabase = await this._getDatabaseForUser(username);
 
     return new Promise(
       (resolve: () => void, reject: (reason: unknown) => void): void => {
@@ -526,23 +739,21 @@ export class HistoryService {
 
         const store = transaction.objectStore(this._scoresStoreName);
 
-        const request: IDBRequest = store.add({
+        store.add({
           username,
           scenarioName,
           score,
           timestamp,
         });
 
-        request.onsuccess = (): void => {
-          this._scoreRecordedCallbacks.forEach(
-            (callback: (scenarioName: string) => void): void =>
-              callback(scenarioName),
-          );
+        transaction.oncomplete = (): void => {
+          this._notifyScoreRecorded([{ scenarioName, score, timestamp }]);
 
           resolve();
         };
 
-        request.onerror = (): void => reject(request.error);
+        transaction.onerror = (): void => reject(transaction.error);
+        transaction.onabort = (): void => reject(transaction.error);
       },
     );
   }
@@ -560,7 +771,7 @@ export class HistoryService {
     scenarioName: string,
     limit: number = 100,
   ): Promise<{ score: number; timestamp: number }[]> {
-    const database: IDBDatabase = await this._getDatabase();
+    const database: IDBDatabase = await this._getDatabaseForUser(username);
 
     return new Promise(
       (
@@ -614,11 +825,7 @@ export class HistoryService {
 
       cursor.continue();
     } else {
-      if (typeof resolve === "function") {
-        resolve(scores);
-      } else {
-        console.error("[HistoryService] resolve is not a function!", { resolve, type: typeof resolve, scores });
-      }
+      resolve(scores);
     }
   }
 
@@ -668,11 +875,10 @@ export class HistoryService {
 
         const store = transaction.objectStore(this._metadataStoreName);
 
-        const request: IDBRequest = store.put(timestamp, "lastCheck");
-
-        request.onsuccess = (): void => resolve();
-
-        request.onerror = (): void => reject(request.error);
+        store.put(timestamp, "lastCheck");
+        transaction.oncomplete = (): void => resolve();
+        transaction.onerror = (): void => reject(transaction.error);
+        transaction.onabort = (): void => reject(transaction.error);
       },
     );
   }
@@ -681,40 +887,74 @@ export class HistoryService {
    * Deletes all player data for a specific user.
    *
    * @param username - The username to delete data for.
+   * @param steamId - The Steam ID whose cached benchmark data should be deleted.
+   * @param shouldDelete - Guard used to cancel deletion if the profile is reactivated.
    */
-  public async deletePlayerData(username: string): Promise<void> {
+  // eslint-disable-next-line max-lines-per-function
+  public async deletePlayerData(
+    username: string,
+    steamId: string,
+    shouldDelete: () => boolean = (): boolean => true,
+  ): Promise<void> {
     const database: IDBDatabase = await this._getDatabase();
+    if (!shouldDelete()) return;
 
+    // eslint-disable-next-line max-lines-per-function
     return new Promise((resolve, reject): void => {
-      const transaction = database.transaction([this._highscoreStoreName, this._scoresStoreName], "readwrite");
+      const transaction = database.transaction([
+        this._highscoreStoreName,
+        this._scoresStoreName,
+        this._kovaaksHighscoreCacheStoreName,
+      ], "readwrite");
+      let cancelled = false;
+      const continueDeletion = (): boolean => {
+        if (shouldDelete()) return true;
 
-      const highscoreStore = transaction.objectStore(this._highscoreStoreName);
-      const highscoreIndex = highscoreStore.index("username");
-      const highscoreRequest = highscoreIndex.openCursor(IDBKeyRange.only(username));
-
-      highscoreRequest.onsuccess = (event: Event): void => {
-        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-        if (cursor) {
-          cursor.delete();
-          cursor.continue();
+        if (!cancelled) {
+          cancelled = true;
+          transaction.abort();
         }
+
+        return false;
       };
 
-      const scoreStore = transaction.objectStore(this._scoresStoreName);
-      const scoreIndex = scoreStore.index("username");
-      const scoreRequest = scoreIndex.openCursor(IDBKeyRange.only(username));
-
-      scoreRequest.onsuccess = (event: Event): void => {
-        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
-        if (cursor) {
-          cursor.delete();
-          cursor.continue();
-        }
-      };
+      this._deleteCursorRecords(
+        transaction.objectStore(this._highscoreStoreName).index("username"),
+        IDBKeyRange.only(username),
+        continueDeletion,
+      );
+      this._deleteCursorRecords(
+        transaction.objectStore(this._scoresStoreName).index("username"),
+        IDBKeyRange.only(username),
+        continueDeletion,
+      );
+      this._deleteCursorRecords(
+        transaction.objectStore(this._kovaaksHighscoreCacheStoreName),
+        IDBKeyRange.bound([steamId, ""], [steamId, "\uffff"]),
+        continueDeletion,
+      );
 
       transaction.oncomplete = (): void => resolve();
       transaction.onerror = (): void => reject(transaction.error);
+      transaction.onabort = (): void => cancelled ? resolve() : reject(transaction.error);
     });
+  }
+
+  private _deleteCursorRecords(
+    source: IDBIndex | IDBObjectStore,
+    range: IDBKeyRange,
+    shouldContinue: () => boolean,
+  ): void {
+    const request: IDBRequest<IDBCursorWithValue | null> = source.openCursor(range);
+    request.onsuccess = (): void => {
+      if (!shouldContinue()) return;
+
+      const cursor: IDBCursorWithValue | null = request.result;
+      if (!cursor) return;
+
+      cursor.delete();
+      cursor.continue();
+    };
   }
 
   /**
@@ -729,22 +969,28 @@ export class HistoryService {
     scenarioName: string,
     scores: { score: number; date: string }[]
   ): Promise<void> {
-    const database = await this._getDatabase();
+    const database = await this._getDatabaseForUser(username);
+    const scoreRecords = scores.map((scoreItem) => ({
+      scenarioName,
+      score: scoreItem.score,
+      timestamp: this._parseTimestamp(scoreItem.date)
+    }));
 
     return new Promise((resolve, reject): void => {
       const transaction = database.transaction([this._scoresStoreName], "readwrite");
       const store = transaction.objectStore(this._scoresStoreName);
 
-      scores.forEach((scoreItem) => {
+      scoreRecords.forEach((scoreRecord) => {
         store.add({
           username,
-          scenarioName,
-          score: scoreItem.score,
-          timestamp: this._parseTimestamp(scoreItem.date)
+          ...scoreRecord
         });
       });
 
-      transaction.oncomplete = (): void => resolve();
+      transaction.oncomplete = (): void => {
+        this._notifyScoreRecorded(scoreRecords, true);
+        resolve();
+      };
       transaction.onerror = (): void => reject(transaction.error);
     });
   }
@@ -807,14 +1053,15 @@ export class HistoryService {
         timestamp: Date.now(),
       };
 
-      const request = store.put({
+      store.put({
         ...cacheEntry,
         steamId,
         benchmarkId,
       });
 
-      request.onsuccess = (): void => resolve();
-      request.onerror = (): void => reject(request.error);
+      transaction.oncomplete = (): void => resolve();
+      transaction.onerror = (): void => reject(transaction.error);
+      transaction.onabort = (): void => reject(transaction.error);
     });
   }
 }

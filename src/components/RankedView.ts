@@ -68,6 +68,7 @@ export class RankedView {
   private readonly _onBrowserFocusBound: () => void;
   private _summaryTimeouts: number[] = [];
   private _isProcessingSummaryQueue: boolean = false;
+  private _summaryScrollController: BenchmarkScrollController | null = null;
 
   /**
    * Initializes the view with its mount point.
@@ -101,6 +102,7 @@ export class RankedView {
     window.removeEventListener("blur", this._onBrowserFocusBound);
     this._stopHudTicking();
     this._clearSummaryTimeouts();
+    this._destroySummaryScrollController();
     if (this._activeTimeline) {
       this._activeTimeline.destroy();
     }
@@ -274,6 +276,7 @@ export class RankedView {
   private _clearSummaryTimeouts(): void {
     this._summaryTimeouts.forEach((timeout): void => window.clearTimeout(timeout));
     this._summaryTimeouts = [];
+    this._pendingSummaryScenarios.clear();
     this._isProcessingSummaryQueue = false;
   }
 
@@ -294,6 +297,7 @@ export class RankedView {
     this._updateLastKnownState(state.status, scenarioName);
     this._stopHudTicking();
     this._clearSummaryTimeouts();
+    this._destroySummaryScrollController();
     this._container.innerHTML = "";
 
     this._summaryTimelines.forEach((timeline) => timeline.destroy());
@@ -987,14 +991,15 @@ export class RankedView {
     const scrollArea = container.querySelector(".scenarios-list") as HTMLElement;
     const scrollThumb = container.querySelector(".custom-scroll-thumb") as HTMLElement;
     if (scrollArea && scrollThumb) {
-      const controller = new BenchmarkScrollController({
+      this._destroySummaryScrollController();
+      this._summaryScrollController = new BenchmarkScrollController({
         scrollContainer: scrollArea,
         scrollThumb: scrollThumb,
         hoverContainer: container.querySelector(".summary-content-wrapper") as HTMLElement,
         appStateService: null,
         audioService: this._deps.audio,
       });
-      controller.initialize();
+      this._summaryScrollController.initialize();
     }
 
     container.querySelector("#ranked-help-btn")?.addEventListener("click", (): void => {
@@ -1002,6 +1007,11 @@ export class RankedView {
     });
 
     this._updateDrainAnimation(container);
+  }
+
+  private _destroySummaryScrollController(): void {
+    this._summaryScrollController?.destroy();
+    this._summaryScrollController = null;
   }
 
   private _setupEndButtons(container: HTMLElement): void {

@@ -10,6 +10,10 @@ export const SCALING_FACTORS: Record<ScalingLevel, number> = {
   ["Max"]: 2.0,
 };
 
+type ScalingSettingKey = {
+  [Key in keyof VisualSettings]: VisualSettings[Key] extends ScalingLevel ? Key : never;
+}[keyof VisualSettings];
+
 /**
  * Service for calculating proportional dimensions and sizes based on visual settings.
  */
@@ -25,7 +29,7 @@ export class ScalingService {
   public static getScaledValue(
     baseValue: number,
     settings: VisualSettings,
-    key: keyof VisualSettings,
+    key: ScalingSettingKey,
   ): number {
     const level: ScalingLevel = settings[key] as ScalingLevel;
     const factor: number = SCALING_FACTORS[level] ?? SCALING_FACTORS.Normal;

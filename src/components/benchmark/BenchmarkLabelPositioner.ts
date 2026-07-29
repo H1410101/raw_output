@@ -32,6 +32,11 @@ export class BenchmarkLabelPositioner {
     });
   }
 
+  /** Repositions labels after row geometry changes in place. */
+  public refreshLayout(): void {
+    requestAnimationFrame((): void => this._updateAllLabelPositions());
+  }
+
   /**
    * Disconnects observers and releases resources.
    */

@@ -4,8 +4,8 @@
 
 ```mermaid
 graph LR
-    subgraph "src"
-        Main[main.ts]
+    subgraph "Application shell"
+        Index[index.html]
     end
 
     subgraph "src/styles"
@@ -16,11 +16,11 @@ graph LR
         Hud[hud.css]
     end
 
-    Main -->|Imports| Palette
-    Main -->|Imports| Typography
-    Main -->|Imports| Layout
-    Main -->|Imports| Components
-    Main -->|Imports| Hud
+    Index -->|Loads first| Palette
+    Index --> Typography
+    Index --> Layout
+    Index --> Components
+    Index --> Hud
 ```
 
 ## Exposed Internal API
@@ -33,7 +33,7 @@ Defines the CSS Custom Properties (Variables) that control the application's loo
 
 ### Typography (`typography.css`)
 Sets up the font stack, global text styles, and heading hierarchy.
-- **Font**: "Outfit" (Google Font).
+- **Font**: "Nunito" (Google Font).
 - **Scale**: Standardized font-sizes and line-heights.
 
 ### Layout Utilities (`layout.css`)

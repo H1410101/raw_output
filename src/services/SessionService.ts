@@ -191,10 +191,12 @@ export class SessionService {
       timestamp: Date;
     }[],
   ): void {
-
     const updatedScenarioNames: string[] = [];
+    const orderedRuns = [...runs].sort((firstRun, secondRun): number =>
+      firstRun.timestamp.getTime() - secondRun.timestamp.getTime()
+    );
 
-    runs.forEach((run): void => {
+    orderedRuns.forEach((run): void => {
       this._processSingleRun(run, updatedScenarioNames);
     });
 
@@ -558,12 +560,14 @@ export class SessionService {
 
     if (this._sessionStartTimestamp === null) {
       this._sessionStartTimestamp = currentTimestamp;
-      this._sessionId = `session_${currentTimestamp}`;
+      this._sessionId = `session_${crypto.randomUUID()}`;
     }
   }
 
   private _updateLastRunTimestamp(timestamp: number): void {
-    this._lastRunTimestamp = timestamp;
+    this._lastRunTimestamp = this._lastRunTimestamp === null
+      ? timestamp
+      : Math.max(this._lastRunTimestamp, timestamp);
   }
 
   private _processRunData(run: {

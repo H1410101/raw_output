@@ -1,3 +1,5 @@
+import type { SessionSyncPayload } from "../types/SessionSyncTypes";
+
 /**
  * Response structure for the health check endpoint.
  */
@@ -8,26 +10,33 @@ export interface HealthCheckResponse {
     readonly environment: string;
 }
 
-/**
- * Payload structure for session synchronization.
- */
-export interface SessionSyncPayload {
-    readonly deviceId: string;
-    readonly sessionId: string;
-    readonly sessionDate: string;
-    readonly isRanked: boolean;
-    readonly rankedSessionId?: number | null;
-    readonly difficulty?: string | null;
-    readonly triedAll?: boolean;
-    readonly runs: {
-        readonly scenarioName: string;
-        readonly bestScore: number;
-        readonly isRankedRun?: boolean;
-        readonly targetRankUnits?: number;
-        readonly endRankUnits?: number;
-        readonly highscoreRankUnits?: number;
-        readonly scores?: number[];
-    }[];
+export type { SessionSyncPayload } from "../types/SessionSyncTypes";
+
+/** Error returned by the score-feedback endpoint. */
+export class CloudflareSyncError extends Error {
+    public readonly status: number | null;
+
+    /**
+     * Creates an endpoint error while preserving its HTTP status.
+     *
+     * @param message - Human-readable failure description.
+     * @param status - HTTP status, or null for a network failure.
+     */
+    public constructor(message: string, status: number | null = null) {
+        super(message);
+        this.name = "CloudflareSyncError";
+        this.status = status;
+    }
+
+    /**
+     * Whether retrying the same payload can reasonably succeed later.
+     *
+     * @returns True for network, throttling, timeout, and server failures.
+     */
+    public get isRetryable(): boolean {
+        return this.status === null || this.status === 408 || this.status === 425 || this.status === 429 ||
+            this.status >= 500;
+    }
 }
 
 /**
@@ -35,6 +44,7 @@ export interface SessionSyncPayload {
  * Provides diagnostics and health checks to ensure the cloud-hybrid logic is functional.
  */
 export class CloudflareService {
+    private static readonly _requestTimeoutMs: number = 15_000;
     private readonly _baseUrl: string;
 
     /**
@@ -52,7 +62,9 @@ export class CloudflareService {
      */
     public async checkHealth(): Promise<HealthCheckResponse> {
         try {
-            const response = await fetch(`${this._baseUrl}/api/health`);
+            const response = await fetch(`${this._baseUrl}/api/health`, {
+                signal: AbortSignal.timeout(CloudflareService._requestTimeoutMs),
+            });
 
             if (!response.ok) {
                 throw new Error(`Cloudflare health check failed with status: ${response.status}`);
@@ -79,14 +91,17 @@ export class CloudflareService {
                     ["Content-Type"]: "application/json",
                 },
                 body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(CloudflareService._requestTimeoutMs),
             });
 
             if (!response.ok) {
-                throw new Error(`Sync failed with status: ${response.status}`);
+                throw new CloudflareSyncError(`Sync failed with status: ${response.status}`, response.status);
             }
         } catch (error) {
+            if (error instanceof CloudflareSyncError) throw error;
+
             const message = error instanceof Error ? error.message : "Sync failed";
-            throw new Error(`Cloudflare Sync Error: ${message}`);
+            throw new CloudflareSyncError(`Cloudflare Sync Error: ${message}`);
         }
     }
 }

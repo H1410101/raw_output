@@ -1,5 +1,6 @@
 const PEAK_BENCHMARKS: Set<string> = new Set();
 const BENCHMARK_IDS: Map<string, string> = new Map();
+const SCENARIO_DIFFICULTIES: Map<string, string> = new Map();
 
 const benchmarkFiles: Record<string, string> = import.meta.glob(
   "../../benchmarks/*.csv",
@@ -38,7 +39,12 @@ function _parseCsvLine(line: string): string[] {
     const character: string = line[characterIndex];
 
     if (character === '"') {
-      isCurrentlyInQuotes = !isCurrentlyInQuotes;
+      if (isCurrentlyInQuotes && line[characterIndex + 1] === '"') {
+        currentAccumulator += '"';
+        characterIndex++;
+      } else {
+        isCurrentlyInQuotes = !isCurrentlyInQuotes;
+      }
     } else if (character === "," && !isCurrentlyInQuotes) {
       result.push(currentAccumulator.trim());
       currentAccumulator = "";
@@ -110,9 +116,10 @@ function _extractThresholdValues(
   const thresholds: Record<string, number> = {};
 
   thresholdKeys.forEach((key: string, index: number): void => {
-    const value: number = parseFloat(columns[index + 3]);
+    const rawValue: string = columns[index + 3]?.trim() ?? "";
+    const value: number = Number(rawValue);
 
-    if (!isNaN(value)) {
+    if (rawValue !== "" && Number.isFinite(value)) {
       thresholds[key] = value;
     }
   });
@@ -137,7 +144,13 @@ function _initializeBenchmarkData(): Record<
     const tierName: string | null = _extractTierNameFromFilePath(filePath);
 
     if (tierName !== null) {
-      map[tierName] = _extractScenariosFromCsv(content);
+      const scenarios: BenchmarkScenario[] = _extractScenariosFromCsv(content);
+      map[tierName] = scenarios;
+      scenarios.forEach((scenario: BenchmarkScenario): void => {
+        if (!SCENARIO_DIFFICULTIES.has(scenario.name)) {
+          SCENARIO_DIFFICULTIES.set(scenario.name, tierName);
+        }
+      });
 
       const benchmarkId = _parseBenchmarkId(content);
       if (benchmarkId) {
@@ -244,20 +257,7 @@ export const getBenchmarkId = (difficulty: DifficultyTier): string | null => {
  * @returns The identified DifficultyTier or null.
  */
 export const getDifficulty = (scenarioName: string): DifficultyTier | null => {
-  const tiers: string[] = Object.keys(BENCHMARK_MAP);
-
-  for (const tier of tiers) {
-    if (
-      BENCHMARK_MAP[tier].some(
-        (scenario: BenchmarkScenario): boolean =>
-          scenario.name === scenarioName,
-      )
-    ) {
-      return tier;
-    }
-  }
-
-  return null;
+  return SCENARIO_DIFFICULTIES.get(scenarioName) ?? null;
 };
 
 /**

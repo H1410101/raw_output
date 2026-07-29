@@ -27,16 +27,33 @@ export interface RenderContext {
     readonly paddingLeft?: number;
 }
 
+interface PreparedRenderScores {
+    readonly context: RenderContext;
+    readonly rankUnits: number[];
+}
+
+interface RankedPoint {
+    readonly rankUnit: number;
+    readonly originalIndex: number;
+}
+
 /**
  * Responsibility: Perform high-level DOM manipulation for the Dot Cloud.
  * Handles the creation and positioning of rank notches, labels, and performance dots using HTML elements.
  */
 export class DotCloudHtmlRenderer {
+    private static readonly _maxNotchesPerRender: number = 1000;
+
     private readonly _container: HTMLElement;
     private readonly _mapper: RankScaleMapper;
+    private readonly _measurementContext: CanvasRenderingContext2D | null;
+    private readonly _labelWidthCache: Map<string, number> = new Map();
+    private _renderVersion: number = 0;
+    private _isDestroyed: boolean = false;
 
     private static _overlay: HTMLElement | null = null;
     private static _popup: HTMLElement | null = null;
+    private static _inspectionOwner: DotCloudHtmlRenderer | null = null;
 
     /**
      * Initializes the renderer with a container element and a mapper.
@@ -47,15 +64,32 @@ export class DotCloudHtmlRenderer {
     public constructor(container: HTMLElement, mapper: RankScaleMapper) {
         this._container = container;
         this._mapper = mapper;
+        this._measurementContext = document.createElement("canvas").getContext("2d");
     }
 
     /**
      * Clears the container's content.
      */
     public clear(): void {
-        while (this._container.firstChild) {
-            this._container.removeChild(this._container.firstChild);
-        }
+        this._renderVersion++;
+        this._hideInspection();
+        this._container.replaceChildren();
+    }
+
+    /**
+     * Hides any inspection UI owned by this renderer.
+     */
+    public hideInspection(): void {
+        this._hideInspection();
+    }
+
+    /**
+     * Invalidates detached dot interactions and hides shared inspection UI.
+     */
+    public destroy(): void {
+        this._isDestroyed = true;
+        this._renderVersion++;
+        this._hideInspection();
     }
 
     /**
@@ -64,56 +98,156 @@ export class DotCloudHtmlRenderer {
      * @param context - The render context containing data and dimensions.
      */
     public draw(context: RenderContext): void {
-        this.clear();
+        if (this._isDestroyed) {
+            return;
+        }
 
-        this._renderMetadata(context);
+        this._renderVersion++;
+        this._hideInspection();
 
-        const rankUnits = context.scores.map(score => this._mapper.calculateRankUnit(score));
-        const densities: number[] = this._calculateLocalDensities(rankUnits);
-        const peakDensity: number =
-            densities.length > 0 ? Math.max(...densities) : 1;
+        const fragment: DocumentFragment = document.createDocumentFragment();
+        if (!this._hasFiniteRenderGeometry(context)) {
+            this._container.replaceChildren(fragment);
 
-        this._renderPerformanceDots(context, densities, peakDensity, rankUnits);
+            return;
+        }
+
+        const prepared: PreparedRenderScores = this._prepareRenderScores(context);
+        const densities: number[] = this._calculateLocalDensities(prepared.rankUnits);
+        const peakDensity: number = this._findPeakDensity(densities);
+
+        fragment.appendChild(this._renderMetadata(prepared.context));
+        fragment.appendChild(
+            this._renderPerformanceDots(
+                prepared.context,
+                densities,
+                peakDensity,
+                prepared.rankUnits,
+            ),
+        );
+        this._container.replaceChildren(fragment);
     }
 
-    private _renderMetadata(context: RenderContext): void {
+    private _hasFiniteRenderGeometry(context: RenderContext): boolean {
+        const values: number[] = [
+            context.bounds.minRU,
+            context.bounds.maxRU,
+            context.dimensions.width,
+            context.dimensions.height,
+            context.dimensions.dotRadius,
+            context.dimensions.rootFontSize,
+        ];
+
+        return values.every((value: number): boolean => Number.isFinite(value))
+            && context.bounds.maxRU >= context.bounds.minRU
+            && context.dimensions.width >= 0
+            && context.dimensions.rootFontSize > 0;
+    }
+
+    private _prepareRenderScores(context: RenderContext): PreparedRenderScores {
+        const rankUnits: number[] = Array<number>(context.scores.length).fill(Number.NaN);
+        let didFilter: boolean = false;
+
+        for (let index: number = 0; index < context.scores.length; index++) {
+            const score: number = context.scores[index];
+            const timestamp: number = context.timestamps[index];
+
+            if (!Number.isFinite(score) || !Number.isFinite(timestamp)) {
+                didFilter = true;
+                continue;
+            }
+
+            const rankUnit: number = this._mapper.calculateRankUnit(score);
+            if (Number.isFinite(rankUnit)) {
+                rankUnits[index] = rankUnit;
+            } else {
+                didFilter = true;
+            }
+        }
+
+        return didFilter ? this._filterMappedScores(context, rankUnits) : { context, rankUnits };
+    }
+
+    private _filterMappedScores(context: RenderContext, mappedRankUnits: number[]): PreparedRenderScores {
+        const scores: number[] = [];
+        const timestamps: number[] = [];
+        const rankUnits: number[] = [];
+
+        mappedRankUnits.forEach((rankUnit: number, index: number): void => {
+            if (Number.isFinite(rankUnit)) {
+                scores.push(context.scores[index]);
+                timestamps.push(context.timestamps[index]);
+                rankUnits.push(rankUnit);
+            }
+        });
+
+        return { context: { ...context, scores, timestamps }, rankUnits };
+    }
+
+    private _canRenderNotches(startRU: number, endRU: number, notchCount: number): boolean {
+        return Number.isSafeInteger(startRU)
+            && Number.isSafeInteger(endRU)
+            && Number.isSafeInteger(notchCount)
+            && notchCount > 0
+            && notchCount <= DotCloudHtmlRenderer._maxNotchesPerRender;
+    }
+
+    private _renderMetadata(context: RenderContext): DocumentFragment {
+        const fragment: DocumentFragment = document.createDocumentFragment();
         const notchHeight: number = this._calculateNotchHeight(
             context.dimensions.height,
             context.settings,
         );
 
-        this._renderThresholds(notchHeight, context);
+        this._renderThresholds(notchHeight, context, fragment);
 
-        if (context.targetRU !== undefined) {
-            this._renderMarker(context.targetRU, "target", notchHeight, context);
+        if (context.targetRU !== undefined && Number.isFinite(context.targetRU)) {
+            fragment.appendChild(
+                this._createMarkerElement(context.targetRU, "target", notchHeight, context),
+            );
         }
 
-        if (context.achievedRU !== undefined) {
-            this._renderMarker(context.achievedRU, "achieved", notchHeight, context);
+        if (context.achievedRU !== undefined && Number.isFinite(context.achievedRU)) {
+            fragment.appendChild(
+                this._createMarkerElement(context.achievedRU, "achieved", notchHeight, context),
+            );
         }
+
+        return fragment;
     }
 
-    private _renderThresholds(notchHeight: number, context: RenderContext): void {
+    private _renderThresholds(
+        notchHeight: number,
+        context: RenderContext,
+        fragment: DocumentFragment,
+    ): void {
         const { minRU, maxRU } = context.bounds;
 
-        const relevantIndices: number[] = this._mapper.identifyRelevantThresholds(minRU, maxRU);
+        const relevantIndices: number[] = this._mapper
+            .identifyRelevantThresholds(minRU, maxRU)
+            .filter((index: number): boolean => context.sortedThresholds[index] !== undefined);
         const visibleLabels = this._getVisibleLabels(relevantIndices, context);
         const labelMap = new Map(visibleLabels.map((label) => [label.index, label]));
 
         const startRU = Math.ceil(minRU);
         const endRU = Math.floor(maxRU);
+        const notchCount = endRU - startRU + 1;
 
-        for (let rankUnit = startRU; rankUnit <= endRU; rankUnit++) {
-            const xPos = this._mapper.getHorizontalPosition(rankUnit, minRU, maxRU, context.dimensions.width) + (context.paddingLeft ?? 0);
-            const labelData = labelMap.get(rankUnit - 1);
+        if (this._canRenderNotches(startRU, endRU, notchCount)) {
+            for (let rankUnit = startRU; rankUnit <= endRU; rankUnit++) {
+                const xPos = this._mapper.getHorizontalPosition(rankUnit, minRU, maxRU, context.dimensions.width) + (context.paddingLeft ?? 0);
+                const labelData = labelMap.get(rankUnit - 1);
 
-            if (context.settings.showRankNotches) {
-                this._createNotchElement(xPos, notchHeight, !!labelData);
+                if (context.settings.showRankNotches) {
+                    fragment.appendChild(this._createNotchElement(xPos, notchHeight, !!labelData));
+                }
             }
         }
 
         visibleLabels.forEach((label) => {
-            this._createLabelElement(label.text, label.xPos, label.alignment, context);
+            fragment.appendChild(
+                this._createLabelElement(label.text, label.xPos, label.alignment, context),
+            );
         });
     }
 
@@ -265,26 +399,34 @@ export class DotCloudHtmlRenderer {
     }
 
     private _measureLabelWidth(text: string, fontSizeRem: number, rootFontSize: number): number {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
+        const cacheKey: string = `${text}\u0000${fontSizeRem}\u0000${rootFontSize}`;
+        const cachedWidth: number | undefined = this._labelWidthCache.get(cacheKey);
 
-        if (ctx) {
-            const fontSizePx = fontSizeRem * rootFontSize;
-            ctx.font = `bold ${fontSizePx}px Nunito, sans-serif`;
-
-            return ctx.measureText(text).width / rootFontSize;
+        if (cachedWidth !== undefined) {
+            return cachedWidth;
         }
 
-        // Crude fallback if canvas is unavailable
-        return text.length * fontSizeRem * 0.6;
+        let width: number;
+        if (this._measurementContext) {
+            const fontSizePx = fontSizeRem * rootFontSize;
+            this._measurementContext.font = `bold ${fontSizePx}px Nunito, sans-serif`;
+
+            width = this._measurementContext.measureText(text).width / rootFontSize;
+        } else {
+            width = text.length * fontSizeRem * 0.6;
+        }
+
+        this._labelWidthCache.set(cacheKey, width);
+
+        return width;
     }
 
-    private _renderMarker(
+    private _createMarkerElement(
         rankUnit: number,
         type: "target" | "achieved",
         notchHeight: number,
         context: RenderContext,
-    ): void {
+    ): HTMLDivElement {
         const xPos: number = this._mapper.getHorizontalPosition(
             rankUnit,
             context.bounds.minRU,
@@ -306,7 +448,7 @@ export class DotCloudHtmlRenderer {
         marker.style.height = `${markerHeight}rem`;
         marker.style.top = `${(notchHeight - markerHeight) / 2}rem`;
 
-        this._container.appendChild(marker);
+        return marker;
     }
 
     private _renderPerformanceDots(
@@ -314,7 +456,8 @@ export class DotCloudHtmlRenderer {
         densities: number[],
         peakDensity: number,
         rankUnits: number[],
-    ): void {
+    ): DocumentFragment {
+        const fragment: DocumentFragment = document.createDocumentFragment();
         const opacity: number = Math.max(0, Math.min(1, context.settings.dotOpacity / 100));
         const notchHeight: number = this._calculateNotchHeight(
             context.dimensions.height,
@@ -324,16 +467,20 @@ export class DotCloudHtmlRenderer {
         for (let i = context.scores.length - 1; i >= 0; i--) {
             const density: number = densities[i] || 1;
 
-            this._renderPerformanceDot({
-                index: i,
-                density,
-                peakDensity,
-                baseOpacity: opacity,
-                notchHeight,
-                context,
-                scoreRU: rankUnits[i],
-            });
+            fragment.appendChild(
+                this._renderPerformanceDot({
+                    index: i,
+                    density,
+                    peakDensity,
+                    baseOpacity: opacity,
+                    notchHeight,
+                    context,
+                    scoreRU: rankUnits[i],
+                }),
+            );
         }
+
+        return fragment;
     }
 
     private _renderPerformanceDot(config: {
@@ -344,8 +491,7 @@ export class DotCloudHtmlRenderer {
         readonly notchHeight: number;
         readonly context: RenderContext;
         readonly scoreRU: number;
-    }): void {
-        const absoluteScoreValue: number = config.context.scores[config.index];
+    }): HTMLDivElement {
         const horizontalPosition: number = this._calculateXPosition(config.scoreRU, config.context);
 
         const verticalJitterOffset: number = this._calculateVerticalJitter({
@@ -356,27 +502,12 @@ export class DotCloudHtmlRenderer {
             context: config.context,
         });
 
-        this._assembleAndCreateDot(config, absoluteScoreValue, horizontalPosition, verticalJitterOffset);
-    }
-
-    private _assembleAndCreateDot(
-        config: {
-            readonly index: number;
-            readonly notchHeight: number;
-            readonly context: RenderContext;
-            readonly scoreRU: number;
-            readonly baseOpacity: number;
-        },
-        absoluteScoreValue: number,
-        horizontalPosition: number,
-        verticalJitterOffset: number,
-    ): void {
-        this._createDotElement({
+        return this._createDotElement({
             xPos: horizontalPosition,
             yPos: config.notchHeight / 2 + verticalJitterOffset,
             isLatest: config.index === 0 && config.context.settings.highlightLatestRun,
             isSession: config.context.isLatestFromSession,
-            score: absoluteScoreValue,
+            score: config.context.scores[config.index],
             scoreRU: config.scoreRU,
             timestamp: config.context.timestamps[config.index],
             radius: config.context.dimensions.dotRadius,
@@ -405,7 +536,7 @@ export class DotCloudHtmlRenderer {
         readonly radius: number;
         readonly baseOpacity: number;
         readonly context: RenderContext;
-    }): void {
+    }): HTMLDivElement {
         const dotElement: HTMLDivElement = document.createElement("div");
         dotElement.className = "dot-cloud-dot";
 
@@ -413,9 +544,14 @@ export class DotCloudHtmlRenderer {
 
         this._applyDotStyles(dotElement, config);
         this._applyDotMetadata(dotElement, config);
-        this._setupDotInteractions(dotElement, config, config.context);
+        this._setupDotInteractions(
+            dotElement,
+            config,
+            config.context,
+            this._renderVersion,
+        );
 
-        this._container.appendChild(dotElement);
+        return dotElement;
     }
 
     private _applySpecificDotClasses(dotElement: HTMLElement, isLatest: boolean, isSession: boolean): void {
@@ -426,12 +562,25 @@ export class DotCloudHtmlRenderer {
         }
     }
 
-    private _setupDotInteractions(dot: HTMLElement, config: { score: number; scoreRU: number; timestamp?: number }, context: RenderContext): void {
+    private _setupDotInteractions(
+        dot: HTMLElement,
+        config: { score: number; scoreRU: number; timestamp?: number },
+        context: RenderContext,
+        renderVersion: number,
+    ): void {
         dot.addEventListener("mouseenter", () => {
+            if (this._isDestroyed || renderVersion !== this._renderVersion) {
+                return;
+            }
+
             this._showInspection(dot, config, context);
         });
 
         dot.addEventListener("mouseleave", () => {
+            if (this._isDestroyed || renderVersion !== this._renderVersion) {
+                return;
+            }
+
             this._hideInspection();
         });
     }
@@ -455,6 +604,7 @@ export class DotCloudHtmlRenderer {
 
         popup.appendChild(this._createInspectionContent(config.score, rankInfo, datetime));
 
+        DotCloudHtmlRenderer._inspectionOwner = this;
         overlay.classList.add("visible");
         popup.classList.add("visible");
     }
@@ -502,8 +652,16 @@ export class DotCloudHtmlRenderer {
     }
 
     private _hideInspection(): void {
+        if (
+            DotCloudHtmlRenderer._inspectionOwner !== null
+            && DotCloudHtmlRenderer._inspectionOwner !== this
+        ) {
+            return;
+        }
+
         DotCloudHtmlRenderer._overlay?.classList.remove("visible");
         DotCloudHtmlRenderer._popup?.classList.remove("visible");
+        DotCloudHtmlRenderer._inspectionOwner = null;
     }
 
     private _ensureOverlay(): HTMLElement {
@@ -530,7 +688,7 @@ export class DotCloudHtmlRenderer {
         const rankIndex = Math.floor(scoreRU) - 1;
         const progress = Math.floor((scoreRU % 1) * 100);
 
-        if (rankIndex < 0) {
+        if (rankIndex < 0 || sortedThresholds.length === 0) {
             return `Unranked +${progress}%`;
         }
 
@@ -583,7 +741,7 @@ export class DotCloudHtmlRenderer {
         }
     }
 
-    private _createNotchElement(xPos: number, height: number, isLabelled: boolean): void {
+    private _createNotchElement(xPos: number, height: number, isLabelled: boolean): HTMLDivElement {
         const notch: HTMLDivElement = document.createElement("div");
         notch.className = "dot-cloud-notch";
 
@@ -593,7 +751,8 @@ export class DotCloudHtmlRenderer {
 
         notch.style.left = `${xPos}rem`;
         notch.style.height = `${height}rem`;
-        this._container.appendChild(notch);
+
+        return notch;
     }
 
     private _createLabelElement(
@@ -601,7 +760,7 @@ export class DotCloudHtmlRenderer {
         xPos: number,
         alignment: "center" | "left" | "right",
         context: RenderContext,
-    ): void {
+    ): HTMLDivElement {
         const anchor: HTMLDivElement = document.createElement("div");
         anchor.className = "dot-cloud-label-anchor";
         anchor.style.left = `${xPos}rem`;
@@ -621,7 +780,8 @@ export class DotCloudHtmlRenderer {
         label.style.fontSize = `${fontSizeRem}rem`;
 
         anchor.appendChild(label);
-        this._container.appendChild(anchor);
+
+        return anchor;
     }
 
     private _calculateNotchHeight(
@@ -638,16 +798,53 @@ export class DotCloudHtmlRenderer {
 
     private _calculateLocalDensities(rankUnits: number[]): number[] {
         const windowSizeInRu: number = 0.5;
+        const rankedPoints: RankedPoint[] = rankUnits
+            .map((rankUnit: number, originalIndex: number): RankedPoint => ({ rankUnit, originalIndex }))
+            .sort((first: RankedPoint, second: RankedPoint): number => first.rankUnit - second.rankUnit);
+        const prefixSums: number[] = [0];
 
-        return rankUnits.map((target: number): number => {
-            const neighbors: number[] = rankUnits.filter(
-                (rankUnit: number): boolean => Math.abs(rankUnit - target) <= windowSizeInRu,
-            );
-
-            return neighbors
-                .map((rankUnit: number): number => Math.pow(Math.abs(rankUnit - target) / windowSizeInRu, 1))
-                .reduce((a: number, b: number): number => a + b, 0);
+        rankedPoints.forEach((point: RankedPoint): void => {
+            prefixSums.push(prefixSums[prefixSums.length - 1] + point.rankUnit);
         });
+
+        const densities: number[] = Array<number>(rankUnits.length).fill(0);
+        let firstNeighbor: number = 0, lastNeighbor: number = -1;
+
+        rankedPoints.forEach((point: RankedPoint, sortedIndex: number): void => {
+            while (point.rankUnit - rankedPoints[firstNeighbor].rankUnit > windowSizeInRu) {
+                firstNeighbor++;
+            }
+
+            while (
+                lastNeighbor + 1 < rankedPoints.length
+                && rankedPoints[lastNeighbor + 1].rankUnit - point.rankUnit <= windowSizeInRu
+            ) {
+                lastNeighbor++;
+            }
+
+            const lowerDistance: number = point.rankUnit * (sortedIndex - firstNeighbor)
+                - (prefixSums[sortedIndex] - prefixSums[firstNeighbor]);
+            const upperDistance: number = prefixSums[lastNeighbor + 1] - prefixSums[sortedIndex + 1]
+                - point.rankUnit * (lastNeighbor - sortedIndex);
+            const density: number = (lowerDistance + upperDistance) / windowSizeInRu;
+
+            densities[point.originalIndex] = Number.isFinite(density) ? Math.max(0, density) : 0;
+        });
+
+        return densities;
+    }
+
+    private _findPeakDensity(densities: number[]): number {
+        if (densities.length === 0) {
+            return 1;
+        }
+
+        let peakDensity: number = densities[0];
+        for (let index: number = 1; index < densities.length; index++) {
+            peakDensity = Math.max(peakDensity, densities[index]);
+        }
+
+        return peakDensity;
     }
 
     private _calculateVerticalJitter(config: {

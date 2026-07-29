@@ -49,6 +49,16 @@ export interface BenchmarkViewServices {
   onScenarioLaunch?: (scenarioName: string) => void;
 }
 
+interface BenchmarkRenderContext {
+  readonly generation: number;
+  readonly profile: PlayerProfile | null;
+  readonly difficulty: DifficultyTier;
+}
+
+interface BenchmarkTableContext extends BenchmarkRenderContext {
+  readonly tableComponent: BenchmarkTableComponent;
+}
+
 /**
  * Orchestrates the benchmark table view, handling difficulty tabs and settings.
  */
@@ -86,7 +96,11 @@ export class BenchmarkView {
 
   private _activeDifficulty: DifficultyTier;
 
-  private _isRendering: boolean = false;
+  private _renderPromise: Promise<void> | null = null;
+
+  private _renderRequested: boolean = false;
+
+  private _renderGeneration: number = 0;
 
   private _refreshTimeoutId: number | null = null;
 
@@ -178,100 +192,187 @@ export class BenchmarkView {
 
   /**
    * Renders the benchmark view content based on current state.
+   *
+   * @returns A promise that resolves after all currently queued renders finish.
    */
-  public async render(): Promise<void> {
-    if (this._isRendering) {
-      return;
+  public render(): Promise<void> {
+    this._isStale = false;
+    this._cancelPendingRefresh();
+    this._renderRequested = true;
+    this._renderGeneration++;
+
+    if (this._renderPromise) {
+      return this._renderPromise;
     }
 
-    // Clear stale flag as we are rendering now
-    this._isStale = false;
+    this._renderPromise = Promise.resolve().then((): Promise<void> =>
+      this._drainRenderRequests(),
+    );
 
-    this._isRendering = true;
+    return this._renderPromise;
+  }
 
+  private async _drainRenderRequests(): Promise<void> {
     try {
-      this._cancelPendingRefresh();
-      if (document.fonts.status !== "loaded") {
-        await document.fonts.ready;
-      }
+      while (this._renderRequested) {
+        this._renderRequested = false;
 
-      await this._renderScenariosView();
+        const context: BenchmarkRenderContext = {
+          generation: this._renderGeneration,
+          profile: this._identityService.getActiveProfile(),
+          difficulty: this._activeDifficulty,
+        };
+
+        try {
+          if (document.fonts.status !== "loaded") {
+            await document.fonts.ready;
+          }
+
+          if (!this._isCurrentRender(context)) {
+            continue;
+          }
+
+          await this._renderScenariosView(context);
+        } catch (error) {
+          if (this._isCurrentRender(context)) {
+            throw error;
+          }
+        }
+      }
     } finally {
-      this._isRendering = false;
+      this._renderPromise = null;
     }
   }
 
-  private async _renderScenariosView(): Promise<void> {
-    const profile = this._identityService.getActiveProfile();
-
-    const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(
-      this._activeDifficulty,
-    );
+  private async _renderScenariosView(
+    context: BenchmarkRenderContext,
+  ): Promise<void> {
+    const scenarios: BenchmarkScenario[] =
+      this._benchmarkService.getScenarios(context.difficulty);
 
     // Fetch local highscores immediately for first paint
     const highscores = await this._historyService.getBatchHighscores(
-      profile?.username || "",
+      context.profile?.username || "",
       scenarios.map((scenario: BenchmarkScenario): string => scenario.name),
     );
 
+    if (!this._isCurrentRender(context)) {
+      return;
+    }
+
     this._clearAndPrepareMount();
     this._updateHeaderButtonStates();
-    this._renderBenchmarkTable(scenarios, highscores, {});
+    this._renderBenchmarkTable(scenarios, highscores, context.difficulty, {});
     this._showView();
+    this._startBenchmarkEnrichment(scenarios, highscores, context);
+  }
 
-    // Background enrichment
-    this._enrichBenchmarkData(scenarios, profile, highscores);
+  private _startBenchmarkEnrichment(
+    scenarios: BenchmarkScenario[],
+    highscores: Record<string, number>,
+    context: BenchmarkRenderContext,
+  ): void {
+    const tableComponent = this._tableComponent;
+    if (!tableComponent) {
+      return;
+    }
+
+    const tableContext: BenchmarkTableContext = {
+      ...context,
+      tableComponent,
+    };
+    void this._enrichBenchmarkData(
+      scenarios,
+      highscores,
+      tableContext,
+    ).catch((error: unknown): void => {
+      if (this._isCurrentTable(tableContext)) {
+        console.error("Failed to enrich benchmark data:", error);
+      }
+    });
   }
 
   private async _enrichBenchmarkData(
     scenarios: BenchmarkScenario[],
-    profile: PlayerProfile | null,
     localHighscores: Record<string, number>,
+    context: BenchmarkTableContext,
   ): Promise<void> {
-    const currentDifficulty = this._activeDifficulty;
+    await this._applyCachedHighscores(
+      scenarios,
+      localHighscores,
+      context,
+    );
 
-    await this._applyCachedHighscores(scenarios, profile, localHighscores);
+    if (!this._isCurrentTable(context)) {
+      return;
+    }
 
-    const freshKovaaksHighscores = await this._fetchKovaaksHighscores(profile);
+    const freshKovaaksHighscores = await this._fetchKovaaksHighscores(
+      context.profile,
+      context.difficulty,
+    );
+    if (freshKovaaksHighscores === null) return;
 
-    this._applyHighscoresToTable(scenarios, currentDifficulty, localHighscores, freshKovaaksHighscores);
+    this._applyHighscoresToTable(
+      scenarios,
+      localHighscores,
+      freshKovaaksHighscores,
+      context,
+    );
   }
 
   private async _applyCachedHighscores(
     scenarios: BenchmarkScenario[],
-    profile: PlayerProfile | null,
     localHighscores: Record<string, number>,
+    context: BenchmarkTableContext,
   ): Promise<void> {
-    const difficulty = this._activeDifficulty;
-    const benchmarkId = this._benchmarkService.getBenchmarkId(difficulty);
-    const steamId = profile?.steamId;
+    const benchmarkId = this._benchmarkService.getBenchmarkId(
+      context.difficulty,
+    );
+    const steamId = context.profile?.steamId;
 
     if (!steamId || !benchmarkId) return;
 
     const cache = await this._historyService.getCachedKovaaksHighscores(steamId, benchmarkId);
-    if (cache && this._activeDifficulty === difficulty) {
+    if (cache) {
       const kovaaksHighscores = this._processKovaaksCategories(
         cache.categories as Record<string, KovaaksBenchmarkCategory>,
       );
-      this._applyHighscoresToTable(scenarios, difficulty, localHighscores, kovaaksHighscores);
+      this._applyHighscoresToTable(
+        scenarios,
+        localHighscores,
+        kovaaksHighscores,
+        context,
+      );
     }
   }
 
   private _applyHighscoresToTable(
     scenarios: BenchmarkScenario[],
-    difficulty: DifficultyTier,
     localHighscores: Record<string, number>,
     kovaaksHighscores: Record<string, number>,
+    context: BenchmarkTableContext,
   ): void {
-    if (this._activeDifficulty !== difficulty || !this._tableComponent) {
+    if (!this._isCurrentTable(context)) {
       return;
     }
 
     scenarios.forEach((scenario: BenchmarkScenario): void => {
       const score = localHighscores[scenario.name] || 0;
       const kovaaksScore = kovaaksHighscores[scenario.name] || 0;
-      this._tableComponent?.updateScenarioRow(scenario, score, kovaaksScore);
+      context.tableComponent.updateScenarioRow(scenario, score, kovaaksScore);
     });
+  }
+
+  private _isCurrentRender(context: BenchmarkRenderContext): boolean {
+    return this._renderGeneration === context.generation;
+  }
+
+  private _isCurrentTable(context: BenchmarkTableContext): boolean {
+    return (
+      this._isCurrentRender(context) &&
+      this._tableComponent === context.tableComponent
+    );
   }
 
   private _processKovaaksCategories(
@@ -292,11 +393,14 @@ export class BenchmarkView {
     return kovaaksHighscores;
   }
 
-  private async _fetchKovaaksHighscores(profile: PlayerProfile | null): Promise<Record<string, number>> {
-    const benchmarkId = this._benchmarkService.getBenchmarkId(this._activeDifficulty);
+  private async _fetchKovaaksHighscores(
+    profile: PlayerProfile | null,
+    difficulty: DifficultyTier,
+  ): Promise<Record<string, number> | null> {
+    const benchmarkId = this._benchmarkService.getBenchmarkId(difficulty);
     const steamId = profile?.steamId;
 
-    if (!benchmarkId || !steamId) return {};
+    if (!benchmarkId || !steamId) return null;
 
     try {
       const response = await this._kovaaksApiService.fetchBenchmarkHighscores(steamId, benchmarkId);
@@ -306,7 +410,7 @@ export class BenchmarkView {
     } catch (error) {
       console.error("Failed to fetch Kovaaks highscores:", error);
 
-      return {};
+      return null;
     }
   }
 
@@ -315,6 +419,8 @@ export class BenchmarkView {
    */
   public destroy(): void {
     this._cancelPendingRefresh();
+    this._renderRequested = false;
+    this._renderGeneration++;
 
     this._tableComponent?.destroy();
 
@@ -436,10 +542,16 @@ export class BenchmarkView {
   private _renderBenchmarkTable(
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
+    difficulty: DifficultyTier,
     kovaaksHighscores: Record<string, number> = {},
   ): void {
     this._mountPoint.appendChild(
-      this._createViewContainer(scenarios, highscores, kovaaksHighscores),
+      this._createViewContainer(
+        scenarios,
+        highscores,
+        kovaaksHighscores,
+        difficulty,
+      ),
     );
 
     this._restoreScrollPosition();
@@ -488,31 +600,45 @@ export class BenchmarkView {
   }
 
   private async _updateSingleScenario(scenarioName: string): Promise<void> {
-    if (!this._tableComponent) return;
+    const tableComponent = this._tableComponent;
+    if (!tableComponent) return;
 
     const updateId: number = ++this._updateCounter;
     this._pendingUpdateIds.set(scenarioName, updateId);
 
+    const context: BenchmarkTableContext = {
+      generation: this._renderGeneration,
+      profile: this._identityService.getActiveProfile(),
+      difficulty: this._activeDifficulty,
+      tableComponent,
+    };
+
     const scenario: BenchmarkScenario | undefined =
-      this._findScenarioByName(scenarioName);
+      this._findScenarioByName(scenarioName, context.difficulty);
 
     if (!scenario) return;
 
-    const profile = this._identityService.getActiveProfile();
-    const username: string = profile?.username || "";
+    const username: string = context.profile?.username || "";
 
     const highscore: number = await this._historyService.getHighscore(username, scenarioName);
-    if (this._isStaleUpdate(scenarioName, updateId)) return;
+    if (this._isStaleUpdate(scenarioName, updateId, context)) return;
 
-    const kovaaksHighscore: number = await this._fetchKovaaksHighscoreForScenario(profile, scenarioName);
-    if (this._isStaleUpdate(scenarioName, updateId)) return;
+    const kovaaksHighscore: number = await this._fetchKovaaksHighscoreForScenario(
+      context.profile,
+      scenarioName,
+      context.difficulty,
+    );
+    if (this._isStaleUpdate(scenarioName, updateId, context)) return;
 
-    this._tableComponent?.updateScenarioRow(scenario, highscore, kovaaksHighscore);
+    tableComponent.updateScenarioRow(scenario, highscore, kovaaksHighscore);
   }
 
-  private _findScenarioByName(scenarioName: string): BenchmarkScenario | undefined {
+  private _findScenarioByName(
+    scenarioName: string,
+    difficulty: DifficultyTier,
+  ): BenchmarkScenario | undefined {
     const scenarios: BenchmarkScenario[] =
-      this._benchmarkService.getScenarios(this._activeDifficulty);
+      this._benchmarkService.getScenarios(difficulty);
 
     return scenarios.find(
       (benchmarkScenario: BenchmarkScenario): boolean =>
@@ -520,15 +646,23 @@ export class BenchmarkView {
     );
   }
 
-  private _isStaleUpdate(scenarioName: string, updateId: number): boolean {
-    return this._pendingUpdateIds.get(scenarioName) !== updateId;
+  private _isStaleUpdate(
+    scenarioName: string,
+    updateId: number,
+    context: BenchmarkTableContext,
+  ): boolean {
+    return (
+      this._pendingUpdateIds.get(scenarioName) !== updateId ||
+      !this._isCurrentTable(context)
+    );
   }
 
   private async _fetchKovaaksHighscoreForScenario(
     profile: PlayerProfile | null,
     name: string,
+    difficulty: DifficultyTier,
   ): Promise<number> {
-    const benchmarkId = this._benchmarkService.getBenchmarkId(this._activeDifficulty);
+    const benchmarkId = this._benchmarkService.getBenchmarkId(difficulty);
     const steamId = profile?.steamId;
 
     if (!benchmarkId || !steamId) return 0;
@@ -585,19 +719,27 @@ export class BenchmarkView {
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
     kovaaksHighscores: Record<string, number>,
+    difficulty: DifficultyTier,
   ): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
 
     container.className = "benchmark-view-container";
 
-    container.appendChild(this._createHeaderControls());
+    container.appendChild(this._createHeaderControls(difficulty));
 
-    container.appendChild(this._createTableElement(scenarios, highscores, kovaaksHighscores));
+    container.appendChild(
+      this._createTableElement(
+        scenarios,
+        highscores,
+        kovaaksHighscores,
+        difficulty,
+      ),
+    );
 
     return container;
   }
 
-  private _createHeaderControls(): HTMLElement {
+  private _createHeaderControls(difficulty: DifficultyTier): HTMLElement {
     const header: HTMLDivElement = document.createElement("div");
 
     header.className = "benchmark-header-controls";
@@ -607,19 +749,18 @@ export class BenchmarkView {
     const aligner: HTMLDivElement = document.createElement("div");
     aligner.className = "header-aligner";
 
-    aligner.appendChild(this._createDifficultyTabs());
-    aligner.appendChild(this._createHolisticRankUI());
+    aligner.appendChild(this._createDifficultyTabs(difficulty));
+    aligner.appendChild(this._createHolisticRankUI(difficulty));
 
     header.appendChild(aligner);
 
     return header;
   }
 
-  private _createHolisticRankUI(): HTMLElement {
+  private _createHolisticRankUI(difficulty: DifficultyTier): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
     container.className = "holistic-rank-container";
 
-    const difficulty = this._activeDifficulty;
     const estimate = this._cosmeticOverrideService.isActiveFor(difficulty)
       ? this._cosmeticOverrideService.getFakeEstimatedRank(difficulty)
       : this._rankEstimator.calculateHolisticEstimateRank(difficulty);
@@ -640,18 +781,22 @@ export class BenchmarkView {
         </div>
     `;
 
-    this._attachHolisticRankListeners(container, estimate.rankName);
+    this._attachHolisticRankListeners(container, estimate.rankName, difficulty);
 
     return container;
   }
 
-  private _attachHolisticRankListeners(container: HTMLElement, currentRankName: string): void {
+  private _attachHolisticRankListeners(
+    container: HTMLElement,
+    currentRankName: string,
+    difficulty: DifficultyTier,
+  ): void {
     const rankInner = container.querySelector(".rank-text-inner") as HTMLElement;
     if (rankInner) {
       rankInner.style.cursor = "pointer";
       rankInner.addEventListener("click", (event: Event) => {
         event.stopPropagation();
-        const rankNames = this._benchmarkService.getRankNames(this._activeDifficulty);
+        const rankNames = this._benchmarkService.getRankNames(difficulty);
         const popup = new RankPopupComponent(rankInner, currentRankName, rankNames);
         popup.render();
       });
@@ -686,7 +831,7 @@ export class BenchmarkView {
       </span>`;
   }
 
-  private _createDifficultyTabs(): HTMLElement {
+  private _createDifficultyTabs(activeDifficulty: DifficultyTier): HTMLElement {
     const container: HTMLDivElement = document.createElement("div");
 
     container.className = "difficulty-tabs";
@@ -694,16 +839,19 @@ export class BenchmarkView {
     this._benchmarkService
       .getAvailableDifficulties()
       .forEach((difficulty: DifficultyTier): void => {
-        container.appendChild(this._createTab(difficulty));
+        container.appendChild(this._createTab(difficulty, activeDifficulty));
       });
 
     return container;
   }
 
-  private _createTab(difficulty: DifficultyTier): HTMLButtonElement {
+  private _createTab(
+    difficulty: DifficultyTier,
+    activeDifficulty: DifficultyTier,
+  ): HTMLButtonElement {
     const tab: HTMLButtonElement = document.createElement("button");
 
-    const isActive: boolean = this._activeDifficulty === difficulty;
+    const isActive: boolean = activeDifficulty === difficulty;
 
     tab.className = `tab-button ${isActive ? "active" : ""}`;
 
@@ -738,6 +886,7 @@ export class BenchmarkView {
     scenarios: BenchmarkScenario[],
     highscores: Record<string, number>,
     kovaaksHighscores: Record<string, number>,
+    difficulty: DifficultyTier,
   ): HTMLElement {
     this._tableComponent = new BenchmarkTableComponent({
       historyService: this._historyService,
@@ -753,6 +902,11 @@ export class BenchmarkView {
       onScenarioLaunch: this._onScenarioLaunch,
     });
 
-    return this._tableComponent.render(scenarios, highscores, this._activeDifficulty, kovaaksHighscores);
+    return this._tableComponent.render(
+      scenarios,
+      highscores,
+      difficulty,
+      kovaaksHighscores,
+    );
   }
 }

@@ -29,6 +29,13 @@ export interface UpdateDataOptions {
   readonly achievedRU?: number;
 }
 
+interface CollectedScoreData {
+  readonly scores: number[];
+  readonly timestamps: number[];
+  readonly minScore: number;
+  readonly maxScore: number;
+}
+
 /**
  * Responsibility: Orchestrate the rendering of a "Dot Cloud" (Strip Plot) of recent performance data.
  * Coordinates data processing, coordinate mapping, and HTML rendering.
@@ -39,7 +46,7 @@ export class DotCloudComponent {
   private static readonly _baseDotRadiusRatio: number = 0.1;
 
   private _recentEntries: ScoreEntry[];
-  private _rankThresholds: Record<string, number>;
+  private _sortedThresholds: [string, number][];
   private _settings: VisualSettings;
   private _mapper: RankScaleMapper;
   private _isLatestInSession: boolean;
@@ -61,23 +68,25 @@ export class DotCloudComponent {
    * @param configuration - The setup parameters for the visualization.
    */
   public constructor(configuration: DotCloudConfiguration) {
-    this._rankThresholds = configuration.thresholds;
+    this._sortedThresholds = this._getSortedFiniteThresholds(
+      configuration.thresholds,
+    );
     this._settings = configuration.settings;
     this._isLatestInSession = configuration.isLatestInSession;
-    this._targetRU = configuration.targetRU;
-    this._achievedRU = configuration.achievedRU;
+    this._targetRU = this._getFiniteOptional(configuration.targetRU);
+    this._achievedRU = this._getFiniteOptional(configuration.achievedRU);
 
     this._recentEntries = ScoreProcessor.processTemporalScores(
       configuration.entries,
     );
 
-    const thresholdValues: number[] = Object.values(
-      configuration.thresholds,
-    ).sort((a: number, b: number) => a - b);
+    const thresholdValues: number[] = this._sortedThresholds.map(
+      (entry: [string, number]): number => entry[1],
+    );
 
     this._mapper = new RankScaleMapper(
       thresholdValues,
-      configuration.rankInterval ?? 100,
+      this._getRankInterval(configuration.rankInterval),
     );
   }
 
@@ -98,16 +107,19 @@ export class DotCloudComponent {
    */
   public updateData(options: UpdateDataOptions): void {
     this._recentEntries = ScoreProcessor.processTemporalScores(options.entries);
-    this._rankThresholds = options.thresholds;
+    this._sortedThresholds = this._getSortedFiniteThresholds(options.thresholds);
     this._isLatestInSession = options.isLatestInSession;
-    this._targetRU = options.targetRU;
-    this._achievedRU = options.achievedRU;
+    this._targetRU = this._getFiniteOptional(options.targetRU);
+    this._achievedRU = this._getFiniteOptional(options.achievedRU);
 
-    const thresholdValues: number[] = Object.values(options.thresholds).sort(
-      (a: number, b: number) => a - b,
+    const thresholdValues: number[] = this._sortedThresholds.map(
+      (entry: [string, number]): number => entry[1],
     );
 
-    this._mapper = new RankScaleMapper(thresholdValues, options.rankInterval ?? 100);
+    this._mapper = new RankScaleMapper(
+      thresholdValues,
+      this._getRankInterval(options.rankInterval),
+    );
     this._handleVisualUpdate(true);
   }
 
@@ -134,6 +146,7 @@ export class DotCloudComponent {
    */
   public destroy(): void {
     this._cancelPendingFrames();
+    this._renderer?.destroy();
     this._renderer = null;
 
     if (this._container) {
@@ -159,6 +172,7 @@ export class DotCloudComponent {
   }
 
   private _handleVisualUpdate(forceRebuildRenderer: boolean = false): void {
+    this._renderer?.hideInspection();
     this._initializeDimensions();
     this._syncContainerDimensions();
 
@@ -195,6 +209,7 @@ export class DotCloudComponent {
       return;
     }
 
+    this._renderer?.destroy();
     this._renderer = new DotCloudHtmlRenderer(this._container, this._mapper);
   }
 
@@ -219,9 +234,7 @@ export class DotCloudComponent {
       return;
     }
 
-    while (this._container.firstChild) {
-      this._container.removeChild(this._container.firstChild);
-    }
+    this._container.replaceChildren();
   }
 
   private _cancelPendingFrames(): void {
@@ -247,20 +260,18 @@ export class DotCloudComponent {
   }
 
   private _assembleRenderContext(width: number, padding: number): RenderContext {
-    const rootFontSize: number = parseFloat(
-      getComputedStyle(document.documentElement).fontSize,
-    );
+    const rootFontSize: number = this._getRootFontSize();
+    const scoreData: CollectedScoreData = this._collectScoreData();
 
     const context: RenderContext = {
-      scores: this._recentEntries.map((entry: ScoreEntry): number => entry.score),
-      timestamps: this._recentEntries.map(
-        (entry: ScoreEntry): number => entry.timestamp,
+      scores: scoreData.scores,
+      timestamps: scoreData.timestamps,
+      sortedThresholds: this._sortedThresholds,
+      bounds: this._calculateDynamicBounds(
+        width,
+        scoreData.minScore,
+        scoreData.maxScore,
       ),
-      sortedThresholds: Object.entries(this._rankThresholds).sort(
-        (firstEntry: [string, number], secondEntry: [string, number]): number =>
-          firstEntry[1] - secondEntry[1],
-      ),
-      bounds: this._calculateDynamicBounds(width),
       isLatestFromSession: this._isLatestInSession,
       settings: this._settings,
       targetRU: this._targetRU,
@@ -277,20 +288,44 @@ export class DotCloudComponent {
     return context;
   }
 
-  private _calculateDynamicBounds(width: number): {
+  private _getRootFontSize(): number {
+    const rootFontSize: number = parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
+
+    return Number.isFinite(rootFontSize) && rootFontSize > 0 ? rootFontSize : 16;
+  }
+
+  private _collectScoreData(): CollectedScoreData {
+    const scores: number[] = [];
+    const timestamps: number[] = [];
+    let minScore: number = Infinity;
+    let maxScore: number = -Infinity;
+
+    this._recentEntries.forEach((entry: ScoreEntry): void => {
+      scores.push(entry.score);
+      timestamps.push(entry.timestamp);
+      minScore = Math.min(minScore, entry.score);
+      maxScore = Math.max(maxScore, entry.score);
+    });
+
+    return { scores, timestamps, minScore, maxScore };
+  }
+
+  private _calculateDynamicBounds(
+    width: number,
+    minScore: number,
+    maxScore: number,
+  ): {
     minRU: number;
     maxRU: number;
   } {
-    const scores: number[] = this._recentEntries.map(
-      (entry: ScoreEntry): number => entry.score,
-    );
-
-    if (scores.length === 0) {
+    if (this._recentEntries.length === 0) {
       return this._calculateEmptyScoresBounds();
     }
 
-    const minRU: number = this._mapper.calculateRankUnit(Math.min(...scores));
-    const maxRU: number = this._mapper.calculateRankUnit(Math.max(...scores));
+    const minRU: number = this._mapper.calculateRankUnit(minScore);
+    const maxRU: number = this._mapper.calculateRankUnit(maxScore);
 
     if (this._settings.scalingMode === "Aligned") {
       return this._calculateExceededAlignedBounds(minRU, maxRU, width);
@@ -330,5 +365,26 @@ export class DotCloudComponent {
       minRU,
       maxRU: maxRU <= minRU ? minRU + 1 : maxRU,
     };
+  }
+
+  private _getSortedFiniteThresholds(
+    thresholds: Record<string, number>,
+  ): [string, number][] {
+    return Object.entries(thresholds)
+      .filter((entry: [string, number]): boolean => Number.isFinite(entry[1]))
+      .sort(
+        (firstEntry: [string, number], secondEntry: [string, number]): number =>
+          firstEntry[1] - secondEntry[1],
+      );
+  }
+
+  private _getFiniteOptional(value: number | undefined): number | undefined {
+    return value !== undefined && Number.isFinite(value) ? value : undefined;
+  }
+
+  private _getRankInterval(value: number | undefined): number {
+    return value !== undefined && Number.isFinite(value) && value !== 0
+      ? value
+      : 100;
   }
 }

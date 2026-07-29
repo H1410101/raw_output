@@ -11,6 +11,16 @@ import { BenchmarkService } from "./BenchmarkService";
 import { KovaaksScenarioScore } from "../types/KovaaksApiTypes";
 
 
+interface PollingContext {
+    readonly username: string;
+    readonly generation: number;
+}
+
+interface NormalizedKovaaksScore {
+    readonly score: number;
+    readonly timestamp: number;
+}
+
 
 /**
  * Dependencies for the KovaaksPollingManager.
@@ -59,7 +69,9 @@ export class KovaaksPollingManager {
     private _currentPollingActiveInterval: number | null = null;
     private readonly _syncedDifficulties: Set<string> = new Set();
     private _hasSeenActiveSession: boolean = false;
-    private readonly _lastPollValues: Map<string, string> = new Map();
+    private _profileGeneration: number = 0;
+    private readonly _scenarioPolls: Map<string, Promise<boolean>> = new Map();
+    private readonly _difficultySyncs: Map<string, Promise<boolean>> = new Map();
 
     /**
      * Initializes the manager with required dependencies.
@@ -126,10 +138,6 @@ export class KovaaksPollingManager {
 
     private _handleTabChange(): void {
         const activeTab = this._appState.getActiveTabId();
-        if (activeTab === "nav-ranked") {
-            this._suspectedActiveSession = true;
-        }
-
         if (activeTab === "nav-benchmarks") {
             this._syncCurrentBenchmarksIfNeeded();
         }
@@ -143,7 +151,13 @@ export class KovaaksPollingManager {
     }
 
     private _handleProfileChange(): void {
+        this._profileGeneration++;
         this._syncedDifficulties.clear();
+        this._difficultySyncs.clear();
+        this._lastLaunchedBenchmarkScenario = null;
+        this._suspectedActiveSession = this._session.isSessionActive();
+        this._lastBenchmarkActivity = this._suspectedActiveSession ? Date.now() : 0;
+        this._currentBackoffMs = KovaaksPollingManager._backoffStartMs;
         this._rescheduleAll();
     }
 
@@ -189,10 +203,26 @@ export class KovaaksPollingManager {
 
         const syncKey = `${profile.username}:${difficulty}`;
 
-        if (!this._syncedDifficulties.has(syncKey)) {
-            this._syncedDifficulties.add(syncKey);
-            this._pollInactiveScenarios(true);
+        if (this._syncedDifficulties.has(syncKey) || this._difficultySyncs.has(syncKey)) {
+            return;
         }
+
+        const context: PollingContext = {
+            username: profile.username,
+            generation: this._profileGeneration
+        };
+        const sync: Promise<boolean> = this._pollInactiveScenarios(true, context);
+        this._difficultySyncs.set(syncKey, sync);
+
+        void sync.then((succeeded: boolean): void => {
+            if (succeeded && this._isPollingContextCurrent(context)) {
+                this._syncedDifficulties.add(syncKey);
+            }
+        }).finally((): void => {
+            if (this._difficultySyncs.get(syncKey) === sync) {
+                this._difficultySyncs.delete(syncKey);
+            }
+        });
     }
 
     private _stopAllTimers(): void {
@@ -218,7 +248,12 @@ export class KovaaksPollingManager {
 
         if (this._isSessionActive()) {
             this._updateActiveScenarioPolling(scenario);
-        } else if (this._hasSeenActiveSession && this._appState.getActiveTabId() === "nav-benchmarks") {
+
+            return;
+        }
+
+        this._clearActivePollingState();
+        if (this._hasSeenActiveSession && this._appState.getActiveTabId() === "nav-benchmarks") {
             this._startBenchmarkBackoff(scenario);
         }
     }
@@ -229,6 +264,10 @@ export class KovaaksPollingManager {
             this._activeScenarioTimer = null;
             this._currentPollingActiveScenario = null;
             this._currentPollingActiveInterval = null;
+        }
+        if (this._backoffTimer) {
+            window.clearTimeout(this._backoffTimer);
+            this._backoffTimer = null;
         }
     }
 
@@ -270,9 +309,19 @@ export class KovaaksPollingManager {
         this._currentPollingActiveScenario = scenario;
         this._currentPollingActiveInterval = interval;
         this._activeScenarioTimer = window.setInterval(
-            () => this._pollScenario(scenario),
+            (): void => this._runActiveScenarioPoll(scenario),
             interval
         );
+    }
+
+    private _runActiveScenarioPoll(scenario: string): void {
+        if (!this._isSessionActive()) {
+            this._rescheduleAll();
+
+            return;
+        }
+
+        void this._pollScenario(scenario);
     }
 
     private _startBenchmarkBackoff(scenario: string): void {
@@ -302,7 +351,13 @@ export class KovaaksPollingManager {
         this._pollInactiveScenarios();
 
         this._inactiveBatchTimer = window.setInterval(
-            () => this._pollInactiveScenarios(),
+            (): void => {
+                if (this._isSessionActive()) {
+                    void this._pollInactiveScenarios();
+                } else {
+                    this._rescheduleAll();
+                }
+            },
             KovaaksPollingManager._inactiveBatchIntervalMs
         );
     }
@@ -312,15 +367,21 @@ export class KovaaksPollingManager {
             window.clearTimeout(this._backoffTimer);
         }
 
-        if (this._currentBackoffMs > KovaaksPollingManager._sessionTimeoutMs) {
+        if (this._currentBackoffMs > this._getSessionTimeoutMilliseconds()) {
             return;
         }
 
-        this._backoffTimer = window.setTimeout(async (): Promise<void> => {
+        const timerId: number = window.setTimeout(async (): Promise<void> => {
             await this._pollScenario(scenario);
+            if (this._backoffTimer !== timerId) {
+                return;
+            }
+
+            this._backoffTimer = null;
             this._currentBackoffMs *= 1.5;
             this._scheduleBenchmarkBackoff(scenario);
         }, this._currentBackoffMs);
+        this._backoffTimer = timerId;
     }
 
     private _getActiveScenario(): string | null {
@@ -348,11 +409,7 @@ export class KovaaksPollingManager {
 
         if (activeTab === "nav-ranked") {
             const status = this._rankedSession.state.status;
-            if (status === "SUMMARY") {
-                return false;
-            }
-
-            const isActive = status !== "IDLE" || this._suspectedActiveSession;
+            const isActive = status === "ACTIVE" || status === "COMPLETED";
             if (isActive) {
                 this._hasSeenActiveSession = true;
             }
@@ -363,7 +420,7 @@ export class KovaaksPollingManager {
         if (activeTab === "nav-benchmarks") {
             const timeSinceActivity = Date.now() - this._lastBenchmarkActivity;
             const isActive = this._suspectedActiveSession &&
-                timeSinceActivity < KovaaksPollingManager._sessionTimeoutMs;
+                timeSinceActivity < this._getSessionTimeoutMilliseconds();
 
             if (isActive) {
                 this._hasSeenActiveSession = true;
@@ -375,101 +432,218 @@ export class KovaaksPollingManager {
         return false;
     }
 
-    private async _pollScenario(scenarioName: string): Promise<void> {
-        const profile = this._identity.getActiveProfile();
-        if (!profile) return;
+    private _pollScenario(
+        scenarioName: string,
+        context: PollingContext | null = this._getPollingContext()
+    ): Promise<boolean> {
+        if (!context || !this._isPollingContextCurrent(context)) {
+            return Promise.resolve(false);
+        }
 
+        const pollKey: string = `${context.generation}\u0000${context.username}\u0000${scenarioName}`;
+        const activePoll: Promise<boolean> | undefined = this._scenarioPolls.get(pollKey);
+
+        if (activePoll) {
+            return activePoll;
+        }
+
+        const poll: Promise<boolean> = this._executeScenarioPoll(context, scenarioName);
+        this._scenarioPolls.set(pollKey, poll);
+
+        void poll.finally((): void => {
+            if (this._scenarioPolls.get(pollKey) === poll) {
+                this._scenarioPolls.delete(pollKey);
+            }
+        });
+
+        return poll;
+    }
+
+    private async _executeScenarioPoll(context: PollingContext, scenarioName: string): Promise<boolean> {
         try {
-            const kovaaksScores = await this._kovaaksApi.fetchScenarioLastScores(profile.username, scenarioName);
-            this._logOnChange(scenarioName, kovaaksScores);
+            const kovaaksScores = await this._kovaaksApi.fetchScenarioLastScores(context.username, scenarioName);
 
-            const newScores = await this._filterNewScores(profile.username, scenarioName, kovaaksScores);
-            if (newScores.length === 0) return;
+            if (!this._isPollingContextCurrent(context)) {
+                return false;
+            }
 
-            await this._processNewScores(profile.username, scenarioName, newScores);
+            const newScores = await this._filterNewScores(context.username, scenarioName, kovaaksScores);
+
+            if (!this._isPollingContextCurrent(context)) {
+                return false;
+            }
+
+            if (newScores.length === 0) {
+                return true;
+            }
+
+            return await this._processNewScores(context, scenarioName, newScores);
         } catch (error) {
             console.error(`[KovaaksPolling] Failed to poll scenario ${scenarioName}: `, error);
+
+            return false;
         }
     }
 
-    private async _processNewScores(username: string, scenarioName: string, newScores: KovaaksScenarioScore[]): Promise<void> {
+    private async _processNewScores(
+        context: PollingContext,
+        scenarioName: string,
+        newScores: NormalizedKovaaksScore[]
+    ): Promise<boolean> {
         const difficulty = this._benchmark.getDifficulty(scenarioName);
         const scenario = this._findBenchmarkScenario(scenarioName, difficulty);
 
-        await this._history.recordKovaaksScores(username, scenarioName, newScores.map((score: KovaaksScenarioScore) => ({
-            score: score.attributes.score,
-            date: this._parseEpochToMs(score.attributes.epoch).toString()
-        })));
+        if (!this._isPollingContextCurrent(context)) {
+            return false;
+        }
 
-        await this._history.updateMultipleHighscores(username, newScores.map((score: KovaaksScenarioScore) => ({
-            scenarioName,
-            score: score.attributes.score
-        })));
+        if (!await this._persistNewScores(context, scenarioName, newScores)) {
+            return false;
+        }
 
-        this._focus.focusScenario(scenarioName, "NEW_SCORE");
-
-        this._session.registerMultipleRuns(newScores.map((score: KovaaksScenarioScore) => ({
-            scenarioName,
-            score: score.attributes.score,
-            scenario: scenario || null,
-            difficulty,
-            timestamp: new Date(this._parseEpochToMs(score.attributes.epoch))
-        })));
+        return this._registerRecentScores(scenarioName, scenario, difficulty, newScores);
     }
 
-    private _logOnChange(scenarioName: string, scores: KovaaksScenarioScore[]): void {
-        const serialized = JSON.stringify(scores);
-        const lastValue = this._lastPollValues.get(scenarioName);
+    private _registerRecentScores(
+        scenarioName: string,
+        scenario: BenchmarkScenario | undefined,
+        difficulty: string | null,
+        newScores: NormalizedKovaaksScore[],
+    ): boolean {
+        const recentScores: NormalizedKovaaksScore[] = newScores.filter(
+            (score: NormalizedKovaaksScore): boolean => this._isRecentActivity(score.timestamp),
+        );
+        if (recentScores.length === 0) return true;
 
-        if (serialized !== lastValue) {
-            this._lastPollValues.set(scenarioName, serialized);
+        this.notifyLocalActivity();
+        this._focus.focusScenario(scenarioName, "NEW_SCORE");
+
+        this._session.registerMultipleRuns(recentScores.map((score: NormalizedKovaaksScore) => ({
+            scenarioName,
+            score: score.score,
+            scenario: scenario || null,
+            difficulty,
+            timestamp: new Date(score.timestamp)
+        })));
+
+        return true;
+    }
+
+    private _isRecentActivity(timestamp: number): boolean {
+        const currentTimestamp: number = Date.now();
+        let earliestTimestamp: number = currentTimestamp - this._getSessionTimeoutMilliseconds();
+        const rankedStatus = this._rankedSession.state.status;
+        const rankedStartTime: number | null = this._session.rankedStartTime;
+        if ((rankedStatus === "ACTIVE" || rankedStatus === "COMPLETED") && rankedStartTime !== null) {
+            earliestTimestamp = Math.max(earliestTimestamp, rankedStartTime - 60_000);
         }
+
+        return timestamp <= currentTimestamp + 60_000 &&
+            timestamp >= earliestTimestamp;
+    }
+
+    private _getSessionTimeoutMilliseconds(): number {
+        const configuredTimeout: number = this._session.sessionTimeoutMilliseconds;
+
+        return Number.isFinite(configuredTimeout) && configuredTimeout > 0
+            ? configuredTimeout
+            : KovaaksPollingManager._sessionTimeoutMs;
+    }
+
+    private async _persistNewScores(
+        context: PollingContext,
+        scenarioName: string,
+        newScores: NormalizedKovaaksScore[]
+    ): Promise<boolean> {
+        await this._history.updateMultipleHighscores(context.username, newScores.map((score: NormalizedKovaaksScore) => ({
+            scenarioName,
+            score: score.score
+        })));
+
+        await this._history.recordKovaaksScores(context.username, scenarioName, newScores.map((score: NormalizedKovaaksScore) => ({
+            score: score.score,
+            date: score.timestamp.toString()
+        })));
+
+        return this._isPollingContextCurrent(context);
     }
 
     private async _filterNewScores(
         playerId: string,
         scenarioName: string,
         scores: KovaaksScenarioScore[]
-    ): Promise<KovaaksScenarioScore[]> {
+    ): Promise<NormalizedKovaaksScore[]> {
+        const normalizedScores: NormalizedKovaaksScore[] = this._normalizeScores(scores);
         const lastScores: { score: number; timestamp: number }[] =
             await this._history.getLastScores(playerId, scenarioName, 1);
-        let lastTimestamp: number = lastScores.length > 0 ? lastScores[0].timestamp : 0;
+        const storedTimestamp: number | undefined = lastScores[0]?.timestamp;
+        const lastTimestamp: number = Number.isFinite(storedTimestamp) ? storedTimestamp as number : 0;
 
-        if (isNaN(lastTimestamp)) {
-            lastTimestamp = 0;
-        }
-
-        return scores.filter((score: KovaaksScenarioScore) => {
-            const scoreEpoch = this._parseEpochToMs(score.attributes?.epoch);
-            const scoreValue = Number(score.attributes?.score);
-
-            // Strict validation: Reject if timestamp or score is missing or NaN
-            if (isNaN(scoreEpoch) || isNaN(scoreValue)) {
-                return false;
-            }
-
-            const isNew = scoreEpoch > lastTimestamp;
-
-            return isNew;
-        });
+        return normalizedScores
+            .filter((score: NormalizedKovaaksScore): boolean => score.timestamp > lastTimestamp)
+            .sort((left: NormalizedKovaaksScore, right: NormalizedKovaaksScore): number =>
+                left.timestamp - right.timestamp
+            );
     }
 
-    private _parseEpochToMs(epoch: string | number | undefined): number {
-        if (epoch === undefined || epoch === null || epoch === "") {
+    private _normalizeScores(scores: KovaaksScenarioScore[]): NormalizedKovaaksScore[] {
+        const normalizedScores: NormalizedKovaaksScore[] = [];
+
+        scores.forEach((score: KovaaksScenarioScore): void => {
+            const timestamp: number = this._parseEpochToMs(score?.attributes?.epoch);
+            const scoreValue: number = this._parseFiniteNumber(score?.attributes?.score);
+
+            if (Number.isFinite(timestamp) && Number.isFinite(scoreValue)) {
+                normalizedScores.push({ score: scoreValue, timestamp });
+            }
+        });
+
+        return normalizedScores;
+    }
+
+    private _parseFiniteNumber(value: unknown): number {
+        if ((typeof value !== "string" && typeof value !== "number") || value === "") {
             return NaN;
         }
 
-        const num = Number(epoch);
-        if (isNaN(num)) {
+        const parsedValue: number = Number(value);
+
+        return Number.isFinite(parsedValue) ? parsedValue : NaN;
+    }
+
+    private _parseEpochToMs(epoch: unknown): number {
+        const parsedEpoch: number = this._parseFiniteNumber(epoch);
+
+        if (!Number.isFinite(parsedEpoch)) {
             return NaN;
         }
 
         // If the number is below 10,000,000,000 (year 2286 in seconds), it's likely in seconds.
-        if (num > 0 && num < 10000000000) {
-            return num * 1000;
+        if (parsedEpoch > 0 && parsedEpoch < 10000000000) {
+            return parsedEpoch * 1000;
         }
 
-        return num;
+        return parsedEpoch;
+    }
+
+    private _getPollingContext(): PollingContext | null {
+        const profile = this._identity.getActiveProfile();
+
+        if (!profile) {
+            return null;
+        }
+
+        return {
+            username: profile.username,
+            generation: this._profileGeneration
+        };
+    }
+
+    private _isPollingContextCurrent(context: PollingContext): boolean {
+        const activeProfile = this._identity.getActiveProfile();
+
+        return this._profileGeneration === context.generation &&
+            activeProfile?.username === context.username;
     }
 
     private _findBenchmarkScenario(name: string, difficulty: string | null): BenchmarkScenario | undefined {
@@ -481,38 +655,59 @@ export class KovaaksPollingManager {
         return this._benchmark.getScenarios(targetDifficulty).find((scenarioDef: BenchmarkScenario) => scenarioDef.name === name);
     }
 
-    private async _pollInactiveScenarios(force: boolean = false): Promise<void> {
-        const profile = this._identity.getActiveProfile();
-        if (!profile) return;
+    private async _pollInactiveScenarios(
+        force: boolean = false,
+        context: PollingContext | null = this._getPollingContext()
+    ): Promise<boolean> {
+        if (!context || !this._isPollingContextCurrent(context)) {
+            return false;
+        }
 
+        const targets: string[] = this._getInactiveTargets();
+
+        if (targets.length === 0) return true;
+
+        try {
+            let succeeded: boolean = true;
+
+            // Use concurrency limiting to avoid overwhelming the API and UI
+            const concurrencyLimit = 3;
+            for (let i = 0; i < targets.length; i += concurrencyLimit) {
+                if (!this._isPollingContextCurrent(context)) {
+                    return false;
+                }
+
+                // If the session is no longer active or the user switched tabs, stop polling
+                if (!force && !this._isSessionActive()) break;
+
+                const batch = targets.slice(i, i + concurrencyLimit);
+                const results: boolean[] = await Promise.all(
+                    batch.map((name: string) => this._pollScenario(name, context))
+                );
+                succeeded = results.every((result: boolean): boolean => result) && succeeded;
+            }
+
+            return succeeded;
+        } catch (error) {
+            console.error(`[KovaaksPolling] Failed batched sequential poll: `, error);
+
+            return false;
+        }
+    }
+
+    private _getInactiveTargets(): string[] {
         const activeScenario = this._getActiveScenario();
         const difficulty = this._appState.getBenchmarkDifficulty();
         const scenarios = this._benchmark.getScenarios(difficulty);
         const playlist = this._session.getRankedPlaylist();
 
-        const targets = scenarios
+        return scenarios
             .map((scenario: BenchmarkScenario) => scenario.name)
-            .filter((name: string) => {
+            .filter((name: string): boolean => {
                 const isNotActive = name !== activeScenario;
                 const isInPlaylist = !playlist || playlist.has(name);
 
                 return isNotActive && isInPlaylist;
             });
-
-        if (targets.length === 0) return;
-
-        try {
-            // Use concurrency limiting to avoid overwhelming the API and UI
-            const concurrencyLimit = 3;
-            for (let i = 0; i < targets.length; i += concurrencyLimit) {
-                // If the session is no longer active or the user switched tabs, stop polling
-                if (!force && !this._isSessionActive()) break;
-
-                const batch = targets.slice(i, i + concurrencyLimit);
-                await Promise.all(batch.map((name: string) => this._pollScenario(name)));
-            }
-        } catch (error) {
-            console.error(`[KovaaksPolling] Failed batched sequential poll: `, error);
-        }
     }
 }

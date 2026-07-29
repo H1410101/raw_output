@@ -27,6 +27,15 @@ export interface ScenarioEstimate {
 export type RankEstimateMap = Record<string, ScenarioEstimate>;
 
 /**
+ * Describes one scenario update in a batch rank evolution.
+ */
+export interface ScenarioEstimateEvolution {
+    readonly scenarioName: string;
+    readonly sessionRank: number;
+    readonly initialValue?: number;
+}
+
+/**
  * Service for calculating holistic rank estimates and evolving per-scenario estimates.
  *
  * Implements the "Rank Mechanics Specification v4.3".
@@ -98,12 +107,12 @@ export class RankEstimator {
      * Retrieves the rank estimate for a specific scenario.
      *
      * @param scenarioName - The name of the scenario.
+     * @param estimateMap - Optional operation-scoped storage snapshot.
      * @returns The scenario rank estimate or a default unranked estimate.
      */
-    public getScenarioEstimate(scenarioName: string): ScenarioEstimate {
-        const map: RankEstimateMap = this.getRankEstimateMap();
-
-        const stored = map[scenarioName];
+    public getScenarioEstimate(scenarioName: string, estimateMap?: RankEstimateMap): ScenarioEstimate {
+        const map: RankEstimateMap = estimateMap ?? this.getRankEstimateMap();
+        const stored: ScenarioEstimate | undefined = map[scenarioName];
         if (!stored) {
             const now = new Date().toISOString();
 
@@ -190,17 +199,41 @@ export class RankEstimator {
      * @param initialValue - The baseline rank to evolve from (optional).
      */
     public evolveScenarioEstimate(scenarioName: string, sessionRank: number, initialValue?: number): void {
-        const map: RankEstimateMap = this.getRankEstimateMap();
-        const current: ScenarioEstimate = this.getScenarioEstimate(scenarioName);
+        this.evolveScenarioEstimates([{ scenarioName, sessionRank, initialValue }]);
+    }
 
-        const calculationBase = initialValue !== undefined ? initialValue : current.continuousValue;
-        const potentialNewValue = RankEstimator.calculateEvolvedValue(calculationBase, sessionRank);
+    /**
+     * Evolves multiple scenario estimates against one storage snapshot and commits them together.
+     *
+     * @param evolutions - Ordered scenario rank updates to apply.
+     */
+    public evolveScenarioEstimates(evolutions: readonly ScenarioEstimateEvolution[]): void {
+        if (evolutions.length === 0) {
+            return;
+        }
+
+        const map: RankEstimateMap = this.getRankEstimateMap();
+        for (const evolution of evolutions) {
+            this._applyScenarioEvolution(map, evolution);
+        }
+
+        localStorage.setItem(this._getStorageKey(), JSON.stringify(map));
+        evolutions.forEach(({ scenarioName }): void => this._notifyListeners(scenarioName));
+    }
+
+    private _applyScenarioEvolution(map: RankEstimateMap, evolution: ScenarioEstimateEvolution): void {
+        const current: ScenarioEstimate = this.getScenarioEstimate(evolution.scenarioName, map);
+
+        const calculationBase = evolution.initialValue !== undefined
+            ? evolution.initialValue
+            : current.continuousValue;
+        const potentialNewValue = RankEstimator.calculateEvolvedValue(calculationBase, evolution.sessionRank);
 
         // THE FIX: The new rank should be the simple max between the previous new rank (of a past session)
         // and the current new rank (of this ranked session).
         const newValue = Math.max(current.continuousValue, potentialNewValue);
 
-        map[scenarioName] = {
+        map[evolution.scenarioName] = {
             continuousValue: newValue,
             highestAchieved: Math.max(current.highestAchieved, newValue),
             lastUpdated: new Date().toISOString(),
@@ -208,10 +241,6 @@ export class RankEstimator {
             lastPlayed: current.lastPlayed,
             lastDecayed: current.lastDecayed,
         };
-
-        localStorage.setItem(this._getStorageKey(), JSON.stringify(map));
-
-        this._notifyListeners(scenarioName);
     }
 
     /**
@@ -222,7 +251,7 @@ export class RankEstimator {
      */
     public recordPlay(scenarioName: string): void {
         const map: RankEstimateMap = this.getRankEstimateMap();
-        const current: ScenarioEstimate = this.getScenarioEstimate(scenarioName);
+        const current: ScenarioEstimate = this.getScenarioEstimate(scenarioName, map);
 
         const maxPenalty = 5.0;
         const newPenalty = current.penalty + (maxPenalty - current.penalty) * 0.1;
@@ -291,15 +320,15 @@ export class RankEstimator {
      * Uses Hierarchical Aggregation (Specification 2.5).
      *
      * @param difficulty - The difficulty tier.
+     * @param estimateMap - Optional operation-scoped storage snapshot.
      * @returns The aggregated estimated rank.
      */
-    public calculateHolisticEstimateRank(difficulty: string): EstimatedRank {
-        // Dynamic backfill of peak ranks for unplayed scenarios
-        this.initializePeakRanks();
+    public calculateHolisticEstimateRank(difficulty: string, estimateMap?: RankEstimateMap): EstimatedRank {
+        const map: RankEstimateMap = estimateMap ?? this.getRankEstimateMap();
+        this.initializePeakRanks(map);
 
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
         const rankNames: string[] = this._benchmarkService.getRankNames(difficulty);
-        const estimateMap = this.getRankEstimateMap();
 
         if (scenarios.length === 0) {
             return this._createEmptyEstimate();
@@ -308,7 +337,7 @@ export class RankEstimator {
         // 1. Gather all estimates for this difficulty
         const estimateRanks: Map<string, number> = new Map();
         for (const scenario of scenarios) {
-            const estimate = estimateMap[scenario.name];
+            const estimate = map[scenario.name];
             // Treat unranked (-1) or missing as 0 (0 RU)
             let val = 0;
             if (estimate && estimate.continuousValue !== -1) {
@@ -362,9 +391,11 @@ export class RankEstimator {
     /**
      * Analyzes all played scenarios to initialize peak ranks for those never played in ranked.
      * Uses the formula: peak = min(medianRU, 0.5 * allTimeBestRU).
+     *
+     * @param estimateMap - Optional operation-scoped storage snapshot to initialize in place.
      */
-    public initializePeakRanks(): void {
-        const map = this.getRankEstimateMap();
+    public initializePeakRanks(estimateMap?: RankEstimateMap): void {
+        const map: RankEstimateMap = estimateMap ?? this.getRankEstimateMap();
         const metrics = this._calculateGlobalMetrics(map);
         if (metrics.allTimeBest === 0) {
             return;

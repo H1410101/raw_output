@@ -11,14 +11,10 @@ export interface AppState {
   benchmarkDifficulty: DifficultyTier;
   /** Whether the visual settings menu is currently open. */
   isSettingsMenuOpen: boolean;
-  /** Whether the manual folder settings view is currently open. */
-  isFolderViewOpen: boolean;
   /** The last recorded scroll position of the benchmark table. */
   benchmarkScrollTop: number;
   /** The name of the scenario that was last focused by an autoscroll. */
   focusedScenarioName: string | null;
-  /** Whether the currently selected folder is valid and contains stats. */
-  isFolderValid: boolean;
 }
 
 /**
@@ -31,7 +27,6 @@ export class AppStateService {
   private _state: AppState;
   private readonly _tabListeners: (() => void)[] = [];
   private readonly _difficultyListeners: (() => void)[] = [];
-  private readonly _folderValidityListeners: (() => void)[] = [];
 
   /**
    * Initializes the service by loading state from local storage.
@@ -75,6 +70,8 @@ export class AppStateService {
    * @param tabId - The unique identifier of the tab.
    */
   public setActiveTabId(tabId: string): void {
+    if (tabId !== "nav-benchmarks" && tabId !== "nav-ranked") return;
+
     this._state.activeTabId = tabId;
 
     this._saveToStorage();
@@ -149,16 +146,6 @@ export class AppStateService {
   }
 
   /**
-   * Registers a callback for when the folder validity state changes.
-   *
-   * @param callback - The function to call on validity change.
-   */
-  public onFolderValidityChanged(callback: () => void): void {
-    this._folderValidityListeners.push(callback);
-  }
-
-
-  /**
    * Retrieves the last persisted scroll position of the benchmark table.
    *
    * @returns The scroll offset in pixels.
@@ -173,7 +160,7 @@ export class AppStateService {
    * @param scrollTop - The vertical scroll offset in pixels.
    */
   public setBenchmarkScrollTop(scrollTop: number): void {
-    this._state.benchmarkScrollTop = scrollTop;
+    this._state.benchmarkScrollTop = Number.isFinite(scrollTop) ? Math.max(0, scrollTop) : 0;
 
     this._saveToStorage();
   }
@@ -205,9 +192,7 @@ export class AppStateService {
       );
 
       if (serializedState) {
-        const parsedState: Partial<AppState> = JSON.parse(
-          serializedState,
-        ) as unknown as Partial<AppState>;
+        const parsedState: unknown = JSON.parse(serializedState) as unknown;
 
         return {
           ...this._getDefaults(),
@@ -222,16 +207,27 @@ export class AppStateService {
   }
 
   private _getValidatedState(
-    parsedState: Partial<AppState>,
+    value: unknown,
   ): Partial<AppState> {
-    const validatedState: Partial<AppState> = { ...parsedState };
+    if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
 
-    const isDifficultyValid: boolean = this._isDifficultyValid(
-      parsedState.benchmarkDifficulty,
-    );
-
-    if (!isDifficultyValid) {
-      delete validatedState.benchmarkDifficulty;
+    const parsedState = value as Record<string, unknown>;
+    const validatedState: Partial<AppState> = {};
+    if (parsedState.activeTabId === "nav-benchmarks" || parsedState.activeTabId === "nav-ranked") {
+      validatedState.activeTabId = parsedState.activeTabId;
+    }
+    if (this._isDifficultyValid(parsedState.benchmarkDifficulty)) {
+      validatedState.benchmarkDifficulty = parsedState.benchmarkDifficulty;
+    }
+    if (typeof parsedState.isSettingsMenuOpen === "boolean") {
+      validatedState.isSettingsMenuOpen = parsedState.isSettingsMenuOpen;
+    }
+    if (typeof parsedState.benchmarkScrollTop === "number" &&
+      Number.isFinite(parsedState.benchmarkScrollTop)) {
+      validatedState.benchmarkScrollTop = Math.max(0, parsedState.benchmarkScrollTop);
+    }
+    if (typeof parsedState.focusedScenarioName === "string" || parsedState.focusedScenarioName === null) {
+      validatedState.focusedScenarioName = parsedState.focusedScenarioName;
     }
 
     return validatedState;
@@ -258,10 +254,8 @@ export class AppStateService {
       activeTabId: "nav-benchmarks",
       benchmarkDifficulty: defaultDifficulty,
       isSettingsMenuOpen: false,
-      isFolderViewOpen: false,
       benchmarkScrollTop: 0,
       focusedScenarioName: null,
-      isFolderValid: false,
     };
   }
 

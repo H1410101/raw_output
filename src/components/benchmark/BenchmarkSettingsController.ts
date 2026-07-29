@@ -48,6 +48,8 @@ export class BenchmarkSettingsController {
   private readonly _audioService: AudioService;
   private readonly _sectionRenderer: SettingsSectionRenderer;
   private _currentVisualSettings: VisualSettings;
+  private _scrollController: BenchmarkScrollController | null = null;
+  private _overlay: HTMLElement | null = null;
 
   /**
    * Initializes the controller with the required configuration services.
@@ -89,8 +91,18 @@ export class BenchmarkSettingsController {
     container.appendChild(thumb);
     overlay.appendChild(container);
     document.body.appendChild(overlay);
+    this._overlay = overlay;
 
     this._initializeScrollController(card, thumb, container);
+  }
+
+  /**
+   * Closes the owned overlay and releases its scrolling resources.
+   */
+  public destroy(): void {
+    this._destroyScrollController();
+    this._overlay?.remove();
+    this._overlay = null;
   }
 
   private _syncCurrentSettings(): void {
@@ -98,8 +110,13 @@ export class BenchmarkSettingsController {
   }
 
   private _removeExistingOverlay(): void {
-    const existing: Element | null =
-      document.querySelector(".settings-overlay");
+    this._destroyScrollController();
+
+    const existing: Element | null = this._overlay?.isConnected
+      ? this._overlay
+      : document.querySelector(".settings-overlay");
+    this._overlay = null;
+
     if (existing) {
       existing.remove();
       this._audioService.playHeavy(0.4);
@@ -112,8 +129,7 @@ export class BenchmarkSettingsController {
 
     overlay.addEventListener("click", (event: MouseEvent): void => {
       if (event.target === overlay) {
-        overlay.remove();
-        this._audioService.playHeavy(0.4);
+        this._closeOverlay(overlay);
       }
     });
 
@@ -149,7 +165,8 @@ export class BenchmarkSettingsController {
     thumb: HTMLElement,
     container: HTMLElement,
   ): void {
-    const controller: BenchmarkScrollController = new BenchmarkScrollController({
+    this._destroyScrollController();
+    this._scrollController = new BenchmarkScrollController({
       scrollContainer: scrollArea,
       scrollThumb: thumb,
       hoverContainer: container,
@@ -157,7 +174,23 @@ export class BenchmarkSettingsController {
       audioService: this._audioService,
     });
 
-    controller.initialize();
+    this._scrollController.initialize();
+  }
+
+  private _closeOverlay(overlay: HTMLElement): void {
+    if (this._overlay !== overlay) {
+      return;
+    }
+
+    this._destroyScrollController();
+    this._overlay = null;
+    overlay.remove();
+    this._audioService.playHeavy(0.4);
+  }
+
+  private _destroyScrollController(): void {
+    this._scrollController?.destroy();
+    this._scrollController = null;
   }
 
   private _subscribeToFocusEvents(): void {

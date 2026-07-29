@@ -43,12 +43,14 @@ function _createResumptionMocks(): MockSet {
         benchmark: _createBenchmarkMock(),
         session: _createSessionMock(),
         estimator: {
+            getRankEstimateMap: vi.fn().mockReturnValue({}),
             getScenarioEstimate: vi.fn(),
             recordPlay: vi.fn(),
             applyPenaltyLift: vi.fn(),
             calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: "Gold", color: "", progressToNext: 0, continuousValue: 2.0 }),
             getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
             evolveScenarioEstimate: vi.fn(),
+            evolveScenarioEstimates: vi.fn(),
             initializePeakRanks: vi.fn(),
         } as unknown as RankEstimator,
         settings: {

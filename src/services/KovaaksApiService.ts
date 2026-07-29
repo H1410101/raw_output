@@ -12,6 +12,7 @@ import {
  */
 export class KovaaksApiService {
     private readonly _baseUrl: string = "https://kovaaks.com/webapp-backend";
+    private static readonly _requestTimeoutMs: number = 15_000;
 
     /**
      * Searches for users by their Kovaaks username.
@@ -105,7 +106,9 @@ export class KovaaksApiService {
         params: Record<string, string>
     ): Promise<T> {
         const url: URL = this._buildUrlWithParams(endpoint, params);
-        const response: Response = await fetch(url.toString());
+        const response: Response = await fetch(url.toString(), {
+            signal: AbortSignal.timeout(KovaaksApiService._requestTimeoutMs),
+        });
 
         return this._handleApiResponse<T>(response);
     }

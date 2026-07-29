@@ -85,8 +85,6 @@ export class MockServiceFactory {
             onDifficultyChanged: vi.fn(),
             getIsSettingsMenuOpen: vi.fn().mockReturnValue(false),
             setIsSettingsMenuOpen: vi.fn(),
-            getIsFolderViewOpen: vi.fn().mockReturnValue(false),
-            setIsFolderViewOpen: vi.fn(),
             getBenchmarkScrollTop: vi.fn().mockReturnValue(0),
             setBenchmarkScrollTop: vi.fn(),
             getFocusedScenarioName: vi.fn().mockReturnValue(null),

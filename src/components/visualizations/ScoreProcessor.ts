@@ -20,10 +20,7 @@ export class ScoreProcessor {
   public static processTemporalScores(entries: ScoreEntry[]): ScoreEntry[] {
     const validEntries: ScoreEntry[] = entries.filter(
       (entry: ScoreEntry): boolean =>
-        typeof entry.score === "number" &&
-        !isNaN(entry.score) &&
-        typeof entry.timestamp === "number" &&
-        !isNaN(entry.timestamp),
+        Number.isFinite(entry.score) && Number.isFinite(entry.timestamp),
     );
 
     if (validEntries.length === 0) {
@@ -55,19 +52,15 @@ export class ScoreProcessor {
       return [];
     }
 
-    const recentSample: number[] = entries
-      .slice(0, 20)
-      .map((entry: ScoreEntry): number => entry.score);
+    const sampleSize: number = Math.min(entries.length, 20);
+    let temporalMinBound: number = entries[0].score;
 
-    const temporalMinBound: number = Math.min(...recentSample);
-
-    const maxHistorical: number = Math.max(
-      ...entries.map((entry: ScoreEntry): number => entry.score),
-    );
+    for (let i: number = 1; i < sampleSize; i++) {
+      temporalMinBound = Math.min(temporalMinBound, entries[i].score);
+    }
 
     return entries.filter(
-      (entry: ScoreEntry): boolean =>
-        entry.score >= temporalMinBound && entry.score <= maxHistorical,
+      (entry: ScoreEntry): boolean => entry.score >= temporalMinBound,
     );
   }
 }

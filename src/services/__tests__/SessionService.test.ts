@@ -27,10 +27,10 @@ describe("SessionService Creation", (): void => {
     });
 
     it("should create a new session on first run", (): void => {
-        const now: number = Date.now();
-        vi.setSystemTime(now);
         _registerFirstRun(service);
-        expect(service.sessionId).toBe(`session_${now}`);
+        expect(service.sessionId).toMatch(
+            /^session_[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        );
     });
     it("should track all runs in a session", (): void => {
         _registerFirstRun(service);
@@ -39,6 +39,41 @@ describe("SessionService Creation", (): void => {
         expect(runs.length).toBe(2);
         expect(runs[0].scenarioName).toBe("Scenario A");
         expect(runs[1].scenarioName).toBe("Scenario B");
+    });
+});
+
+describe("SessionService Batch Ordering", (): void => {
+    let service: SessionService;
+
+    beforeEach((): void => {
+        const mocks: SessionMocks = _initSessionTestEnv();
+        service = _createSessionService(mocks);
+    });
+
+    afterEach((): void => {
+        vi.restoreAllMocks();
+        vi.useRealTimers();
+    });
+
+    it("should process descending batches chronologically without moving the last run backward", (): void => {
+        const startTimestamp: number = Date.now();
+        const earlierTimestamp: number = startTimestamp + 1000;
+        const laterTimestamp: number = startTimestamp + 2000;
+
+        service.registerMultipleRuns([
+            _createRun("Scenario B", 200, laterTimestamp),
+            _createRun("Scenario A", 100, earlierTimestamp)
+        ]);
+
+        expect(service.getAllSessionRuns().map((run) => run.timestamp)).toEqual([
+            earlierTimestamp,
+            laterTimestamp
+        ]);
+        expect(service.sessionStartTimestamp).toBe(earlierTimestamp);
+
+        service.registerMultipleRuns([_createRun("Scenario C", 50, startTimestamp)]);
+
+        expect(service.isSessionActive(laterTimestamp + service.sessionTimeoutMilliseconds)).toBe(true);
     });
 });
 
@@ -207,4 +242,24 @@ function _registerSecondRun(service: SessionService): void {
         scenario: { name: "Scenario B" } as unknown as BenchmarkScenario,
         difficulty: "Medium"
     });
+}
+
+function _createRun(
+    scenarioName: string,
+    score: number,
+    timestamp: number
+): {
+    scenarioName: string;
+    score: number;
+    scenario: BenchmarkScenario;
+    difficulty: string;
+    timestamp: Date;
+} {
+    return {
+        scenarioName,
+        score,
+        scenario: { name: scenarioName } as unknown as BenchmarkScenario,
+        difficulty: "Medium",
+        timestamp: new Date(timestamp)
+    };
 }

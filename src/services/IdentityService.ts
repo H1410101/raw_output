@@ -25,6 +25,23 @@ export class IdentityService {
     private _activeUsername: string | null = null;
 
     private readonly _onProfilesChanged: (() => void)[] = [];
+    private readonly _onAnalyticsConsentChanged: ((enabled: boolean) => void)[] = [];
+    private readonly _handleStorage = (event: StorageEvent): void => {
+        if (event.key === IdentityService._playerProfilesKey ||
+            event.key === IdentityService._activeUsernameKey) {
+            this._loadPlayerProfiles();
+            this._notifyProfilesChanged();
+
+            return;
+        }
+        if (event.key !== IdentityService._analyticsEnabledKey) return;
+
+        const enabled: boolean = event.newValue !== null && this._parseConsent(event.newValue);
+        if (enabled === this._isAnalyticsEnabled) return;
+
+        this._isAnalyticsEnabled = enabled;
+        this._notifyAnalyticsConsentChanged();
+    };
 
     /**
      * Initializes the identity and privacy settings from local storage.
@@ -34,6 +51,7 @@ export class IdentityService {
         this._loadExistingIdentityState();
         this._loadPlayerProfiles();
         this._repairProfiles();
+        window.addEventListener("storage", this._handleStorage);
     }
 
     /**
@@ -73,8 +91,20 @@ export class IdentityService {
      * @param enabled - Whether analytics should be enabled.
      */
     public setAnalyticsConsent(enabled: boolean): void {
+        if (enabled === this._isAnalyticsEnabled) return;
+
         this._isAnalyticsEnabled = enabled;
         localStorage.setItem(IdentityService._analyticsEnabledKey, JSON.stringify(enabled));
+        this._notifyAnalyticsConsentChanged();
+    }
+
+    /**
+     * Subscribes to analytics consent changes.
+     *
+     * @param callback - Listener receiving the current consent value.
+     */
+    public onAnalyticsConsentChanged(callback: (enabled: boolean) => void): void {
+        this._onAnalyticsConsentChanged.push(callback);
     }
 
     /**
@@ -157,11 +187,21 @@ export class IdentityService {
     }
 
     private _parseAndSetConsent(jsonString: string): void {
+        this._isAnalyticsEnabled = this._parseConsent(jsonString);
+    }
+
+    private _parseConsent(jsonString: string): boolean {
         try {
-            this._isAnalyticsEnabled = JSON.parse(jsonString) === true;
+            return JSON.parse(jsonString) === true;
         } catch {
-            this._isAnalyticsEnabled = false;
+            return false;
         }
+    }
+
+    private _notifyAnalyticsConsentChanged(): void {
+        this._onAnalyticsConsentChanged.forEach(
+            (callback: (consent: boolean) => void): void => callback(this._isAnalyticsEnabled),
+        );
     }
 
     private _loadExistingIdentityState(): void {
@@ -188,7 +228,7 @@ export class IdentityService {
      * @returns True if profiles list is not empty.
      */
     public hasLinkedAccount(): boolean {
-        return this._profiles.length > 0;
+        return this.getProfiles().length > 0;
     }
 
     /**
@@ -199,7 +239,9 @@ export class IdentityService {
     public getActiveProfile(): PlayerProfile | null {
         if (!this._activeUsername) return null;
 
-        return this._profiles.find(profile => profile.username === this._activeUsername) || null;
+        return this._profiles.find((profile: PlayerProfile): boolean =>
+            !profile.deletedAt && profile.username === this._activeUsername
+        ) || null;
     }
 
     /**
@@ -208,14 +250,9 @@ export class IdentityService {
      * @returns The active username or null if none.
      */
     public getKovaaksUsername(): string | null {
-        return this._activeUsername;
+        return this.getActiveProfile()?.username ?? null;
     }
 
-    /**
-     * Returns the list of all registered player profiles.
-     * 
-     * @returns The list of profiles.
-     */
     /**
      * Returns the list of all registered player profiles, excluding soft-deleted ones.
      * 
@@ -230,7 +267,10 @@ export class IdentityService {
      * @param profile
      */
     public addProfile(profile: PlayerProfile): void {
-        const existingIndex = this._profiles.findIndex(prof => prof.username.toLowerCase() === profile.username.toLowerCase());
+        const safeProfile: PlayerProfile = this._sanitizeProfile(profile);
+        const existingIndex = this._profiles.findIndex(
+            (existing: PlayerProfile): boolean => existing.username.toLowerCase() === safeProfile.username.toLowerCase(),
+        );
 
         if (existingIndex !== -1) {
             // Re-activate and undelete if necessary
@@ -244,7 +284,7 @@ export class IdentityService {
                 changed = true;
             }
 
-            this.setActiveProfile(profile.username);
+            this.setActiveProfile(existing.username);
 
             if (changed) {
                 this._persistState();
@@ -254,8 +294,8 @@ export class IdentityService {
             return;
         }
 
-        this._profiles.push(profile);
-        this._activeUsername = profile.username;
+        this._profiles.push(safeProfile);
+        this._activeUsername = safeProfile.username;
         this._persistState();
         this._notifyProfilesChanged();
     }
@@ -265,33 +305,33 @@ export class IdentityService {
      * @param username
      */
     public setActiveProfile(username: string): void {
-        if (this._activeUsername === username) return;
+        const normalizedUsername: string = username.toLowerCase();
+        const profile = this._profiles.find((candidate: PlayerProfile): boolean =>
+            !candidate.deletedAt && candidate.username.toLowerCase() === normalizedUsername
+        );
+        if (!profile || this._activeUsername === profile.username) return;
 
-        const profile = this._profiles.find(prof => prof.username === username);
-        if (profile) {
-            this._activeUsername = username;
-            this._persistState();
-            this._notifyProfilesChanged();
-        }
+        this._activeUsername = profile.username;
+        this._persistState();
+        this._notifyProfilesChanged();
     }
 
-    /**
-     * Removes a player profile.
-     * @param username
-     */
     /**
      * Soft-deletes a player profile.
      * @param username
      */
     public removeProfile(username: string): void {
-        const profileIndex = this._profiles.findIndex(profile => profile.username === username);
+        const normalizedUsername: string = username.toLowerCase();
+        const profileIndex = this._profiles.findIndex((profile: PlayerProfile): boolean =>
+            profile.username.toLowerCase() === normalizedUsername
+        );
         if (profileIndex === -1) return;
 
         // Perform soft delete
         const updatedProfile = { ...this._profiles[profileIndex], deletedAt: new Date().toISOString() };
         this._profiles[profileIndex] = updatedProfile;
 
-        if (this._activeUsername === username) {
+        if (this._activeUsername === updatedProfile.username) {
             const remainingProfiles = this.getProfiles();
             this._activeUsername = remainingProfiles.length > 0 ? remainingProfiles[0].username : null;
         }
@@ -305,37 +345,38 @@ export class IdentityService {
      * @param historyService
      */
     public async performRetentionCleanup(historyService: HistoryService): Promise<void> {
-        const now = new Date();
-        const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
-        const profilesToDelete: PlayerProfile[] = [];
+        const retentionCutoff: number = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        const profilesToDelete: PlayerProfile[] = this._profiles.filter((profile: PlayerProfile): boolean =>
+            profile.deletedAt !== undefined && new Date(profile.deletedAt).getTime() < retentionCutoff
+        );
 
-        this._profiles = this._profiles.filter(profile => {
-            if (profile.deletedAt) {
-                const deletedDate = new Date(profile.deletedAt);
-                if (deletedDate < thirtyDaysAgo) {
-                    profilesToDelete.push(profile);
+        const deletedProfiles: PlayerProfile[] = [];
+        for (const profile of profilesToDelete) {
+            if (!this._isSameDeletedProfile(profile)) continue;
 
-                    // Remove from local state
-                    return false;
-                }
-            }
-
-            // Keep in local state
-            return true;
-        });
-
-        if (profilesToDelete.length > 0) {
-            this._persistState();
-            // We don't necessarily need to notify profiles changed if these were already hidden, 
-            // but it's safer to do so in case UI was holding onto stale data? 
-            // Actually, hidden profiles wouldn't be shown anyway. 
-            // But let's verify if `activeUsername` needs update? 
-            // Soft deleted profiles shouldn't be active.
-
-            for (const profile of profilesToDelete) {
-                await historyService.deletePlayerData(profile.username);
-            }
+            await historyService.deletePlayerData(
+                profile.username,
+                profile.steamId,
+                (): boolean => this._isSameDeletedProfile(profile),
+            );
+            if (this._isSameDeletedProfile(profile)) deletedProfiles.push(profile);
         }
+
+        const confirmedDeletedProfiles: PlayerProfile[] = deletedProfiles.filter(
+            (profile: PlayerProfile): boolean => this._isSameDeletedProfile(profile),
+        );
+        if (confirmedDeletedProfiles.length === 0) return;
+
+        const deletedUsernames = new Set(confirmedDeletedProfiles.map(
+            (profile: PlayerProfile): string => profile.username.toLowerCase(),
+        ));
+        confirmedDeletedProfiles.forEach(
+            (profile: PlayerProfile): void => this._deleteProfileStorage(profile.username),
+        );
+        this._profiles = this._profiles.filter((profile: PlayerProfile): boolean =>
+            !deletedUsernames.has(profile.username.toLowerCase())
+        );
+        this._persistState();
     }
 
     /**
@@ -350,7 +391,7 @@ export class IdentityService {
         const storedProfiles = localStorage.getItem(IdentityService._playerProfilesKey);
         if (storedProfiles) {
             try {
-                this._profiles = JSON.parse(storedProfiles) as PlayerProfile[];
+                this._profiles = this._parseProfiles(JSON.parse(storedProfiles) as unknown);
             } catch {
                 this._profiles = [];
             }
@@ -358,10 +399,76 @@ export class IdentityService {
 
         this._activeUsername = localStorage.getItem(IdentityService._activeUsernameKey);
 
-        // Ensure active user exists in profiles
-        if (this._activeUsername && !this._profiles.some(profile => profile.username === this._activeUsername)) {
-            this._activeUsername = this._profiles.length > 0 ? this._profiles[0].username : null;
+        const activeProfile = this._activeUsername
+            ? this._profiles.find((profile: PlayerProfile): boolean =>
+                !profile.deletedAt && profile.username.toLowerCase() === this._activeUsername?.toLowerCase()
+            )
+            : null;
+        if (!activeProfile) {
+            this._activeUsername = this.getProfiles()[0]?.username ?? null;
+        } else {
+            this._activeUsername = activeProfile.username;
         }
+    }
+
+    private _parseProfiles(value: unknown): PlayerProfile[] {
+        if (!Array.isArray(value)) return [];
+
+        return value.flatMap((profile: unknown): PlayerProfile[] => {
+            if (typeof profile !== "object" || profile === null || !("username" in profile) ||
+                typeof profile.username !== "string" || profile.username.trim() === "") {
+                return [];
+            }
+
+            const deletedAt: string | undefined = this._getValidDeletedAt(profile);
+
+            return [{
+                username: profile.username,
+                pfpUrl: this._getSafeAvatarUrl(
+                    "pfpUrl" in profile && typeof profile.pfpUrl === "string" ? profile.pfpUrl : "",
+                ),
+                steamId: "steamId" in profile && typeof profile.steamId === "string" ? profile.steamId : "",
+                ...(deletedAt ? { deletedAt } : {}),
+            }];
+        });
+    }
+
+    private _getValidDeletedAt(profile: object): string | undefined {
+        if (!("deletedAt" in profile) || typeof profile.deletedAt !== "string") return undefined;
+
+        return Number.isFinite(new Date(profile.deletedAt).getTime()) ? profile.deletedAt : undefined;
+    }
+
+    private _deleteProfileStorage(username: string): void {
+        const suffix: string = username.toLowerCase();
+        [
+            "raw_output_app_state",
+            "session_service_state",
+            "ranked_session_state_v2",
+            "rank_identity_state_v2",
+            "rank_penalty_lift_date",
+        ].forEach((prefix: string): void => localStorage.removeItem(`${prefix}_${suffix}`));
+    }
+
+    private _sanitizeProfile(profile: PlayerProfile): PlayerProfile {
+        return { ...profile, pfpUrl: this._getSafeAvatarUrl(profile.pfpUrl) };
+    }
+
+    private _getSafeAvatarUrl(source: string): string {
+        try {
+            const url = new URL(source);
+
+            return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : "";
+        } catch {
+            return "";
+        }
+    }
+
+    private _isSameDeletedProfile(profile: PlayerProfile): boolean {
+        return this._profiles.some((current: PlayerProfile): boolean =>
+            current.username.toLowerCase() === profile.username.toLowerCase() &&
+            current.deletedAt === profile.deletedAt
+        );
     }
 
     private _persistState(): void {
@@ -373,7 +480,7 @@ export class IdentityService {
         }
     }
 
-    private async _notifyProfilesChanged(): Promise<void> {
+    private _notifyProfilesChanged(): void {
         this._onProfilesChanged.forEach(callback => callback());
     }
 
@@ -381,31 +488,39 @@ export class IdentityService {
         let changed = false;
         const apiService = new KovaaksApiService();
 
-        for (let i = 0; i < this._profiles.length; i++) {
-            const profile = this._profiles[i];
-            if (!profile.steamId) {
-                try {
-                    console.log(`[IdentityService] Repairing missing steamId for ${profile.username}...`);
-                    const searchResults = await apiService.searchUsers(profile.username);
-                    const match = searchResults.find((user: KovaaksUserSearchResult): boolean => user.username === profile.username);
-
-                    if (match && match.steamId) {
-                        this._profiles[i] = {
-                            ...profile,
-                            steamId: match.steamId
-                        };
-                        changed = true;
-                        console.log(`[IdentityService] Repaired ${profile.username} with steamId: ${match.steamId}`);
-                    }
-                } catch (error) {
-                    console.warn(`[IdentityService] Failed to repair profile ${profile.username}:`, error);
-                }
-            }
+        const profilesToRepair: PlayerProfile[] = this.getProfiles().filter(
+            (profile: PlayerProfile): boolean => !profile.steamId,
+        );
+        for (const profile of profilesToRepair) {
+            if (await this._repairProfile(apiService, profile)) changed = true;
         }
 
         if (changed) {
             this._persistState();
             this._notifyProfilesChanged();
+        }
+    }
+
+    private async _repairProfile(apiService: KovaaksApiService, profile: PlayerProfile): Promise<boolean> {
+        try {
+            console.log(`[IdentityService] Repairing missing steamId for ${profile.username}...`);
+            const searchResults = await apiService.searchUsers(profile.username);
+            const match = searchResults.find(
+                (user: KovaaksUserSearchResult): boolean => user.username === profile.username,
+            );
+            const currentIndex: number = this._profiles.findIndex((current: PlayerProfile): boolean =>
+                !current.deletedAt && current.username.toLowerCase() === profile.username.toLowerCase()
+            );
+            if (!match?.steamId || currentIndex === -1 || this._profiles[currentIndex].steamId) return false;
+
+            this._profiles[currentIndex] = { ...this._profiles[currentIndex], steamId: match.steamId };
+            console.log(`[IdentityService] Repaired ${profile.username} with steamId: ${match.steamId}`);
+
+            return true;
+        } catch (error) {
+            console.warn(`[IdentityService] Failed to repair profile ${profile.username}:`, error);
+
+            return false;
         }
     }
 }
