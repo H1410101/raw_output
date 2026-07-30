@@ -25,11 +25,13 @@ describe("Header Symmetry Test", () => {
         const alignerStyles = window.getComputedStyle(aligner);
         const difficultyStyles = window.getComputedStyle(difficultyDiv);
         const rankStyles = window.getComputedStyle(rankDiv);
+        const resolvedColumns = alignerStyles.gridTemplateColumns.split(" ");
 
         expect(alignerStyles.display).toBe("inline-grid");
-        expect(alignerStyles.gridTemplateColumns).toBe("1fr 1fr");
-        expect(difficultyStyles.minWidth).toBe("0");
-        expect(rankStyles.minWidth).toBe("0");
+        expect(resolvedColumns).toHaveLength(2);
+        expect(Math.abs(parseFloat(resolvedColumns[0]) - parseFloat(resolvedColumns[1]))).toBeLessThan(0.1);
+        expect(parseFloat(difficultyStyles.minWidth)).toBe(0);
+        expect(parseFloat(rankStyles.minWidth)).toBe(0);
     });
 });
 

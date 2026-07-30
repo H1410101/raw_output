@@ -33,6 +33,7 @@ interface PersistedSessionState {
   allRuns: { scenarioName: string; score: number; timestamp: number }[] | null;
   // Ranked track persistence
   rankedStartTime: number | null;
+  rankedGracePeriodMilliseconds?: number;
   rankedBestRanks: [string, SessionRankRecord][] | null;
   rankedAllRuns: { scenarioName: string; score: number; timestamp: number }[] | null;
   rankedPlaylist: string[] | null;
@@ -45,6 +46,7 @@ interface PersistedSessionState {
  * data until a fresh run explicitly starts a new session window.
  */
 export class SessionService {
+  private static readonly _defaultRankedGracePeriodMilliseconds: number = 60_000;
   private _sessionTimeoutMilliseconds: number = 10 * 60 * 1000;
 
   /** Key for local storage persistence. */
@@ -73,6 +75,9 @@ export class SessionService {
   private readonly _allRuns: { scenarioName: string; score: number; timestamp: number }[] = [];
 
   private _rankedStartTime: number | null = null;
+
+  private _rankedGracePeriodMilliseconds: number =
+    SessionService._defaultRankedGracePeriodMilliseconds;
 
   private readonly _rankedBestRanks: Map<string, SessionRankRecord> = new Map();
 
@@ -121,6 +126,7 @@ export class SessionService {
     this._sessionId = null;
     this._allRuns.length = 0;
     this._rankedStartTime = null;
+    this._rankedGracePeriodMilliseconds = SessionService._defaultRankedGracePeriodMilliseconds;
     this._rankedBestRanks.clear();
     this._rankedAllRuns.length = 0;
     this._rankedPlaylist = null;
@@ -191,10 +197,12 @@ export class SessionService {
       timestamp: Date;
     }[],
   ): void {
-
     const updatedScenarioNames: string[] = [];
+    const orderedRuns = [...runs].sort((firstRun, secondRun): number =>
+      firstRun.timestamp.getTime() - secondRun.timestamp.getTime()
+    );
 
-    runs.forEach((run): void => {
+    orderedRuns.forEach((run): void => {
       this._processSingleRun(run, updatedScenarioNames);
     });
 
@@ -292,9 +300,8 @@ export class SessionService {
   ): void {
     const isExplicitlyInPlaylist = !this._rankedPlaylist || this._rankedPlaylist.has(run.scenarioName);
 
-    // Add a 60s grace period for timestamps to account for clock drift or API sync delays
-    const rankedGracePeriod = 60 * 1000;
-    const isWithinRankedWindow = this._rankedStartTime !== null && runTimestamp >= (this._rankedStartTime - rankedGracePeriod);
+    const isWithinRankedWindow = this._rankedStartTime !== null &&
+      runTimestamp >= (this._rankedStartTime - this._rankedGracePeriodMilliseconds);
 
     if (
       isWithinRankedWindow &&
@@ -356,6 +363,15 @@ export class SessionService {
   }
 
   /**
+   * Returns the accepted clock-drift window before ranked start.
+   *
+   * @returns Grace period in milliseconds.
+   */
+  public get rankedGracePeriodMilliseconds(): number {
+    return this._rankedGracePeriodMilliseconds;
+  }
+
+  /**
    * Returns the unique identifier for the current session.
    *
    * @returns The session ID or null if no session is active.
@@ -377,12 +393,29 @@ export class SessionService {
    * Signals the start of an explicit ranked session.
    *
    * @param startTime - The timestamp when the ranked session officially began.
+   * @param gracePeriodMilliseconds - Accepted clock drift before ranked start.
    */
-  public startRankedSession(startTime: number): void {
+  public startRankedSession(
+    startTime: number,
+    gracePeriodMilliseconds: number = SessionService._defaultRankedGracePeriodMilliseconds,
+  ): void {
     // Round down to the nearest second to avoid sub-second rejection of CSV files
     this._rankedStartTime = Math.floor(startTime / 1000) * 1000;
+    this._rankedGracePeriodMilliseconds = Math.max(0, gracePeriodMilliseconds);
     this._rankedBestRanks.clear();
     this._rankedAllRuns.length = 0;
+    this._isRanked = true;
+    this._saveToLocalStorage();
+  }
+
+  /**
+   * Reopens ranked ingestion without discarding attempts collected before a pause.
+   *
+   * @param resumeTime - Exact timestamp after which runs may enter the ranked track.
+   */
+  public resumeRankedSession(resumeTime: number): void {
+    this._rankedStartTime = resumeTime;
+    this._rankedGracePeriodMilliseconds = 0;
     this._isRanked = true;
     this._saveToLocalStorage();
   }
@@ -392,6 +425,7 @@ export class SessionService {
    */
   public stopRankedSession(): void {
     this._rankedStartTime = null;
+    this._rankedGracePeriodMilliseconds = SessionService._defaultRankedGracePeriodMilliseconds;
     this._isRanked = false;
     this._rankedPlaylist = null;
     this._saveToLocalStorage();
@@ -558,12 +592,14 @@ export class SessionService {
 
     if (this._sessionStartTimestamp === null) {
       this._sessionStartTimestamp = currentTimestamp;
-      this._sessionId = `session_${currentTimestamp}`;
+      this._sessionId = `session_${crypto.randomUUID()}`;
     }
   }
 
   private _updateLastRunTimestamp(timestamp: number): void {
-    this._lastRunTimestamp = timestamp;
+    this._lastRunTimestamp = this._lastRunTimestamp === null
+      ? timestamp
+      : Math.max(this._lastRunTimestamp, timestamp);
   }
 
   private _processRunData(run: {
@@ -713,6 +749,7 @@ export class SessionService {
       bestPerDifficulty: Array.from(this._sessionBestPerDifficulty.entries()),
       allRuns: [...this._allRuns],
       rankedStartTime: this._rankedStartTime,
+      rankedGracePeriodMilliseconds: this._rankedGracePeriodMilliseconds,
       rankedBestRanks: Array.from(this._rankedBestRanks.entries()),
       rankedAllRuns: [...this._rankedAllRuns],
       rankedPlaylist: this._rankedPlaylist ? Array.from(this._rankedPlaylist) : null,
@@ -742,6 +779,9 @@ export class SessionService {
       }
 
       this._rankedStartTime = state.rankedStartTime || null;
+      this._rankedGracePeriodMilliseconds = Number.isFinite(state.rankedGracePeriodMilliseconds)
+        ? Math.max(0, state.rankedGracePeriodMilliseconds as number)
+        : SessionService._defaultRankedGracePeriodMilliseconds;
       this._loadBestRanks(this._rankedBestRanks, state.rankedBestRanks);
       if (state.rankedAllRuns) {
         this._rankedAllRuns.push(...state.rankedAllRuns);

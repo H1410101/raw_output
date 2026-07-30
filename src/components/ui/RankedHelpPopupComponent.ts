@@ -7,6 +7,8 @@ import { AudioService } from "../../services/AudioService";
 export class RankedHelpPopupComponent {
     private readonly _closeCallbacks: (() => void)[] = [];
     private readonly _audioService: AudioService | null;
+    private _scrollController: BenchmarkScrollController | null = null;
+    private _overlay: HTMLElement | null = null;
 
     /**
      * Initializes the ranked help popup.
@@ -30,6 +32,8 @@ export class RankedHelpPopupComponent {
      * Renders the help popup into the document body.
      */
     public render(): void {
+        this.destroy();
+
         const overlay: HTMLElement = this._createOverlay();
         const container: HTMLElement = this._createContainer();
         const card: HTMLElement = this._createCard();
@@ -39,8 +43,18 @@ export class RankedHelpPopupComponent {
         container.appendChild(thumb);
         overlay.appendChild(container);
         document.body.appendChild(overlay);
+        this._overlay = overlay;
 
         this._initializeScrollController(card, thumb, container);
+    }
+
+    /**
+     * Removes the popup and releases its scrolling resources.
+     */
+    public destroy(): void {
+        this._destroyScrollController();
+        this._overlay?.remove();
+        this._overlay = null;
     }
 
     private _createOverlay(): HTMLElement {
@@ -49,8 +63,7 @@ export class RankedHelpPopupComponent {
 
         overlay.addEventListener("click", (event: MouseEvent): void => {
             if (event.target === overlay) {
-                overlay.remove();
-                this._closeCallbacks.forEach((callback): void => callback());
+                this._close(overlay);
             }
         });
 
@@ -98,7 +111,8 @@ export class RankedHelpPopupComponent {
         thumb: HTMLElement,
         container: HTMLElement,
     ): void {
-        const controller: BenchmarkScrollController = new BenchmarkScrollController({
+        this._destroyScrollController();
+        this._scrollController = new BenchmarkScrollController({
             scrollContainer: scrollArea,
             scrollThumb: thumb,
             hoverContainer: container,
@@ -106,7 +120,21 @@ export class RankedHelpPopupComponent {
             audioService: this._audioService,
         });
 
-        controller.initialize();
+        this._scrollController.initialize();
+    }
+
+    private _close(overlay: HTMLElement): void {
+        if (this._overlay !== overlay) {
+            return;
+        }
+
+        this.destroy();
+        this._closeCallbacks.forEach((callback): void => callback());
+    }
+
+    private _destroyScrollController(): void {
+        this._scrollController?.destroy();
+        this._scrollController = null;
     }
 
     private _createMainTitle(text: string): HTMLElement {
@@ -124,7 +152,7 @@ export class RankedHelpPopupComponent {
         text.style.fontWeight = "600";
         text.style.color = "var(--upper-band-3)";
         text.textContent =
-            "Ranked Mode compiles scenarios into a playlist, balancing strong and weak scenarios using your existing rank estimates, as well as avoiding recently played scenarios.";
+            "Ranked Mode compiles scenarios into a playlist, prioritizing rank-development opportunities while avoiding category repetition and recently played scenarios.";
 
         section.appendChild(text);
 

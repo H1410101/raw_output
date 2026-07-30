@@ -25,7 +25,7 @@ graph LR
 ## Exposed Internal API
 
 ### `RankedView`
-The core terminal-style interface for the "Ranked Run" experience. It manages the sequence of scenarios, the timer, and the final session summary.
+The core terminal-style interface for the "Ranked Run" experience. It manages scenario progression, pause state, inactivity handling, and the final session summary.
 - **Relies on**: `RankedSessionService`, `RankTimelineComponent`, `NavigationController`
 
 ### `BenchmarkView`

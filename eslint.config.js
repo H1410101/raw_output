@@ -5,7 +5,16 @@ import globals from "globals";
 
 export default tseslint.config(
   {
-    ignores: ["dist/**", "node_modules/**", "scripts/**", ".wrangler/**", "functions/**"],
+    ignores: [
+      "dist/**",
+      "build/**",
+      "node_modules/**",
+      "scripts/**",
+      ".wrangler/**",
+      "**/*.diff",
+      "**/*.patch",
+      "**/*.txt",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

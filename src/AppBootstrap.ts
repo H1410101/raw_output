@@ -139,7 +139,7 @@ export class AppBootstrap {
 
     this._historyService.onScoreRecorded(() => {
       this._kovaaksPollingManager.notifyLocalActivity();
-    });
+    }, { includeImported: false });
   }
 
   private _initUIComponents(): void {
@@ -165,7 +165,6 @@ export class AppBootstrap {
 
     this._navigationController.initialize();
     await this._renderInitialViews();
-    this._checkInitialState();
 
     SettingsUiFactory.setAudioService(this._audioService);
 
@@ -193,14 +192,6 @@ export class AppBootstrap {
       this._benchmarkView.render(),
       this._rankedView.render(),
     ]);
-  }
-
-  private _checkInitialState(): void {
-    const hasLinkedAccount = this._identityService.hasLinkedAccount();
-
-    if (!hasLinkedAccount) {
-      // Logic for showing account selection will be added here
-    }
   }
 
   private _setupGlobalInteractions(): void {
@@ -270,14 +261,7 @@ export class AppBootstrap {
         audioService: this._audioService,
         onProfileSelected: (profile): void => {
           this._identityService.setActiveProfile(profile.username);
-          // After selecting, return to previous or benchmarks
-          const activeTab = this._appStateService.getActiveTabId();
-          if (activeTab === "nav-ranked") {
-            // Use restore logic
-            this._navigationController.initialize();
-          } else {
-            this._navigationController.initialize();
-          }
+          this._navigationController.restoreActiveView();
         }
       }
     );

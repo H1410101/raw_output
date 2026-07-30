@@ -63,6 +63,7 @@ export class NavigationController {
   private readonly _rankedView: RankedView;
   private readonly _focusService: FocusManagementService;
   private readonly _identityService: IdentityService;
+  private _isInitialized: boolean = false;
 
   /**
    * Initializes the controller with grouped navigation elements and dependencies.
@@ -100,8 +101,20 @@ export class NavigationController {
    * Attaches event listeners and restores the persisted navigation state.
    */
   public initialize(): void {
+    if (this._isInitialized) {
+      return;
+    }
+
+    this._isInitialized = true;
     this._setupListeners();
 
+    this._restoreInitialTab();
+  }
+
+  /**
+   * Restores the selected application view after account selection.
+   */
+  public restoreActiveView(): void {
     this._restoreInitialTab();
   }
 

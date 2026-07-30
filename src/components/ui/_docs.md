@@ -11,18 +11,14 @@ graph LR
     end
 
     subgraph "src/components/ui"
-        FolderSettingsView
         ApplicationStatusView
         AboutPopupComponent
         AnalyticsPopupComponent
         SettingsUiFactory
         RankPopupComponent
         RankedHelpPopupComponent
-        HUDTimer
-        HUDProgressBar
     end
 
-    AppBootstrap -->|Instantiates| FolderSettingsView
     AppBootstrap -->|Instantiates| ApplicationStatusView
     AppBootstrap -->|Instantiates| AboutPopupComponent
     AppBootstrap -->|Instantiates| AnalyticsPopupComponent
@@ -31,8 +27,6 @@ graph LR
     RankedView -->|Instantiates| RankPopupComponent
     RankedView -->|Instantiates| RankedHelpPopupComponent
     
-    RankedView -->|Instantiates| HUDTimer
-    RankedView -->|Instantiates| HUDProgressBar
 ```
 
 ## Exposed Internal API
@@ -40,9 +34,6 @@ graph LR
 - `AboutPopupComponent`: Renders an informational popup about the application.
 - `AnalyticsPopupComponent`: Prompts the user for score feedback consent.
 - `ApplicationStatusView`: Manages the application-wide status indicator (e.g., Connected, Scanning).
-- `FolderSettingsView`: A full-screen view for managing the Kovaak's stats folder link.
-- `HUDProgressBar`: A reusable progress bar for HUD elements.
-- `HUDTimer`: A timer component for tracking session duration.
 - `MobileWarningPopup`: A popup warning displayed when a user attempts to access desktop-only features on a mobile device.
 - `PeakWarningPopupComponent`: A popup alerting the user when their performance deviates significantly from their peak, suggesting potential issues.
 - `RankPopupComponent`: Displays detailed rank information and progress.
@@ -57,9 +48,6 @@ graph LR
 graph TD
     subgraph "src/components/ui"
         subgraph "Independent Components"
-            FolderSettingsView
-            HUDTimer
-            HUDProgressBar
             Status[ApplicationStatusView]
             Popups[Popups...]
         end

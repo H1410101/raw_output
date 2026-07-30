@@ -36,8 +36,10 @@ export class AccountSelectionView {
     private _animationCounter: number = 0;
     private _currentAnimationId: number = 0;
     private _lastProfileCount: number = 0;
+    private _lastProfileSignature: string = "";
     private _lastSearchQuery: string = "";
     private _renderCycleId: number = 0;
+    private _lastSearchRequestId: number = 0;
 
     /**
      * Initializes the account selection view.
@@ -66,6 +68,7 @@ export class AccountSelectionView {
             const currentQuery = searchInput.value.trim();
             if (currentQuery !== this._searchQuery) {
                 // Force recalculation
+                this._invalidatePendingSearch();
                 this._lastActiveUsername = null;
                 this._searchQuery = currentQuery;
             }
@@ -116,9 +119,8 @@ export class AccountSelectionView {
 
         searchInput.addEventListener("input", () => {
             const query = searchInput.value.trim();
+            const requestId = this._invalidatePendingSearch();
             this._searchQuery = query;
-
-            if (this._searchTimeout) window.clearTimeout(this._searchTimeout);
 
             if (query.length < 3) {
                 this._remoteResults = [];
@@ -131,7 +133,10 @@ export class AccountSelectionView {
             // Immediate local filtering
             this._previewUsername = null;
             this.refresh();
-            this._searchTimeout = window.setTimeout(() => this._performSearch(query), 300);
+            this._searchTimeout = window.setTimeout(() => {
+                this._searchTimeout = null;
+                void this._performSearch(query, requestId);
+            }, 300);
         });
 
         this._setupCarouselWheel(stage);
@@ -227,6 +232,8 @@ export class AccountSelectionView {
         track.innerHTML = `<p class="text-dim">No profiles found</p>`;
         nameStage.innerHTML = "";
         this._lastProfileCount = 0;
+        this._lastProfileSignature = "";
+        this._lastSearchQuery = this._searchQuery;
         this._updateStageWidth(0);
     }
 
@@ -234,13 +241,23 @@ export class AccountSelectionView {
         const isSearching = this._searchQuery.length > 0;
         const wasSearching = this._lastSearchQuery.length > 0;
         const searchTransition = isSearching !== wasSearching;
+        const profileSignature = JSON.stringify(profiles.map(profile => [
+            profile.username,
+            profile.pfpUrl,
+            profile.steamId,
+            profile.isRemote === true
+        ]));
 
-        if (profiles.length !== this._lastProfileCount || searchTransition) {
+        if (profiles.length !== this._lastProfileCount
+            || profileSignature !== this._lastProfileSignature
+            || searchTransition) {
             track.innerHTML = "";
             this._lastActiveUsername = null;
-            this._lastProfileCount = profiles.length;
-            this._lastSearchQuery = this._searchQuery;
         }
+
+        this._lastProfileCount = profiles.length;
+        this._lastProfileSignature = profileSignature;
+        this._lastSearchQuery = this._searchQuery;
     }
 
     private _handleAutomaticPreview(options: {
@@ -477,25 +494,51 @@ export class AccountSelectionView {
             node.classList.add("remote");
         }
 
-        node.innerHTML = `
-            <img src="${profile.pfpUrl}" alt="${profile.username}" class="carousel-pfp">
-            ${!profile.isRemote ? `
-            <div class="pfp-delete-btn">
-                <div class="button-fill"></div>
-                <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-            </div>` : ''}
-        `;
+        const image: HTMLImageElement = document.createElement("img");
+        image.alt = profile.username;
+        image.className = "carousel-pfp";
+        this._setSafeImageSource(image, profile.pfpUrl);
+        node.appendChild(image);
+
+        if (!profile.isRemote) {
+            node.appendChild(this._createDeleteButton(profile.username));
+        }
 
         const startUnits = unit - indexShift;
         node.setAttribute("data-units", startUnits.toString());
         this._applyPfpNodeStyles(node, startUnits, activeIndex, profiles);
 
-        const deleteBtn = node.querySelector(".pfp-delete-btn") as HTMLElement;
-        if (deleteBtn) {
-            this._setupDeleteInteraction(deleteBtn, profile.username);
-        }
-
         return node;
+    }
+
+    private _createDeleteButton(username: string): HTMLElement {
+        const deleteButton: HTMLDivElement = document.createElement("div");
+        deleteButton.className = "pfp-delete-btn";
+
+        const buttonFill: HTMLDivElement = document.createElement("div");
+        buttonFill.className = "button-fill";
+
+        const svg: SVGSVGElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 24 24");
+        const path: SVGPathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z");
+        svg.appendChild(path);
+
+        deleteButton.append(buttonFill, svg);
+        this._setupDeleteInteraction(deleteButton, username);
+
+        return deleteButton;
+    }
+
+    private _setSafeImageSource(image: HTMLImageElement, source: string): void {
+        try {
+            const url: URL = new URL(source);
+            if (url.protocol === "http:" || url.protocol === "https:") {
+                image.src = url.toString();
+            }
+        } catch {
+            // Leave malformed avatar URLs unset.
+        }
     }
 
     private _setupDeleteInteraction(btn: HTMLElement, username: string): void {
@@ -595,6 +638,7 @@ export class AccountSelectionView {
     }
 
     private _clearSearchState(): void {
+        this._invalidatePendingSearch();
         const searchInput = this._container.querySelector("#account-search-input") as HTMLInputElement;
         if (searchInput) searchInput.value = "";
         this._searchQuery = "";
@@ -664,11 +708,10 @@ export class AccountSelectionView {
     }
 
     private _performInstantNameUpdate(nameStage: HTMLElement, active: PlayerProfile | null): void {
-        nameStage.innerHTML = `
-            <span class="active-profile-name current">
-                ${active?.username || ""}
-            </span>
-        `;
+        const nameSpan: HTMLSpanElement = document.createElement("span");
+        nameSpan.className = "active-profile-name current";
+        nameSpan.textContent = active?.username || "";
+        nameStage.replaceChildren(nameSpan);
     }
 
     private _runNameSequence(options: {
@@ -745,11 +788,12 @@ export class AccountSelectionView {
         }, delay);
     }
 
-    private async _performSearch(query: string): Promise<void> {
-        if (query.trim().length < 3) return;
+    private async _performSearch(query: string, requestId: number): Promise<void> {
+        if (query.trim().length < 3 || requestId !== this._lastSearchRequestId) return;
 
         try {
             const results = await this._deps.kovaaksApiService.searchUsers(query);
+            if (requestId !== this._lastSearchRequestId) return;
 
             // Map to SearchResultProfile format
             this._remoteResults = results.map(result => ({
@@ -761,10 +805,21 @@ export class AccountSelectionView {
 
             this.refresh();
         } catch (err: unknown) {
+            if (requestId !== this._lastSearchRequestId) return;
+
             const error = err instanceof Error ? err : new Error("Unknown search error");
             console.error("Search failed:", error.message);
             this._remoteResults = [];
             this.refresh();
         }
+    }
+
+    private _invalidatePendingSearch(): number {
+        if (this._searchTimeout !== null) {
+            window.clearTimeout(this._searchTimeout);
+            this._searchTimeout = null;
+        }
+
+        return ++this._lastSearchRequestId;
     }
 }

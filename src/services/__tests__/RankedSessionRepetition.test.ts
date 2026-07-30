@@ -71,7 +71,24 @@ describe("RankedSessionService: Persistence Behavior", (): void => {
 
         service.endSession();
 
-        expect(mocks.estimator.evolveScenarioEstimate).toHaveBeenCalledWith("Scen1", 2.0, 1.0);
+        expect(mocks.estimator.evolveScenarioEstimates).toHaveBeenCalledWith([
+            { scenarioName: "Scen1", sessionRank: 2.0, initialValue: 1.0 }
+        ]);
+    });
+
+});
+
+describe("RankedSessionService: Grouped Evolution", (): void => {
+    let service: RankedSessionService;
+    let mocks: MockSet;
+
+    beforeEach((): void => {
+        mocks = _setupMocks();
+        service = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
+    });
+
+    it("should group ranked occurrences once while preserving third-score evolution order", (): void => {
+        _assertGroupedEvolution(service, mocks);
     });
 });
 
@@ -93,6 +110,7 @@ function _createSessionMock(): SessionService {
         onSessionUpdated: vi.fn(),
         resetSession: vi.fn(),
         startRankedSession: vi.fn(),
+        resumeRankedSession: vi.fn(),
         stopRankedSession: vi.fn(),
         getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
         getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
@@ -109,12 +127,14 @@ function _setupMocks(): MockSet {
         benchmark: _createBenchmarkMock(),
         session: _createSessionMock(),
         estimator: {
+            getRankEstimateMap: vi.fn().mockReturnValue({}),
             getScenarioEstimate: vi.fn(),
             recordPlay: vi.fn(),
             applyPenaltyLift: vi.fn(),
             calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: "Gold", color: "", progressToNext: 0, continuousValue: 2.0 }),
             getScenarioContinuousValue: vi.fn(),
             evolveScenarioEstimate: vi.fn(),
+            evolveScenarioEstimates: vi.fn(),
             initializePeakRanks: vi.fn(),
         } as unknown as RankEstimator,
         settings: {
@@ -175,4 +195,39 @@ function _setupEvolutionMock(mocks: MockSet): void {
     });
     (mocks.session.getAllRankedSessionRuns as Mock).mockReturnValue([{ scenarioName: "Scen1", score: 100 }, { scenarioName: "Scen1", score: 100 }, { scenarioName: "Scen1", score: 100 }]);
     (mocks.estimator.getScenarioContinuousValue as Mock).mockReturnValue(2.0);
+}
+
+function _assertGroupedEvolution(service: RankedSessionService, mocks: MockSet): void {
+    const scenarios = _createNumberedScenarios(3);
+    (mocks.benchmark.getScenarios as Mock).mockReturnValue(scenarios);
+    _mockEstimates(mocks.estimator);
+    service.startSession("Gold");
+    (mocks.session.getAllRankedSessionRuns as Mock).mockReturnValue(_createInterleavedRuns());
+    const updateFn = (mocks.session.onSessionUpdated as Mock).mock.calls[0][0] as (names: string[]) => void;
+    updateFn(["Scen1", "Scen2"]);
+    (mocks.session.getAllRankedSessionRuns as Mock).mockClear();
+    (mocks.estimator.getScenarioContinuousValue as Mock).mockClear();
+    (mocks.estimator.getScenarioContinuousValue as Mock).mockImplementation((score: number) => score / 100);
+
+    service.endSession();
+
+    expect(mocks.session.getAllRankedSessionRuns).toHaveBeenCalledTimes(1);
+    const calls = (mocks.estimator.getScenarioContinuousValue as Mock).mock.calls as unknown as [number, BenchmarkScenario][];
+    expect(calls.map(([score, scenario]) => [score, scenario.name])).toEqual([[200, "Scen1"], [0, "Scen2"]]);
+    expect(mocks.estimator.evolveScenarioEstimates).toHaveBeenCalledWith([
+        { scenarioName: "Scen1", sessionRank: 2.0, initialValue: 1.0 },
+        { scenarioName: "Scen2", sessionRank: 0, initialValue: 0.0 },
+    ]);
+}
+
+function _createInterleavedRuns(): { scenarioName: string; score: number; timestamp: number }[] {
+    return [
+        { scenarioName: "Scen1", score: 100, timestamp: 1 },
+        { scenarioName: "Scen2", score: 70, timestamp: 2 },
+        { scenarioName: "Scen1", score: 400, timestamp: 3 },
+        { scenarioName: "Scen3", score: 999, timestamp: 4 },
+        { scenarioName: "Scen1", score: 200, timestamp: 5 },
+        { scenarioName: "Scen2", score: 60, timestamp: 6 },
+        { scenarioName: "Scen1", score: 300, timestamp: 7 },
+    ];
 }

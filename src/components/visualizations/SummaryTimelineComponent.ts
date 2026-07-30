@@ -28,6 +28,8 @@ interface CollisionOptions {
  * Displays rank progression with scenario name and gain delta.
  */
 export class SummaryTimelineComponent {
+    private static readonly _maxTicksPerRender: number = 1000;
+
     private readonly _container: HTMLElement;
     private readonly _config: SummaryTimelineConfiguration;
 
@@ -39,6 +41,7 @@ export class SummaryTimelineComponent {
     private _isDeltaAnimating: boolean = false;
     private _pendingEndScroll: number | null = null;
     private _playTimeout: number | null = null;
+    private _renderVersion: number = 0;
 
     private _titleLabel: HTMLElement | null = null;
     private _deltaLabel: HTMLElement | null = null;
@@ -55,6 +58,7 @@ export class SummaryTimelineComponent {
      * @param config - The timeline configuration.
      */
     public constructor(config: SummaryTimelineConfiguration) {
+        SummaryTimelineComponent._validateRankUnits(config);
         this._config = config;
         this._container = document.createElement("div");
         this._container.className = "summary-timeline-component";
@@ -81,6 +85,7 @@ export class SummaryTimelineComponent {
      * Cleans up resources.
      */
     public destroy(): void {
+        this._renderVersion++;
         this._resizeObserver?.disconnect();
         this._resizeObserver = null;
         if (this._playTimeout !== null) {
@@ -114,8 +119,13 @@ export class SummaryTimelineComponent {
         this._progressLine.style.left = `${left}%`;
         this._progressLine.style.width = `${width}%`;
 
+        const renderVersion: number = this._renderVersion;
         this._playTimeout = window.setTimeout((): void => {
             this._playTimeout = null;
+            if (renderVersion !== this._renderVersion) {
+                return;
+            }
+
             if (this._deltaLabel) {
                 this._isDeltaAnimating = true;
                 this._deltaLabel.style.transition = "opacity 0.5s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1)";
@@ -130,23 +140,25 @@ export class SummaryTimelineComponent {
      * @returns The container element.
      */
     public render(): HTMLElement {
+        this._renderVersion++;
         this._resetLabelsAndHitboxes();
 
         const { startMinRU, endMinRU, windowSize } = this._calculateAnimationBounds();
         const unitWidth = 100 / windowSize;
         const renderMinRU = Math.min(startMinRU, endMinRU);
+        const fragment = document.createDocumentFragment();
 
         const track = document.createElement("div");
         track.className = "summary-timeline-track";
-        this._container.appendChild(track);
+        fragment.appendChild(track);
 
         this._scroller = document.createElement("div");
         this._scroller.className = "summary-timeline-scroller";
         track.appendChild(this._scroller);
 
         this._renderScrollerContents(renderMinRU, unitWidth, startMinRU, endMinRU);
-        this._renderContainerContents();
-
+        this._renderContainerContents(fragment);
+        this._container.replaceChildren(fragment);
 
         this._setupScrollerInitialState(renderMinRU, startMinRU, endMinRU, unitWidth);
         this._setupResizeObserver();
@@ -155,7 +167,15 @@ export class SummaryTimelineComponent {
     }
 
     private _resetLabelsAndHitboxes(): void {
-        this._container.innerHTML = "";
+        if (this._playTimeout !== null) {
+            window.clearTimeout(this._playTimeout);
+            this._playTimeout = null;
+        }
+
+        this._hasStarted = false;
+        this._isDeltaAnimating = false;
+        this._scroller = null;
+        this._progressLine = null;
         this._titleLabel = null;
         this._deltaLabel = null;
         this._oldLabel = null;
@@ -179,9 +199,9 @@ export class SummaryTimelineComponent {
         this._renderRankLabels(this._scroller, renderMinRU, unitWidth);
     }
 
-    private _renderContainerContents(): void {
-        this._renderScenarioName();
-        this._renderScenarioStats();
+    private _renderContainerContents(fragment: DocumentFragment): void {
+        this._renderScenarioName(fragment);
+        this._renderScenarioStats(fragment);
     }
 
     private _setupScrollerInitialState(renderMinRU: number, startMinRU: number, endMinRU: number, unitWidth: number): void {
@@ -215,18 +235,21 @@ export class SummaryTimelineComponent {
             this._resizeObserver.disconnect();
         }
 
+        const renderVersion: number = this._renderVersion;
         this._resizeObserver = new ResizeObserver((): void => {
-            this.resolveCollisions();
+            if (renderVersion === this._renderVersion) {
+                this.resolveCollisions();
+            }
         });
 
         this._resizeObserver.observe(this._container);
     }
 
-    private _renderScenarioName(): void {
+    private _renderScenarioName(fragment: DocumentFragment): void {
         const containerAnchor = document.createElement("div");
         containerAnchor.className = "summary-timeline-label-anchor top old title-fixed anchor-left";
         containerAnchor.style.left = "1.5rem";
-        this._container.appendChild(containerAnchor);
+        fragment.appendChild(containerAnchor);
 
         const text = this._config.scenarioName;
         this._titleHitbox = this._createHitbox(containerAnchor, text, "title");
@@ -235,11 +258,11 @@ export class SummaryTimelineComponent {
         this._titleLabel.style.transform = "none";
     }
 
-    private _renderScenarioStats(): void {
+    private _renderScenarioStats(fragment: DocumentFragment): void {
         const anchor = document.createElement("div");
         anchor.className = "summary-timeline-label-anchor top old title-fixed anchor-right";
         anchor.style.right = "1.5rem";
-        this._container.appendChild(anchor);
+        fragment.appendChild(anchor);
 
         const mins = Math.floor(this._config.totalSecondsSpent / 60);
         const secs = this._config.totalSecondsSpent % 60;
@@ -295,21 +318,34 @@ export class SummaryTimelineComponent {
     private _renderTicks(options: { parent: HTMLElement, minRU: number, maxRU: number, rankUnitsRange: number, unitWidth: number }): void {
         const startRU = Math.max(0, Math.ceil((options.minRU - 0.5) * 5) / 5);
         const endRU = Math.floor((options.maxRU + 0.5) * 5) / 5;
+        const tickCount = Math.floor((endRU + 0.001 - startRU) / 0.2) + 1;
 
-        for (let i = startRU; i <= endRU + 0.001; i += 0.2) {
-            const leftPercent = (i - options.minRU) * options.unitWidth;
+        if (
+            !Number.isFinite(startRU)
+            || !Number.isFinite(endRU)
+            || !Number.isSafeInteger(tickCount)
+            || tickCount <= 0
+            || tickCount > SummaryTimelineComponent._maxTicksPerRender
+        ) {
+            return;
+        }
+
+        let rankUnit: number = startRU;
+        for (let tickIndex: number = 0; tickIndex < tickCount; tickIndex++) {
+            const leftPercent = (rankUnit - options.minRU) * options.unitWidth;
 
             const tick = document.createElement("div");
             tick.className = "summary-timeline-tick";
 
             // Check if 'i' is close to an integer
-            const distToInteger = Math.abs(i - Math.round(i));
+            const distToInteger = Math.abs(rankUnit - Math.round(rankUnit));
             if (distToInteger > 0.001) {
                 tick.classList.add("minor");
             }
 
             tick.style.left = `${leftPercent}%`;
             options.parent.appendChild(tick);
+            rankUnit += 0.2;
         }
     }
 
@@ -440,5 +476,11 @@ export class SummaryTimelineComponent {
         }
 
         return { minRU, windowSize };
+    }
+
+    private static _validateRankUnits(config: SummaryTimelineConfiguration): void {
+        if (!Number.isFinite(config.oldRU) || !Number.isFinite(config.newRU)) {
+            throw new RangeError("Summary timeline rank units must be finite numbers.");
+        }
     }
 }

@@ -26,6 +26,39 @@ export class BenchmarkScrollController {
   private readonly _audioService: AudioService | null;
 
   private _isUserDragging: boolean = false;
+  private _isInitialized: boolean = false;
+  private _animationFrameId: number | null = null;
+  private _shouldPersistScrollPosition: boolean = false;
+
+  private readonly _handleScroll = (): void => {
+    this._scheduleScrollSynchronization(true);
+  };
+
+  private readonly _handleTrackMouseDown = (event: MouseEvent): void => {
+    this._handleTrackMousedown(event);
+  };
+
+  private readonly _handleWindowMouseMove = (event: MouseEvent): void => {
+    this._handleGlobalMouseMove(event);
+  };
+
+  private readonly _handleWindowMouseUp = (): void => {
+    this._handleDragEnd();
+  };
+
+  private readonly _handleHoverMouseMove = (event: MouseEvent): void => {
+    this._evaluateHoverScrolling(event);
+  };
+
+  private readonly _handleHoverMouseLeave = (): void => {
+    this._hoverContainer.style.cursor = "";
+  };
+
+  private readonly _handleWheel = (): void => {
+    if (this._appStateService) {
+      this._appStateService.setFocusedScenarioName(null);
+    }
+  };
 
   /**
    * Initializes the controller with the necessary dependencies.
@@ -44,21 +77,79 @@ export class BenchmarkScrollController {
    * Attaches event listeners and performs the initial synchronization.
    */
   public initialize(): void {
+    if (this._isInitialized) {
+      return;
+    }
+
+    this._isInitialized = true;
     this._setupScrollSynchronization();
     this._setupDragInteraction();
     this._setupHoverAutoScroll();
     this._setupManualScrollDetection();
 
-    requestAnimationFrame((): void => {
-      this._synchronizeThumbPosition();
-    });
+    this._scheduleScrollSynchronization();
+  }
+
+  /**
+   * Recalculates thumb geometry after content changes without a scroll event.
+   */
+  public refreshLayout(): void {
+    if (this._isInitialized) this._scheduleScrollSynchronization();
+  }
+
+  /**
+   * Removes listeners and cancels pending synchronization work.
+   */
+  public destroy(): void {
+    if (!this._isInitialized) {
+      return;
+    }
+
+    if (this._shouldPersistScrollPosition) {
+      this._persistScrollPosition();
+    }
+
+    this._isInitialized = false;
+    this._removeEventListeners();
+    this._cancelPendingSynchronization();
+    this._isUserDragging = false;
+    this._scrollThumb.classList.remove("dragging");
+    this._hoverContainer.style.cursor = "";
   }
 
   private _setupScrollSynchronization(): void {
-    this._scrollContainer.addEventListener("scroll", (): void => {
-      this._synchronizeThumbPosition();
-      this._persistScrollPosition();
+    this._scrollContainer.addEventListener("scroll", this._handleScroll);
+  }
+
+  private _scheduleScrollSynchronization(
+    shouldPersistScrollPosition: boolean = false,
+  ): void {
+    this._shouldPersistScrollPosition ||= shouldPersistScrollPosition;
+
+    if (this._animationFrameId !== null) {
+      return;
+    }
+
+    this._animationFrameId = requestAnimationFrame((): void => {
+      this._runScheduledSynchronization();
     });
+  }
+
+  private _runScheduledSynchronization(): void {
+    const shouldPersistScrollPosition: boolean =
+      this._shouldPersistScrollPosition;
+
+    this._animationFrameId = null;
+    this._shouldPersistScrollPosition = false;
+
+    if (!this._isInitialized) {
+      return;
+    }
+
+    this._synchronizeThumbPosition();
+    if (shouldPersistScrollPosition) {
+      this._persistScrollPosition();
+    }
   }
 
   private _persistScrollPosition(): void {
@@ -100,18 +191,11 @@ export class BenchmarkScrollController {
   private _setupDragInteraction(): void {
     this._hoverContainer.addEventListener(
       "mousedown",
-      (event: MouseEvent): void => {
-        this._handleTrackMousedown(event);
-      },
+      this._handleTrackMouseDown,
     );
 
-    window.addEventListener("mousemove", (event: MouseEvent): void => {
-      this._handleGlobalMouseMove(event);
-    });
-
-    window.addEventListener("mouseup", (): void => {
-      this._handleDragEnd();
-    });
+    window.addEventListener("mousemove", this._handleWindowMouseMove);
+    window.addEventListener("mouseup", this._handleWindowMouseUp);
   }
 
   private _handleTrackMousedown(event: MouseEvent): void {
@@ -163,26 +247,49 @@ export class BenchmarkScrollController {
   private _setupHoverAutoScroll(): void {
     this._hoverContainer.addEventListener(
       "mousemove",
-      (event: MouseEvent): void => {
-        this._evaluateHoverScrolling(event);
-      },
+      this._handleHoverMouseMove,
     );
 
-    this._hoverContainer.addEventListener("mouseleave", (): void => {
-      this._hoverContainer.style.cursor = "";
-    });
+    this._hoverContainer.addEventListener(
+      "mouseleave",
+      this._handleHoverMouseLeave,
+    );
   }
 
   private _setupManualScrollDetection(): void {
     this._scrollContainer.addEventListener(
       "wheel",
-      (): void => {
-        if (this._appStateService) {
-          this._appStateService.setFocusedScenarioName(null);
-        }
-      },
+      this._handleWheel,
       { passive: true },
     );
+  }
+
+  private _removeEventListeners(): void {
+    this._scrollContainer.removeEventListener("scroll", this._handleScroll);
+    this._scrollContainer.removeEventListener("wheel", this._handleWheel);
+    this._hoverContainer.removeEventListener(
+      "mousedown",
+      this._handleTrackMouseDown,
+    );
+    this._hoverContainer.removeEventListener(
+      "mousemove",
+      this._handleHoverMouseMove,
+    );
+    this._hoverContainer.removeEventListener(
+      "mouseleave",
+      this._handleHoverMouseLeave,
+    );
+    window.removeEventListener("mousemove", this._handleWindowMouseMove);
+    window.removeEventListener("mouseup", this._handleWindowMouseUp);
+  }
+
+  private _cancelPendingSynchronization(): void {
+    if (this._animationFrameId !== null) {
+      cancelAnimationFrame(this._animationFrameId);
+    }
+
+    this._animationFrameId = null;
+    this._shouldPersistScrollPosition = false;
   }
 
   private _evaluateHoverScrolling(event: MouseEvent): void {

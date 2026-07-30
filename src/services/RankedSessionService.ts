@@ -1,7 +1,7 @@
 import { BenchmarkService } from "./BenchmarkService";
 import { SessionService, SessionRankRecord } from "./SessionService";
 import { BenchmarkScenario } from "../data/benchmarks";
-import { RankEstimator } from "./RankEstimator";
+import { RankEstimateMap, RankEstimator, ScenarioEstimateEvolution } from "./RankEstimator";
 import { SessionSettingsService } from "./SessionSettingsService";
 import { IdentityService } from "./IdentityService";
 
@@ -12,6 +12,7 @@ export type RankedSessionStatus = "IDLE" | "ACTIVE" | "COMPLETED" | "SUMMARY";
  */
 export interface RankedSessionState {
     readonly status: RankedSessionStatus;
+    readonly isPaused: boolean;
     readonly sequence: string[];
     readonly currentIndex: number;
     readonly difficulty: string | null;
@@ -33,6 +34,17 @@ interface ScenarioMetric {
     penalty: number;
 }
 
+interface ScenarioMetricContext {
+    readonly maxRank: number;
+    readonly overallRank: number;
+    readonly estimateMap: RankEstimateMap;
+}
+
+interface GeneratedScenarioBatch {
+    readonly names: string[];
+    readonly estimateMap: RankEstimateMap;
+}
+
 interface DifficultySessionState {
     sequence: string[];
     currentIndex: number;
@@ -46,8 +58,10 @@ interface DifficultySessionState {
 
 interface PersistentRankedState {
     status: RankedSessionStatus;
+    isPaused?: boolean;
     difficulty: string | null;
     startTime: string | null;
+    lastActivityTime?: string | null;
     rankedSessionId: number | null;
     scenarioStartTime: string | null;
     difficultyStates: Record<string, DifficultySessionState>;
@@ -76,8 +90,10 @@ export class RankedSessionService {
     private static readonly _legacyStorageKey: string = "ranked_session_state_v2";
 
     private _status: RankedSessionStatus = "IDLE";
+    private _isPaused: boolean = false;
     private _difficulty: string | null = null;
     private _startTime: string | null = null;
+    private _lastActivityTime: string | null = null;
     private _rankedSessionId: number | null = null;
     private _scenarioStartTime: string | null = null;
 
@@ -143,6 +159,7 @@ export class RankedSessionService {
     public get state(): RankedSessionState {
         return {
             status: this._status,
+            isPaused: this._isPaused,
             sequence: [...this._sequence],
             currentIndex: this._currentIndex,
             difficulty: this._difficulty,
@@ -181,7 +198,7 @@ export class RankedSessionService {
      * @returns Scenario name, or null if session is inactive or completed.
      */
     public get currentScenarioName(): string | null {
-        if (this._status !== "ACTIVE" || this._currentIndex >= this._sequence.length) {
+        if (this._status !== "ACTIVE" || this._isPaused || this._currentIndex >= this._sequence.length) {
             return null;
         }
 
@@ -189,19 +206,18 @@ export class RankedSessionService {
     }
 
     /**
-     * Returns the elapsed time in seconds since the session started.
+     * Returns active elapsed time across the current ranked session.
      *
      * @returns Seconds elapsed, or 0 if inactive.
      */
-    public get elapsedSeconds(): number {
-        if (!this._startTime || this._status === "IDLE") {
-            return 0;
+    public get activeElapsedSeconds(): number {
+        let elapsed: number = Array.from(this._accumulatedScenarioSeconds.values())
+            .reduce((total: number, seconds: number): number => total + seconds, 0);
+        if (this._status === "ACTIVE" && !this._isPaused && this._scenarioStartTime) {
+            elapsed += Math.max(0, Math.floor((Date.now() - new Date(this._scenarioStartTime).getTime()) / 1000));
         }
 
-        const start: number = new Date(this._startTime).getTime();
-        const now: number = Date.now();
-
-        return Math.floor((now - start) / 1000);
+        return elapsed;
     }
 
     /**
@@ -214,7 +230,9 @@ export class RankedSessionService {
             return 0;
         }
 
-        const currentScenario = this.currentScenarioName;
+        const currentScenario = this._status === "ACTIVE" && this._currentIndex < this._sequence.length
+            ? this._sequence[this._currentIndex]
+            : null;
         const accumulated = currentScenario ? (this._accumulatedScenarioSeconds.get(currentScenario) || 0) : 0;
 
         if (!this._scenarioStartTime) {
@@ -241,20 +259,38 @@ export class RankedSessionService {
     }
 
     /**
-     * Returns the remaining time in seconds for the current session.
-     * 
-     * @returns Seconds remaining, or 0 if inactive or expired.
+     * Pauses an active ranked session and stops ranked ingestion.
      */
-    public get remainingSeconds(): number {
-        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
-            return 0;
-        }
+    public pause(): void {
+        if (this._isPaused || (this._status !== "ACTIVE" && this._status !== "COMPLETED")) return;
 
-        const totalMinutes: number = this._sessionSettings.getSettings().rankedIntervalMinutes;
-        const totalSeconds: number = totalMinutes * 60;
-        const elapsed: number = this.elapsedSeconds;
+        this._snapshotScenarioTime();
+        this._scenarioStartTime = null;
+        this._isPaused = true;
+        this._sessionService.stopRankedSession();
+        this._saveToLocalStorage();
+        this._notifyListeners();
+    }
 
-        return Math.max(0, totalSeconds - elapsed);
+    /** Resumes a paused ranked session. */
+    public resume(): void {
+        if (!this._isPaused || (this._status !== "ACTIVE" && this._status !== "COMPLETED")) return;
+
+        this._isPaused = false;
+        this._markActivity();
+        if (this._status === "ACTIVE") this._scenarioStartTime = new Date().toISOString();
+        this._sessionService.resumeRankedSession(Date.now());
+        this._sessionService.setRankedPlaylist(this._sequence);
+        this._saveToLocalStorage();
+        this._notifyListeners();
+    }
+
+    /** Records meaningful interaction for inactivity timeout purposes. */
+    public recordActivity(): void {
+        if (this._isPaused || (this._status !== "ACTIVE" && this._status !== "COMPLETED")) return;
+
+        this._markActivity();
+        this._saveToLocalStorage();
     }
 
     /**
@@ -291,15 +327,12 @@ export class RankedSessionService {
 
         this._prepareSessionStart(difficulty);
         if (this._difficultyStates[difficulty]) {
-            this._rankEstimator.initializePeakRanks();
             this._resumeExistingSession();
 
             return;
         }
 
-        this._rankEstimator.initializePeakRanks();
         this._initializeNewSession(difficulty);
-        this._notifyListeners();
     }
 
     private _prepareSessionStart(difficulty: string): void {
@@ -320,7 +353,9 @@ export class RankedSessionService {
 
     private _initializeNewSession(difficulty: string): void {
         this._status = "ACTIVE";
+        this._isPaused = false;
         this._startTime = new Date().toISOString();
+        this._lastActivityTime = this._startTime;
         this._currentIndex = 0;
         this._sequence = [];
         this._initialGauntletComplete = false;
@@ -331,11 +366,11 @@ export class RankedSessionService {
         this._accumulatedScenarioSeconds.clear();
 
         const batch = this._generateNextBatch(difficulty, []);
-        this._sequence.push(...batch);
+        this._sequence.push(...batch.names);
 
         this._sessionService.startRankedSession(Date.now());
         this._sessionService.setRankedPlaylist(this._sequence);
-        this._recordInitialEstimates(batch);
+        this._recordInitialEstimates(batch.names, batch.estimateMap);
         this._scenarioStartTime = new Date().toISOString();
 
         this._saveToLocalStorage();
@@ -349,9 +384,14 @@ export class RankedSessionService {
 
         this._applyDifficultyStateSnapshot(this._difficultyStates[this._difficulty]);
         this._status = "ACTIVE";
+        this._isPaused = false;
         this._startTime = new Date().toISOString();
+        this._lastActivityTime = this._startTime;
 
-        this._jumpToNextUnplayedScenario();
+        const extended = this._jumpToNextUnplayedScenario();
+        if (!extended) {
+            this._rankEstimator.initializePeakRanks();
+        }
         if (this._status === "ACTIVE") {
             this._scenarioStartTime = new Date().toISOString();
         }
@@ -388,7 +428,7 @@ export class RankedSessionService {
         this._accumulatedScenarioSeconds = new Map(Object.entries(state.accumulatedScenarioSeconds));
     }
 
-    private _jumpToNextUnplayedScenario(): void {
+    private _jumpToNextUnplayedScenario(): boolean {
         let maxPlayedIndex = -1;
         for (let i = 0; i < this._sequence.length; i++) {
             if (this._playedScenarios.has(this._sequence[i])) {
@@ -401,23 +441,28 @@ export class RankedSessionService {
         if (this._currentIndex >= this._sequence.length) {
             if (this._initialGauntletComplete || this._currentIndex >= 3) {
                 this.extendSession();
+
+                return true;
             } else {
                 this._status = "COMPLETED";
             }
         }
+
+        return false;
     }
 
     /**
      * Manually retreats the sequence to the previous scenario.
      */
     public retreat(): void {
-        if (this._status === "IDLE" || this._currentIndex <= 0) {
+        if (this._status === "IDLE" || this._isPaused || this._currentIndex <= 0) {
             return;
         }
 
         this._snapshotScenarioTime();
         this._currentIndex--;
         this._scenarioStartTime = new Date().toISOString();
+        this._markActivity();
         // If we were in COMPLETED, going back makes us ACTIVE
         this._status = "ACTIVE";
 
@@ -429,17 +474,23 @@ export class RankedSessionService {
      * Manually advances the sequence to the next scenario.
      */
     public advance(): void {
-        if (this._status !== "ACTIVE" || this._currentIndex >= this._sequence.length) {
+        if (this._status !== "ACTIVE" || this._isPaused || this._currentIndex >= this._sequence.length) {
             return;
         }
 
         this._snapshotScenarioTime();
         this._currentIndex++;
         this._scenarioStartTime = new Date().toISOString();
+        this._markActivity();
 
         if (this._currentIndex >= this._sequence.length) {
             if (this._initialGauntletComplete) {
+                const canExtend = this._difficulty !== null && this._startTime !== null;
                 this.extendSession();
+
+                if (canExtend) {
+                    return;
+                }
             } else {
                 this._status = "COMPLETED";
             }
@@ -453,7 +504,7 @@ export class RankedSessionService {
      * Extends a completed or near-complete session by adding a new batch.
      */
     public extendSession(): void {
-        if (!this._difficulty || !this._startTime) {
+        if (!this._difficulty || !this._startTime || this._isPaused) {
             return;
         }
 
@@ -462,11 +513,12 @@ export class RankedSessionService {
         const excludeList = this._sequence.slice(-3);
         const batch = this._generateNextBatch(this._difficulty, excludeList);
 
-        this._sequence.push(...batch);
+        this._sequence.push(...batch.names);
         this._status = "ACTIVE";
+        this._markActivity();
 
         this._sessionService.setRankedPlaylist(this._sequence);
-        this._recordInitialEstimates(batch);
+        this._recordInitialEstimates(batch.names, batch.estimateMap);
         this._snapshotScenarioTime();
         this._scenarioStartTime = new Date().toISOString();
 
@@ -484,6 +536,7 @@ export class RankedSessionService {
         }
 
         this._snapshotScenarioTime();
+        this._isPaused = false;
         this._status = "SUMMARY";
 
         this._evolveRanksForPlayedScenarios();
@@ -495,7 +548,7 @@ export class RankedSessionService {
     }
 
     /**
-     * Checks if the session timer has expired and transitions to summary if so.
+     * Checks for ranked inactivity and pauses instead of ending the session.
      */
     public checkExpiration(): void {
         const isToday = this._isToday(this._rankedSessionId);
@@ -513,12 +566,18 @@ export class RankedSessionService {
             return;
         }
 
-        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
+        if (this._isPaused || (this._status !== "ACTIVE" && this._status !== "COMPLETED")) {
             return;
         }
 
-        if (this.remainingSeconds <= 0) {
-            this.endSession();
+        const timeoutMilliseconds: number =
+            this._sessionSettings.getSettings().rankedIntervalMinutes * 60 * 1000;
+        const lastActivity: number = this._lastActivityTime
+            ? new Date(this._lastActivityTime).getTime()
+            : Date.now();
+        if (Date.now() - lastActivity >= timeoutMilliseconds) {
+            this._pauseAtInactivityDeadline();
+            this._notifyListeners();
         }
     }
 
@@ -548,7 +607,9 @@ export class RankedSessionService {
 
 
         this._status = "IDLE";
+        this._isPaused = false;
         this._difficulty = null;
+        this._lastActivityTime = null;
 
         this._sessionService.stopRankedSession();
 
@@ -583,55 +644,60 @@ export class RankedSessionService {
     }
 
     /**
-     * Generates a deterministic batch of three scenarios using Weak-Strong-Diverse selection order.
+     * Generates a deterministic batch in primary-secondary-coverage order.
      *
      * @param difficulty - The difficulty tier to pull scenarios from.
      * @param excludeScenarios - List of scenario names to exclude from the batch.
-     * @returns An array containing exactly three scenario names, or fewer if the pool is exhausted.
+     * @returns The selected names and the estimate snapshot used to select them.
      */
-    private _generateNextBatch(difficulty: string, excludeScenarios: string[]): string[] {
+    private _generateNextBatch(difficulty: string, excludeScenarios: string[]): GeneratedScenarioBatch {
         const scenarios: BenchmarkScenario[] = this._benchmarkService.getScenarios(difficulty);
         const rankNames: string[] = this._benchmarkService.getRankNames(difficulty);
-        const maxRank: number = rankNames.length;
+        const estimateMap: RankEstimateMap = this._rankEstimator.getRankEstimateMap();
 
         const pool: BenchmarkScenario[] = scenarios.filter((scenario: BenchmarkScenario) => !excludeScenarios.includes(scenario.name));
-
         if (pool.length < 3) {
-            return this._getFallbackBatch(pool);
+            this._rankEstimator.initializePeakRanks(estimateMap);
+
+            return { names: this._getFallbackBatch(pool), estimateMap };
         }
 
-        const overallRank = this._rankEstimator.calculateHolisticEstimateRank(difficulty).continuousValue;
-        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool, maxRank, overallRank);
+        const overallRank = this._rankEstimator.calculateHolisticEstimateRank(difficulty, estimateMap).continuousValue;
+        const context: ScenarioMetricContext = { maxRank: rankNames.length, overallRank, estimateMap };
 
-        const previouslySelected = this._getPreviouslySelectedMetrics(scenarios, maxRank, overallRank, this._sequence);
-
-        const weakCandidates = this._getWeightedWeakScenarios(metrics);
-        if (weakCandidates.length === 0) {
-            return this._getFallbackBatch(pool);
-        }
-        this._logTopCandidates();
-        const weakMetric = weakCandidates[0].metric;
-
-        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== weakMetric.scenario.name);
-
-        const strongCandidates = this._getWeightedStrongScenarios(metrics, [...previouslySelected, weakMetric]);
-        if (strongCandidates.length === 0) {
-            return [weakMetric.scenario.name, ...this._getFallbackBatch(pool.filter((scenario: BenchmarkScenario) => scenario.name !== weakMetric.scenario.name))];
-        }
-        this._logTopCandidates();
-        const strongMetric = strongCandidates[0].metric;
-
-        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== strongMetric.scenario.name);
-
-        const diverseCandidates = this._getWeightedDiverseScenarios(metrics, [...previouslySelected, weakMetric, strongMetric]);
-        this._logTopCandidates();
-        const diverseMetric = diverseCandidates[0].metric;
-
-        return [weakMetric.scenario.name, strongMetric.scenario.name, diverseMetric.scenario.name];
+        return { names: this._selectWeightedBatch(scenarios, pool, context), estimateMap };
     }
 
-    private _logTopCandidates(): void {
-        // No-op - logs removed after diagnosis
+    private _selectWeightedBatch(
+        scenarios: BenchmarkScenario[],
+        pool: BenchmarkScenario[],
+        context: ScenarioMetricContext
+    ): string[] {
+        let metrics: ScenarioMetric[] = this._calculateScenarioMetrics(pool, context);
+        const previouslySelected = this._getPreviouslySelectedMetrics(scenarios, this._sequence, context);
+        const primaryCandidates = this._getPrimaryCandidates(metrics);
+        if (primaryCandidates.length === 0) {
+            return this._getFallbackBatch(pool);
+        }
+        const primaryMetric = primaryCandidates[0].metric;
+
+        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== primaryMetric.scenario.name);
+        const secondaryCandidates = this._getSecondaryCandidates(metrics, [...previouslySelected, primaryMetric]);
+        if (secondaryCandidates.length === 0) {
+            const fallback = this._getFallbackBatch(pool.filter((scenario: BenchmarkScenario) => scenario.name !== primaryMetric.scenario.name));
+
+            return [primaryMetric.scenario.name, ...fallback];
+        }
+        const secondaryMetric = secondaryCandidates[0].metric;
+
+        metrics = metrics.filter((metric: ScenarioMetric) => metric.scenario.name !== secondaryMetric.scenario.name);
+        const coverageCandidates = this._getCoverageCandidates(
+            metrics,
+            [...previouslySelected, primaryMetric, secondaryMetric],
+        );
+        const coverageMetric = coverageCandidates[0].metric;
+
+        return [primaryMetric.scenario.name, secondaryMetric.scenario.name, coverageMetric.scenario.name];
     }
 
     private _getFallbackBatch(pool: BenchmarkScenario[]): string[] {
@@ -643,21 +709,21 @@ export class RankedSessionService {
             .map((scenario: BenchmarkScenario) => scenario.name);
     }
 
-    private _calculateScenarioMetrics(pool: BenchmarkScenario[], maxRank: number, overallRank: number): ScenarioMetric[] {
+    private _calculateScenarioMetrics(pool: BenchmarkScenario[], context: ScenarioMetricContext): ScenarioMetric[] {
         return pool.map((scenario: BenchmarkScenario) => {
-            const estimate = this._rankEstimator.getScenarioEstimate(scenario.name);
+            const estimate = this._rankEstimator.getScenarioEstimate(scenario.name, context.estimateMap);
             const rawCurrent: number = estimate.continuousValue === -1 ? 0 : estimate.continuousValue;
             const rawPeak: number = estimate.highestAchieved === -1 ? 0 : estimate.highestAchieved;
             const penalty: number = estimate.penalty || 0;
 
             const current = rawCurrent;
             const peak = rawPeak;
-            const visibleGap = Math.max(0, Math.min(peak, maxRank) - current);
-            const overrankGap = Math.max(0, peak - maxRank);
+            const visibleGap = Math.max(0, Math.min(peak, context.maxRank) - current);
+            const overrankGap = Math.max(0, peak - context.maxRank);
             const scenarioGap = visibleGap + 0.5 * overrankGap;
             const fallbackTarget = peak > 0
-                ? Math.max(peak - 2, 0, overallRank)
-                : Math.max(overallRank, 0);
+                ? Math.max(peak - 2, 0, context.overallRank)
+                : Math.max(context.overallRank, 0);
             const fallbackGap = Math.max(0, fallbackTarget - current);
             const scaledGap = Math.max(scenarioGap, fallbackGap);
 
@@ -673,19 +739,18 @@ export class RankedSessionService {
 
     private _getPreviouslySelectedMetrics(
         scenarios: BenchmarkScenario[],
-        maxRank: number,
-        overallRank: number,
-        selectedScenarioNames: string[]
+        selectedScenarioNames: string[],
+        context: ScenarioMetricContext
     ): ScenarioMetric[] {
         const scenarioLookup = new Map(scenarios.map((scenario: BenchmarkScenario) => [scenario.name, scenario]));
 
         return selectedScenarioNames
             .map((name: string) => scenarioLookup.get(name))
             .filter((scenario): scenario is BenchmarkScenario => scenario !== undefined)
-            .map((scenario: BenchmarkScenario) => this._calculateScenarioMetrics([scenario], maxRank, overallRank)[0]);
+            .map((scenario: BenchmarkScenario) => this._calculateScenarioMetrics([scenario], context)[0]);
     }
 
-    private _getWeightedStrongScenarios(
+    private _getSecondaryCandidates(
         metrics: ScenarioMetric[],
         selectedMetrics: ScenarioMetric[]
     ): { metric: ScenarioMetric; weight: number }[] {
@@ -698,13 +763,13 @@ export class RankedSessionService {
             .sort((a, b) => b.weight - a.weight || a.metric.scenario.name.localeCompare(b.metric.scenario.name));
     }
 
-    private _getWeightedWeakScenarios(metrics: ScenarioMetric[]): { metric: ScenarioMetric; weight: number }[] {
+    private _getPrimaryCandidates(metrics: ScenarioMetric[]): { metric: ScenarioMetric; weight: number }[] {
         return metrics
             .map(metric => ({ metric, weight: metric.scaledGap - metric.current - metric.penalty }))
             .sort((a, b) => b.weight - a.weight || a.metric.scenario.name.localeCompare(b.metric.scenario.name));
     }
 
-    private _getWeightedDiverseScenarios(metrics: ScenarioMetric[], selectedMetrics: ScenarioMetric[]): { metric: ScenarioMetric; diversity: number; weight: number }[] {
+    private _getCoverageCandidates(metrics: ScenarioMetric[], selectedMetrics: ScenarioMetric[]): { metric: ScenarioMetric; diversity: number; weight: number }[] {
         return metrics.map(metric => {
             const diversity = this._calculateAccumulatedDiversity(metric, selectedMetrics);
             const weight = metric.scaledGap - metric.penalty;
@@ -740,9 +805,9 @@ export class RankedSessionService {
     private _subscribeToSessionEvents(): void {
         this._sessionService.onSessionUpdated((updatedScenarioNames?: string[]): void => {
             if (updatedScenarioNames && updatedScenarioNames.length > 0) {
-                this._resetTimerOnScore();
+                this._recordScoreActivity();
 
-                if (this._status === "ACTIVE") {
+                if (this._status === "ACTIVE" && !this._isPaused) {
                     this._rankEstimator.applyPenaltyLift();
 
                     updatedScenarioNames.forEach(name => {
@@ -766,30 +831,59 @@ export class RankedSessionService {
 
         const allRuns = this._sessionService.getAllRankedSessionRuns();
         const scenarios = this._benchmarkService.getScenarios(difficulty);
+        const scenarioLookup = this._indexScenariosByName(scenarios);
+        const scoresByScenario = this._groupScoresByScenario(allRuns);
+        const evolutions: ScenarioEstimateEvolution[] = [];
 
-        this._playedScenarios.forEach(scenarioName => {
-            const scenario = scenarios.find((ref) => ref.name === scenarioName);
-            if (!scenario) return;
+        for (const scenarioName of this._playedScenarios) {
+            const scenario = scenarioLookup.get(scenarioName);
+            if (!scenario) continue;
 
-            const runs = allRuns
-                .filter((run) => run.scenarioName === scenarioName)
-                .map((run) => run.score);
+            const scores = scoresByScenario.get(scenarioName);
+            if (!scores || scores.length === 0) continue;
 
-            if (runs.length === 0) return;
-
-            const sorted = runs.sort((a, b) => b - a);
+            const sorted = scores.sort((scoreA, scoreB) => scoreB - scoreA);
             const effectiveScore = sorted.length >= 3 ? sorted[2] : 0;
 
             const sessionValue = this._rankEstimator.getScenarioContinuousValue(effectiveScore, scenario);
             const initialValue = this._initialEstimates[scenarioName];
             this._lastSessionAchievements[scenarioName] = sessionValue;
+            evolutions.push({ scenarioName, sessionRank: sessionValue, initialValue });
+        }
 
-            this._rankEstimator.evolveScenarioEstimate(scenarioName, sessionValue, initialValue);
-        });
+        this._rankEstimator.evolveScenarioEstimates(evolutions);
     }
 
-    private _resetTimerOnScore(): void {
-        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
+    private _indexScenariosByName(scenarios: BenchmarkScenario[]): Map<string, BenchmarkScenario> {
+        const scenarioLookup = new Map<string, BenchmarkScenario>();
+        for (const scenario of scenarios) {
+            if (!scenarioLookup.has(scenario.name)) {
+                scenarioLookup.set(scenario.name, scenario);
+            }
+        }
+
+        return scenarioLookup;
+    }
+
+    private _groupScoresByScenario(
+        runs: readonly { readonly scenarioName: string; readonly score: number }[]
+    ): Map<string, number[]> {
+        const scoresByScenario = new Map<string, number[]>();
+
+        for (const run of runs) {
+            const scores = scoresByScenario.get(run.scenarioName);
+            if (scores) {
+                scores.push(run.score);
+            } else {
+                scoresByScenario.set(run.scenarioName, [run.score]);
+            }
+        }
+
+        return scoresByScenario;
+    }
+
+    private _recordScoreActivity(): void {
+        if (this._isPaused || (this._status !== "ACTIVE" && this._status !== "COMPLETED")) {
             return;
         }
 
@@ -802,10 +896,14 @@ export class RankedSessionService {
 
         const latestTime = new Date(latestTimestamp).toISOString();
 
-        if (!this._startTime || latestTime > this._startTime) {
-            this._startTime = latestTime;
+        if (!this._lastActivityTime || latestTime > this._lastActivityTime) {
+            this._lastActivityTime = latestTime;
             this._saveToLocalStorage();
         }
+    }
+
+    private _markActivity(): void {
+        this._lastActivityTime = new Date().toISOString();
     }
 
     private _saveToLocalStorage(): void {
@@ -813,8 +911,10 @@ export class RankedSessionService {
 
         const state: PersistentRankedState = {
             status: this._status,
+            isPaused: this._isPaused,
             difficulty: this._difficulty,
             startTime: this._startTime,
+            lastActivityTime: this._lastActivityTime,
             rankedSessionId: this._rankedSessionId,
             scenarioStartTime: this._scenarioStartTime,
             difficultyStates: this._difficultyStates,
@@ -842,8 +942,10 @@ export class RankedSessionService {
 
     private _resetToIdle(): void {
         this._status = "IDLE";
+        this._isPaused = false;
         this._difficulty = null;
         this._startTime = null;
+        this._lastActivityTime = null;
         this._rankedSessionId = null;
         this._scenarioStartTime = null;
         this._sequence = [];
@@ -859,8 +961,10 @@ export class RankedSessionService {
 
     private _applyPersistentState(state: PersistentRankedState): void {
         this._status = state.status;
+        this._isPaused = state.isPaused === true;
         this._difficulty = state.difficulty;
         this._startTime = state.startTime;
+        this._lastActivityTime = state.lastActivityTime ?? state.startTime;
         this._rankedSessionId = state.rankedSessionId;
         this._scenarioStartTime = state.scenarioStartTime;
         this._difficultyStates = state.difficultyStates || {};
@@ -877,12 +981,41 @@ export class RankedSessionService {
             this._lastSessionAchievements = {};
             this._accumulatedScenarioSeconds = new Map();
         }
+
+        if (this._isPaused) {
+            this._scenarioStartTime = null;
+            this._sessionService.stopRankedSession();
+        } else if (this._hasInactivityExpired()) {
+            this._pauseAtInactivityDeadline();
+        }
     }
 
-    private _recordInitialEstimates(scenarioNames: string[]): void {
+    private _hasInactivityExpired(): boolean {
+        if ((this._status !== "ACTIVE" && this._status !== "COMPLETED") || !this._lastActivityTime) {
+            return false;
+        }
+
+        const timeoutMilliseconds: number =
+            this._sessionSettings.getSettings().rankedIntervalMinutes * 60 * 1000;
+
+        return Date.now() - new Date(this._lastActivityTime).getTime() >= timeoutMilliseconds;
+    }
+
+    private _pauseAtInactivityDeadline(): void {
+        const timeoutMilliseconds: number =
+            this._sessionSettings.getSettings().rankedIntervalMinutes * 60 * 1000;
+        const lastActivity: number = new Date(this._lastActivityTime!).getTime();
+        this._snapshotScenarioTime(lastActivity + timeoutMilliseconds);
+        this._isPaused = true;
+        this._scenarioStartTime = null;
+        this._sessionService.stopRankedSession();
+        this._saveToLocalStorage();
+    }
+
+    private _recordInitialEstimates(scenarioNames: string[], estimateMap: RankEstimateMap): void {
         for (const name of scenarioNames) {
             if (!(name in this._initialEstimates)) {
-                this._initialEstimates[name] = this._rankEstimator.getScenarioEstimate(name).continuousValue;
+                this._initialEstimates[name] = this._rankEstimator.getScenarioEstimate(name, estimateMap).continuousValue;
             }
         }
     }
@@ -891,13 +1024,12 @@ export class RankedSessionService {
         this._onStateChanged.forEach((callback: () => void): void => callback());
     }
 
-    private _snapshotScenarioTime(): void {
+    private _snapshotScenarioTime(endTime: number = Date.now()): void {
         const current = this.currentScenarioName;
         if (!current || !this._scenarioStartTime) return;
 
         const start: number = new Date(this._scenarioStartTime).getTime();
-        const now: number = Date.now();
-        const elapsed = Math.floor((now - start) / 1000);
+        const elapsed = Math.max(0, Math.floor((endTime - start) / 1000));
 
         const existing = this._accumulatedScenarioSeconds.get(current) || 0;
         this._accumulatedScenarioSeconds.set(current, existing + elapsed);

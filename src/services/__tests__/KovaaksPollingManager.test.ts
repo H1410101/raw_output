@@ -14,6 +14,7 @@ let dependencies: KovaaksPollingDependencies;
 let tabChangeCallback: () => void = () => { };
 let difficultyChangeCallback: () => void = () => { };
 let profileChangeCallback: () => void = () => { };
+let rankedStateChangeCallback: () => void = () => { };
 
 describe("KovaaksPollingManager: Initial Sync", () => {
     beforeEach(() => {
@@ -34,10 +35,11 @@ describe("KovaaksPollingManager: Initial Sync", () => {
 });
 
 describe("KovaaksPollingManager: Difficulty Triggers", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.useFakeTimers();
         dependencies = _createMockDependencies();
         new KovaaksPollingManager(dependencies);
+        await vi.runAllTimersAsync();
     });
 
     afterEach(() => {
@@ -65,10 +67,11 @@ describe("KovaaksPollingManager: Difficulty Triggers", () => {
 });
 
 describe("KovaaksPollingManager: Tab/Profile Triggers", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.useFakeTimers();
         dependencies = _createMockDependencies();
         new KovaaksPollingManager(dependencies);
+        await vi.runAllTimersAsync();
     });
 
     afterEach(() => {
@@ -99,11 +102,12 @@ describe("KovaaksPollingManager: Tab/Profile Triggers", () => {
 });
 
 const setupPoll = async (manager: KovaaksPollingManager): Promise<void> => {
+    await vi.runAllTimersAsync();
+    vi.setSystemTime(2_000_000);
     const newScore = { attributes: { score: 100, epoch: "2000" } };
     (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockResolvedValue([newScore]);
     (dependencies.history.getLastScores as Mock).mockResolvedValue([]);
-    // @ts-expect-error - accessing private method for testing
-    await manager._pollScenario("Scenario A");
+    await _pollScenarioForTest(manager, "Scenario A");
 };
 
 describe("KovaaksPollingManager: Score Recording", () => {
@@ -151,9 +155,334 @@ describe("KovaaksPollingManager: Run Registration", () => {
     });
 });
 
+describe("KovaaksPollingManager: Overlap Safety", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        dependencies = _createMockDependencies();
+        (dependencies.benchmark.getScenarios as Mock).mockReturnValue([]);
+    });
+
+    afterEach(_teardown);
+
+    it("should coalesce overlapping polls for the same profile and scenario", async () => {
+        let resolveFetch: (scores: never[]) => void = (): void => { };
+        const pendingFetch = new Promise<never[]>((resolve): void => {
+            resolveFetch = resolve;
+        });
+        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockReturnValue(pendingFetch);
+        const manager = new KovaaksPollingManager(dependencies);
+
+        const firstPoll = _pollScenarioForTest(manager, "Scenario A");
+        const secondPoll = _pollScenarioForTest(manager, "Scenario A");
+
+        expect(secondPoll).toBe(firstPoll);
+        expect(dependencies.kovaaksApi.fetchScenarioLastScores).toHaveBeenCalledTimes(1);
+
+        resolveFetch([]);
+        await Promise.all([firstPoll, secondPoll]);
+    });
+});
+
+describe("KovaaksPollingManager: Profile Safety", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        dependencies = _createMockDependencies();
+        (dependencies.benchmark.getScenarios as Mock).mockReturnValue([]);
+    });
+
+    afterEach(_teardown);
+
+    it("should discard a response after the active profile changes", async () => {
+        let resolveFetch: (scores: { attributes: { score: number; epoch: string } }[]) => void = (): void => { };
+        const pendingFetch = new Promise<{ attributes: { score: number; epoch: string } }[]>((resolve): void => {
+            resolveFetch = resolve;
+        });
+        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockReturnValue(pendingFetch);
+        const manager = new KovaaksPollingManager(dependencies);
+        const poll = _pollScenarioForTest(manager, "Scenario A");
+
+        (dependencies.identity.getActiveProfile as Mock).mockReturnValue({ username: "nextuser" });
+        profileChangeCallback();
+        resolveFetch([{ attributes: { score: 100, epoch: "2000" } }]);
+        await poll;
+
+        expect(dependencies.history.getLastScores).not.toHaveBeenCalled();
+        expect(dependencies.history.recordKovaaksScores).not.toHaveBeenCalled();
+        expect(dependencies.session.registerMultipleRuns).not.toHaveBeenCalled();
+    });
+
+    it("starts a separate same-scenario poll after the profile generation changes", _startsNewGenerationPoll);
+    it("discards an in-flight response when ranked is paused", _discardsPausedPoll);
+});
+
+describe("KovaaksPollingManager: Score Normalization", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        dependencies = _createMockDependencies();
+    });
+
+    afterEach(_teardown);
+
+    it("should reject non-finite scores and process accepted scores chronologically", async () => {
+        const manager = new KovaaksPollingManager(dependencies);
+        await vi.runAllTimersAsync();
+        vi.setSystemTime(3_000_000);
+        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockResolvedValue([
+            { attributes: { score: 200, epoch: "3000" } },
+            { attributes: { score: "100", epoch: "2000" } },
+            { attributes: { score: Infinity, epoch: "4000" } },
+            { attributes: { score: 300, epoch: "Infinity" } }
+        ]);
+        (dependencies.history.getLastScores as Mock).mockResolvedValue([]);
+
+        await _pollScenarioForTest(manager, "Scenario A");
+
+        _expectChronologicalScores();
+    });
+
+    it("does not treat historical API backfills as current activity", _ignoresBackfilledActivity);
+    it.each([
+        [2, false],
+        [30, true],
+    ])("uses a %i-minute configured activity window", _usesConfiguredActivityWindow);
+    it("rejects scores older than the active ranked operation", _respectsRankedBoundary);
+});
+
+async function _startsNewGenerationPoll(): Promise<void> {
+    let resolveFirstFetch: (scores: never[]) => void = (): void => undefined;
+    const firstFetch = new Promise<never[]>((resolve): void => {
+        resolveFirstFetch = resolve;
+    });
+    (dependencies.kovaaksApi.fetchScenarioLastScores as Mock)
+        .mockReturnValueOnce(firstFetch)
+        .mockResolvedValueOnce([]);
+    const manager = new KovaaksPollingManager(dependencies);
+
+    const firstPoll: Promise<boolean> = _pollScenarioForTest(manager, "Scenario A");
+    (dependencies.identity.getActiveProfile as Mock).mockReturnValue({ username: "nextuser" });
+    profileChangeCallback();
+    const nextPoll: Promise<boolean> = _pollScenarioForTest(manager, "Scenario A");
+
+    expect(nextPoll).not.toBe(firstPoll);
+    expect(dependencies.kovaaksApi.fetchScenarioLastScores).toHaveBeenNthCalledWith(
+        2,
+        "nextuser",
+        "Scenario A",
+    );
+
+    resolveFirstFetch([]);
+    await expect(firstPoll).resolves.toBe(false);
+    await expect(nextPoll).resolves.toBe(true);
+}
+
+async function _discardsPausedPoll(): Promise<void> {
+    let resolveFetch: (scores: { attributes: { score: number; epoch: string } }[]) => void = (): void => undefined;
+    const pendingFetch = new Promise<{ attributes: { score: number; epoch: string } }[]>((resolve): void => {
+        resolveFetch = resolve;
+    });
+    (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockReturnValue(pendingFetch);
+    const manager = new KovaaksPollingManager(dependencies);
+    const poll = _pollScenarioForTest(manager, "Scenario A");
+
+    (dependencies.rankedSession as unknown as { state: { status: string; isPaused: boolean } }).state = {
+        status: "ACTIVE",
+        isPaused: true,
+    };
+    rankedStateChangeCallback();
+    resolveFetch([{ attributes: { score: 100, epoch: "2000" } }]);
+    await poll;
+
+    expect(dependencies.history.getLastScores).not.toHaveBeenCalled();
+    expect(dependencies.session.registerMultipleRuns).not.toHaveBeenCalled();
+}
+
+async function _ignoresBackfilledActivity(): Promise<void> {
+    const manager = new KovaaksPollingManager(dependencies);
+    await vi.runAllTimersAsync();
+    vi.setSystemTime(20 * 60 * 1000);
+    const activitySpy = vi.spyOn(manager, "notifyLocalActivity");
+    (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockResolvedValue([
+        { attributes: { score: 100, epoch: "1" } },
+    ]);
+
+    await _pollScenarioForTest(manager, "Scenario A");
+
+    expect(activitySpy).not.toHaveBeenCalled();
+    expect(dependencies.focus.focusScenario).not.toHaveBeenCalled();
+    expect(dependencies.history.recordKovaaksScores).toHaveBeenCalledOnce();
+    expect(dependencies.session.registerMultipleRuns).not.toHaveBeenCalled();
+}
+
+async function _usesConfiguredActivityWindow(timeoutMinutes: number, shouldRegister: boolean): Promise<void> {
+    Object.defineProperty(dependencies.session, "sessionTimeoutMilliseconds", {
+        configurable: true,
+        value: timeoutMinutes * 60 * 1000,
+    });
+    const manager = new KovaaksPollingManager(dependencies);
+    await vi.runAllTimersAsync();
+    vi.setSystemTime(30 * 60 * 1000);
+    (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockResolvedValue([
+        { attributes: { score: 100, epoch: "600" } },
+    ]);
+
+    await _pollScenarioForTest(manager, "Scenario A");
+
+    if (shouldRegister) {
+        expect(dependencies.session.registerMultipleRuns).toHaveBeenCalledOnce();
+    } else {
+        expect(dependencies.session.registerMultipleRuns).not.toHaveBeenCalled();
+    }
+}
+
+async function _respectsRankedBoundary(): Promise<void> {
+    Object.defineProperty(dependencies.session, "sessionTimeoutMilliseconds", { value: 30 * 60 * 1000 });
+    Object.defineProperty(dependencies.session, "rankedStartTime", { value: 20 * 60 * 1000 });
+    (dependencies.rankedSession as unknown as { state: { status: string } }).state = { status: "ACTIVE" };
+    const manager = new KovaaksPollingManager(dependencies);
+    await vi.runAllTimersAsync();
+    vi.setSystemTime(30 * 60 * 1000);
+    (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockResolvedValue([
+        { attributes: { score: 100, epoch: "1000" } },
+    ]);
+
+    await _pollScenarioForTest(manager, "Scenario A");
+
+    expect(dependencies.session.registerMultipleRuns).not.toHaveBeenCalled();
+}
+
+describe("KovaaksPollingManager: Initial Sync Retry", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        dependencies = _createMockDependencies();
+        (dependencies.benchmark.getScenarios as Mock).mockReturnValue([{ name: "Scenario A" }]);
+    });
+
+    afterEach(_teardown);
+
+    it("should retry a difficulty sync after its first request fails", async () => {
+        vi.spyOn(console, "error").mockImplementation((): void => undefined);
+        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock)
+            .mockRejectedValueOnce(new Error("temporary failure"))
+            .mockResolvedValueOnce([]);
+
+        new KovaaksPollingManager(dependencies);
+        await vi.runAllTimersAsync();
+        difficultyChangeCallback();
+        await vi.runAllTimersAsync();
+
+        expect(dependencies.kovaaksApi.fetchScenarioLastScores).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe("KovaaksPollingManager: Idle Ranked Polling", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        dependencies = _createMockDependencies();
+        (dependencies.appState.getActiveTabId as Mock).mockReturnValue("nav-ranked");
+        (dependencies.focus.getFocusState as Mock).mockReturnValue({ scenarioName: "Scenario A" });
+    });
+
+    afterEach(_teardown);
+
+    it("does not repeatedly poll merely because the ranked tab is open", async () => {
+        new KovaaksPollingManager(dependencies);
+        await vi.runAllTimersAsync();
+        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockClear();
+
+        await vi.advanceTimersByTimeAsync(30_000);
+
+        expect(dependencies.kovaaksApi.fetchScenarioLastScores).not.toHaveBeenCalled();
+    });
+});
+
+describe("KovaaksPollingManager: Active Timer Lifecycle", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        dependencies = _createMockDependencies();
+        (dependencies.appState.getActiveTabId as Mock).mockReturnValue("nav-ranked");
+        (dependencies.focus.getFocusState as Mock).mockReturnValue({ scenarioName: "Scenario A" });
+        (dependencies.benchmark.getScenarios as Mock).mockReturnValue([]);
+        (dependencies.rankedSession as unknown as { state: { status: string } }).state = { status: "ACTIVE" };
+    });
+
+    afterEach(_teardown);
+
+    it("stops active and batch timers when the ranked session becomes idle", async () => {
+        new KovaaksPollingManager(dependencies);
+        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockClear();
+
+        (dependencies.rankedSession as unknown as { state: { status: string } }).state = { status: "IDLE" };
+        rankedStateChangeCallback();
+        await vi.advanceTimersByTimeAsync(30_000);
+
+        expect(dependencies.kovaaksApi.fetchScenarioLastScores).not.toHaveBeenCalled();
+    });
+
+    it("stops active and batch timers when the ranked session is paused", async () => {
+        new KovaaksPollingManager(dependencies);
+        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockClear();
+
+        (dependencies.rankedSession as unknown as { state: { status: string; isPaused: boolean } }).state = {
+            status: "ACTIVE",
+            isPaused: true,
+        };
+        rankedStateChangeCallback();
+        await vi.advanceTimersByTimeAsync(30_000);
+
+        expect(dependencies.kovaaksApi.fetchScenarioLastScores).not.toHaveBeenCalled();
+    });
+});
+
+describe("KovaaksPollingManager: Persistence Retry", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        dependencies = _createMockDependencies();
+    });
+
+    afterEach(_teardown);
+
+    it("does not advance score history when the highscore update fails", async () => {
+        vi.spyOn(console, "error").mockImplementation((): void => undefined);
+        const manager = new KovaaksPollingManager(dependencies);
+        await vi.runAllTimersAsync();
+        vi.setSystemTime(2_000_000);
+        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockResolvedValue([
+            { attributes: { score: 100, epoch: "2000" } },
+        ]);
+        (dependencies.history.updateMultipleHighscores as Mock)
+            .mockRejectedValueOnce(new Error("temporary failure"))
+            .mockResolvedValueOnce(undefined);
+
+        await _pollScenarioForTest(manager, "Scenario A");
+        await _pollScenarioForTest(manager, "Scenario A");
+
+        expect(dependencies.history.recordKovaaksScores).toHaveBeenCalledOnce();
+        expect(dependencies.session.registerMultipleRuns).toHaveBeenCalledOnce();
+    });
+});
+
 function _teardown(): void {
     vi.restoreAllMocks();
     vi.useRealTimers();
+}
+
+function _pollScenarioForTest(manager: KovaaksPollingManager, scenarioName: string): Promise<boolean> {
+    // @ts-expect-error - exercising private polling orchestration directly
+    return manager._pollScenario(scenarioName);
+}
+
+function _expectChronologicalScores(): void {
+    expect(dependencies.history.recordKovaaksScores).toHaveBeenCalledWith(
+        "testuser",
+        "Scenario A",
+        [
+            { score: 100, date: "2000000" },
+            { score: 200, date: "3000000" }
+        ]
+    );
+    expect(dependencies.session.registerMultipleRuns).toHaveBeenCalledWith([
+        expect.objectContaining({ score: 200, timestamp: new Date(3000000) })
+    ]);
 }
 
 function _createMockDependencies(): KovaaksPollingDependencies {
@@ -207,8 +536,10 @@ function _createVisualSettingsMock(): VisualSettingsService {
 
 function _createRankedSessionMock(): RankedSessionService {
     return {
-        state: { status: "IDLE" },
-        onStateChanged: vi.fn()
+        state: { status: "IDLE", isPaused: false },
+        onStateChanged: vi.fn().mockImplementation((callback: () => void) => {
+            rankedStateChangeCallback = callback;
+        })
     } as unknown as RankedSessionService;
 }
 
@@ -216,7 +547,9 @@ function _createSessionMock(): SessionService {
     return {
         getRankedPlaylist: vi.fn().mockReturnValue(null),
         registerMultipleRuns: vi.fn(),
-        isSessionActive: vi.fn().mockReturnValue(false)
+        isSessionActive: vi.fn().mockReturnValue(false),
+        sessionTimeoutMilliseconds: 15 * 60 * 1000,
+        rankedStartTime: null,
     } as unknown as SessionService;
 }
 

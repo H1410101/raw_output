@@ -129,21 +129,18 @@ export class KovaaksUserSearchComponent {
     }
 
     private _handleInput(query: string): void {
-        if (this._searchTimeoutId !== null) {
-            window.clearTimeout(this._searchTimeoutId);
-        }
+        const requestId = this._invalidatePendingSearch();
 
-        this._searchTimeoutId = window.setTimeout(async () => {
-            await this._performSearch(query);
+        this._searchTimeoutId = window.setTimeout(() => {
+            this._searchTimeoutId = null;
+            void this._performSearch(query, requestId);
         }, 300);
     }
 
-    private async _performSearch(query: string): Promise<void> {
-        if (!this._resultsContainer) {
+    private async _performSearch(query: string, requestId: number): Promise<void> {
+        if (!this._resultsContainer || this._isRequestStale(requestId)) {
             return;
         }
-
-        const requestId = ++this._lastSearchRequestId;
 
         if (query.trim().length === 0) {
             this._renderPlaceholder("Enter a username to search.");
@@ -171,13 +168,7 @@ export class KovaaksUserSearchComponent {
     }
 
     private _isRequestStale(requestId: number): boolean {
-        const isStale = requestId !== this._lastSearchRequestId;
-
-        if (isStale) {
-            // Request is stale, ignore result
-        }
-
-        return isStale;
+        return requestId !== this._lastSearchRequestId;
     }
 
     private _handleSearchResults(results: KovaaksUserSearchResult[], requestId: number): void {
@@ -203,14 +194,18 @@ export class KovaaksUserSearchComponent {
         if (!this._resultsContainer) {
             return;
         }
-        this._resultsContainer.innerHTML = `<div class="search-placeholder">${text}</div>`;
+
+        const placeholder: HTMLDivElement = document.createElement("div");
+        placeholder.className = "search-placeholder";
+        placeholder.textContent = text;
+        this._resultsContainer.replaceChildren(placeholder);
     }
 
     private _renderResults(results: KovaaksUserSearchResult[]): void {
         if (!this._resultsContainer) {
             return;
         }
-        this._resultsContainer.innerHTML = "";
+        this._resultsContainer.replaceChildren();
 
         if (results.length === 0) {
             this._renderPlaceholder("No users found.");
@@ -231,22 +226,63 @@ export class KovaaksUserSearchComponent {
         const item: HTMLDivElement = document.createElement("div");
         item.className = "search-result-item";
 
-        const avatarHtml: string = `<img src="${user.steamAccountAvatar}" class="result-avatar" />`;
-        const rankHtml: string = user.rank ? `<span class="result-rank">Rank #${user.rank}</span>` : "";
-        const countryHtml: string = user.country ? `<span class="result-country">${user.country}</span>` : "";
-        const secondaryName: string = user.steamAccountName ? `<span class="result-meta">(${user.steamAccountName})</span>` : "";
+        const avatar: HTMLImageElement = document.createElement("img");
+        avatar.className = "result-avatar";
+        this._setSafeImageSource(avatar, user.steamAccountAvatar);
 
-        item.innerHTML = `
-      ${avatarHtml}
-      <div class="result-info">
-        <div class="result-username">${user.username} ${secondaryName}</div>
-        <div class="result-meta">${rankHtml}${countryHtml}</div>
-      </div>
-    `;
-
+        item.append(avatar, this._createResultInfo(user));
         item.addEventListener("click", () => this._selectUser(user));
 
         return item;
+    }
+
+    private _createResultInfo(user: KovaaksUserSearchResult): HTMLElement {
+        const info: HTMLDivElement = document.createElement("div");
+        info.className = "result-info";
+
+        const username: HTMLDivElement = document.createElement("div");
+        username.className = "result-username";
+        username.appendChild(document.createTextNode(`${user.username} `));
+        if (user.steamAccountName) {
+            const secondaryName: HTMLSpanElement = document.createElement("span");
+            secondaryName.className = "result-meta";
+            secondaryName.textContent = `(${user.steamAccountName})`;
+            username.appendChild(secondaryName);
+        }
+
+        info.append(username, this._createResultMetadata(user));
+
+        return info;
+    }
+
+    private _createResultMetadata(user: KovaaksUserSearchResult): HTMLElement {
+        const metadata: HTMLDivElement = document.createElement("div");
+        metadata.className = "result-meta";
+        if (user.rank) {
+            const rank: HTMLSpanElement = document.createElement("span");
+            rank.className = "result-rank";
+            rank.textContent = `Rank #${user.rank}`;
+            metadata.appendChild(rank);
+        }
+        if (user.country) {
+            const country: HTMLSpanElement = document.createElement("span");
+            country.className = "result-country";
+            country.textContent = user.country;
+            metadata.appendChild(country);
+        }
+
+        return metadata;
+    }
+
+    private _setSafeImageSource(image: HTMLImageElement, source: string): void {
+        try {
+            const url: URL = new URL(source);
+            if (url.protocol === "http:" || url.protocol === "https:") {
+                image.src = url.toString();
+            }
+        } catch {
+            // Leave malformed avatar URLs unset.
+        }
     }
 
     private _selectUser(user: KovaaksUserSearchResult): void {
@@ -264,7 +300,17 @@ export class KovaaksUserSearchComponent {
     }
 
     private _close(overlay: HTMLElement): void {
+        this._invalidatePendingSearch();
         overlay.remove();
         this._onClose.forEach((callback) => callback());
+    }
+
+    private _invalidatePendingSearch(): number {
+        if (this._searchTimeoutId !== null) {
+            window.clearTimeout(this._searchTimeoutId);
+            this._searchTimeoutId = null;
+        }
+
+        return ++this._lastSearchRequestId;
     }
 }

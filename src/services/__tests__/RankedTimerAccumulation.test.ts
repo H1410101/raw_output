@@ -28,6 +28,7 @@ function _createBenchmarkMock(): BenchmarkService {
 function _createSessionMock(): SessionService {
     return {
         startRankedSession: vi.fn(),
+        resumeRankedSession: vi.fn(),
         stopRankedSession: vi.fn(),
         onSessionUpdated: vi.fn(),
         getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
@@ -39,6 +40,7 @@ function _createSessionMock(): SessionService {
 
 function _createEstimatorMock(): RankEstimator {
     return {
+        getRankEstimateMap: vi.fn().mockReturnValue({}),
         getScenarioEstimate: vi.fn().mockReturnValue({
             continuousValue: 1.0,
             highestAchieved: 1.0,
@@ -51,6 +53,7 @@ function _createEstimatorMock(): RankEstimator {
         recordPlay: vi.fn(),
         getScenarioContinuousValue: vi.fn().mockReturnValue(1.0),
         evolveScenarioEstimate: vi.fn(),
+        evolveScenarioEstimates: vi.fn(),
         initializePeakRanks: vi.fn(),
         applyPenaltyLift: vi.fn(),
     } as unknown as RankEstimator;

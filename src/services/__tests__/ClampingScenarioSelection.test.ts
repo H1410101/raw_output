@@ -39,7 +39,7 @@ describe("RankedSessionService: RU Clamping", (): void => {
         });
     });
 
-    it("should preserve overrank maintenance value in the strong slot", (): void => {
+    it("should preserve overrank maintenance value in the secondary slot", (): void => {
         _setupClampingTest(mockBenchmark, mockEstimator);
 
         service.startSession("Gold");
@@ -76,6 +76,7 @@ function _createSessionMock(): SessionService {
         onSessionUpdated: vi.fn(),
         resetSession: vi.fn(),
         startRankedSession: vi.fn(),
+        resumeRankedSession: vi.fn(),
         stopRankedSession: vi.fn(),
         getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
         getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
@@ -85,11 +86,13 @@ function _createSessionMock(): SessionService {
 
 function _createEstimatorMock(): RankEstimator {
     return {
+        getRankEstimateMap: vi.fn().mockReturnValue({}),
         getScenarioEstimate: vi.fn(),
         recordPlay: vi.fn(),
         initializePeakRanks: vi.fn(),
         applyPenaltyLift: vi.fn(),
         calculateHolisticEstimateRank: vi.fn().mockReturnValue({ rankName: "R4", color: "", progressToNext: 0, continuousValue: 4.5 }),
+        evolveScenarioEstimates: vi.fn(),
     } as unknown as RankEstimator;
 }
 
