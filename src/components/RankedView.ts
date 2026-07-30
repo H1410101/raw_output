@@ -969,10 +969,12 @@ export class RankedView {
     return `
       <div class="ranked-info-top">
           <span class="now-playing">NOW PLAYING</span>
-          <h2 class="ranked-scenario-name">${scenarioName}</h2>
-          <button class="media-btn ranked-header-help" id="ranked-help-btn" aria-label="Ranked help">
-            <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
-          </button>
+          <div class="ranked-title-row">
+            <h2 class="ranked-scenario-name">${scenarioName}</h2>
+            <button class="media-btn ranked-header-help" id="ranked-help-btn" aria-label="Ranked help">
+              <svg viewBox="0 0 24 24"><path d="M13 19h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
+            </button>
+          </div>
       </div>
       ${this._renderRankTimeline(scenarioName)}
       ${this._renderMediaControls(state)}
