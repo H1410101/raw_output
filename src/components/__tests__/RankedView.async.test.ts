@@ -185,6 +185,11 @@ describe("RankedView async and pause states", (): void => {
     await view.render();
     vi.advanceTimersByTime(1_000);
 
+    const rankedContainer = container.querySelector<HTMLElement>(".ranked-view-container")!;
+    const timelineContainer = container.querySelector<HTMLElement>(".rank-timeline-container")!;
+    expect(timelineContainer.getBoundingClientRect().width)
+      .toBeCloseTo(rankedContainer.getBoundingClientRect().width);
+    expect(container.querySelector(".ranked-title-row #ranked-help-btn")).not.toBeNull();
     expect(container.querySelector("#hud-session-stats")?.textContent).toBe("0 | 0:45");
     view.destroy();
   });

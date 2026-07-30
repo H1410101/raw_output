@@ -316,12 +316,16 @@
 }
 
 .ranked-header-help {
-    position: absolute;
-    right: 0;
-    top: 50%;
     width: calc(1.8rem * var(--label-font-multiplier));
     height: calc(1.8rem * var(--label-font-multiplier));
-    transform: translateY(-50%);
+    color: var(--lower-band-1);
+}
+
+.ranked-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(0.35rem * var(--label-font-multiplier));
 }
 
 .ranked-pause-overlay {
