@@ -317,7 +317,7 @@ export class SettingsSectionRenderer {
     const options: number[] = [2, 3, 5, 8, 10, 15];
 
     return SettingsUiFactory.createSlider({
-      label: "Ranked Interval",
+      label: "Ranked Auto-Pause",
       value: sessionSettings.rankedIntervalMinutes,
       options,
       unit: " min",

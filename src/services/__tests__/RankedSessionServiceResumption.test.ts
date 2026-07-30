@@ -27,6 +27,7 @@ function _createSessionMock(): SessionService {
     return {
         onSessionUpdated: vi.fn(),
         startRankedSession: vi.fn(),
+        resumeRankedSession: vi.fn(),
         stopRankedSession: vi.fn(),
         getAllRankedScenarioBests: vi.fn().mockReturnValue([]),
         getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
@@ -85,6 +86,44 @@ describe("RankedSessionService Resumption (Basic)", () => {
         expect(service.state.sequence).toEqual(sequence);
         service.retreat();
         expect(service.state.currentIndex).toBe(0);
+
+        service.pause();
+        const restored = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
+        expect(restored.state.isPaused).toBe(true);
+        expect(restored.state.currentIndex).toBe(0);
+    });
+});
+
+describe("RankedSessionService Resumption (Expired)", (): void => {
+    it("should restore an expired session already paused at its deadline", (): void => {
+        vi.useFakeTimers();
+        const startedAt = new Date("2026-07-30T10:00:00.000Z");
+        vi.setSystemTime(new Date("2026-07-30T10:02:00.000Z"));
+        const mocks: MockSet = _createResumptionMocks();
+        (mocks.settings.getSettings as Mock).mockReturnValue({ rankedIntervalMinutes: 1 });
+        localStorage.setItem("ranked_session_state_v2_testuser", JSON.stringify({
+            status: "ACTIVE",
+            isPaused: false,
+            difficulty: "Gold",
+            startTime: startedAt.toISOString(),
+            lastActivityTime: startedAt.toISOString(),
+            rankedSessionId: startedAt.getTime(),
+            scenarioStartTime: startedAt.toISOString(),
+            difficultyStates: {
+                ["Gold"]: {
+                    sequence: ["scenClicking1"], currentIndex: 0, initialGauntletComplete: false,
+                    playedScenarios: [], initialEstimates: {}, previousSessionRanks: {},
+                    accumulatedScenarioSeconds: {}
+                }
+            }
+        }));
+
+        const restored = new RankedSessionService({ benchmarkService: mocks.benchmark, sessionService: mocks.session, rankEstimator: mocks.estimator, sessionSettings: mocks.settings, identityService: mocks.identity });
+
+        expect(restored.state.isPaused).toBe(true);
+        expect(restored.activeElapsedSeconds).toBe(60);
+        expect(mocks.session.stopRankedSession).toHaveBeenCalledOnce();
+        vi.useRealTimers();
     });
 });
 

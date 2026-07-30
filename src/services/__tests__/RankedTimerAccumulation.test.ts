@@ -28,6 +28,7 @@ function _createBenchmarkMock(): BenchmarkService {
 function _createSessionMock(): SessionService {
     return {
         startRankedSession: vi.fn(),
+        resumeRankedSession: vi.fn(),
         stopRankedSession: vi.fn(),
         onSessionUpdated: vi.fn(),
         getAllRankedSessionRuns: vi.fn().mockReturnValue([]),

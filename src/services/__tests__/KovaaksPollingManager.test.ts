@@ -212,6 +212,7 @@ describe("KovaaksPollingManager: Profile Safety", () => {
     });
 
     it("starts a separate same-scenario poll after the profile generation changes", _startsNewGenerationPoll);
+    it("discards an in-flight response when ranked is paused", _discardsPausedPoll);
 });
 
 describe("KovaaksPollingManager: Score Normalization", () => {
@@ -272,6 +273,27 @@ async function _startsNewGenerationPoll(): Promise<void> {
     resolveFirstFetch([]);
     await expect(firstPoll).resolves.toBe(false);
     await expect(nextPoll).resolves.toBe(true);
+}
+
+async function _discardsPausedPoll(): Promise<void> {
+    let resolveFetch: (scores: { attributes: { score: number; epoch: string } }[]) => void = (): void => undefined;
+    const pendingFetch = new Promise<{ attributes: { score: number; epoch: string } }[]>((resolve): void => {
+        resolveFetch = resolve;
+    });
+    (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockReturnValue(pendingFetch);
+    const manager = new KovaaksPollingManager(dependencies);
+    const poll = _pollScenarioForTest(manager, "Scenario A");
+
+    (dependencies.rankedSession as unknown as { state: { status: string; isPaused: boolean } }).state = {
+        status: "ACTIVE",
+        isPaused: true,
+    };
+    rankedStateChangeCallback();
+    resolveFetch([{ attributes: { score: 100, epoch: "2000" } }]);
+    await poll;
+
+    expect(dependencies.history.getLastScores).not.toHaveBeenCalled();
+    expect(dependencies.session.registerMultipleRuns).not.toHaveBeenCalled();
 }
 
 async function _ignoresBackfilledActivity(): Promise<void> {
@@ -395,6 +417,20 @@ describe("KovaaksPollingManager: Active Timer Lifecycle", () => {
 
         expect(dependencies.kovaaksApi.fetchScenarioLastScores).not.toHaveBeenCalled();
     });
+
+    it("stops active and batch timers when the ranked session is paused", async () => {
+        new KovaaksPollingManager(dependencies);
+        (dependencies.kovaaksApi.fetchScenarioLastScores as Mock).mockClear();
+
+        (dependencies.rankedSession as unknown as { state: { status: string; isPaused: boolean } }).state = {
+            status: "ACTIVE",
+            isPaused: true,
+        };
+        rankedStateChangeCallback();
+        await vi.advanceTimersByTimeAsync(30_000);
+
+        expect(dependencies.kovaaksApi.fetchScenarioLastScores).not.toHaveBeenCalled();
+    });
 });
 
 describe("KovaaksPollingManager: Persistence Retry", () => {
@@ -500,7 +536,7 @@ function _createVisualSettingsMock(): VisualSettingsService {
 
 function _createRankedSessionMock(): RankedSessionService {
     return {
-        state: { status: "IDLE" },
+        state: { status: "IDLE", isPaused: false },
         onStateChanged: vi.fn().mockImplementation((callback: () => void) => {
             rankedStateChangeCallback = callback;
         })

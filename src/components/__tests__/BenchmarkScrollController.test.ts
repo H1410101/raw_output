@@ -231,6 +231,7 @@ function createScrollElements(): ScrollElements {
   Object.defineProperties(scrollContainer, {
     scrollHeight: { configurable: true, value: 1000 },
     clientHeight: { configurable: true, value: 200 },
+    scrollTop: { configurable: true, writable: true, value: 0 },
   });
   Object.defineProperty(hoverContainer, "clientHeight", {
     configurable: true,

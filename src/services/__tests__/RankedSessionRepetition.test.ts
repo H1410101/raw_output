@@ -110,6 +110,7 @@ function _createSessionMock(): SessionService {
         onSessionUpdated: vi.fn(),
         resetSession: vi.fn(),
         startRankedSession: vi.fn(),
+        resumeRankedSession: vi.fn(),
         stopRankedSession: vi.fn(),
         getAllRankedSessionRuns: vi.fn().mockReturnValue([]),
         getAllRankedScenarioBests: vi.fn().mockReturnValue([]),

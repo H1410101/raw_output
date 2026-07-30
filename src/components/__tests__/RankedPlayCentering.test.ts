@@ -42,8 +42,8 @@ function _setupStyle(): void {
         .hud-group.right { grid-column: 7; justify-self: start; }
         .media-btn { width: 2.5rem; height: 2.5rem; flex-shrink: 0; grid-row: 1; }
         .media-btn.primary { width: 3.75rem; height: 3.75rem; grid-column: 4; }
-        #ranked-help-btn { grid-column: 2; } #ranked-back-btn { grid-column: 3; }
-        #next-ranked-btn { grid-column: 5; } #end-ranked-btn { grid-column: 6; }`;
+        #pause-ranked-btn { grid-column: 2; } #ranked-back-btn { grid-column: 3; }
+        #next-ranked-btn { grid-column: 5; } .end-ranked-btn { grid-column: 6; }`;
     style.innerHTML = baseStyle + controlStyle;
     document.head.appendChild(style);
 }
@@ -56,10 +56,11 @@ function _setupDOM(): void {
                     <div class="hud-label">SCENARIO</div>
                     <div class="hud-value">SHORT</div>
                 </div>
+                <button class="media-btn secondary" id="pause-ranked-btn"></button>
                 <button class="media-btn secondary" id="ranked-back-btn"></button>
                 <button class="media-btn primary" id="ranked-play-now"></button>
                 <button class="media-btn secondary" id="next-ranked-btn"></button>
-                <button class="media-btn secondary destructive" id="end-ranked-btn"></button>
+                <button class="media-btn secondary destructive end-ranked-btn"></button>
                 <div class="hud-group right" id="hud-right">
                     <div class="hud-label">SESSION</div>
                     <div class="hud-value">VERY LONG HUD TEXT THAT MIGHT CAUSE SHIFTING</div>

@@ -162,6 +162,9 @@ describe("SessionService Ranked Data Preservation", (): void => {
         expect(service.getAllRankedSessionRuns().length).toBe(1);
         expect(service.isRanked).toBe(false);
     });
+
+    it("should reject runs timestamped before a strict resume boundary", (): void =>
+        _verifyStrictRankedBoundary(service));
 });
 
 describe("SessionService Recovery", (): void => {
@@ -242,6 +245,27 @@ function _registerSecondRun(service: SessionService): void {
         scenario: { name: "Scenario B" } as unknown as BenchmarkScenario,
         difficulty: "Medium"
     });
+}
+
+function _verifyStrictRankedBoundary(service: SessionService): void {
+    const resumeTimestamp: number = Date.now();
+    service.startRankedSession(resumeTimestamp - 10_000, 0);
+    service.setRankedPlaylist(["Ranked Scenario"]);
+    service.registerMultipleRuns([
+        _createRun("Ranked Scenario", 90, resumeTimestamp - 5_000),
+    ]);
+    service.stopRankedSession();
+    service.resumeRankedSession(resumeTimestamp);
+    service.setRankedPlaylist(["Ranked Scenario"]);
+    service.registerMultipleRuns([
+        _createRun("Ranked Scenario", 100, resumeTimestamp - 1),
+    ]);
+    expect(service.getAllRankedSessionRuns()).toHaveLength(1);
+
+    service.registerMultipleRuns([
+        _createRun("Ranked Scenario", 110, resumeTimestamp),
+    ]);
+    expect(service.getAllRankedSessionRuns()).toHaveLength(2);
 }
 
 function _createRun(

@@ -69,6 +69,7 @@ export class KovaaksPollingManager {
     private _currentPollingActiveInterval: number | null = null;
     private readonly _syncedDifficulties: Set<string> = new Set();
     private _hasSeenActiveSession: boolean = false;
+    private _wasRankedPaused: boolean = false;
     private _profileGeneration: number = 0;
     private readonly _scenarioPolls: Map<string, Promise<boolean>> = new Map();
     private readonly _difficultySyncs: Map<string, Promise<boolean>> = new Map();
@@ -88,6 +89,7 @@ export class KovaaksPollingManager {
         this._focus = dependencies.focus;
         this._history = dependencies.history;
         this._benchmark = dependencies.benchmark;
+        this._wasRankedPaused = this._rankedSession.state.isPaused === true;
 
         this._restorePersistedSessionState();
         this._setupListeners();
@@ -132,7 +134,7 @@ export class KovaaksPollingManager {
         this._appState.onTabChanged(() => this._handleTabChange());
         this._appState.onDifficultyChanged(() => this._handleDifficultyChange());
         this._identity.onProfilesChanged(() => this._handleProfileChange());
-        this._rankedSession.onStateChanged(() => this._rescheduleAll());
+        this._rankedSession.onStateChanged(() => this._handleRankedStateChange());
         this._visualSettings.subscribe(() => this._rescheduleAll());
     }
 
@@ -161,6 +163,16 @@ export class KovaaksPollingManager {
         this._rescheduleAll();
     }
 
+    private _handleRankedStateChange(): void {
+        const isPaused: boolean = this._rankedSession.state.isPaused === true;
+        if (isPaused !== this._wasRankedPaused) {
+            this._wasRankedPaused = isPaused;
+            this._profileGeneration++;
+        }
+
+        this._rescheduleAll();
+    }
+
     private _handleFocusChange(focused: boolean): void {
         const wasFocused = this._isWindowFocused;
         this._isWindowFocused = focused;
@@ -180,6 +192,12 @@ export class KovaaksPollingManager {
             return;
         }
 
+        if (this._isRankedPaused()) {
+            this._stopAllTimers();
+
+            return;
+        }
+
         const allowPolling = settings.allowBackgroundPolling || this._isWindowFocused;
 
         if (!allowPolling) {
@@ -194,6 +212,8 @@ export class KovaaksPollingManager {
     }
 
     private _syncCurrentBenchmarksIfNeeded(): void {
+        if (this._isRankedPaused()) return;
+
         const difficulty = this._appState.getBenchmarkDifficulty();
         const profile = this._identity.getActiveProfile();
 
@@ -389,6 +409,8 @@ export class KovaaksPollingManager {
         const state = this._focus.getFocusState();
 
         if (activeTab === "nav-ranked") {
+            if (this._rankedSession.state.isPaused === true) return null;
+
             const rankedActive = this._rankedSession.currentScenarioName;
             const focusState = state?.scenarioName || null;
 
@@ -408,6 +430,8 @@ export class KovaaksPollingManager {
         const activeTab = this._appState.getActiveTabId();
 
         if (activeTab === "nav-ranked") {
+            if (this._rankedSession.state.isPaused === true) return false;
+
             const status = this._rankedSession.state.status;
             const isActive = status === "ACTIVE" || status === "COMPLETED";
             if (isActive) {
@@ -430,6 +454,10 @@ export class KovaaksPollingManager {
         }
 
         return false;
+    }
+
+    private _isRankedPaused(): boolean {
+        return this._rankedSession.state.isPaused === true;
     }
 
     private _pollScenario(
@@ -535,7 +563,10 @@ export class KovaaksPollingManager {
         const rankedStatus = this._rankedSession.state.status;
         const rankedStartTime: number | null = this._session.rankedStartTime;
         if ((rankedStatus === "ACTIVE" || rankedStatus === "COMPLETED") && rankedStartTime !== null) {
-            earliestTimestamp = Math.max(earliestTimestamp, rankedStartTime - 60_000);
+            const gracePeriod: number = Number.isFinite(this._session.rankedGracePeriodMilliseconds)
+                ? this._session.rankedGracePeriodMilliseconds
+                : 60_000;
+            earliestTimestamp = Math.max(earliestTimestamp, rankedStartTime - gracePeriod);
         }
 
         return timestamp <= currentTimestamp + 60_000 &&

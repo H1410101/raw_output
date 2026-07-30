@@ -12,6 +12,7 @@ export type RankedSessionStatus = "IDLE" | "ACTIVE" | "COMPLETED" | "SUMMARY";
  */
 export interface RankedSessionState {
     readonly status: RankedSessionStatus;
+    readonly isPaused: boolean;
     readonly sequence: string[];
     readonly currentIndex: number;
     readonly difficulty: string | null;
@@ -57,8 +58,10 @@ interface DifficultySessionState {
 
 interface PersistentRankedState {
     status: RankedSessionStatus;
+    isPaused?: boolean;
     difficulty: string | null;
     startTime: string | null;
+    lastActivityTime?: string | null;
     rankedSessionId: number | null;
     scenarioStartTime: string | null;
     difficultyStates: Record<string, DifficultySessionState>;
@@ -87,8 +90,10 @@ export class RankedSessionService {
     private static readonly _legacyStorageKey: string = "ranked_session_state_v2";
 
     private _status: RankedSessionStatus = "IDLE";
+    private _isPaused: boolean = false;
     private _difficulty: string | null = null;
     private _startTime: string | null = null;
+    private _lastActivityTime: string | null = null;
     private _rankedSessionId: number | null = null;
     private _scenarioStartTime: string | null = null;
 
@@ -154,6 +159,7 @@ export class RankedSessionService {
     public get state(): RankedSessionState {
         return {
             status: this._status,
+            isPaused: this._isPaused,
             sequence: [...this._sequence],
             currentIndex: this._currentIndex,
             difficulty: this._difficulty,
@@ -192,7 +198,7 @@ export class RankedSessionService {
      * @returns Scenario name, or null if session is inactive or completed.
      */
     public get currentScenarioName(): string | null {
-        if (this._status !== "ACTIVE" || this._currentIndex >= this._sequence.length) {
+        if (this._status !== "ACTIVE" || this._isPaused || this._currentIndex >= this._sequence.length) {
             return null;
         }
 
@@ -200,19 +206,18 @@ export class RankedSessionService {
     }
 
     /**
-     * Returns the elapsed time in seconds since the session started.
+     * Returns active elapsed time across the current ranked session.
      *
      * @returns Seconds elapsed, or 0 if inactive.
      */
-    public get elapsedSeconds(): number {
-        if (!this._startTime || this._status === "IDLE") {
-            return 0;
+    public get activeElapsedSeconds(): number {
+        let elapsed: number = Array.from(this._accumulatedScenarioSeconds.values())
+            .reduce((total: number, seconds: number): number => total + seconds, 0);
+        if (this._status === "ACTIVE" && !this._isPaused && this._scenarioStartTime) {
+            elapsed += Math.max(0, Math.floor((Date.now() - new Date(this._scenarioStartTime).getTime()) / 1000));
         }
 
-        const start: number = new Date(this._startTime).getTime();
-        const now: number = Date.now();
-
-        return Math.floor((now - start) / 1000);
+        return elapsed;
     }
 
     /**
@@ -225,7 +230,9 @@ export class RankedSessionService {
             return 0;
         }
 
-        const currentScenario = this.currentScenarioName;
+        const currentScenario = this._status === "ACTIVE" && this._currentIndex < this._sequence.length
+            ? this._sequence[this._currentIndex]
+            : null;
         const accumulated = currentScenario ? (this._accumulatedScenarioSeconds.get(currentScenario) || 0) : 0;
 
         if (!this._scenarioStartTime) {
@@ -252,20 +259,38 @@ export class RankedSessionService {
     }
 
     /**
-     * Returns the remaining time in seconds for the current session.
-     * 
-     * @returns Seconds remaining, or 0 if inactive or expired.
+     * Pauses an active ranked session and stops ranked ingestion.
      */
-    public get remainingSeconds(): number {
-        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
-            return 0;
-        }
+    public pause(): void {
+        if (this._isPaused || (this._status !== "ACTIVE" && this._status !== "COMPLETED")) return;
 
-        const totalMinutes: number = this._sessionSettings.getSettings().rankedIntervalMinutes;
-        const totalSeconds: number = totalMinutes * 60;
-        const elapsed: number = this.elapsedSeconds;
+        this._snapshotScenarioTime();
+        this._scenarioStartTime = null;
+        this._isPaused = true;
+        this._sessionService.stopRankedSession();
+        this._saveToLocalStorage();
+        this._notifyListeners();
+    }
 
-        return Math.max(0, totalSeconds - elapsed);
+    /** Resumes a paused ranked session. */
+    public resume(): void {
+        if (!this._isPaused || (this._status !== "ACTIVE" && this._status !== "COMPLETED")) return;
+
+        this._isPaused = false;
+        this._markActivity();
+        if (this._status === "ACTIVE") this._scenarioStartTime = new Date().toISOString();
+        this._sessionService.resumeRankedSession(Date.now());
+        this._sessionService.setRankedPlaylist(this._sequence);
+        this._saveToLocalStorage();
+        this._notifyListeners();
+    }
+
+    /** Records meaningful interaction for inactivity timeout purposes. */
+    public recordActivity(): void {
+        if (this._isPaused || (this._status !== "ACTIVE" && this._status !== "COMPLETED")) return;
+
+        this._markActivity();
+        this._saveToLocalStorage();
     }
 
     /**
@@ -328,7 +353,9 @@ export class RankedSessionService {
 
     private _initializeNewSession(difficulty: string): void {
         this._status = "ACTIVE";
+        this._isPaused = false;
         this._startTime = new Date().toISOString();
+        this._lastActivityTime = this._startTime;
         this._currentIndex = 0;
         this._sequence = [];
         this._initialGauntletComplete = false;
@@ -357,7 +384,9 @@ export class RankedSessionService {
 
         this._applyDifficultyStateSnapshot(this._difficultyStates[this._difficulty]);
         this._status = "ACTIVE";
+        this._isPaused = false;
         this._startTime = new Date().toISOString();
+        this._lastActivityTime = this._startTime;
 
         const extended = this._jumpToNextUnplayedScenario();
         if (!extended) {
@@ -426,13 +455,14 @@ export class RankedSessionService {
      * Manually retreats the sequence to the previous scenario.
      */
     public retreat(): void {
-        if (this._status === "IDLE" || this._currentIndex <= 0) {
+        if (this._status === "IDLE" || this._isPaused || this._currentIndex <= 0) {
             return;
         }
 
         this._snapshotScenarioTime();
         this._currentIndex--;
         this._scenarioStartTime = new Date().toISOString();
+        this._markActivity();
         // If we were in COMPLETED, going back makes us ACTIVE
         this._status = "ACTIVE";
 
@@ -444,13 +474,14 @@ export class RankedSessionService {
      * Manually advances the sequence to the next scenario.
      */
     public advance(): void {
-        if (this._status !== "ACTIVE" || this._currentIndex >= this._sequence.length) {
+        if (this._status !== "ACTIVE" || this._isPaused || this._currentIndex >= this._sequence.length) {
             return;
         }
 
         this._snapshotScenarioTime();
         this._currentIndex++;
         this._scenarioStartTime = new Date().toISOString();
+        this._markActivity();
 
         if (this._currentIndex >= this._sequence.length) {
             if (this._initialGauntletComplete) {
@@ -473,7 +504,7 @@ export class RankedSessionService {
      * Extends a completed or near-complete session by adding a new batch.
      */
     public extendSession(): void {
-        if (!this._difficulty || !this._startTime) {
+        if (!this._difficulty || !this._startTime || this._isPaused) {
             return;
         }
 
@@ -484,6 +515,7 @@ export class RankedSessionService {
 
         this._sequence.push(...batch.names);
         this._status = "ACTIVE";
+        this._markActivity();
 
         this._sessionService.setRankedPlaylist(this._sequence);
         this._recordInitialEstimates(batch.names, batch.estimateMap);
@@ -504,6 +536,7 @@ export class RankedSessionService {
         }
 
         this._snapshotScenarioTime();
+        this._isPaused = false;
         this._status = "SUMMARY";
 
         this._evolveRanksForPlayedScenarios();
@@ -515,7 +548,7 @@ export class RankedSessionService {
     }
 
     /**
-     * Checks if the session timer has expired and transitions to summary if so.
+     * Checks for ranked inactivity and pauses instead of ending the session.
      */
     public checkExpiration(): void {
         const isToday = this._isToday(this._rankedSessionId);
@@ -533,12 +566,18 @@ export class RankedSessionService {
             return;
         }
 
-        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
+        if (this._isPaused || (this._status !== "ACTIVE" && this._status !== "COMPLETED")) {
             return;
         }
 
-        if (this.remainingSeconds <= 0) {
-            this.endSession();
+        const timeoutMilliseconds: number =
+            this._sessionSettings.getSettings().rankedIntervalMinutes * 60 * 1000;
+        const lastActivity: number = this._lastActivityTime
+            ? new Date(this._lastActivityTime).getTime()
+            : Date.now();
+        if (Date.now() - lastActivity >= timeoutMilliseconds) {
+            this._pauseAtInactivityDeadline();
+            this._notifyListeners();
         }
     }
 
@@ -568,7 +607,9 @@ export class RankedSessionService {
 
 
         this._status = "IDLE";
+        this._isPaused = false;
         this._difficulty = null;
+        this._lastActivityTime = null;
 
         this._sessionService.stopRankedSession();
 
@@ -764,9 +805,9 @@ export class RankedSessionService {
     private _subscribeToSessionEvents(): void {
         this._sessionService.onSessionUpdated((updatedScenarioNames?: string[]): void => {
             if (updatedScenarioNames && updatedScenarioNames.length > 0) {
-                this._resetTimerOnScore();
+                this._recordScoreActivity();
 
-                if (this._status === "ACTIVE") {
+                if (this._status === "ACTIVE" && !this._isPaused) {
                     this._rankEstimator.applyPenaltyLift();
 
                     updatedScenarioNames.forEach(name => {
@@ -841,8 +882,8 @@ export class RankedSessionService {
         return scoresByScenario;
     }
 
-    private _resetTimerOnScore(): void {
-        if (this._status !== "ACTIVE" && this._status !== "COMPLETED") {
+    private _recordScoreActivity(): void {
+        if (this._isPaused || (this._status !== "ACTIVE" && this._status !== "COMPLETED")) {
             return;
         }
 
@@ -855,10 +896,14 @@ export class RankedSessionService {
 
         const latestTime = new Date(latestTimestamp).toISOString();
 
-        if (!this._startTime || latestTime > this._startTime) {
-            this._startTime = latestTime;
+        if (!this._lastActivityTime || latestTime > this._lastActivityTime) {
+            this._lastActivityTime = latestTime;
             this._saveToLocalStorage();
         }
+    }
+
+    private _markActivity(): void {
+        this._lastActivityTime = new Date().toISOString();
     }
 
     private _saveToLocalStorage(): void {
@@ -866,8 +911,10 @@ export class RankedSessionService {
 
         const state: PersistentRankedState = {
             status: this._status,
+            isPaused: this._isPaused,
             difficulty: this._difficulty,
             startTime: this._startTime,
+            lastActivityTime: this._lastActivityTime,
             rankedSessionId: this._rankedSessionId,
             scenarioStartTime: this._scenarioStartTime,
             difficultyStates: this._difficultyStates,
@@ -895,8 +942,10 @@ export class RankedSessionService {
 
     private _resetToIdle(): void {
         this._status = "IDLE";
+        this._isPaused = false;
         this._difficulty = null;
         this._startTime = null;
+        this._lastActivityTime = null;
         this._rankedSessionId = null;
         this._scenarioStartTime = null;
         this._sequence = [];
@@ -912,8 +961,10 @@ export class RankedSessionService {
 
     private _applyPersistentState(state: PersistentRankedState): void {
         this._status = state.status;
+        this._isPaused = state.isPaused === true;
         this._difficulty = state.difficulty;
         this._startTime = state.startTime;
+        this._lastActivityTime = state.lastActivityTime ?? state.startTime;
         this._rankedSessionId = state.rankedSessionId;
         this._scenarioStartTime = state.scenarioStartTime;
         this._difficultyStates = state.difficultyStates || {};
@@ -930,6 +981,35 @@ export class RankedSessionService {
             this._lastSessionAchievements = {};
             this._accumulatedScenarioSeconds = new Map();
         }
+
+        if (this._isPaused) {
+            this._scenarioStartTime = null;
+            this._sessionService.stopRankedSession();
+        } else if (this._hasInactivityExpired()) {
+            this._pauseAtInactivityDeadline();
+        }
+    }
+
+    private _hasInactivityExpired(): boolean {
+        if ((this._status !== "ACTIVE" && this._status !== "COMPLETED") || !this._lastActivityTime) {
+            return false;
+        }
+
+        const timeoutMilliseconds: number =
+            this._sessionSettings.getSettings().rankedIntervalMinutes * 60 * 1000;
+
+        return Date.now() - new Date(this._lastActivityTime).getTime() >= timeoutMilliseconds;
+    }
+
+    private _pauseAtInactivityDeadline(): void {
+        const timeoutMilliseconds: number =
+            this._sessionSettings.getSettings().rankedIntervalMinutes * 60 * 1000;
+        const lastActivity: number = new Date(this._lastActivityTime!).getTime();
+        this._snapshotScenarioTime(lastActivity + timeoutMilliseconds);
+        this._isPaused = true;
+        this._scenarioStartTime = null;
+        this._sessionService.stopRankedSession();
+        this._saveToLocalStorage();
     }
 
     private _recordInitialEstimates(scenarioNames: string[], estimateMap: RankEstimateMap): void {
@@ -944,13 +1024,12 @@ export class RankedSessionService {
         this._onStateChanged.forEach((callback: () => void): void => callback());
     }
 
-    private _snapshotScenarioTime(): void {
+    private _snapshotScenarioTime(endTime: number = Date.now()): void {
         const current = this.currentScenarioName;
         if (!current || !this._scenarioStartTime) return;
 
         const start: number = new Date(this._scenarioStartTime).getTime();
-        const now: number = Date.now();
-        const elapsed = Math.floor((now - start) / 1000);
+        const elapsed = Math.max(0, Math.floor((endTime - start) / 1000));
 
         const existing = this._accumulatedScenarioSeconds.get(current) || 0;
         this._accumulatedScenarioSeconds.set(current, existing + elapsed);

@@ -591,6 +591,7 @@ function _run(scenarioName: string, bestScore: number = 1000): SessionRankRecord
 function _rankedState(): RankedSessionState {
     return {
         status: "IDLE",
+        isPaused: false,
         sequence: [],
         currentIndex: 0,
         difficulty: null,
@@ -608,6 +609,7 @@ function _rankedState(): RankedSessionState {
 function _activeRankedState(scenarioName: string): RankedSessionState {
     return {
         status: "ACTIVE",
+        isPaused: false,
         sequence: [scenarioName],
         currentIndex: 0,
         difficulty: "Medium",

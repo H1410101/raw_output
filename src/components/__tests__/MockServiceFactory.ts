@@ -254,6 +254,7 @@ export class MockServiceFactory {
         return {
             state: {
                 status: "IDLE",
+                isPaused: false,
                 sequence: ["Scenario A"],
                 currentIndex: 0,
                 initialEstimates: {},
@@ -262,10 +263,15 @@ export class MockServiceFactory {
                 playedScenarios: []
             },
             currentScenarioName: "Scenario A",
+            activeElapsedSeconds: 0,
+            scenarioElapsedSeconds: 0,
             onStateChanged: vi.fn(),
             advance: vi.fn(),
             extendSession: vi.fn(),
             endSession: vi.fn(),
+            pause: vi.fn(),
+            resume: vi.fn(),
+            recordActivity: vi.fn(),
             retreat: vi.fn(),
             startSession: vi.fn(),
             ...overrides

@@ -22,7 +22,7 @@ vi.mock("../visualizations/SummaryTimelineComponent", () => ({
   },
 }));
 
-describe("RankedView summary queue", (): void => {
+describe("RankedView async and pause states", (): void => {
   beforeEach((): void => {
     vi.useFakeTimers();
     document.body.innerHTML = "";
@@ -39,6 +39,7 @@ describe("RankedView summary queue", (): void => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     document.body.classList.remove("ranked-mode-active");
+    document.body.classList.remove("ranked-session-paused");
   });
 
   it("retries a summary item whose insertion timer was cancelled by blur", async (): Promise<void> => {
@@ -94,11 +95,105 @@ describe("RankedView summary queue", (): void => {
 
     view.destroy();
   });
+
+  it("renders only paused text with resume and end icon actions", async (): Promise<void> => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const resume = vi.fn();
+    const endSession = vi.fn();
+    const dependencies = MockServiceFactory.createViewDependencies({
+      rankedSession: {
+        state: _pausedState(),
+        activeElapsedSeconds: 45,
+        scenarioElapsedSeconds: 30,
+        resume,
+        endSession,
+      },
+      session: {
+        getAllRankedSessionRuns: vi.fn(() => []),
+      },
+    }) as unknown as RankedViewDependencies;
+    const view = new RankedView(container, dependencies);
+
+    await view.render();
+
+    const overlay = container.querySelector(".ranked-pause-overlay") as HTMLElement;
+    const buttons = overlay.querySelectorAll("button");
+    expect(overlay.textContent?.trim()).toBe("PAUSED");
+    expect(buttons).toHaveLength(2);
+    expect(container.querySelector(".ranked-active-content")).toHaveAttribute("inert");
+    expect(document.body).toHaveClass("ranked-session-paused");
+
+    const outsideButton = document.createElement("button");
+    document.body.appendChild(outsideButton);
+    outsideButton.focus();
+    expect(document.activeElement).toBe(buttons[0]);
+
+    (buttons[0] as HTMLButtonElement).click();
+    expect(resume).toHaveBeenCalledOnce();
+
+    buttons[1].dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+    vi.advanceTimersByTime(620);
+    expect(endSession).toHaveBeenCalledOnce();
+
+    view.destroy();
+  });
+
+  it("supports keyboard hold-to-end and cancels holds on destroy", async (): Promise<void> => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const endSession = vi.fn();
+    const dependencies = MockServiceFactory.createViewDependencies({
+      rankedSession: { state: _pausedState(), endSession },
+      session: { getAllRankedSessionRuns: vi.fn(() => []) },
+    }) as unknown as RankedViewDependencies;
+    const view = new RankedView(container, dependencies);
+    await view.render();
+    const endButton = container.querySelector<HTMLButtonElement>(".end-ranked-btn")!;
+
+    endButton.focus();
+    endButton.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    endButton.dispatchEvent(new FocusEvent("blur"));
+    vi.advanceTimersByTime(620);
+    expect(endSession).not.toHaveBeenCalled();
+
+    endButton.focus();
+    endButton.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    vi.advanceTimersByTime(620);
+    expect(endSession).toHaveBeenCalledOnce();
+
+    endSession.mockClear();
+    endButton.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+    view.destroy();
+    vi.advanceTimersByTime(620);
+    expect(endSession).not.toHaveBeenCalled();
+  });
+
+  it("keeps cumulative active time in the ticking HUD", async (): Promise<void> => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const dependencies = MockServiceFactory.createViewDependencies({
+      rankedSession: {
+        state: { ..._pausedState(), isPaused: false },
+        activeElapsedSeconds: 45,
+        scenarioElapsedSeconds: 30,
+      },
+      session: { getAllRankedSessionRuns: vi.fn(() => []) },
+    }) as unknown as RankedViewDependencies;
+    const view = new RankedView(container, dependencies);
+
+    await view.render();
+    vi.advanceTimersByTime(1_000);
+
+    expect(container.querySelector("#hud-session-stats")?.textContent).toBe("0 | 0:45");
+    view.destroy();
+  });
 });
 
 function _summaryState(): RankedSessionState {
   return {
     status: "SUMMARY",
+    isPaused: false,
     sequence: ["Scenario A"],
     currentIndex: 0,
     difficulty: "Advanced",
@@ -110,5 +205,15 @@ function _summaryState(): RankedSessionState {
     previousSessionRanks: {},
     scenarioStartTime: null,
     accumulatedScenarioSeconds: { "Scenario A": 30 },
+  };
+}
+
+function _pausedState(): RankedSessionState {
+  return {
+    ..._summaryState(),
+    status: "ACTIVE",
+    isPaused: true,
+    initialGauntletComplete: false,
+    playedScenarios: [],
   };
 }
